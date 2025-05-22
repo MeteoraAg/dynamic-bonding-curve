@@ -96,25 +96,12 @@ impl PoolFeesConfig {
 
     pub fn get_fee_on_amount(
         &self,
-        volatility_tracker: &VolatilityTracker,
-        has_referral: bool,
+        trade_fee_numerator: u64,
         amount: u64,
-        current_point: u64,
-        activation_point: u64,
-        trade_direction: TradeDirection,
+        has_referral: bool,
     ) -> Result<FeeOnAmountResult> {
-        let trade_fee_numerator = self.get_total_trading_fee(
-            volatility_tracker,
-            current_point,
-            activation_point,
-            amount,
-            trade_direction,
-        )?;
-
-        let trading_fee: u64 =
-            safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?;
-        // update amount
-        let amount = amount.safe_sub(trading_fee)?;
+        let (amount, trading_fee) =
+            PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
         let protocol_fee = safe_mul_div_cast_u64(
             trading_fee,
@@ -145,6 +132,42 @@ impl PoolFeesConfig {
             referral_fee,
             trading_fee,
         })
+    }
+
+    pub fn get_excluded_fee_amount(
+        trade_fee_numerator: u64,
+        included_fee_amount: u64,
+    ) -> Result<(u64, u64)> {
+        let trading_fee: u64 = safe_mul_div_cast_u64(
+            included_fee_amount,
+            trade_fee_numerator,
+            FEE_DENOMINATOR,
+            Rounding::Up,
+        )?;
+        // update amount
+        let excluded_fee_amount = included_fee_amount.safe_sub(trading_fee)?;
+        Ok((excluded_fee_amount, trading_fee))
+    }
+
+    pub fn get_included_fee_amount(
+        trade_fee_numerator: u64,
+        excluded_fee_amount: u64,
+    ) -> Result<u64> {
+        let included_fee_amount: u64 = safe_mul_div_cast_u64(
+            excluded_fee_amount,
+            FEE_DENOMINATOR,
+            FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+            Rounding::Up,
+        )?;
+        // sanity check
+        let (inverse_amount, _trading_fee) =
+            PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, included_fee_amount)?;
+        // that should never happen
+        require!(
+            inverse_amount >= excluded_fee_amount,
+            PoolError::UndeterminedError
+        );
+        Ok(included_fee_amount)
     }
 }
 

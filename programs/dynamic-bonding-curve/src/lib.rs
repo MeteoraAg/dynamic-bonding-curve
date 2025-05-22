@@ -124,6 +124,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_swap(ctx, params, SwapMode::ExactIn)
     }
 
+    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+        instructions::handle_swap2(ctx, params)
+    }
+
     /// PERMISSIONLESS FUNCTIONS ///
     /// create locker
     pub fn create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {

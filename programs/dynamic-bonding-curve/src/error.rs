@@ -139,4 +139,7 @@ pub enum PoolError {
 
     #[msg("Invalid migrated pool fee params")]
     InvalidMigratedPoolFee,
+
+    #[msg("Undertermined error")]
+    UndeterminedError,
 }

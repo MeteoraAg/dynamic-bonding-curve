@@ -13,6 +13,7 @@ use crate::{
         fee::{FeeMode, VolatilityTracker},
         CollectFeeMode, LiquidityDistributionConfig, MigrationOption, PoolConfig, VirtualPool,
     },
+    SwapMode,
 };
 
 use super::price_math::get_price_from_id;
@@ -80,13 +81,14 @@ fn test_swap() {
     );
     let amount_in = 1_000_000_000; // 1k
     let fee_mode = FeeMode::default();
-    let result = pool
+    let (result, _included_fee_input_amount) = pool
         .get_swap_result(
             &config,
             amount_in,
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
+            SwapMode::ExactIn,
         )
         .unwrap();
     println!("{:?}", result);
