@@ -16,6 +16,7 @@ use anchor_lang::solana_program::instruction::{
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::instruction::Swap as SwapInstruction;
 
@@ -88,7 +89,11 @@ impl<'info> SwapCtx<'info> {
 }
 
 // TODO impl swap exact out
-pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+pub fn handle_swap(
+    ctx: Context<SwapCtx>,
+    params: SwapParameters,
+    swap_mode: SwapMode,
+) -> Result<()> {
     let SwapParameters {
         amount_in,
         minimum_amount_out,
@@ -154,8 +159,14 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result =
-        pool.get_swap_result(&config, amount_in, fee_mode, trade_direction, current_point)?;
+    let swap_result = pool.get_swap_result(
+        &config,
+        amount_in,
+        fee_mode,
+        trade_direction,
+        current_point,
+        swap_mode,
+    )?;
 
     require!(
         swap_result.output_amount >= minimum_amount_out,
@@ -268,6 +279,56 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     Ok(())
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct SwapParameters2 {
+    /// amount in
+    amount_in: u64,
+    /// minimum amount out
+    minimum_amount_out: u64,
+    /// swap mode, should be exact in or partial fill for now
+    swap_mode: u8,
+    // padding for future use
+    padding: [u64; 4],
+}
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum SwapMode {
+    ExactIn,
+    PartialFill,
+}
+
+pub fn handle_swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    let SwapParameters2 {
+        amount_in,
+        minimum_amount_out,
+        swap_mode,
+        ..
+    } = params;
+
+    let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::TypeCastFailed)?;
+
+    handle_swap(
+        ctx,
+        SwapParameters {
+            amount_in,
+            minimum_amount_out,
+        },
+        swap_mode,
+    )?;
+
+    Ok(())
+}
+
 pub fn validate_single_swap_instruction<'c, 'info>(
     pool: &Pubkey,
     remaining_accounts: &'c [AccountInfo<'info>],
@@ -330,6 +391,5 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             }
         }
     }
-
     Ok(())
 }

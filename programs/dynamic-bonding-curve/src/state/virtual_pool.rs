@@ -12,6 +12,7 @@ use crate::{
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
         get_next_sqrt_price_from_input,
     },
+    math,
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::{
@@ -20,7 +21,7 @@ use crate::{
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
-    PoolError,
+    PoolError, SwapMode,
 };
 
 use super::PartnerAndCreatorSplitFee;
@@ -211,6 +212,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
+        swap_mode: SwapMode,
     ) -> Result<SwapResult> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
@@ -241,6 +243,7 @@ impl VirtualPool {
         };
 
         let SwapAmount {
+            amount_in,
             output_amount,
             next_sqrt_price,
         } = match trade_direction {
@@ -248,7 +251,7 @@ impl VirtualPool {
                 self.get_swap_amount_from_base_to_quote(config, actual_amount_in)
             }
             TradeDirection::QuoteToBase => {
-                self.get_swap_amount_from_quote_to_base(config, actual_amount_in)
+                self.get_swap_amount_from_quote_to_base(config, actual_amount_in, swap_mode)
             }
         }?;
 
@@ -362,6 +365,7 @@ impl VirtualPool {
         }
 
         Ok(SwapAmount {
+            amount_in,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })
@@ -371,6 +375,7 @@ impl VirtualPool {
         &self,
         config: &PoolConfig,
         amount_in: u64,
+        swap_mode: SwapMode,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -426,12 +431,19 @@ impl VirtualPool {
         }
 
         // allow pool swallow an extra amount
-        require!(
-            amount_left <= config.get_max_swallow_quote_amount()?,
-            PoolError::SwapAmountIsOverAThreshold
-        );
+        let amount_in = match swap_mode {
+            SwapMode::ExactIn => {
+                require!(
+                    amount_left <= config.get_max_swallow_quote_amount()?,
+                    PoolError::SwapAmountIsOverAThreshold
+                );
+                amount_in
+            }
+            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
+        };
 
         Ok(SwapAmount {
+            amount_in,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })
@@ -662,6 +674,7 @@ pub struct SwapResult {
 }
 
 pub struct SwapAmount {
+    amount_in: u64,
     output_amount: u64,
     next_sqrt_price: u128,
 }
