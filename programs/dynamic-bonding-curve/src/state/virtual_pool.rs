@@ -262,7 +262,7 @@ impl VirtualPool {
         // check if it is partial fill
         let user_pay_input_amount = if consumed_input_amount < actual_amount_in {
             if fee_mode.fees_on_input {
-                let included_fee_amount_in = PoolFeesConfig::get_included_fee_amount(
+                let amount_in_include_fee = PoolFeesConfig::get_included_fee_amount(
                     trade_fee_numerator,
                     consumed_input_amount,
                 )?;
@@ -274,19 +274,19 @@ impl VirtualPool {
                     referral_fee,
                 } = config.pool_fees.get_fee_on_amount(
                     trade_fee_numerator,
-                    included_fee_amount_in,
+                    amount_in_include_fee,
                     fee_mode.has_referral,
                 )?;
                 // that should never happen
                 require!(
-                    included_fee_amount_in <= amount_in,
+                    amount_in_include_fee <= amount_in,
                     PoolError::UndeterminedError
                 );
                 actual_amount_in = amount;
                 actual_protocol_fee = protocol_fee;
                 actual_trading_fee = trading_fee;
                 actual_referral_fee = referral_fee;
-                included_fee_amount_in
+                amount_in_include_fee
             } else {
                 actual_amount_in = consumed_input_amount;
                 consumed_input_amount
