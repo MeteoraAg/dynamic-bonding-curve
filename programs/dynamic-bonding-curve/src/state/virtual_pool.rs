@@ -221,6 +221,8 @@ impl VirtualPool {
             &self.volatility_tracker,
             current_point,
             self.activation_point,
+            amount_in,
+            trade_direction,
         )?;
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
