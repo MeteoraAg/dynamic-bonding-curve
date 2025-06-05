@@ -6,6 +6,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
+    base_fee::FeeRateLimiter,
     constants::PARTNER_AND_CREATOR_SURPLUS_SHARE,
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
@@ -262,6 +263,11 @@ impl VirtualPool {
         // check if it is partial fill
         let user_pay_input_amount = if consumed_input_amount < actual_amount_in {
             if fee_mode.fees_on_input {
+                FeeRateLimiter::revert_if_limiter_applied(
+                    &config.pool_fees.base_fee,
+                    trade_fee_numerator,
+                )?;
+
                 let amount_in_include_fee = PoolFeesConfig::get_included_fee_amount(
                     trade_fee_numerator,
                     consumed_input_amount,

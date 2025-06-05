@@ -142,4 +142,7 @@ pub enum PoolError {
 
     #[msg("Undertermined error")]
     UndeterminedError,
+
+    #[msg("Rate limiter not supported")]
+    RateLimiterNotSupported,
 }

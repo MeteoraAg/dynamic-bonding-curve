@@ -6,7 +6,7 @@ use crate::{
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
     safe_math::SafeMath,
-    state::CollectFeeMode,
+    state::{BaseFeeConfig, BaseFeeMode, CollectFeeMode},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
@@ -128,6 +128,23 @@ impl FeeRateLimiter {
         };
 
         Ok(fee_numerator)
+    }
+
+    pub fn revert_if_limiter_applied(
+        base_fee: &BaseFeeConfig,
+        trade_fee_numerator: u64,
+    ) -> Result<()> {
+        let base_fee_mode = BaseFeeMode::try_from(base_fee.base_fee_mode)
+            .map_err(|_| PoolError::InvalidBaseFeeMode)?;
+
+        if base_fee_mode == BaseFeeMode::RateLimiter {
+            require!(
+                trade_fee_numerator == base_fee.cliff_fee_numerator,
+                PoolError::RateLimiterNotSupported
+            );
+        }
+
+        Ok(())
     }
 }
 
