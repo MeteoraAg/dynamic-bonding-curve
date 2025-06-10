@@ -1,7 +1,9 @@
+#![allow(deprecated)]
 use anchor_lang::prelude::*;
 use static_assertions::const_assert_eq;
 
 #[account(zero_copy)]
+#[deprecated]
 #[derive(InitSpace, Debug)]
 pub struct MeteoraDammV2Metadata {
     /// pool

@@ -179,6 +179,10 @@ pub mod dynamic_bonding_curve {
     }
 
     // migrate damm v2
+    #[deprecated(
+        since = "0.1.3",
+        note = "It's unneeded. Will be removed in next release version"
+    )]
     pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrationDammV2CreateMetadataCtx<'info>>,
     ) -> Result<()> {
