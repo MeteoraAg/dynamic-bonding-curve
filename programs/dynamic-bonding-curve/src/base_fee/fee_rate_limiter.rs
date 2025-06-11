@@ -129,23 +129,6 @@ impl FeeRateLimiter {
 
         Ok(fee_numerator)
     }
-
-    pub fn revert_if_limiter_applied(
-        base_fee: &BaseFeeConfig,
-        trade_fee_numerator: u64,
-    ) -> Result<()> {
-        let base_fee_mode = BaseFeeMode::try_from(base_fee.base_fee_mode)
-            .map_err(|_| PoolError::InvalidBaseFeeMode)?;
-
-        if base_fee_mode == BaseFeeMode::RateLimiter {
-            require!(
-                trade_fee_numerator == base_fee.cliff_fee_numerator,
-                PoolError::RateLimiterNotSupported
-            );
-        }
-
-        Ok(())
-    }
 }
 
 impl BaseFeeHandler for FeeRateLimiter {

@@ -222,6 +222,16 @@ impl BaseFeeConfig {
             amount,
         )
     }
+    pub fn is_fee_rate_limiter_applied(&self, trade_fee_numerator: u64) -> Result<bool> {
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
+
+        if base_fee_mode == BaseFeeMode::RateLimiter {
+            return Ok(trade_fee_numerator > self.cliff_fee_numerator);
+        }
+
+        Ok(false)
+    }
 }
 
 #[zero_copy]

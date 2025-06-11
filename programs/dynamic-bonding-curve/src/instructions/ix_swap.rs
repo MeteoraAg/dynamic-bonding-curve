@@ -304,6 +304,7 @@ pub struct SwapParameters2 {
 )]
 pub enum SwapMode {
     ExactIn,
+    StrictPartialFill,
     PartialFill,
 }
 

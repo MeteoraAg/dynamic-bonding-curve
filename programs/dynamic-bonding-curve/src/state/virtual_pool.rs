@@ -255,20 +255,21 @@ impl VirtualPool {
             TradeDirection::BaseToQuote => {
                 self.get_swap_amount_from_base_to_quote(config, actual_amount_in)
             }
-            TradeDirection::QuoteToBase => {
-                self.get_swap_amount_from_quote_to_base(config, actual_amount_in, swap_mode)
-            }
+            TradeDirection::QuoteToBase => self.get_swap_amount_from_quote_to_base(
+                config,
+                actual_amount_in,
+                swap_mode,
+                config
+                    .pool_fees
+                    .base_fee
+                    .is_fee_rate_limiter_applied(trade_fee_numerator)?,
+            ),
         }?;
 
         // check if it is partial fill
         let user_pay_input_amount = if consumed_input_amount < actual_amount_in {
             if fee_mode.fees_on_input {
-                FeeRateLimiter::revert_if_limiter_applied(
-                    &config.pool_fees.base_fee,
-                    trade_fee_numerator,
-                )?;
-
-                let amount_in_include_fee = PoolFeesConfig::get_included_fee_amount(
+                let included_fee_amount_in = PoolFeesConfig::get_included_fee_amount(
                     trade_fee_numerator,
                     consumed_input_amount,
                 )?;
@@ -280,19 +281,19 @@ impl VirtualPool {
                     referral_fee,
                 } = config.pool_fees.get_fee_on_amount(
                     trade_fee_numerator,
-                    amount_in_include_fee,
+                    included_fee_amount_in,
                     fee_mode.has_referral,
                 )?;
                 // that should never happen
                 require!(
-                    amount_in_include_fee <= amount_in,
+                    included_fee_amount_in <= amount_in,
                     PoolError::UndeterminedError
                 );
                 actual_amount_in = amount;
                 actual_protocol_fee = protocol_fee;
                 actual_trading_fee = trading_fee;
                 actual_referral_fee = referral_fee;
-                amount_in_include_fee
+                included_fee_amount_in
             } else {
                 actual_amount_in = consumed_input_amount;
                 consumed_input_amount
@@ -422,6 +423,7 @@ impl VirtualPool {
         config: &PoolConfig,
         amount_in: u64,
         swap_mode: SwapMode,
+        is_fee_rate_limiter_applied: bool,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -485,7 +487,27 @@ impl VirtualPool {
                 );
                 amount_in
             }
-            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
+            SwapMode::PartialFill => {
+                // fee limiter fee rate inverse is difficult, so we allow pool swallow an extra amount
+                if is_fee_rate_limiter_applied {
+                    // allow pool swallow an extra amount
+                    require!(
+                        amount_left <= config.get_max_swallow_quote_amount()?,
+                        PoolError::SwapAmountIsOverAThreshold
+                    );
+                    amount_in
+                } else {
+                    amount_in.safe_sub(amount_left)?
+                }
+            }
+            SwapMode::StrictPartialFill => {
+                if is_fee_rate_limiter_applied {
+                    require!(amount_left == 0, PoolError::RateLimiterNotSupported);
+                    amount_in
+                } else {
+                    amount_in.safe_sub(amount_left)?
+                }
+            }
         };
 
         Ok(SwapAmount {
