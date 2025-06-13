@@ -6,7 +6,6 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::FeeRateLimiter,
     constants::PARTNER_AND_CREATOR_SURPLUS_SHARE,
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,

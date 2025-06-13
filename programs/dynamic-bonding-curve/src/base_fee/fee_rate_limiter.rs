@@ -6,7 +6,7 @@ use crate::{
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
     safe_math::SafeMath,
-    state::{BaseFeeConfig, BaseFeeMode, CollectFeeMode},
+    state::CollectFeeMode,
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
