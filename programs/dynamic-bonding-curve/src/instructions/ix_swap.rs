@@ -8,7 +8,7 @@ use crate::{
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_from_pool, transfer_from_user},
-    EvtSwap, PoolError,
+    EvtSwap, EvtSwapV2, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
@@ -19,7 +19,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::instruction::Swap as SwapInstruction;
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct SwapParameters {
     amount_in: u64,
     minimum_amount_out: u64,
@@ -220,11 +220,24 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         trade_direction: trade_direction.into(),
-        params,
-        swap_result,
+        params: params.clone(),
+        swap_result: swap_result.clone(),
         has_referral,
         amount_in,
         current_timestamp,
+    });
+
+    emit_cpi!(EvtSwapV2 {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: trade_direction.into(),
+        params: params,
+        swap_result: swap_result,
+        has_referral,
+        amount_in,
+        current_timestamp,
+        quote_reserve: pool.quote_reserve,
+        migration_quote_threshold: config.migration_quote_threshold,
     });
 
     if pool.is_curve_complete(config.migration_quote_threshold) {
