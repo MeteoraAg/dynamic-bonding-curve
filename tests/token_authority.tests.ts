@@ -32,6 +32,7 @@ import {
   NATIVE_MINT,
 } from "@solana/spl-token";
 import { expect } from "chai";
+import { unpack } from "@solana/spl-token-metadata";
 
 describe("Token authority with token2022", () => {
   let context: ProgramTestContext;
@@ -87,6 +88,11 @@ describe("Token authority with token2022", () => {
     expect(metadataPointer.authority.toString()).eq(
       poolCreator.publicKey.toString()
     );
+    // validate token metadata update authority
+    const tokenMetadata =unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
     
    // validate mint authority
     const baseMintData = await getMint(
@@ -124,6 +130,11 @@ describe("Token authority with token2022", () => {
     expect(metadataPointer.authority.toString()).eq(
       PublicKey.default.toString()
     );
+    // validate token metadata update authority
+    const tokenMetadata =unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority).to.be.undefined
     
     // validate mint authority
     const baseMintData = await getMint(
@@ -160,6 +171,11 @@ describe("Token authority with token2022", () => {
     expect(metadataPointer.authority.toString()).eq(
       partner.publicKey.toString()
     );
+    // validate token metadata update authority
+    const tokenMetadata =unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
 
     // validate mint authority
     const baseMintData = await getMint(
@@ -202,6 +218,11 @@ describe("Token authority with token2022", () => {
     expect(metadataPointer.authority.toString()).eq(
       poolCreator.publicKey.toString()
     );
+    // validate token metadata update authority
+    const tokenMetadata =unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
   });
 
   it("Token2022: partner can update update_authority and as mint authority", async () => {
@@ -237,6 +258,11 @@ describe("Token authority with token2022", () => {
     expect(metadataPointer.authority.toString()).eq(
       partner.publicKey.toString()
     );
+    // validate token metadata update authority
+    const tokenMetadata =unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
   });
 });
 
