@@ -180,9 +180,9 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
                 metadata: ctx.accounts.base_mint.to_account_info(),
                 current_authority: ctx.accounts.creator.to_account_info(),
                 // new authority isn't actually needed as account in the CPI
-                // use current authority as a place holder to satisfy the struct
+                // use current authority as system_program to satisfy the struct
                 // https://github.com/solana-developers/program-examples/blob/main/tokens/token-2022/metadata/anchor/programs/metadata/src/instructions/update_authority.rs
-                new_authority: ctx.accounts.creator.to_account_info(),
+                new_authority: ctx.accounts.system_program.to_account_info(),
             },
             &[&seeds[..]],
         ),
