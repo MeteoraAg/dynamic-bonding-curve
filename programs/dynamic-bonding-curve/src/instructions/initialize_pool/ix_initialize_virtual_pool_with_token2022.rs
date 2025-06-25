@@ -169,10 +169,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     )?;
 
     // update token metadata update authority
-    let new_update_token_metadata_authority = match token_update_authority {
-        Some(account) => OptionalNonZeroPubkey::try_from(Some(account.key()))?,
-        None => OptionalNonZeroPubkey::try_from(None)?,
-    };
+    let new_update_token_metadata_authority =
+        OptionalNonZeroPubkey::try_from(token_update_authority)?;
 
     token_metadata_update_authority(
         CpiContext::new_with_signer(
