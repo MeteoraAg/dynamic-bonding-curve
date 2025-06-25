@@ -2,11 +2,15 @@
 use crate::activation_handler::ActivationType;
 use crate::base_fee::get_base_fee_handler;
 use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
-use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
+use crate::constants::{
+    BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, DECAY_PERIOD_DEFAULT,
+    FILTER_PERIOD_DEFAULT, MAX_DYNAMIC_FEE_PERCENT, REDUCTION_FACTOR_DEFAULT, U24_MAX,
+};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
+use damm_v2::types::DynamicFeeParameters as DammV2DynamicFeeParameters;
 
 /// Information regarding fee charges
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
@@ -194,3 +198,18 @@ impl PoolFeeParameters {
         Ok(())
     }
 }
+
+// pub fn calculate_dynamic_fee_params(base_fee_numerator: u64) -> Result<DammV2DynamicFeeParameters> {
+
+//     let max_dynamic_fee_numerator = base_fee_numerator.safe_mul(MAX_DYNAMIC_FEE_PERCENT.into())?.safe_div(100)?;
+
+//     Ok(DammV2DynamicFeeParameters {
+//         bin_step: BIN_STEP_BPS_DEFAULT,
+//         bin_step_u128: BIN_STEP_BPS_U128_DEFAULT,
+//         filter_period: FILTER_PERIOD_DEFAULT,
+//         decay_period: DECAY_PERIOD_DEFAULT,
+//         reduction_factor: REDUCTION_FACTOR_DEFAULT,
+//         max_volatility_accumulator: ,
+//         variable_fee_control: ,
+//     })
+// }

@@ -5,14 +5,17 @@ use anchor_spl::{
     token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
     token_interface::{TokenAccount, TokenInterface},
 };
-use damm_v2::types::{AddLiquidityParameters, InitializePoolParameters};
+use damm_v2::types::{
+    AddLiquidityParameters, BaseFeeParameters, InitializeCustomizablePoolParameters,
+    InitializePoolParameters, PoolFeeParameters,
+};
 use ruint::aliases::U512;
 
 use crate::{
     const_pda,
-    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
-    params::fee_parameters::to_bps,
+    params::fee_parameters::{to_bps, to_numerator},
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
@@ -131,7 +134,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
             damm_config.pool_fees.base_fee.cliff_fee_numerator.into(),
             1_000_000_000, // damm v2 using the same fee denominator with virtual curve
         )?;
-        migration_fee_option.validate_base_fee(base_fee_bps)?;
 
         // validate non fee scheduler
         match migration_fee_option {
@@ -145,6 +147,30 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     damm_config.pool_fees.base_fee.period_frequency == 0,
                     PoolError::InvalidConfigAccount
                 );
+                migration_fee_option.validate_base_fee(base_fee_bps)?;
+
+                require!(
+                    damm_config.pool_fees.partner_fee_percent == 0,
+                    PoolError::InvalidConfigAccount
+                );
+
+                require!(
+                    damm_config.sqrt_min_price == MIN_SQRT_PRICE,
+                    PoolError::InvalidConfigAccount
+                );
+
+                require!(
+                    damm_config.sqrt_max_price == MAX_SQRT_PRICE,
+                    PoolError::InvalidConfigAccount
+                );
+
+                require!(
+                    damm_config.vault_config_key == Pubkey::default(),
+                    PoolError::InvalidConfigAccount
+                );
+            }
+            MigrationFeeOption::Customizable => {
+                // TODO
             }
         }
 
@@ -152,25 +178,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             damm_config.pool_creator_authority == self.pool_authority.key(),
             PoolError::InvalidConfigAccount
         );
-        require!(
-            damm_config.pool_fees.partner_fee_percent == 0,
-            PoolError::InvalidConfigAccount
-        );
 
-        require!(
-            damm_config.sqrt_min_price == MIN_SQRT_PRICE,
-            PoolError::InvalidConfigAccount
-        );
-
-        require!(
-            damm_config.sqrt_max_price == MAX_SQRT_PRICE,
-            PoolError::InvalidConfigAccount
-        );
-
-        require!(
-            damm_config.vault_config_key == Pubkey::default(),
-            PoolError::InvalidConfigAccount
-        );
         Ok(())
     }
 
@@ -180,6 +188,8 @@ impl<'info> MigrateDammV2Ctx<'info> {
         liquidity: u128,
         sqrt_price: u128,
         bump: u8,
+        migration_fee_option: MigrationFeeOption,
+        migrated_pool_fee: MigratedPoolFee,
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
@@ -198,39 +208,103 @@ impl<'info> MigrateDammV2Ctx<'info> {
             ],
         )?;
 
-        damm_v2::cpi::initialize_pool(
-            CpiContext::new_with_signer(
-                self.amm_program.to_account_info(),
-                damm_v2::cpi::accounts::InitializePool {
-                    creator: self.pool_authority.to_account_info(),
-                    position_nft_mint: self.first_position_nft_mint.to_account_info(),
-                    position_nft_account: self.first_position_nft_account.to_account_info(),
-                    payer: self.pool_authority.to_account_info(),
-                    config: pool_config.to_account_info(),
-                    pool_authority: self.damm_pool_authority.to_account_info(),
-                    pool: self.pool.to_account_info(),
-                    position: self.first_position.to_account_info(),
-                    token_a_mint: self.base_mint.to_account_info(),
-                    token_b_mint: self.quote_mint.to_account_info(),
-                    token_a_vault: self.token_a_vault.to_account_info(),
-                    token_b_vault: self.token_b_vault.to_account_info(),
-                    payer_token_a: self.base_vault.to_account_info(),
-                    payer_token_b: self.quote_vault.to_account_info(),
-                    token_a_program: self.token_base_program.to_account_info(),
-                    token_b_program: self.token_quote_program.to_account_info(),
-                    token_2022_program: self.token_2022_program.to_account_info(),
-                    system_program: self.system_program.to_account_info(),
-                    event_authority: self.damm_event_authority.to_account_info(),
-                    program: self.amm_program.to_account_info(),
-                },
-                &[&pool_authority_seeds[..]],
-            ),
-            InitializePoolParameters {
+        if migration_fee_option == MigrationFeeOption::Customizable {
+            let base_fee_numerator = to_numerator(
+                migrated_pool_fee.pool_fee_bps.into(),
+                FEE_DENOMINATOR.into(),
+            )?;
+            let base_fee = BaseFeeParameters {
+                cliff_fee_numerator: base_fee_numerator,
+                number_of_period: 0,
+                period_frequency: 0,
+                reduction_factor: 0,
+                fee_scheduler_mode: 0,
+            };
+
+            let pool_fees = PoolFeeParameters {
+                base_fee,
+                protocol_fee_percent: 20,
+                partner_fee_percent: 0,
+                referral_fee_percent: 20,
+                dynamic_fee: None, // TODO calculate case use dynamic fee
+            };
+            let initialize_pool_params = InitializeCustomizablePoolParameters {
+                pool_fees,
+                sqrt_min_price: MIN_SQRT_PRICE,
+                sqrt_max_price: MAX_SQRT_PRICE,
+                has_alpha_vault: false,
                 liquidity,
                 sqrt_price,
+                activation_type: 1, // timestamp
+                collect_fee_mode: migrated_pool_fee.collect_fee_mode,
                 activation_point: None,
-            },
-        )?;
+            };
+
+            damm_v2::cpi::initialize_pool_with_dynamic_config(
+                CpiContext::new_with_signer(
+                    self.amm_program.to_account_info(),
+                    damm_v2::cpi::accounts::InitializePoolWithDynamicConfig {
+                        creator: self.pool_authority.to_account_info(),
+                        position_nft_mint: self.first_position_nft_mint.to_account_info(),
+                        position_nft_account: self.first_position_nft_account.to_account_info(),
+                        payer: self.pool_authority.to_account_info(),
+                        pool_creator_authority: self.pool_authority.to_account_info(),
+                        config: pool_config.to_account_info(),
+                        pool_authority: self.damm_pool_authority.to_account_info(),
+                        pool: self.pool.to_account_info(),
+                        position: self.first_position.to_account_info(),
+                        token_a_mint: self.base_mint.to_account_info(),
+                        token_b_mint: self.quote_mint.to_account_info(),
+                        token_a_vault: self.token_a_vault.to_account_info(),
+                        token_b_vault: self.token_b_vault.to_account_info(),
+                        payer_token_a: self.base_vault.to_account_info(),
+                        payer_token_b: self.quote_vault.to_account_info(),
+                        token_a_program: self.token_base_program.to_account_info(),
+                        token_b_program: self.token_quote_program.to_account_info(),
+                        token_2022_program: self.token_2022_program.to_account_info(),
+                        system_program: self.system_program.to_account_info(),
+                        event_authority: self.damm_event_authority.to_account_info(),
+                        program: self.amm_program.to_account_info(),
+                    },
+                    &[&pool_authority_seeds[..]],
+                ),
+                initialize_pool_params,
+            )?;
+        } else {
+            damm_v2::cpi::initialize_pool(
+                CpiContext::new_with_signer(
+                    self.amm_program.to_account_info(),
+                    damm_v2::cpi::accounts::InitializePool {
+                        creator: self.pool_authority.to_account_info(),
+                        position_nft_mint: self.first_position_nft_mint.to_account_info(),
+                        position_nft_account: self.first_position_nft_account.to_account_info(),
+                        payer: self.pool_authority.to_account_info(),
+                        config: pool_config.to_account_info(),
+                        pool_authority: self.damm_pool_authority.to_account_info(),
+                        pool: self.pool.to_account_info(),
+                        position: self.first_position.to_account_info(),
+                        token_a_mint: self.base_mint.to_account_info(),
+                        token_b_mint: self.quote_mint.to_account_info(),
+                        token_a_vault: self.token_a_vault.to_account_info(),
+                        token_b_vault: self.token_b_vault.to_account_info(),
+                        payer_token_a: self.base_vault.to_account_info(),
+                        payer_token_b: self.quote_vault.to_account_info(),
+                        token_a_program: self.token_base_program.to_account_info(),
+                        token_b_program: self.token_quote_program.to_account_info(),
+                        token_2022_program: self.token_2022_program.to_account_info(),
+                        system_program: self.system_program.to_account_info(),
+                        event_authority: self.damm_event_authority.to_account_info(),
+                        program: self.amm_program.to_account_info(),
+                    },
+                    &[&pool_authority_seeds[..]],
+                ),
+                InitializePoolParameters {
+                    liquidity,
+                    sqrt_price,
+                    activation_point: None,
+                },
+            )?;
+        }
 
         Ok(())
     }
@@ -472,11 +546,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     // create pool
     msg!("create pool");
+    let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
+        .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
         first_position_liquidity_distribution.get_total_liquidity()?,
         config.migration_sqrt_price,
         const_pda::pool_authority::BUMP,
+        migration_fee_option,
+        MigratedPoolFee {
+            pool_fee_bps: u16::from_le_bytes(config.migrated_pool_fee_bps),
+            collect_fee_mode: config.migrated_collect_fee_mode,
+            dynamic_fee: config.migrated_dynamic_fee,
+        },
     )?;
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {

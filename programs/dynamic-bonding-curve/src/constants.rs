@@ -14,7 +14,14 @@ pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
 //  bin_step << 64 / BASIS_POINT_MAX
 pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
 
-// Number of bits to scale. This will decide the position of the radix point.
+pub const FILTER_PERIOD_DEFAULT: u16 = 10;
+
+pub const DECAY_PERIOD_DEFAULT: u16 = 120;
+
+pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
+
+pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
+                                            // Number of bits to scale. This will decide the position of the radix point.
 
 pub const MAX_CURVE_POINT: usize = 16;
 pub const MAX_CURVE_POINT_CONFIG: usize = 20;

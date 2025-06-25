@@ -6,7 +6,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::SwapResult,
-    LockedVestingParams, SwapParameters,
+    LockedVestingParams, MigratedPoolFee, MigrationFee, SwapParameters,
 };
 
 /// Create partner metadata
@@ -48,6 +48,38 @@ pub struct EvtCreateConfig {
     pub fixed_token_supply_flag: u8,
     pub pre_migration_token_supply: u64,
     pub post_migration_token_supply: u64,
+    pub curve: Vec<LiquidityDistributionParameters>,
+}
+
+#[event]
+pub struct EvtCreateConfigV2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub owner: Pubkey,
+    pub pool_fees: PoolFeeParameters,
+    pub collect_fee_mode: u8,
+    pub migration_option: u8,
+    pub activation_type: u8,
+    pub token_decimal: u8,
+    pub token_type: u8,
+    pub partner_locked_lp_percentage: u8,
+    pub partner_lp_percentage: u8,
+    pub creator_locked_lp_percentage: u8,
+    pub creator_lp_percentage: u8,
+    pub swap_base_amount: u64,
+    pub migration_quote_threshold: u64,
+    pub migration_base_amount: u64,
+    pub sqrt_start_price: u128,
+    pub locked_vesting: LockedVestingParams,
+    pub migration_fee_option: u8,
+    pub fixed_token_supply_flag: u8,
+    pub pre_migration_token_supply: u64,
+    pub post_migration_token_supply: u64,
+    pub migration_fee: MigrationFee,
+    pub migrated_pool_fee: Option<MigratedPoolFee>,
+    pub padding0: [u8; 8],
+    pub padding1: [u64; 8],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 

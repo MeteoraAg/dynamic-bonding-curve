@@ -19,7 +19,7 @@ use crate::{
         TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
-    EvtCreateConfig, PoolError,
+    EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
@@ -42,7 +42,7 @@ pub struct ConfigParameters {
     pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
-    pub padding_0: [u8; 4],
+    pub migrated_pool_fee: Option<MigratedPoolFee>,
     /// padding for future use
     pub padding_1: [u64; 7],
     pub curve: Vec<LiquidityDistributionParameters>,
@@ -72,6 +72,27 @@ impl MigrationFee {
                 PoolError::InvalidMigratorFeePercentage
             );
         }
+        Ok(())
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
+pub struct MigratedPoolFee {
+    pub pool_fee_bps: u16,
+    pub collect_fee_mode: u8,
+    pub dynamic_fee: u8,
+}
+const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
+
+impl MigratedPoolFee {
+    pub fn validate(&self) -> Result<()> {
+        require!(
+            self.pool_fee_bps >= 10 && self.pool_fee_bps <= 1000,
+            PoolError::InvalidMigratedPoolFee
+        );
+
+        // TODO validate collect fee mode
+
         Ok(())
     }
 }
@@ -224,10 +245,22 @@ impl ConfigParameters {
         self.locked_vesting.validate()?;
 
         // validate migrate fee option
-        require!(
-            MigrationFeeOption::try_from(self.migration_fee_option).is_ok(),
-            PoolError::InvalidMigrationFeeOption
-        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+
+        if migration_fee_option == MigrationFeeOption::Customizable {
+            require!(
+                self.migrated_pool_fee.is_some(),
+                PoolError::InvalidMigratedPoolFee
+            );
+
+            self.migrated_pool_fee.unwrap().validate()?;
+
+            require!(
+                migration_option_value == MigrationOption::DammV2,
+                PoolError::InvalidMigrationFeeOption
+            );
+        }
 
         // validate price and liquidity
         require!(
@@ -314,6 +347,7 @@ pub fn handle_create_config(
         creator_trading_fee_percentage,
         token_update_authority,
         migration_fee,
+        migrated_pool_fee,
         ..
     } = config_parameters;
 
@@ -384,6 +418,18 @@ pub fn handle_create_config(
             (0, 0, 0)
         };
 
+    let (migrated_pool_fee_bps, migrated_collect_fee_mode, migrated_dynamic_fee) =
+        if let Some(MigratedPoolFee {
+            pool_fee_bps,
+            collect_fee_mode,
+            dynamic_fee,
+        }) = migrated_pool_fee
+        {
+            (pool_fee_bps, collect_fee_mode, dynamic_fee)
+        } else {
+            (0, 0, 0)
+        };
+
     let mut config = ctx.accounts.config.load_init()?;
     config.init(
         &ctx.accounts.quote_mint.key(),
@@ -413,6 +459,9 @@ pub fn handle_create_config(
         fixed_token_supply_flag,
         pre_migration_token_supply,
         post_migration_token_supply,
+        migrated_pool_fee_bps,
+        migrated_collect_fee_mode,
+        migrated_dynamic_fee,
         &curve,
     );
 
@@ -440,6 +489,37 @@ pub fn handle_create_config(
         post_migration_token_supply,
         locked_vesting,
         migration_fee_option,
+        curve: curve.clone()
+    });
+
+    emit_cpi!(EvtCreateConfigV2 {
+        config: ctx.accounts.config.key(),
+        fee_claimer: ctx.accounts.fee_claimer.key(),
+        quote_mint: ctx.accounts.quote_mint.key(),
+        owner: ctx.accounts.leftover_receiver.key(),
+        pool_fees,
+        collect_fee_mode,
+        migration_option,
+        activation_type,
+        token_decimal,
+        token_type,
+        partner_locked_lp_percentage,
+        partner_lp_percentage,
+        creator_locked_lp_percentage,
+        creator_lp_percentage,
+        swap_base_amount,
+        migration_quote_threshold,
+        migration_base_amount,
+        sqrt_start_price,
+        fixed_token_supply_flag,
+        pre_migration_token_supply,
+        post_migration_token_supply,
+        locked_vesting,
+        migration_fee_option,
+        migration_fee,
+        migrated_pool_fee,
+        padding0: [0u8; 8],
+        padding1: [0u64; 8],
         curve
     });
 

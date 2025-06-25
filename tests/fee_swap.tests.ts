@@ -106,7 +106,7 @@ describe("Fee Swap test", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
-        padding0: [],
+        migratedPoolFee: null,
         padding1: [],
         curve: curves,
       };
@@ -456,7 +456,7 @@ describe("Fee Swap test", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
-        padding0: [],
+        migratedPoolFee: null,
         padding1: [],
         curve: curves,
       };

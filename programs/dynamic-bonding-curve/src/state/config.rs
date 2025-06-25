@@ -370,6 +370,7 @@ pub enum MigrationFeeOption {
     FixedBps200, // 2%
     FixedBps400, // 4%
     FixedBps600, // 6%
+    Customizable,
 }
 
 impl MigrationFeeOption {
@@ -392,6 +393,9 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps600 => {
                 require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::Customizable => {
+                // nothing to check
             }
         }
         Ok(())
@@ -443,8 +447,14 @@ pub struct PoolConfig {
     pub migration_fee_percentage: u8,
     /// creator migration fee percentage
     pub creator_migration_fee_percentage: u8,
+    /// migrated pool fee in bps
+    pub migrated_pool_fee_bps: [u8; 2],
+    /// migrated pool collect fee mode
+    pub migrated_collect_fee_mode: u8,
+    /// migrated dynamic fee option.
+    pub migrated_dynamic_fee: u8,
     /// padding 1
-    pub _padding_1: [u8; 7],
+    pub _padding_1: [u8; 3],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -517,6 +527,9 @@ impl PoolConfig {
         fixed_token_supply_flag: u8,
         pre_migration_token_supply: u64,
         post_migration_token_supply: u64,
+        migrated_pool_fee_bps: u16,
+        migrated_collect_fee_mode: u8,
+        migrated_dynamic_fee: u8,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
         self.version = 0;
@@ -551,6 +564,9 @@ impl PoolConfig {
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
+        self.migrated_pool_fee_bps = migrated_pool_fee_bps.to_le_bytes();
+        self.migrated_collect_fee_mode = migrated_collect_fee_mode;
+        self.migrated_dynamic_fee = migrated_dynamic_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();

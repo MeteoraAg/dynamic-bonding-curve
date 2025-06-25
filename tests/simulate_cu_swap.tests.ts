@@ -85,7 +85,7 @@ describe("Simulate CU swap", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
-        padding0: [],
+        migratedPoolFee: null,
         padding1: [],
         curve: curves,
       };

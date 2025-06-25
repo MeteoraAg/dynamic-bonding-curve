@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { Program } from "@coral-xyz/anchor";
 import { DynamicAmm } from "./idl/dynamic_amm";
+import { createDammV2Program } from "./common";
 
 export async function getVirtualPool(
   banksClient: BanksClient,
@@ -89,4 +90,16 @@ export async function getLockEscrow(
 ): Promise<LockEscrow> {
   const account = await banksClient.getAccount(lockEscrow);
   return program.coder.accounts.decode("lockEscrow", Buffer.from(account.data));
+}
+
+export async function getDammV2Pool(
+  banksClient: BanksClient,
+  pool: PublicKey
+): Promise<any> {
+  const account = await banksClient.getAccount(pool);
+  const program =  createDammV2Program()
+  return program.coder.accounts.decode(
+    "pool",
+    Buffer.from(account.data)
+  );
 }

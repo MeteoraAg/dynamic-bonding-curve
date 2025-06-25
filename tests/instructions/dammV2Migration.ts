@@ -145,6 +145,8 @@ export async function migrateToDammV2(
     transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
     transaction.sign(payer, firstPositionNftKP, secondPositionNftKP);
     await processTransactionMaybeThrow(banksClient, transaction);
+
+    return dammPool
 }
 
 export function deriveDammV2EventAuthority() {
