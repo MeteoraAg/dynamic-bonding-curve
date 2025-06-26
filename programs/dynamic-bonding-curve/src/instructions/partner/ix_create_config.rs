@@ -5,7 +5,10 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     activation_handler::ActivationType,
-    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{
+        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_SQRT_PRICE, MIN_MIGRATED_POOL_FEE_BPS,
+        MIN_SQRT_PRICE,
+    },
     params::{
         fee_parameters::PoolFeeParameters,
         liquidity_distribution::{
@@ -87,7 +90,8 @@ const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
 impl MigratedPoolFee {
     pub fn validate(&self) -> Result<()> {
         require!(
-            self.pool_fee_bps >= 10 && self.pool_fee_bps <= 1000,
+            self.pool_fee_bps >= MIN_MIGRATED_POOL_FEE_BPS
+                && self.pool_fee_bps <= MAX_MIGRATED_POOL_FEE_BPS,
             PoolError::InvalidMigratedPoolFee
         );
 
@@ -258,6 +262,11 @@ impl ConfigParameters {
                 migration_option_value == MigrationOption::DammV2,
                 PoolError::InvalidMigrationFeeOption
             );
+        } else {
+            require!(
+                self.migrated_pool_fee.is_none(),
+                PoolError::InvalidMigratedPoolFee
+            );
         }
 
         // validate price and liquidity
@@ -416,17 +425,11 @@ pub fn handle_create_config(
             (0, 0, 0)
         };
 
-    let (migrated_pool_fee_bps, migrated_collect_fee_mode, migrated_dynamic_fee) =
-        if let Some(MigratedPoolFee {
-            pool_fee_bps,
-            collect_fee_mode,
-            dynamic_fee,
-        }) = migrated_pool_fee
-        {
-            (pool_fee_bps, collect_fee_mode, dynamic_fee)
-        } else {
-            (0, 0, 0)
-        };
+    let MigratedPoolFee {
+        pool_fee_bps: migrated_pool_fee_bps,
+        collect_fee_mode: migrated_collect_fee_mode,
+        dynamic_fee: migrated_dynamic_fee,
+    } = migrated_pool_fee.unwrap_or_default();
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init(

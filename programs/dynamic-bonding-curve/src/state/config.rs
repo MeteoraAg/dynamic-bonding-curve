@@ -17,7 +17,7 @@ use crate::{
     safe_math::SafeMath,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, MigrationFee, PoolError,
+    LockedVestingParams, MigratedPoolFee, MigrationFee, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
@@ -236,7 +236,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -787,6 +787,14 @@ impl PoolConfig {
         Ok(PartnerAndCreatorSplitFee {
             partner_fee,
             creator_fee,
+        })
+    }
+
+    pub fn get_migrated_pool_fee(&self) -> Result<MigratedPoolFee> {
+        Ok(MigratedPoolFee {
+            pool_fee_bps: u16::from_le_bytes(self.migrated_pool_fee_bps),
+            collect_fee_mode: self.migrated_collect_fee_mode,
+            dynamic_fee: self.migrated_dynamic_fee,
         })
     }
 }

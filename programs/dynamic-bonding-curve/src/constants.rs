@@ -25,7 +25,13 @@ pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
 // delta_bin_id = (price_ratio - 1) / bin_step
 // delta_bin_id * BASIS_POINT_MAX
 pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
+
+// (MAX_VOLATILITY_ACCUMULATOR * BIN_STEP_BPS_DEFAULT)^2
+pub const SQUARE_VFA_BIN: u64 = 209091600000000;
 // Number of bits to scale. This will decide the position of the radix point.
+
+pub const MIN_MIGRATED_POOL_FEE_BPS: u16 = 10; // 0.1%
+pub const MAX_MIGRATED_POOL_FEE_BPS: u16 = 1000; // 10%
 
 pub const MAX_CURVE_POINT: usize = 16;
 pub const MAX_CURVE_POINT_CONFIG: usize = 20;

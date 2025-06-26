@@ -5,7 +5,7 @@ use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERC
 use crate::constants::{
     BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, DECAY_PERIOD_DEFAULT,
     FILTER_PERIOD_DEFAULT, MAX_DYNAMIC_FEE_PERCENT, MAX_VOLATILITY_ACCUMULATOR,
-    REDUCTION_FACTOR_DEFAULT, U24_MAX,
+    REDUCTION_FACTOR_DEFAULT, SQUARE_VFA_BIN, U24_MAX,
 };
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -201,19 +201,14 @@ impl PoolFeeParameters {
 }
 
 pub fn calculate_dynamic_fee_params(base_fee_numerator: u64) -> Result<DammV2DynamicFeeParameters> {
-    let square_vfa_bin = u64::from(MAX_VOLATILITY_ACCUMULATOR)
-        .safe_mul(BIN_STEP_BPS_DEFAULT.into())?
-        .checked_pow(2)
-        .ok_or(PoolError::MathOverflow)?;
-
-    let max_dynamic_fee_numerator = base_fee_numerator
+    let max_dynamic_fee_numerator = u128::from(base_fee_numerator)
         .safe_mul(MAX_DYNAMIC_FEE_PERCENT.into())?
         .safe_div(100)?;
 
     let v_fee = max_dynamic_fee_numerator
         .safe_mul(100_000_000_000)?
         .safe_sub(99_999_999_999)?;
-    let variable_fee_control = v_fee.safe_div(square_vfa_bin)?;
+    let variable_fee_control = v_fee.safe_div(SQUARE_VFA_BIN.into())?;
 
     Ok(DammV2DynamicFeeParameters {
         bin_step: BIN_STEP_BPS_DEFAULT,

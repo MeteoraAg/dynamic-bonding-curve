@@ -561,11 +561,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         config.migration_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
-        MigratedPoolFee {
-            pool_fee_bps: u16::from_le_bytes(config.migrated_pool_fee_bps),
-            collect_fee_mode: config.migrated_collect_fee_mode,
-            dynamic_fee: config.migrated_dynamic_fee,
-        },
+        config.get_migrated_pool_fee()?,
     )?;
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {
