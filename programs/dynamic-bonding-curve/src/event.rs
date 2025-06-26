@@ -78,7 +78,7 @@ pub struct EvtCreateConfigV2 {
     pub post_migration_token_supply: u64,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: Option<MigratedPoolFee>,
-    pub padding0: [u8; 8],
+    pub padding0: [u8; 32],
     pub padding1: [u64; 8],
     pub curve: Vec<LiquidityDistributionParameters>,
 }

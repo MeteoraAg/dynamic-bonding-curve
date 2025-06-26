@@ -518,7 +518,7 @@ pub fn handle_create_config(
         migration_fee_option,
         migration_fee,
         migrated_pool_fee,
-        padding0: [0u8; 8],
+        padding0: [0u8; 32],
         padding1: [0u64; 8],
         curve
     });

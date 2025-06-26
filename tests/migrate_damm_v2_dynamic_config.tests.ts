@@ -166,11 +166,7 @@ async function fullFlow(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    migratedPoolFee: {
-      poolFeeBps: 100,
-      collectFeeMode: 0,
-      dynamicFee: 0,
-    },
+    migratedPoolFee,
     padding1: [],
     curve: curves,
   };
