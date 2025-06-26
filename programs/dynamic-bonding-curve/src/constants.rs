@@ -21,7 +21,11 @@ pub const DECAY_PERIOD_DEFAULT: u16 = 120;
 pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
 
 pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
-                                            // Number of bits to scale. This will decide the position of the radix point.
+
+// delta_bin_id = (price_ratio - 1) / bin_step
+// delta_bin_id * BASIS_POINT_MAX
+pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
+// Number of bits to scale. This will decide the position of the radix point.
 
 pub const MAX_CURVE_POINT: usize = 16;
 pub const MAX_CURVE_POINT_CONFIG: usize = 20;

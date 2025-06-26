@@ -15,7 +15,7 @@ use crate::{
     const_pda,
     constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
-    params::fee_parameters::{to_bps, to_numerator},
+    params::fee_parameters::{calculate_dynamic_fee_params, to_bps, to_numerator},
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
@@ -135,7 +135,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             1_000_000_000, // damm v2 using the same fee denominator with virtual curve
         )?;
 
-        // validate non fee scheduler
+        // validate config key
         match migration_fee_option {
             MigrationFeeOption::FixedBps25
             | MigrationFeeOption::FixedBps30
@@ -143,6 +143,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             | MigrationFeeOption::FixedBps200
             | MigrationFeeOption::FixedBps400
             | MigrationFeeOption::FixedBps600 => {
+                // validate non fee scheduler
                 require!(
                     damm_config.pool_fees.base_fee.period_frequency == 0,
                     PoolError::InvalidConfigAccount
@@ -170,7 +171,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 );
             }
             MigrationFeeOption::Customizable => {
-                // TODO
+                // nothing to check
             }
         }
 
@@ -221,12 +222,17 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 fee_scheduler_mode: 0,
             };
 
+            let mut dynamic_fee_params = None;
+            if migrated_pool_fee.dynamic_fee == 1 {
+                dynamic_fee_params = Some(calculate_dynamic_fee_params(base_fee_numerator)?);
+            }
+
             let pool_fees = PoolFeeParameters {
                 base_fee,
                 protocol_fee_percent: 20,
                 partner_fee_percent: 0,
                 referral_fee_percent: 20,
-                dynamic_fee: None, // TODO calculate case use dynamic fee
+                dynamic_fee: dynamic_fee_params,
             };
             let initialize_pool_params = InitializeCustomizablePoolParameters {
                 pool_fees,

@@ -4,7 +4,8 @@ use crate::base_fee::get_base_fee_handler;
 use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
 use crate::constants::{
     BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, DECAY_PERIOD_DEFAULT,
-    FILTER_PERIOD_DEFAULT, MAX_DYNAMIC_FEE_PERCENT, REDUCTION_FACTOR_DEFAULT, U24_MAX,
+    FILTER_PERIOD_DEFAULT, MAX_DYNAMIC_FEE_PERCENT, MAX_VOLATILITY_ACCUMULATOR,
+    REDUCTION_FACTOR_DEFAULT, U24_MAX,
 };
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -199,17 +200,29 @@ impl PoolFeeParameters {
     }
 }
 
-// pub fn calculate_dynamic_fee_params(base_fee_numerator: u64) -> Result<DammV2DynamicFeeParameters> {
+pub fn calculate_dynamic_fee_params(base_fee_numerator: u64) -> Result<DammV2DynamicFeeParameters> {
+    let square_vfa_bin = u64::from(MAX_VOLATILITY_ACCUMULATOR)
+        .safe_mul(BIN_STEP_BPS_DEFAULT.into())?
+        .checked_pow(2)
+        .ok_or(PoolError::MathOverflow)?;
 
-//     let max_dynamic_fee_numerator = base_fee_numerator.safe_mul(MAX_DYNAMIC_FEE_PERCENT.into())?.safe_div(100)?;
+    let max_dynamic_fee_numerator = base_fee_numerator
+        .safe_mul(MAX_DYNAMIC_FEE_PERCENT.into())?
+        .safe_div(100)?;
 
-//     Ok(DammV2DynamicFeeParameters {
-//         bin_step: BIN_STEP_BPS_DEFAULT,
-//         bin_step_u128: BIN_STEP_BPS_U128_DEFAULT,
-//         filter_period: FILTER_PERIOD_DEFAULT,
-//         decay_period: DECAY_PERIOD_DEFAULT,
-//         reduction_factor: REDUCTION_FACTOR_DEFAULT,
-//         max_volatility_accumulator: ,
-//         variable_fee_control: ,
-//     })
-// }
+    let v_fee = max_dynamic_fee_numerator
+        .safe_mul(100_000_000_000)?
+        .safe_sub(99_999_999_999)?;
+    let variable_fee_control = v_fee.safe_div(square_vfa_bin)?;
+
+    Ok(DammV2DynamicFeeParameters {
+        bin_step: BIN_STEP_BPS_DEFAULT,
+        bin_step_u128: BIN_STEP_BPS_U128_DEFAULT,
+        filter_period: FILTER_PERIOD_DEFAULT,
+        decay_period: DECAY_PERIOD_DEFAULT,
+        reduction_factor: REDUCTION_FACTOR_DEFAULT,
+        max_volatility_accumulator: MAX_VOLATILITY_ACCUMULATOR,
+        variable_fee_control: u32::try_from(variable_fee_control)
+            .map_err(|_| PoolError::TypeCastFailed)?,
+    })
+}
