@@ -91,8 +91,6 @@ impl MigratedPoolFee {
             PoolError::InvalidMigratedPoolFee
         );
 
-        // TODO validate collect fee mode
-
         Ok(())
     }
 }
