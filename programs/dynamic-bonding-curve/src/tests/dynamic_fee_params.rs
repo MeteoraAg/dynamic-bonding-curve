@@ -1,9 +1,13 @@
 use crate::{
+    calculate_dynamic_fee_params,
     constants::{
-        dynamic_fee::{MAX_VOLATILITY_ACCUMULATOR, SQUARE_VFA_BIN},
-        BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, ONE_Q64,
+        dynamic_fee::{
+            BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, MAX_VOLATILITY_ACCUMULATOR,
+            SQUARE_VFA_BIN,
+        },
+        BASIS_POINT_MAX, ONE_Q64,
     },
-    params::fee_parameters::{calculate_dynamic_fee_params, to_numerator},
+    params::fee_parameters::to_numerator,
     PoolError,
 };
 use proptest::prelude::*;
