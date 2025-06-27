@@ -8,13 +8,32 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 pub const U24_MAX: u32 = 0xffffff;
 
 pub const ONE_Q64: u128 = 1u128 << 64;
+pub mod dynamic_fee {
 
-pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
+    pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
 
-//  bin_step << 64 / BASIS_POINT_MAX
-pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
+    //  bin_step << 64 / BASIS_POINT_MAX
+    pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
+
+    pub const FILTER_PERIOD_DEFAULT: u16 = 10; // 10 seconds
+
+    pub const DECAY_PERIOD_DEFAULT: u16 = 120; // 120 seconds
+
+    pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
+
+    pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
+
+    // refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
+    pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
+
+    // refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
+    pub const SQUARE_VFA_BIN: u64 = 209091600000000;
+}
 
 // Number of bits to scale. This will decide the position of the radix point.
+
+pub const MIN_MIGRATED_POOL_FEE_BPS: u16 = 10; // 0.1%
+pub const MAX_MIGRATED_POOL_FEE_BPS: u16 = 1000; // 10%
 
 pub const MAX_CURVE_POINT: usize = 16;
 pub const MAX_CURVE_POINT_CONFIG: usize = 20;

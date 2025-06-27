@@ -1,5 +1,8 @@
 use crate::{
-    constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, ONE_Q64},
+    constants::{
+        dynamic_fee::{BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT},
+        BASIS_POINT_MAX, ONE_Q64,
+    },
     state::fee::VolatilityTracker,
     tests::price_math::get_price_from_id,
 };

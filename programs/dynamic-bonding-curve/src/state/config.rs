@@ -17,12 +17,12 @@ use crate::{
     safe_math::SafeMath,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, MigrationFee, PoolError,
+    LockedVestingParams, MigratedPoolFee, MigrationFee, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
-/// collect fee mode
+/// base fee mode
 #[repr(u8)]
 #[derive(
     Clone,
@@ -236,7 +236,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -364,15 +364,39 @@ pub enum TokenType {
     AnchorSerialize,
 )]
 pub enum MigrationFeeOption {
-    FixedBps25,  // 0.25%
-    FixedBps30,  // 0.3%
-    FixedBps100, // 1%
-    FixedBps200, // 2%
-    FixedBps400, // 4%
-    FixedBps600, // 6%
+    FixedBps25,   // 0.25%
+    FixedBps30,   // 0.3%
+    FixedBps100,  // 1%
+    FixedBps200,  // 2%
+    FixedBps400,  // 4%
+    FixedBps600,  // 6%
+    Customizable, // Migration with customizable pool
 }
 
 impl MigrationFeeOption {
+    pub fn validate(
+        &self,
+        migration_option_value: MigrationOption,
+        migrated_pool_fee: &Option<MigratedPoolFee>,
+    ) -> Result<()> {
+        if *self == MigrationFeeOption::Customizable {
+            let migrated_pool_fee =
+                migrated_pool_fee.ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
+
+            migrated_pool_fee.validate()?;
+
+            require!(
+                migration_option_value == MigrationOption::DammV2,
+                PoolError::InvalidMigrationFeeOption
+            );
+        } else {
+            require!(
+                migrated_pool_fee.is_none(),
+                PoolError::InvalidMigratedPoolFee
+            );
+        }
+        Ok(())
+    }
     pub fn validate_base_fee(&self, base_fee_bps: u64) -> Result<()> {
         match *self {
             MigrationFeeOption::FixedBps25 => {
@@ -392,6 +416,9 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps600 => {
                 require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::Customizable => {
+                // nothing to check
             }
         }
         Ok(())
@@ -443,8 +470,8 @@ pub struct PoolConfig {
     pub migration_fee_percentage: u8,
     /// creator migration fee percentage
     pub creator_migration_fee_percentage: u8,
-    /// padding 1
-    pub _padding_1: [u8; 7],
+    /// padding 0
+    pub _padding_0: [u8; 7],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -459,8 +486,16 @@ pub struct PoolConfig {
     pub pre_migration_token_supply: u64,
     /// post migration token supply
     pub post_migration_token_supply: u64,
+    /// migrated pool collect fee mode
+    pub migrated_collect_fee_mode: u8,
+    /// migrated dynamic fee option.
+    pub migrated_dynamic_fee: u8,
+    /// migrated pool fee in bps
+    pub migrated_pool_fee_bps: u16,
+    /// padding 1
+    pub _padding_1: [u8; 12],
     /// padding 2
-    pub _padding_2: [u128; 2],
+    pub _padding_2: u128,
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -517,6 +552,9 @@ impl PoolConfig {
         fixed_token_supply_flag: u8,
         pre_migration_token_supply: u64,
         post_migration_token_supply: u64,
+        migrated_pool_fee_bps: u16,
+        migrated_collect_fee_mode: u8,
+        migrated_dynamic_fee: u8,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
         self.version = 0;
@@ -551,6 +589,9 @@ impl PoolConfig {
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
+        self.migrated_pool_fee_bps = migrated_pool_fee_bps;
+        self.migrated_collect_fee_mode = migrated_collect_fee_mode;
+        self.migrated_dynamic_fee = migrated_dynamic_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();

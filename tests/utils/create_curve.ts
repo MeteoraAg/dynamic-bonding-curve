@@ -474,7 +474,7 @@ export function designCurve(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    padding0: [],
+    migratedPoolFee: null,
     padding1: [],
     curve,
   };
@@ -601,7 +601,7 @@ export function designGraphCurve(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    padding0: [],
+    migratedPoolFee: null,
     padding1: [],
     curve,
   };
