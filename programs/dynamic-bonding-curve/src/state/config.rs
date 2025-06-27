@@ -39,7 +39,7 @@ pub enum Dammv2CollectFeeMode {
     OnlyB,
 }
 
-/// pool status
+/// DammV2 DynamicFee
 #[repr(u8)]
 #[derive(
     Clone,
