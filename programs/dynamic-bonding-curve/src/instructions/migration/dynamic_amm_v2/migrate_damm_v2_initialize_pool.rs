@@ -15,11 +15,11 @@ use crate::{
     const_pda,
     constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
-    params::fee_parameters::{calculate_dynamic_fee_params, to_bps, to_numerator},
+    params::fee_parameters::{to_bps, to_numerator},
     safe_math::SafeMath,
     state::{
-        DammV2DynamicFee, LiquidityDistribution, MigrationAmount, MigrationFeeOption,
-        MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
+        LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
+        MigrationProgress, PoolConfig, VirtualPool,
     },
     *,
 };
@@ -126,23 +126,23 @@ impl<'info> MigrateDammV2Ctx<'info> {
     fn validate_config_key(
         &self,
         damm_config: &damm_v2::accounts::Config,
-        migration_fee_option: u8,
+        migration_fee_option: MigrationFeeOption,
     ) -> Result<()> {
-        let migration_fee_option = MigrationFeeOption::try_from(migration_fee_option)
-            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-        let base_fee_bps = to_bps(
-            damm_config.pool_fees.base_fee.cliff_fee_numerator.into(),
-            1_000_000_000, // damm v2 using the same fee denominator with virtual curve
-        )?;
-
         // validate config key
         match migration_fee_option {
+            MigrationFeeOption::Customizable => {
+                // nothing to check
+            }
             MigrationFeeOption::FixedBps25
             | MigrationFeeOption::FixedBps30
             | MigrationFeeOption::FixedBps100
             | MigrationFeeOption::FixedBps200
             | MigrationFeeOption::FixedBps400
             | MigrationFeeOption::FixedBps600 => {
+                let base_fee_bps = to_bps(
+                    damm_config.pool_fees.base_fee.cliff_fee_numerator.into(),
+                    1_000_000_000, // damm v2 using the same fee denominator with virtual curve
+                )?;
                 // validate non fee scheduler
                 require!(
                     damm_config.pool_fees.base_fee.period_frequency == 0,
@@ -170,9 +170,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     PoolError::InvalidConfigAccount
                 );
             }
-            MigrationFeeOption::Customizable => {
-                // nothing to check
-            }
         }
 
         require!(
@@ -190,7 +187,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         sqrt_price: u128,
         bump: u8,
         migration_fee_option: MigrationFeeOption,
-        migrated_pool_fee: MigratedPoolFee,
+        config: &PoolConfig,
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
@@ -210,25 +207,21 @@ impl<'info> MigrateDammV2Ctx<'info> {
         )?;
 
         if migration_fee_option == MigrationFeeOption::Customizable {
-            let base_fee_numerator = to_numerator(
-                migrated_pool_fee.pool_fee_bps.into(),
-                FEE_DENOMINATOR.into(),
-            )?;
+            let base_fee_numerator =
+                to_numerator(config.migrated_pool_fee_bps.into(), FEE_DENOMINATOR.into())?;
             let base_fee = BaseFeeParameters {
                 cliff_fee_numerator: base_fee_numerator,
-                number_of_period: 0,
-                period_frequency: 0,
-                reduction_factor: 0,
-                fee_scheduler_mode: 0,
+                ..Default::default()
             };
 
-            let mut dynamic_fee_params = None;
-
-            let migrated_dynamic_fee = DammV2DynamicFee::try_from(migrated_pool_fee.dynamic_fee)
+            let migrated_dynamic_fee = DammV2DynamicFee::try_from(config.migrated_dynamic_fee)
                 .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-            if migrated_dynamic_fee == DammV2DynamicFee::Enable {
-                dynamic_fee_params = Some(calculate_dynamic_fee_params(base_fee_numerator)?);
-            }
+
+            let dynamic_fee_params = if migrated_dynamic_fee == DammV2DynamicFee::Enable {
+                Some(calculate_dynamic_fee_params(base_fee_numerator)?)
+            } else {
+                None
+            };
 
             let pool_fees = PoolFeeParameters {
                 base_fee,
@@ -245,10 +238,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 liquidity,
                 sqrt_price,
                 activation_type: 1, // timestamp
-                collect_fee_mode: migrated_pool_fee.collect_fee_mode,
+                collect_fee_mode: config.migrated_collect_fee_mode,
                 activation_point: None,
             };
-
             damm_v2::cpi::initialize_pool_with_dynamic_config(
                 CpiContext::new_with_signer(
                     self.amm_program.to_account_info(),
@@ -476,6 +468,8 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, MigrateDammV2Ctx<'info>>,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+    let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
+        .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
     {
         require!(
             ctx.remaining_accounts.len() == 1,
@@ -485,7 +479,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             AccountLoader::try_from(&ctx.remaining_accounts[0])?; // TODO fix damm config in remaning accounts
         let damm_config = damm_config_loader.load()?;
         ctx.accounts
-            .validate_config_key(&damm_config, config.migration_fee_option)?;
+            .validate_config_key(&damm_config, migration_fee_option)?;
     }
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
@@ -555,16 +549,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     // create pool
     msg!("create pool");
-    let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
-        .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
         first_position_liquidity_distribution.get_total_liquidity()?,
         config.migration_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
-        config.get_migrated_pool_fee()?,
+        &config,
     )?;
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {

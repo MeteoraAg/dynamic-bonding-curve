@@ -22,40 +22,6 @@ use crate::{
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
-/// damm v2 collect fee mode
-#[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    IntoPrimitive,
-    TryFromPrimitive,
-    AnchorDeserialize,
-    AnchorSerialize,
-)]
-pub enum Dammv2CollectFeeMode {
-    BothToken,
-    OnlyB,
-}
-
-/// DammV2 DynamicFee
-#[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    IntoPrimitive,
-    TryFromPrimitive,
-    AnchorDeserialize,
-    AnchorSerialize,
-)]
-pub enum DammV2DynamicFee {
-    Disable,
-    Enable,
-}
-
 /// base fee mode
 #[repr(u8)]
 #[derive(
@@ -408,6 +374,29 @@ pub enum MigrationFeeOption {
 }
 
 impl MigrationFeeOption {
+    pub fn validate(
+        &self,
+        migration_option_value: MigrationOption,
+        migrated_pool_fee: &Option<MigratedPoolFee>,
+    ) -> Result<()> {
+        if *self == MigrationFeeOption::Customizable {
+            let migrated_pool_fee =
+                migrated_pool_fee.ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
+
+            migrated_pool_fee.validate()?;
+
+            require!(
+                migration_option_value == MigrationOption::DammV2,
+                PoolError::InvalidMigrationFeeOption
+            );
+        } else {
+            require!(
+                migrated_pool_fee.is_none(),
+                PoolError::InvalidMigratedPoolFee
+            );
+        }
+        Ok(())
+    }
     pub fn validate_base_fee(&self, base_fee_bps: u64) -> Result<()> {
         match *self {
             MigrationFeeOption::FixedBps25 => {
@@ -481,14 +470,8 @@ pub struct PoolConfig {
     pub migration_fee_percentage: u8,
     /// creator migration fee percentage
     pub creator_migration_fee_percentage: u8,
-    /// migrated pool fee in bps
-    pub migrated_pool_fee_bps: [u8; 2],
-    /// migrated pool collect fee mode
-    pub migrated_collect_fee_mode: u8,
-    /// migrated dynamic fee option.
-    pub migrated_dynamic_fee: u8,
-    /// padding 1
-    pub _padding_1: [u8; 3],
+    /// padding 0
+    pub _padding_0: [u8; 7],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -503,8 +486,16 @@ pub struct PoolConfig {
     pub pre_migration_token_supply: u64,
     /// post migration token supply
     pub post_migration_token_supply: u64,
+    /// migrated pool collect fee mode
+    pub migrated_collect_fee_mode: u8,
+    /// migrated dynamic fee option.
+    pub migrated_dynamic_fee: u8,
+    /// migrated pool fee in bps
+    pub migrated_pool_fee_bps: u16,
+    /// padding 1
+    pub _padding_1: [u8; 12],
     /// padding 2
-    pub _padding_2: [u128; 2],
+    pub _padding_2: u128,
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -598,7 +589,7 @@ impl PoolConfig {
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
-        self.migrated_pool_fee_bps = migrated_pool_fee_bps.to_le_bytes();
+        self.migrated_pool_fee_bps = migrated_pool_fee_bps;
         self.migrated_collect_fee_mode = migrated_collect_fee_mode;
         self.migrated_dynamic_fee = migrated_dynamic_fee;
 
@@ -821,14 +812,6 @@ impl PoolConfig {
         Ok(PartnerAndCreatorSplitFee {
             partner_fee,
             creator_fee,
-        })
-    }
-
-    pub fn get_migrated_pool_fee(&self) -> Result<MigratedPoolFee> {
-        Ok(MigratedPoolFee {
-            pool_fee_bps: u16::from_le_bytes(self.migrated_pool_fee_bps),
-            collect_fee_mode: self.migrated_collect_fee_mode,
-            dynamic_fee: self.migrated_dynamic_fee,
         })
     }
 }

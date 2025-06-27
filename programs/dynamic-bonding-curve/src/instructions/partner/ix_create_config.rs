@@ -18,11 +18,11 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, DammV2DynamicFee, Dammv2CollectFeeMode, LockedVestingConfig,
-        MigrationFeeOption, MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
+        CollectFeeMode, LockedVestingConfig, MigrationFeeOption, MigrationOption, PoolConfig,
+        TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
-    EvtCreateConfig, EvtCreateConfigV2, PoolError,
+    DammV2DynamicFee, Dammv2CollectFeeMode, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -82,9 +82,9 @@ impl MigrationFee {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
 pub struct MigratedPoolFee {
-    pub pool_fee_bps: u16,
     pub collect_fee_mode: u8,
     pub dynamic_fee: u8,
+    pub pool_fee_bps: u16,
 }
 const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
 
@@ -261,23 +261,7 @@ impl ConfigParameters {
         let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
             .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
-        if migration_fee_option == MigrationFeeOption::Customizable {
-            let migrated_pool_fee = self
-                .migrated_pool_fee
-                .ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
-
-            migrated_pool_fee.validate()?;
-
-            require!(
-                migration_option_value == MigrationOption::DammV2,
-                PoolError::InvalidMigrationFeeOption
-            );
-        } else {
-            require!(
-                self.migrated_pool_fee.is_none(),
-                PoolError::InvalidMigratedPoolFee
-            );
-        }
+        migration_fee_option.validate(migration_option_value, &self.migrated_pool_fee)?;
 
         // validate price and liquidity
         require!(
@@ -507,7 +491,7 @@ pub fn handle_create_config(
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
-        owner: ctx.accounts.leftover_receiver.key(),
+        leftover_receiver: ctx.accounts.leftover_receiver.key(),
         config_parameters: config_parameters
     });
 

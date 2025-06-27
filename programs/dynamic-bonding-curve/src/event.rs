@@ -56,7 +56,7 @@ pub struct EvtCreateConfigV2 {
     pub config: Pubkey,
     pub quote_mint: Pubkey,
     pub fee_claimer: Pubkey,
-    pub owner: Pubkey,
+    pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
 }
 
