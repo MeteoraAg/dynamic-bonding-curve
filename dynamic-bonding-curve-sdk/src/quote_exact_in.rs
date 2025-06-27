@@ -11,7 +11,7 @@ pub fn quote_exact_in(
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
-    transfer_fee_excluded_amount_in: u64, // must be calculated from outside
+    in_amount: u64,
     has_referral: bool,
 ) -> Result<SwapResult> {
     let mut virtual_pool = *virtual_pool;
@@ -21,7 +21,7 @@ pub fn quote_exact_in(
         "virtual pool is completed"
     );
 
-    ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
+    ensure!(in_amount > 0, "amount is zero");
 
     virtual_pool.update_pre_swap(config, current_timestamp)?;
     let activation_type =
@@ -39,7 +39,7 @@ pub fn quote_exact_in(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
     let swap_result = virtual_pool.get_swap_result(
         &config,
-        transfer_fee_excluded_amount_in,
+        in_amount,
         fee_mode,
         trade_direction,
         current_point,
