@@ -8,26 +8,25 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 pub const U24_MAX: u32 = 0xffffff;
 
 pub const ONE_Q64: u128 = 1u128 << 64;
-
-pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
-
-//  bin_step << 64 / BASIS_POINT_MAX
-pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
-
 pub mod dynamic_fee {
-    pub const FILTER_PERIOD_DEFAULT: u16 = 10;
 
-    pub const DECAY_PERIOD_DEFAULT: u16 = 120;
+    pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
+
+    //  bin_step << 64 / BASIS_POINT_MAX
+    pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
+
+    pub const FILTER_PERIOD_DEFAULT: u16 = 10; // 10 seconds
+
+    pub const DECAY_PERIOD_DEFAULT: u16 = 120; // 120 seconds
 
     pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
 
     pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
 
-    // delta_bin_id = (price_ratio - 1) / bin_step
-    // delta_bin_id * BASIS_POINT_MAX
+    // refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
     pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
 
-    // (MAX_VOLATILITY_ACCUMULATOR * BIN_STEP_BPS_DEFAULT)^2
+    // refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
     pub const SQUARE_VFA_BIN: u64 = 209091600000000;
 }
 

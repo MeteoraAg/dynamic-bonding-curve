@@ -60,9 +60,9 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
 
   it("Full flow migrated to damm v2 new create pool endpoint", async () => {
     const migratedPoolFee = {
-        poolFeeBps: 100,
-        collectFeeMode: 0,
-        dynamicFee: 0
+      poolFeeBps: 100,
+      collectFeeMode: 0,
+      dynamicFee: 0
     };
     const { pool, poolConfig } = await fullFlow(
       context.banksClient,
@@ -80,9 +80,9 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     // validate pool config
     expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee)
     expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode)
-    const feeBpsValue = new BN(Buffer.from(poolConfigState.migratedPoolFeeBps).reverse()).toNumber()
+    const feeBpsValue = poolConfigState.migratedPoolFeeBps
     expect(feeBpsValue).eq(migratedPoolFee.poolFeeBps)
-    
+
     // validate pool state
     const poolFeeNumerator = migratedPoolFee.poolFeeBps * 1_000_000_000 / 10_000;
     expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator)

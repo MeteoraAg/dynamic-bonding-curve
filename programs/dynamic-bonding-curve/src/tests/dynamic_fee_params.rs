@@ -1,7 +1,7 @@
 use proptest::prelude::*;
 
-use crate::params::fee_parameters::{calculate_dynamic_fee_params, to_numerator};
-
+use crate::calculate_dynamic_fee_params;
+use crate::params::fee_parameters::to_numerator;
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: 100, .. ProptestConfig::default()
