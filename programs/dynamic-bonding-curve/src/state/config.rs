@@ -22,7 +22,41 @@ use crate::{
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
-/// collect fee mode
+/// damm v2 collect fee mode
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum Dammv2CollectFeeMode {
+    BothToken,
+    OnlyB,
+}
+
+/// pool status
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum DammV2DynamicFee {
+    Disable,
+    Enable,
+}
+
+/// base fee mode
 #[repr(u8)]
 #[derive(
     Clone,

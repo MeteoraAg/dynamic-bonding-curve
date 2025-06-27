@@ -18,8 +18,8 @@ use crate::{
     params::fee_parameters::{calculate_dynamic_fee_params, to_bps, to_numerator},
     safe_math::SafeMath,
     state::{
-        LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
-        MigrationProgress, PoolConfig, VirtualPool,
+        DammV2DynamicFee, LiquidityDistribution, MigrationAmount, MigrationFeeOption,
+        MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
     *,
 };
@@ -223,7 +223,10 @@ impl<'info> MigrateDammV2Ctx<'info> {
             };
 
             let mut dynamic_fee_params = None;
-            if migrated_pool_fee.dynamic_fee == 1 {
+
+            let migrated_dynamic_fee = DammV2DynamicFee::try_from(migrated_pool_fee.dynamic_fee)
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+            if migrated_dynamic_fee == DammV2DynamicFee::Enable {
                 dynamic_fee_params = Some(calculate_dynamic_fee_params(base_fee_numerator)?);
             }
 

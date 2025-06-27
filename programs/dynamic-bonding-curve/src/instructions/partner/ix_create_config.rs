@@ -18,8 +18,8 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, LockedVestingConfig, MigrationFeeOption, MigrationOption, PoolConfig,
-        TokenAuthorityOption, TokenType,
+        CollectFeeMode, DammV2DynamicFee, Dammv2CollectFeeMode, LockedVestingConfig,
+        MigrationFeeOption, MigrationOption, PoolConfig, TokenType, TokenUpdateAuthorityOption,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     EvtCreateConfig, EvtCreateConfigV2, PoolError,
@@ -47,7 +47,7 @@ pub struct ConfigParameters {
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: Option<MigratedPoolFee>,
     /// padding for future use
-    pub padding_1: [u64; 7],
+    pub padding_1: [u64; 6],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -95,6 +95,16 @@ impl MigratedPoolFee {
             PoolError::InvalidMigratedPoolFee
         );
 
+        // validate collect fee mode
+        require!(
+            Dammv2CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
+            PoolError::InvalidMigratedPoolFee
+        );
+        // validate migrated dynamic fee option
+        require!(
+            DammV2DynamicFee::try_from(self.dynamic_fee).is_ok(),
+            PoolError::InvalidMigratedPoolFee
+        );
         Ok(())
     }
 }
@@ -494,34 +504,27 @@ pub fn handle_create_config(
     });
 
     emit_cpi!(EvtCreateConfigV2 {
-        config: ctx.accounts.config.key(),
-        fee_claimer: ctx.accounts.fee_claimer.key(),
-        quote_mint: ctx.accounts.quote_mint.key(),
-        owner: ctx.accounts.leftover_receiver.key(),
         pool_fees,
         collect_fee_mode,
         migration_option,
         activation_type,
-        token_decimal,
         token_type,
-        partner_locked_lp_percentage,
+        token_decimal,
         partner_lp_percentage,
-        creator_locked_lp_percentage,
+        partner_locked_lp_percentage,
         creator_lp_percentage,
-        swap_base_amount,
+        creator_locked_lp_percentage,
         migration_quote_threshold,
-        migration_base_amount,
         sqrt_start_price,
-        fixed_token_supply_flag,
-        pre_migration_token_supply,
-        post_migration_token_supply,
         locked_vesting,
         migration_fee_option,
+        token_supply,
+        curve,
+        creator_trading_fee_percentage,
+        token_update_authority,
         migration_fee,
         migrated_pool_fee,
-        padding0: [0u8; 32],
-        padding1: [0u64; 8],
-        curve
+        padding_1: config_parameters.padding_1
     });
 
     Ok(())
