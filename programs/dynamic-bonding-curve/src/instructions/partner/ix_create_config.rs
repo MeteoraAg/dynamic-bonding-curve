@@ -25,7 +25,7 @@ use crate::{
     EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ConfigParameters {
     pub pool_fees: PoolFeeParameters,
     pub collect_fee_mode: u8,
@@ -47,6 +47,7 @@ pub struct ConfigParameters {
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: Option<MigratedPoolFee>,
     /// padding for future use
+    pub padding_0: [u8; 7],
     pub padding_1: [u64; 6],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
@@ -261,12 +262,11 @@ impl ConfigParameters {
             .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
         if migration_fee_option == MigrationFeeOption::Customizable {
-            require!(
-                self.migrated_pool_fee.is_some(),
-                PoolError::InvalidMigratedPoolFee
-            );
+            let migrated_pool_fee = self
+                .migrated_pool_fee
+                .ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
 
-            self.migrated_pool_fee.unwrap().validate()?;
+            migrated_pool_fee.validate()?;
 
             require!(
                 migration_option_value == MigrationOption::DammV2,
@@ -366,7 +366,7 @@ pub fn handle_create_config(
         migration_fee,
         migrated_pool_fee,
         ..
-    } = config_parameters;
+    } = config_parameters.clone();
 
     let sqrt_migration_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
@@ -500,31 +500,15 @@ pub fn handle_create_config(
         post_migration_token_supply,
         locked_vesting,
         migration_fee_option,
-        curve: curve.clone()
+        curve
     });
 
     emit_cpi!(EvtCreateConfigV2 {
-        pool_fees,
-        collect_fee_mode,
-        migration_option,
-        activation_type,
-        token_type,
-        token_decimal,
-        partner_lp_percentage,
-        partner_locked_lp_percentage,
-        creator_lp_percentage,
-        creator_locked_lp_percentage,
-        migration_quote_threshold,
-        sqrt_start_price,
-        locked_vesting,
-        migration_fee_option,
-        token_supply,
-        curve,
-        creator_trading_fee_percentage,
-        token_update_authority,
-        migration_fee,
-        migrated_pool_fee,
-        padding_1: config_parameters.padding_1
+        config: ctx.accounts.config.key(),
+        fee_claimer: ctx.accounts.fee_claimer.key(),
+        quote_mint: ctx.accounts.quote_mint.key(),
+        owner: ctx.accounts.leftover_receiver.key(),
+        config_parameters: config_parameters
     });
 
     Ok(())

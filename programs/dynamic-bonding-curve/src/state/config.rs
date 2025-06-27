@@ -398,13 +398,13 @@ pub enum TokenType {
     AnchorSerialize,
 )]
 pub enum MigrationFeeOption {
-    FixedBps25,  // 0.25%
-    FixedBps30,  // 0.3%
-    FixedBps100, // 1%
-    FixedBps200, // 2%
-    FixedBps400, // 4%
-    FixedBps600, // 6%
-    Customizable,
+    FixedBps25,   // 0.25%
+    FixedBps30,   // 0.3%
+    FixedBps100,  // 1%
+    FixedBps200,  // 2%
+    FixedBps400,  // 4%
+    FixedBps600,  // 6%
+    Customizable, // Migration with customizable pool
 }
 
 impl MigrationFeeOption {
