@@ -19,7 +19,7 @@ use crate::{
     safe_math::SafeMath,
     state::{
         CollectFeeMode, DammV2DynamicFee, Dammv2CollectFeeMode, LockedVestingConfig,
-        MigrationFeeOption, MigrationOption, PoolConfig, TokenType, TokenUpdateAuthorityOption,
+        MigrationFeeOption, MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     EvtCreateConfig, EvtCreateConfigV2, PoolError,
