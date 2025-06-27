@@ -14,20 +14,23 @@ pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
 //  bin_step << 64 / BASIS_POINT_MAX
 pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
 
-pub const FILTER_PERIOD_DEFAULT: u16 = 10;
+pub mod dynamic_fee {
+    pub const FILTER_PERIOD_DEFAULT: u16 = 10;
 
-pub const DECAY_PERIOD_DEFAULT: u16 = 120;
+    pub const DECAY_PERIOD_DEFAULT: u16 = 120;
 
-pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
+    pub const REDUCTION_FACTOR_DEFAULT: u16 = 5000; // 50%
 
-pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
+    pub const MAX_DYNAMIC_FEE_PERCENT: u8 = 20; // 20% of base fee
 
-// delta_bin_id = (price_ratio - 1) / bin_step
-// delta_bin_id * BASIS_POINT_MAX
-pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
+    // delta_bin_id = (price_ratio - 1) / bin_step
+    // delta_bin_id * BASIS_POINT_MAX
+    pub const MAX_VOLATILITY_ACCUMULATOR: u32 = 14460000;
 
-// (MAX_VOLATILITY_ACCUMULATOR * BIN_STEP_BPS_DEFAULT)^2
-pub const SQUARE_VFA_BIN: u64 = 209091600000000;
+    // (MAX_VOLATILITY_ACCUMULATOR * BIN_STEP_BPS_DEFAULT)^2
+    pub const SQUARE_VFA_BIN: u64 = 209091600000000;
+}
+
 // Number of bits to scale. This will decide the position of the radix point.
 
 pub const MIN_MIGRATED_POOL_FEE_BPS: u16 = 10; // 0.1%
