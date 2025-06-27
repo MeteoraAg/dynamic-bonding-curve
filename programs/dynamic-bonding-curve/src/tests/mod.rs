@@ -21,3 +21,6 @@ mod test_rate_limiter;
 
 #[cfg(test)]
 mod dynamic_fee_params;
+
+#[cfg(test)]
+mod constants_assertion;
