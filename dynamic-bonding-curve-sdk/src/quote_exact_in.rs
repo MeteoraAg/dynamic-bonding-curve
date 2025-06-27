@@ -6,7 +6,7 @@ use dynamic_bonding_curve::{
 };
 
 pub fn quote_exact_in(
-    virtual_pool: &VirtualPool,
+    pool: &VirtualPool,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
@@ -14,16 +14,16 @@ pub fn quote_exact_in(
     in_amount: u64,
     has_referral: bool,
 ) -> Result<SwapResult> {
-    let mut virtual_pool = *virtual_pool;
+    let mut pool = *pool;
 
     ensure!(
-        !virtual_pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
     );
 
     ensure!(in_amount > 0, "amount is zero");
 
-    virtual_pool.update_pre_swap(config, current_timestamp)?;
+    pool.update_pre_swap(config, current_timestamp)?;
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
     let current_point = match activation_type {
@@ -37,13 +37,8 @@ pub fn quote_exact_in(
         TradeDirection::QuoteToBase
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
-    let swap_result = virtual_pool.get_swap_result(
-        &config,
-        in_amount,
-        fee_mode,
-        trade_direction,
-        current_point,
-    )?;
+    let swap_result =
+        pool.get_swap_result(&config, in_amount, fee_mode, trade_direction, current_point)?;
 
     Ok(swap_result)
 }

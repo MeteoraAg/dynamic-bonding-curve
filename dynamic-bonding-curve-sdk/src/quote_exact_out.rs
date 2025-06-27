@@ -18,23 +18,23 @@ use dynamic_bonding_curve::{
 use ruint::aliases::U256;
 // reverse function of quote_exact_in
 pub fn quote_exact_out(
-    virtual_pool: &VirtualPool,
+    pool: &VirtualPool,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
     out_amount: u64,
 ) -> Result<SwapResult> {
-    let mut virtual_pool = *virtual_pool;
+    let mut pool = *pool;
 
     ensure!(
-        !virtual_pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
     );
 
     ensure!(out_amount > 0, "amount is zero");
 
-    virtual_pool.update_pre_swap(config, current_timestamp)?;
+    pool.update_pre_swap(config, current_timestamp)?;
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
     let current_point = match activation_type {
@@ -53,7 +53,7 @@ pub fn quote_exact_out(
         ensure!(
             !rate_limiter.is_rate_limiter_applied(
                 current_point,
-                virtual_pool.activation_point,
+                pool.activation_point,
                 trade_direction,
             )?,
             "Not support in rate limiter duration"
@@ -63,7 +63,7 @@ pub fn quote_exact_out(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false)?;
 
     let swap_result = get_swap_result_from_out_amount(
-        &virtual_pool,
+        &pool,
         &config,
         out_amount,
         fee_mode,
@@ -356,6 +356,8 @@ fn get_in_amount_from_quote_to_base(
                 config.curve[i].liquidity,
                 Rounding::Down,
             )?;
+
+            println!("max_amount_out {} {}", max_amount_out, i);
             if U256::from(amount_left) < max_amount_out {
                 let next_sqrt_price = get_next_sqrt_price_from_output(
                     current_sqrt_price,
