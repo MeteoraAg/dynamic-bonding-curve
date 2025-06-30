@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT},
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
@@ -51,8 +51,8 @@ pub struct PoolFeesConfig {
     pub dynamic_fee: DynamicFeeConfig,
     pub padding_0: [u64; 5],
     pub padding_1: [u8; 6],
-    pub protocol_fee_percent: u8,
-    pub referral_fee_percent: u8,
+    /// padding, previous protocol_fee_percent, referral_fee_percent. be careful when use this field
+    pub padding_2: [u8; 2],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -118,7 +118,7 @@ impl PoolFeesConfig {
 
         let protocol_fee = safe_mul_div_cast_u64(
             trading_fee,
-            self.protocol_fee_percent.into(),
+            PROTOCOL_FEE_PERCENT.into(),
             100,
             Rounding::Down,
         )?;
@@ -127,12 +127,7 @@ impl PoolFeesConfig {
         let trading_fee: u64 = trading_fee.safe_sub(protocol_fee)?;
 
         let referral_fee = if has_referral {
-            safe_mul_div_cast_u64(
-                protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
+            safe_mul_div_cast_u64(protocol_fee, HOST_FEE_PERCENT.into(), 100, Rounding::Down)?
         } else {
             0
         };
