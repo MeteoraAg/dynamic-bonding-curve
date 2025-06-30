@@ -145,6 +145,8 @@ export async function migrateToDammV2(
     transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
     transaction.sign(payer, firstPositionNftKP, secondPositionNftKP);
     await processTransactionMaybeThrow(banksClient, transaction);
+
+    return dammPool
 }
 
 export function deriveDammV2EventAuthority() {
@@ -185,4 +187,17 @@ export function deriveTokenVaultAddress(
         [Buffer.from("token_vault"), tokenMint.toBuffer(), pool.toBuffer()],
         DAMM_V2_PROGRAM_ID
     )[0];
+}
+
+
+export function convertCollectFeeModeToDammv2(
+    dbcCollectFeeMode: number,
+): number {
+    if (dbcCollectFeeMode == 0) {
+        return 1;
+    } else if (dbcCollectFeeMode == 1) {
+        return 0;
+    } else {
+        throw Error("Not supported")
+    }
 }

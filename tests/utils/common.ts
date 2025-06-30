@@ -394,7 +394,34 @@ export async function createDammV2Config(
     DAMM_V2_PROGRAM_ID
   );
   const transaction = await program.methods
-    .createConfig(params)
+    .createConfig(new BN(0), params)
+    .accountsPartial({
+      config,
+      admin: payer.publicKey,
+    })
+    .transaction();
+
+  const [recentBlockhash] = await banksClient.getLatestBlockhash();
+  transaction.recentBlockhash = recentBlockhash;
+  transaction.sign(payer);
+  await banksClient.processTransaction(transaction);
+
+  return config;
+}
+
+export async function createDammV2DynamicConfig(
+  banksClient: BanksClient,
+  payer: Keypair,
+  poolCreatorAuthority: PublicKey
+): Promise<PublicKey> {
+  const program = createDammV2Program();
+ 
+  const [config] = PublicKey.findProgramAddressSync(
+    [Buffer.from("config"), new BN(0).toBuffer("le", 8)],
+    DAMM_V2_PROGRAM_ID
+  );
+  const transaction = await program.methods
+    .createDynamicConfig(new BN(0), {poolCreatorAuthority})
     .accountsPartial({
       config,
       admin: payer.publicKey,

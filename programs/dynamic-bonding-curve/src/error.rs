@@ -136,4 +136,7 @@ pub enum PoolError {
 
     #[msg("Fail to validate single swap instruction in rate limiter")]
     FailToValidateSingleSwapInstruction,
+
+    #[msg("Invalid migrated pool fee params")]
+    InvalidMigratedPoolFee,
 }

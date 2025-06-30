@@ -113,7 +113,7 @@ describe("Create locker", () => {
                     feePercentage: 0,
                     creatorFeePercentage: 0,
                 },
-                padding0: [],
+                migratedPoolFee: null,
                 padding1: [],
                 curve: curves,
             };
@@ -279,7 +279,7 @@ describe("Create locker", () => {
                     feePercentage: 0,
                     creatorFeePercentage: 0,
                 },
-                padding0: [],
+                migratedPoolFee: null,
                 padding1: [],
                 curve: curves,
             };

@@ -5,7 +5,10 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     activation_handler::ActivationType,
-    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{
+        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_SQRT_PRICE, MIN_MIGRATED_POOL_FEE_BPS,
+        MIN_SQRT_PRICE,
+    },
     params::{
         fee_parameters::PoolFeeParameters,
         liquidity_distribution::{
@@ -19,10 +22,10 @@ use crate::{
         TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
-    EvtCreateConfig, PoolError,
+    DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ConfigParameters {
     pub pool_fees: PoolFeeParameters,
     pub collect_fee_mode: u8,
@@ -42,9 +45,10 @@ pub struct ConfigParameters {
     pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
-    pub padding_0: [u8; 4],
+    pub migrated_pool_fee: Option<MigratedPoolFee>,
     /// padding for future use
-    pub padding_1: [u64; 7],
+    pub padding_0: [u8; 7],
+    pub padding_1: [u64; 6],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -72,6 +76,36 @@ impl MigrationFee {
                 PoolError::InvalidMigratorFeePercentage
             );
         }
+        Ok(())
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
+pub struct MigratedPoolFee {
+    pub collect_fee_mode: u8,
+    pub dynamic_fee: u8,
+    pub pool_fee_bps: u16,
+}
+const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
+
+impl MigratedPoolFee {
+    pub fn validate(&self) -> Result<()> {
+        require!(
+            self.pool_fee_bps >= MIN_MIGRATED_POOL_FEE_BPS
+                && self.pool_fee_bps <= MAX_MIGRATED_POOL_FEE_BPS,
+            PoolError::InvalidMigratedPoolFee
+        );
+
+        // validate collect fee mode
+        require!(
+            CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
+            PoolError::InvalidMigratedPoolFee
+        );
+        // validate migrated dynamic fee option
+        require!(
+            DammV2DynamicFee::try_from(self.dynamic_fee).is_ok(),
+            PoolError::InvalidMigratedPoolFee
+        );
         Ok(())
     }
 }
@@ -224,10 +258,10 @@ impl ConfigParameters {
         self.locked_vesting.validate()?;
 
         // validate migrate fee option
-        require!(
-            MigrationFeeOption::try_from(self.migration_fee_option).is_ok(),
-            PoolError::InvalidMigrationFeeOption
-        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+
+        migration_fee_option.validate(migration_option_value, &self.migrated_pool_fee)?;
 
         // validate price and liquidity
         require!(
@@ -314,8 +348,9 @@ pub fn handle_create_config(
         creator_trading_fee_percentage,
         token_update_authority,
         migration_fee,
+        migrated_pool_fee,
         ..
-    } = config_parameters;
+    } = config_parameters.clone();
 
     let sqrt_migration_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
@@ -384,6 +419,12 @@ pub fn handle_create_config(
             (0, 0, 0)
         };
 
+    let MigratedPoolFee {
+        pool_fee_bps: migrated_pool_fee_bps,
+        collect_fee_mode: migrated_collect_fee_mode,
+        dynamic_fee: migrated_dynamic_fee,
+    } = migrated_pool_fee.unwrap_or_default();
+
     let mut config = ctx.accounts.config.load_init()?;
     config.init(
         &ctx.accounts.quote_mint.key(),
@@ -413,6 +454,9 @@ pub fn handle_create_config(
         fixed_token_supply_flag,
         pre_migration_token_supply,
         post_migration_token_supply,
+        migrated_pool_fee_bps,
+        migrated_collect_fee_mode,
+        migrated_dynamic_fee,
         &curve,
     );
 
@@ -441,6 +485,14 @@ pub fn handle_create_config(
         locked_vesting,
         migration_fee_option,
         curve
+    });
+
+    emit_cpi!(EvtCreateConfigV2 {
+        config: ctx.accounts.config.key(),
+        fee_claimer: ctx.accounts.fee_claimer.key(),
+        quote_mint: ctx.accounts.quote_mint.key(),
+        leftover_receiver: ctx.accounts.leftover_receiver.key(),
+        config_parameters: config_parameters
     });
 
     Ok(())

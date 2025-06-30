@@ -6,7 +6,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::SwapResult,
-    LockedVestingParams, SwapParameters,
+    ConfigParameters, LockedVestingParams, SwapParameters,
 };
 
 /// Create partner metadata
@@ -49,6 +49,15 @@ pub struct EvtCreateConfig {
     pub pre_migration_token_supply: u64,
     pub post_migration_token_supply: u64,
     pub curve: Vec<LiquidityDistributionParameters>,
+}
+
+#[event]
+pub struct EvtCreateConfigV2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
 }
 
 /// Create claim fee operator
