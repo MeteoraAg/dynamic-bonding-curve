@@ -21,8 +21,8 @@ use crate::instruction::Swap as SwapInstruction;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters {
-    amount_in: u64,
-    minimum_amount_out: u64,
+    pub amount_in: u64,
+    pub minimum_amount_out: u64,
 }
 
 #[event_cpi]
