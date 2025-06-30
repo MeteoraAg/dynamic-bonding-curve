@@ -188,3 +188,16 @@ export function deriveTokenVaultAddress(
         DAMM_V2_PROGRAM_ID
     )[0];
 }
+
+
+export function convertCollectFeeModeToDammv2(
+    dbcCollectFeeMode: number,
+): number {
+    if (dbcCollectFeeMode == 0) {
+        return 1;
+    } else if (dbcCollectFeeMode == 1) {
+        return 0;
+    } else {
+        throw Error("Not supported")
+    }
+}

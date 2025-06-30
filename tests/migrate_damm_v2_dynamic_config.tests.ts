@@ -25,6 +25,7 @@ import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
 import { NATIVE_MINT } from "@solana/spl-token";
 
 import {
+  convertCollectFeeModeToDammv2,
   createMeteoraDammV2Metadata,
   MigrateMeteoraDammV2Params,
   migrateToDammV2,
@@ -86,7 +87,7 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     // validate pool state
     const poolFeeNumerator = migratedPoolFee.poolFeeBps * 1_000_000_000 / 10_000;
     expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator)
-    expect(dammPoolState.collectFeeMode).eq(migratedPoolFee.collectFeeMode)
+    expect(dammPoolState.collectFeeMode).eq(convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode))
     expect(dammPoolState.poolFees.dynamicFee.initialized).eq(migratedPoolFee.dynamicFee)
   });
 

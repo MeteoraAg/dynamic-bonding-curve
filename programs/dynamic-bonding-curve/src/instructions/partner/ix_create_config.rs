@@ -22,7 +22,7 @@ use crate::{
         TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
-    DammV2DynamicFee, Dammv2CollectFeeMode, EvtCreateConfig, EvtCreateConfigV2, PoolError,
+    DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -98,7 +98,7 @@ impl MigratedPoolFee {
 
         // validate collect fee mode
         require!(
-            Dammv2CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
+            CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
             PoolError::InvalidMigratedPoolFee
         );
         // validate migrated dynamic fee option

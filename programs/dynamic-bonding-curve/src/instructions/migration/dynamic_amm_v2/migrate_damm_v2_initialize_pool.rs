@@ -230,6 +230,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 referral_fee_percent: 20,
                 dynamic_fee: dynamic_fee_params,
             };
+
+            let collect_fee_mode =
+                convert_collect_fee_mode_to_dammv2(config.migrated_collect_fee_mode)?;
             let initialize_pool_params = InitializeCustomizablePoolParameters {
                 pool_fees,
                 sqrt_min_price: MIN_SQRT_PRICE,
@@ -238,7 +241,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 liquidity,
                 sqrt_price,
                 activation_type: 1, // timestamp
-                collect_fee_mode: config.migrated_collect_fee_mode,
+                collect_fee_mode,
                 activation_point: None,
             };
             damm_v2::cpi::initialize_pool_with_dynamic_config(
