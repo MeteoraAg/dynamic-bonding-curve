@@ -87,6 +87,20 @@ pub struct EvtSwap {
 }
 
 #[event]
+pub struct EvtSwapV2 {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub params: SwapParameters,
+    pub swap_result: SwapResult,
+    pub amount_in: u64,
+    pub current_timestamp: u64,
+    pub quote_reserve: u64,
+    pub migration_quote_threshold: u64,
+}
+
+#[event]
 pub struct EvtCurveComplete {
     pub pool: Pubkey,
     pub config: Pubkey,
