@@ -175,9 +175,9 @@ export type SwapParams2 = {
   pool: PublicKey;
   inputTokenMint: PublicKey;
   outputTokenMint: PublicKey;
-  amountIn: BN;
-  minimumAmountOut: BN;
-  swapMode: number,
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
   referralTokenAccount: PublicKey | null;
 };
 
@@ -279,13 +279,15 @@ export async function swap(
       tokenBaseProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount,
-    }).remainingAccounts( // TODO should check condition to add this in remaning accounts
+    })
+    .remainingAccounts(
+      // TODO should check condition to add this in remaning accounts
       [
         {
           isSigner: false,
           isWritable: false,
           pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        }
+        },
       ]
     )
     .preInstructions(preInstructions)
@@ -370,7 +372,12 @@ export async function getSwapInstruction(
   ]);
 
   const instruction = await program.methods
-    .swap2({ amountIn, minimumAmountOut, swapMode: 0, padding: new Array(32).fill(0)  })
+    .swap2({
+      amountIn,
+      minimumAmountOut,
+      swapMode: 0,
+      padding: new Array(32).fill(0),
+    })
     .accountsPartial({
       poolAuthority,
       config,
@@ -385,15 +392,14 @@ export async function getSwapInstruction(
       tokenBaseProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount,
-    }).remainingAccounts(
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        }
-      ]
-    )
+    })
+    .remainingAccounts([
+      {
+        isSigner: false,
+        isWritable: false,
+        pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      },
+    ])
     .instruction();
 
   return instruction;
@@ -416,8 +422,8 @@ export async function swap2(
     pool,
     inputTokenMint,
     outputTokenMint,
-    amountIn,
-    minimumAmountOut,
+    amount0: amountIn,
+    amount1: minimumAmountOut,
     referralTokenAccount,
     swapMode,
   } = params;
@@ -483,7 +489,12 @@ export async function swap2(
   }
 
   const transaction = await program.methods
-    .swap2({ amountIn, minimumAmountOut, swapMode, padding: new Array(32).fill(0) })
+    .swap2({
+      amount0: amountIn,
+      amount1: minimumAmountOut,
+      swapMode,
+      padding: new Array(32).fill(0),
+    })
     .accountsPartial({
       poolAuthority,
       config,
@@ -501,6 +512,11 @@ export async function swap2(
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
+    .remainingAccounts([{
+      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      isSigner: false,
+      isWritable: false
+    }])
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];

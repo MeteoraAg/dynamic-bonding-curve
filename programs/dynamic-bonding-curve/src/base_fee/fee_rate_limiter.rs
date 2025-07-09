@@ -1,3 +1,5 @@
+use std::u64;
+
 use crate::{
     activation_handler::ActivationType,
     constants::{
@@ -6,7 +8,7 @@ use crate::{
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
     safe_math::SafeMath,
-    state::CollectFeeMode,
+    state::{CollectFeeMode, PoolFeesConfig},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
@@ -76,6 +78,145 @@ impl FeeRateLimiter {
         Ok(max_index)
     }
 
+    pub fn get_max_out_amount_with_min_base_fee(&self) -> Result<u64> {
+        self.get_excluded_fee_amount(self.reference_amount)
+    }
+
+    pub fn get_checked_amounts(&self) -> Result<(u64, u64, bool)> {
+        let max_index = self.get_max_index()?;
+        let x0 = U256::from(self.reference_amount);
+        let one = U256::from(1);
+        let max_index_input_amount = (U256::from(max_index) + one) * x0;
+        if max_index_input_amount <= U256::from(u64::MAX) {
+            let checked_included_fee_amount = max_index_input_amount
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?;
+            let checked_output_amount =
+                self.get_excluded_fee_amount(checked_included_fee_amount)?;
+            Ok((checked_output_amount, checked_included_fee_amount, false))
+        } else {
+            let checked_excluded_fee_amount = self.get_excluded_fee_amount(u64::MAX)?;
+            Ok((checked_excluded_fee_amount, u64::MAX, true))
+        }
+    }
+
+    // Need to categorize in 3 cases:
+    // - excluded_fee_amount <= get_excluded_fee_amount(reference_amount)
+    // - excluded_fee_amount > get_excluded_fee_amount(reference_amount) && excluded_fee_amount < get_excluded_fee_amount(reference_amount * (max_index+1))
+    // - excluded_fee_amount >= get_excluded_fee_amount(reference_amount * (max_index+1))
+    // Note: because excluded_fee_amount = included_fee_amount - fee_numerator * included_fee_amount / fee_denominator
+    // It is very difficult to calculate exactly fee_numerator from excluded_fee_amount,
+    // With any precision difference, even 1 unit, the excluded_fee_amount will be changed a lot when value of included_fee_amount is high
+    // Then a sanity check here is we just ensure fee_numerator >= cliff_fee_numerator
+    pub fn get_included_fee_amount(&self, excluded_fee_amount: u64) -> Result<u64> {
+        let excluded_fee_reference_amount = self.get_excluded_fee_amount(self.reference_amount)?;
+        if excluded_fee_amount <= excluded_fee_reference_amount {
+            let included_fee_amount = PoolFeesConfig::get_included_fee_amount(
+                self.cliff_fee_numerator,
+                excluded_fee_amount,
+            )?;
+            return Ok(included_fee_amount);
+        }
+        let (checked_excluded_fee_amount, checked_included_fee_amount, is_overflow) =
+            self.get_checked_amounts()?;
+        // add the early check
+        if excluded_fee_amount == checked_excluded_fee_amount {
+            return Ok(checked_included_fee_amount);
+        }
+        let included_fee_amount = if excluded_fee_amount < checked_excluded_fee_amount {
+            let two = U256::from(2);
+            let four = U256::from(4);
+            // d: fee denominator
+            // ex: excluded_fee_amount
+            // input_amount = x0 + (a * x0)
+            // fee = x0 * (c + c*a + i*a*(a+1)/2) / d
+            // fee = x0 * (a+1) * (c + i*a/2) / d
+            // fee = input_amount * (c + i * (input_amount/x0-1)/2) / d
+            // ex = input_amount - fee
+            // ex = input_amount - input_amount * (c + i * (input_amount/x0-1)/2) / d
+            // ex * d * 2 = input_amount * d * 2 - input_amount * (2 * c + i * (input_amount/x0-1))
+            // ex * d * 2 * x0 = input_amount * d * 2 * x0 - input_amount * (2 * c * x0 + i * (input_amount-x0))
+            // ex * d * 2 * x0 = input_amount * d * 2 * x0 - input_amount * (2 * c * x0 + i * input_amount- i*x0)
+            // ex * d * 2 * x0 = input_amount * d * 2 * x0 - input_amount * 2 * c * x0 - i * input_amount ^ 2 + input_amount * i*x0
+            // i * input_amount ^ 2 - input_amount * (-2 * c * x0 + i*x0 + d * 2 * x0) + ex * d * 2 * x0 = 0
+            // equation: x * input_amount ^ 2  - y * input_amount + z = 0
+            // x = i, y =  (-2 * c * x0 + i*x0 + d * 2 * x0), z = ex * d * 2 * x0
+            // input_amount = (y +(-) sqrt(y^2 - 4xz)) / 2x
+            let i = U256::from(to_numerator(
+                self.fee_increment_bps.into(),
+                FEE_DENOMINATOR.into(),
+            )?);
+            let x0 = U256::from(self.reference_amount);
+            let d = U256::from(FEE_DENOMINATOR);
+            let c = U256::from(self.cliff_fee_numerator);
+            let ex = U256::from(excluded_fee_amount);
+
+            let x = i; // x > 0
+            let y = two * d * x0 + i * x0 - two * c * x0; // y is always greater than zero
+            let z = two * ex * d * x0;
+
+            // solve quaratic equation
+            // check it again, why sub, not add
+            let included_fee_amount = (y - sqrt(y * y - four * x * z)) / (two * x);
+            let a_plus_one = included_fee_amount.safe_div(x0)?;
+
+            let first_excluded_fee_amount = self.get_excluded_fee_amount(
+                included_fee_amount
+                    .try_into()
+                    .map_err(|_| PoolError::TypeCastFailed)?,
+            )?;
+            let excluded_fee_remaining_amount =
+                excluded_fee_amount.safe_sub(first_excluded_fee_amount)?;
+
+            let remaining_amount_fee_numerator = c + i * a_plus_one;
+
+            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+                remaining_amount_fee_numerator
+                    .try_into()
+                    .map_err(|_| PoolError::TypeCastFailed)?,
+                excluded_fee_remaining_amount,
+            )?;
+
+            let total_in_amount =
+                included_fee_amount.safe_add(U256::from(included_fee_remaining_amount))?;
+            let total_in_amount = total_in_amount
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?;
+            total_in_amount
+        } else {
+            // excluded_fee_amount > checked_excluded_fee_amount
+            if is_overflow {
+                return Err(PoolError::MathOverflow.into());
+            }
+            let excluded_fee_remaining_amount =
+                excluded_fee_amount.safe_sub(checked_excluded_fee_amount)?;
+            // remaining_amount should take the max fee
+            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+                MAX_FEE_NUMERATOR,
+                excluded_fee_remaining_amount,
+            )?;
+
+            let total_amount_in =
+                included_fee_remaining_amount.safe_add(checked_included_fee_amount)?;
+            total_amount_in
+        };
+        // sanity check
+        let (max_excluded_fee_amount, _fee) =
+            PoolFeesConfig::get_excluded_fee_amount(self.cliff_fee_numerator, included_fee_amount)?;
+        require!(
+            max_excluded_fee_amount >= excluded_fee_amount,
+            PoolError::UndeterminedError
+        );
+        Ok(included_fee_amount)
+    }
+
+    pub fn get_excluded_fee_amount(&self, included_fee_amount: u64) -> Result<u64> {
+        let fee_numerator = self.get_fee_numerator_from_amount(included_fee_amount)?;
+        let (excluded_fee_amount, _fee) =
+            PoolFeesConfig::get_excluded_fee_amount(fee_numerator, included_fee_amount)?;
+        Ok(excluded_fee_amount)
+    }
+
     // export function for testing
     pub fn get_fee_numerator_from_amount(&self, input_amount: u64) -> Result<u64> {
         let fee_numerator = if input_amount <= self.reference_amount {
@@ -135,7 +276,7 @@ impl BaseFeeHandler for FeeRateLimiter {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
         let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        // can only be apllied in quote token collect fee mode
+        // can only be applied in quote token collect fee mode
         require!(
             collect_fee_mode == CollectFeeMode::QuoteToken,
             PoolError::InvalidFeeRateLimiter
@@ -195,4 +336,24 @@ impl BaseFeeHandler for FeeRateLimiter {
             Ok(self.cliff_fee_numerator)
         }
     }
+}
+
+// TODO fix this
+fn sqrt(y: U256) -> U256 {
+    let two = U256::from(2);
+    let one = U256::from(1);
+    let mut z: U256;
+    if y > U256::from(3) {
+        z = y;
+        let mut x = y / two + one;
+        while x < z {
+            z = x;
+            x = (y / x + x) / two;
+        }
+    } else if y != U256::ZERO {
+        z = U256::from(1);
+    } else {
+        z = U256::from(0);
+    };
+    z
 }

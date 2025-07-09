@@ -41,7 +41,7 @@ pub fn quote_exact_in(
         TradeDirection::QuoteToBase
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
-    let (swap_result, _user_pay_input_amount) = virtual_pool.get_swap_result(
+    let (swap_result, _user_pay_input_amount) = virtual_pool.get_swap_exact_in_result(
         &config,
         transfer_fee_excluded_amount_in,
         fee_mode,
