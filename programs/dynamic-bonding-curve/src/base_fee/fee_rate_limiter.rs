@@ -10,7 +10,7 @@ use crate::{
     safe_math::SafeMath,
     state::{CollectFeeMode, PoolFeesConfig},
     u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u64,
+    utils_math::{safe_mul_div_cast_u64, sqrt_u256},
     PoolError,
 };
 
@@ -157,7 +157,9 @@ impl FeeRateLimiter {
 
             // solve quaratic equation
             // check it again, why sub, not add
-            let included_fee_amount = (y - sqrt(y * y - four * x * z)) / (two * x);
+            let included_fee_amount = (y - sqrt_u256(y * y - four * x * z)
+                .ok_or_else(|| PoolError::MathOverflow)?)
+                / (two * x);
             let a_plus_one = included_fee_amount.safe_div(x0)?;
 
             let first_excluded_fee_amount = self.get_excluded_fee_amount(
@@ -336,24 +338,4 @@ impl BaseFeeHandler for FeeRateLimiter {
             Ok(self.cliff_fee_numerator)
         }
     }
-}
-
-// TODO fix this
-fn sqrt(y: U256) -> U256 {
-    let two = U256::from(2);
-    let one = U256::from(1);
-    let mut z: U256;
-    if y > U256::from(3) {
-        z = y;
-        let mut x = y / two + one;
-        while x < z {
-            z = x;
-            x = (y / x + x) / two;
-        }
-    } else if y != U256::ZERO {
-        z = U256::from(1);
-    } else {
-        z = U256::from(0);
-    };
-    z
 }

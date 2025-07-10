@@ -21,3 +21,6 @@ mod test_rate_limiter;
 
 #[cfg(test)]
 mod test_inverse_fee;
+
+#[cfg(test)]
+mod test_math_utils;
