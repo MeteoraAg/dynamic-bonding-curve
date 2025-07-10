@@ -24,3 +24,6 @@ mod dynamic_fee_params;
 
 #[cfg(test)]
 mod test_inverse_fee;
+
+#[cfg(test)]
+mod test_math_utils;

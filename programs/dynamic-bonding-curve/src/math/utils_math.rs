@@ -67,3 +67,30 @@ pub fn safe_shl_div_cast<T: FromPrimitive>(
     T::from_u128(shl_div(x, y, offset, rounding).ok_or_else(|| PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
 }
+
+// https://github.com/solana-labs/solana-program-library/blob/master/libraries/math/src/approximations.rs#L18
+// https://github.com/richard-uk1/integer-sqrt-rs
+// https://en.wikipedia.org/wiki/Square_root_algorithms#Binary_numeral_system_(base_2)
+pub fn sqrt_u256(radicand: U256) -> Option<U256> {
+    if radicand == U256::ZERO {
+        return Some(U256::ZERO);
+    }
+    // Compute bit, the largest power of 4 <= n
+    let max_shift = U256::ZERO.leading_zeros() - 1;
+    let shift = (max_shift - radicand.leading_zeros()) & !1;
+    let mut bit = U256::ONE.checked_shl(shift)?;
+
+    let mut n = radicand;
+    let mut result = U256::ZERO;
+    while bit != U256::ZERO {
+        let result_with_bit = result.checked_add(bit)?;
+        if n >= result_with_bit {
+            n = n.checked_sub(result_with_bit)?;
+            result = result.checked_shr(1)?.checked_add(bit)?;
+        } else {
+            result = result.checked_shr(1)?;
+        }
+        (bit, _) = bit.overflowing_shr(2);
+    }
+    Some(result)
+}
