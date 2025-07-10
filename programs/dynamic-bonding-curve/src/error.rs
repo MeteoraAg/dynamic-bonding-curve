@@ -136,4 +136,10 @@ pub enum PoolError {
 
     #[msg("Fail to validate single swap instruction in rate limiter")]
     FailToValidateSingleSwapInstruction,
+
+    #[msg("Undertermined error")]
+    UndeterminedError,
+
+    #[msg("Rate limiter not supported")]
+    RateLimiterNotSupported,
 }
