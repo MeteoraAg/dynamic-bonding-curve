@@ -18,7 +18,7 @@ use anchor_lang::solana_program::instruction::{
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use num_enum::{FromPrimitive, IntoPrimitive, TryFromPrimitive};
+use num_enum::{FromPrimitive, IntoPrimitive};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters {
@@ -159,6 +159,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
+    let rate_limiter = rate_limiter.ok();
     let process_swap_params = ProcessSwapParams {
         pool: &mut pool,
         config: &config,
@@ -168,6 +169,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         amount_0,
         amount_1,
         swap_mode,
+        rate_limiter: rate_limiter.as_ref(),
     };
 
     let ProcessSwapResult {
@@ -176,9 +178,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         swap_in_parameters,
     } = match swap_mode {
         SwapMode::ExactIn | SwapMode::PartialFill => process_swap_exact_in(process_swap_params)?,
-        SwapMode::ExactOut => {
-            process_swap_exact_out(process_swap_params, rate_limiter.ok().as_ref())?
-        }
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
     };
 
     pool.apply_swap_result(
@@ -402,6 +402,7 @@ struct ProcessSwapParams<'a> {
     amount_0: u64,
     amount_1: u64,
     swap_mode: SwapMode,
+    rate_limiter: Option<&'a FeeRateLimiter>,
 }
 
 fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
@@ -414,6 +415,7 @@ fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapRes
         trade_direction,
         current_point,
         swap_mode,
+        rate_limiter,
     } = params;
 
     let (swap_result, user_pay_input_amount) = pool.get_swap_exact_in_result(
@@ -423,6 +425,7 @@ fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapRes
         trade_direction,
         current_point,
         swap_mode,
+        rate_limiter,
     )?;
 
     require!(
@@ -440,10 +443,7 @@ fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapRes
     })
 }
 
-fn process_swap_exact_out(
-    params: ProcessSwapParams<'_>,
-    rate_limiter: Option<&FeeRateLimiter>,
-) -> Result<ProcessSwapResult> {
+fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
     let ProcessSwapParams {
         pool,
         config,
@@ -452,6 +452,7 @@ fn process_swap_exact_out(
         current_point,
         amount_0: amount_out,
         amount_1: maximum_amount_in,
+        rate_limiter,
         ..
     } = params;
 

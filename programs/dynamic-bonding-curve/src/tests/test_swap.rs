@@ -89,6 +89,7 @@ fn test_swap() {
             TradeDirection::QuoteToBase,
             0,
             SwapMode::ExactIn,
+            None,
         )
         .unwrap();
     println!("{:?}", result);

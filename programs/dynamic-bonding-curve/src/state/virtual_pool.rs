@@ -310,6 +310,7 @@ impl VirtualPool {
         trade_direction: TradeDirection,
         current_point: u64,
         swap_mode: SwapMode,
+        rate_limiter: Option<&FeeRateLimiter>,
     ) -> Result<(SwapResult, u64)> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
@@ -352,24 +353,29 @@ impl VirtualPool {
             TradeDirection::BaseToQuote => {
                 self.get_swap_in_amount_from_base_to_quote(config, actual_amount_in)
             }
-            TradeDirection::QuoteToBase => self.get_swap_in_amount_from_quote_to_base(
-                config,
-                actual_amount_in,
-                swap_mode,
-                config
-                    .pool_fees
-                    .base_fee
-                    .is_fee_rate_limiter_applied(trade_fee_numerator)?,
-            ),
+            TradeDirection::QuoteToBase => {
+                self.get_swap_in_amount_from_quote_to_base(config, actual_amount_in, swap_mode)
+            }
         }?;
 
         // check if it is partial fill
         let user_pay_input_amount = if consumed_input_amount < actual_amount_in {
             if fee_mode.fees_on_input {
-                let included_fee_amount_in = PoolFeesConfig::get_included_fee_amount(
-                    trade_fee_numerator,
-                    consumed_input_amount,
-                )?;
+                let included_fee_amount_in = match rate_limiter {
+                    Some(rate_limiter)
+                        if rate_limiter.is_rate_limiter_applied(
+                            current_point,
+                            self.activation_point,
+                            trade_direction,
+                        )? =>
+                    {
+                        rate_limiter.get_included_fee_amount(consumed_input_amount)?
+                    }
+                    _ => PoolFeesConfig::get_included_fee_amount(
+                        trade_fee_numerator,
+                        consumed_input_amount,
+                    )?,
+                };
 
                 let FeeOnAmountResult {
                     amount,
@@ -666,7 +672,6 @@ impl VirtualPool {
         config: &PoolConfig,
         amount_in: u64,
         swap_mode: SwapMode,
-        is_fee_rate_limiter_applied: bool,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -730,19 +735,7 @@ impl VirtualPool {
                 );
                 amount_in
             }
-            SwapMode::PartialFill => {
-                // fee limiter fee rate inverse is difficult, so we allow pool swallow an extra amount
-                if is_fee_rate_limiter_applied {
-                    // allow pool swallow an extra amount
-                    require!(
-                        amount_left <= config.get_max_swallow_quote_amount()?,
-                        PoolError::SwapAmountIsOverAThreshold
-                    );
-                    amount_in
-                } else {
-                    amount_in.safe_sub(amount_left)?
-                }
-            }
+            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
             SwapMode::ExactOut => {
                 // Unreachable
                 return Err(PoolError::UndeterminedError.into());
