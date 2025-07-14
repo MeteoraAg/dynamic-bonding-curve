@@ -17,7 +17,7 @@ use crate::{
     safe_math::SafeMath,
     state::{
         fee::{FeeMode, FeeOnAmountResult, VolatilityTracker},
-        LiquidityDistributionConfig, PoolConfig,
+        PoolConfig,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
