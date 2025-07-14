@@ -211,6 +211,11 @@ impl ConfigParameters {
         // validate migration option and token type
         let migration_option_value = MigrationOption::try_from(self.migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?;
+
+        // validate migrate fee option
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+
         let token_type_value =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
@@ -224,9 +229,25 @@ impl ConfigParameters {
                     *quote_mint.to_account_info().owner == anchor_spl::token::Token::id(),
                     PoolError::InvalidQuoteMint
                 );
+
+                require!(
+                    migration_fee_option != MigrationFeeOption::Customizable
+                        && self.migrated_pool_fee.is_none(),
+                    PoolError::InvalidMigrationFeeOption
+                );
             }
             MigrationOption::DammV2 => {
-                // nothing to check
+                if migration_fee_option == MigrationFeeOption::Customizable {
+                    let migrated_pool_fee = self
+                        .migrated_pool_fee
+                        .ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
+                    migrated_pool_fee.validate()?;
+                } else {
+                    require!(
+                        self.migrated_pool_fee.is_none(),
+                        PoolError::InvalidMigratedPoolFee
+                    );
+                }
             }
         }
 
@@ -256,12 +277,6 @@ impl ConfigParameters {
 
         // validate vesting params
         self.locked_vesting.validate()?;
-
-        // validate migrate fee option
-        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
-            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-
-        migration_fee_option.validate(migration_option_value, &self.migrated_pool_fee)?;
 
         // validate price and liquidity
         require!(

@@ -374,29 +374,6 @@ pub enum MigrationFeeOption {
 }
 
 impl MigrationFeeOption {
-    pub fn validate(
-        &self,
-        migration_option_value: MigrationOption,
-        migrated_pool_fee: &Option<MigratedPoolFee>,
-    ) -> Result<()> {
-        if *self == MigrationFeeOption::Customizable {
-            let migrated_pool_fee =
-                migrated_pool_fee.ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
-
-            migrated_pool_fee.validate()?;
-
-            require!(
-                migration_option_value == MigrationOption::DammV2,
-                PoolError::InvalidMigrationFeeOption
-            );
-        } else {
-            require!(
-                migrated_pool_fee.is_none(),
-                PoolError::InvalidMigratedPoolFee
-            );
-        }
-        Ok(())
-    }
     pub fn validate_base_fee(&self, base_fee_bps: u64) -> Result<()> {
         match *self {
             MigrationFeeOption::FixedBps25 => {
