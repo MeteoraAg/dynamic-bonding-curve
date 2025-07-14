@@ -351,7 +351,7 @@ impl VirtualPool {
             next_sqrt_price,
         } = match trade_direction {
             TradeDirection::BaseToQuote => {
-                self.get_swap_in_amount_from_base_to_quote(config, actual_amount_in)
+                self.get_swap_in_amount_from_base_to_quote(config, actual_amount_in, swap_mode)
             }
             TradeDirection::QuoteToBase => {
                 self.get_swap_in_amount_from_quote_to_base(config, actual_amount_in, swap_mode)
@@ -589,6 +589,7 @@ impl VirtualPool {
         &self,
         config: &PoolConfig,
         amount_in: u64,
+        swap_mode: SwapMode,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -642,23 +643,63 @@ impl VirtualPool {
                 }
             }
         }
+        // Initial curve point
         if amount_left != 0 {
-            let next_sqrt_price = get_next_sqrt_price_from_input(
+            let max_amount_in = get_delta_amount_base_unsigned_256(
+                config.sqrt_start_price,
                 current_sqrt_price,
                 config.curve[0].liquidity,
-                amount_left,
-                true,
+                Rounding::Up,
             )?;
 
-            let output_amount = get_delta_amount_quote_unsigned(
-                next_sqrt_price,
-                current_sqrt_price,
-                config.curve[0].liquidity,
-                Rounding::Down,
-            )?;
-            total_output_amount = total_output_amount.safe_add(output_amount)?;
-            current_sqrt_price = next_sqrt_price;
+            if U256::from(amount_left) < max_amount_in {
+                let next_sqrt_price = get_next_sqrt_price_from_input(
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    amount_left,
+                    true,
+                )?;
+
+                let output_amount = get_delta_amount_quote_unsigned(
+                    next_sqrt_price,
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    Rounding::Down,
+                )?;
+                total_output_amount = total_output_amount.safe_add(output_amount)?;
+                current_sqrt_price = next_sqrt_price;
+                amount_left = 0;
+            } else {
+                let next_sqrt_price = config.sqrt_start_price;
+                let output_amount = get_delta_amount_quote_unsigned(
+                    next_sqrt_price,
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    Rounding::Down,
+                )?;
+                total_output_amount = total_output_amount.safe_add(output_amount)?;
+                current_sqrt_price = next_sqrt_price;
+                amount_left = amount_left.safe_sub(
+                    max_amount_in
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                )?;
+            }
         }
+
+        let amount_in = match swap_mode {
+            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
+            SwapMode::ExactIn => {
+                if amount_left > 0 {
+                    return Err(PoolError::NotEnoughLiquidity.into());
+                }
+                amount_in
+            }
+            SwapMode::ExactOut => {
+                // Unreachable
+                return Err(PoolError::UndeterminedError.into());
+            }
+        };
 
         Ok(SwapAmount {
             amount_in,
