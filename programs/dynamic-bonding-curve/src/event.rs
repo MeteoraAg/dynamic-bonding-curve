@@ -6,7 +6,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::SwapResult,
-    ConfigParameters, LockedVestingParams, SwapExactInParameters, SwapParameters,
+    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
 /// Create partner metadata
@@ -96,14 +96,15 @@ pub struct EvtSwap {
 }
 
 #[event]
-pub struct EvtSwapExactOut {
+pub struct EvtSwap2 {
     pub pool: Pubkey,
     pub config: Pubkey,
     pub trade_direction: u8,
     pub has_referral: bool,
-    pub maximum_amount_in: u64,
-    pub amount_out: u64,
+    pub swap_parameters: SwapParameters2,
     pub swap_result: SwapResult,
+    pub quote_reserve_amount: u64,
+    pub migration_threshold: u64,
     pub current_timestamp: u64,
 }
 
