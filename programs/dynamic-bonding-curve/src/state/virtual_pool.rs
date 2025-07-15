@@ -21,7 +21,7 @@ use crate::{
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
-    PoolError, SwapMode,
+    PoolError,
 };
 
 use super::{PartnerAndCreatorSplitFee, PoolFeesConfig};
@@ -297,6 +297,22 @@ impl VirtualPool {
         })
     }
 
+    pub fn get_swap_out_amount_from_base_to_quote(
+        &self,
+        config: &PoolConfig,
+        amount_out: u64,
+    ) -> Result<SwapAmount> {
+        get_swap_out_amount_from_base_to_quote(self.sqrt_price, config, amount_out)
+    }
+
+    pub fn get_swap_out_amount_from_quote_to_base(
+        &self,
+        config: &PoolConfig,
+        amount_out: u64,
+    ) -> Result<SwapAmount> {
+        get_swap_out_amount_from_quote_to_base(self.sqrt_price, config, amount_out)
+    }
+
     pub fn get_swap_exact_in_result(
         &self,
         config: &PoolConfig,
@@ -304,9 +320,8 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
-        swap_mode: SwapMode,
-        rate_limiter: Option<&FeeRateLimiter>,
-    ) -> Result<(SwapResult, u64)> {
+        max_allowed_swallow_threshold: u64,
+    ) -> Result<(SwapResult, bool)> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
@@ -319,7 +334,7 @@ impl VirtualPool {
             trade_direction,
         )?;
 
-        let mut actual_amount_in = if fee_mode.fees_on_input {
+        let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
                 protocol_fee,
@@ -340,84 +355,23 @@ impl VirtualPool {
             amount_in
         };
 
-        let SwapAmount {
-            amount_in: consumed_input_amount, // amount excluded fee
-            output_amount,
-            next_sqrt_price,
-        } = match trade_direction {
-            TradeDirection::BaseToQuote => {
-                self.get_swap_in_amount_from_base_to_quote(config, actual_amount_in, swap_mode)
-            }
-            TradeDirection::QuoteToBase => {
-                self.get_swap_in_amount_from_quote_to_base(config, actual_amount_in, swap_mode)
-            }
-        }?;
-
-        // check if it is partial fill
-        let user_pay_input_amount = if consumed_input_amount < actual_amount_in {
-            if fee_mode.fees_on_input {
-                let (included_fee_amount_in, trade_fee_numerator) = match rate_limiter {
-                    Some(rate_limiter)
-                        if rate_limiter.is_rate_limiter_applied(
-                            current_point,
-                            self.activation_point,
-                            trade_direction,
-                        )? =>
-                    {
-                        // Get the exact amount in by swapping exact out, the direction will be inverse
-                        let swap_amount = match trade_direction {
-                            TradeDirection::BaseToQuote => get_swap_out_amount_from_quote_to_base(
-                                next_sqrt_price,
-                                config,
-                                output_amount,
-                            )?,
-                            TradeDirection::QuoteToBase => get_swap_out_amount_from_base_to_quote(
-                                next_sqrt_price,
-                                config,
-                                output_amount,
-                            )?,
-                        };
-                        let included_fee_amount_in =
-                            rate_limiter.get_included_fee_amount(swap_amount.amount_in)?;
-                        let trade_fee_numerator =
-                            rate_limiter.get_fee_numerator_from_amount(included_fee_amount_in)?;
-                        (included_fee_amount_in, trade_fee_numerator)
-                    }
-                    _ => (
-                        PoolFeesConfig::get_included_fee_amount(
-                            trade_fee_numerator,
-                            consumed_input_amount,
-                        )?,
-                        trade_fee_numerator,
-                    ),
-                };
-
-                let FeeOnAmountResult {
-                    amount,
-                    protocol_fee,
-                    trading_fee,
-                    referral_fee,
-                } = config.pool_fees.get_fee_on_amount(
-                    trade_fee_numerator,
-                    included_fee_amount_in,
-                    fee_mode.has_referral,
-                )?;
-                // that should never happen
-                require!(
-                    included_fee_amount_in <= amount_in,
-                    PoolError::UndeterminedError
-                );
-                actual_amount_in = amount;
-                actual_protocol_fee = protocol_fee;
-                actual_trading_fee = trading_fee;
-                actual_referral_fee = referral_fee;
-                included_fee_amount_in
-            } else {
-                actual_amount_in = consumed_input_amount;
-                consumed_input_amount
-            }
-        } else {
-            amount_in
+        let (
+            SwapAmount {
+                output_amount,
+                next_sqrt_price,
+                ..
+            },
+            trigger_migration_swap,
+        ) = match trade_direction {
+            TradeDirection::BaseToQuote => (
+                self.get_swap_exact_in_amount_from_base_to_quote(config, actual_amount_in)?,
+                false,
+            ),
+            TradeDirection::QuoteToBase => self.get_swap_exact_in_amount_from_quote_to_base(
+                config,
+                actual_amount_in,
+                max_allowed_swallow_threshold,
+            )?,
         };
 
         let actual_amount_out = if fee_mode.fees_on_input {
@@ -450,31 +404,26 @@ impl VirtualPool {
                 protocol_fee: actual_protocol_fee,
                 referral_fee: actual_referral_fee,
             },
-            user_pay_input_amount,
+            trigger_migration_swap,
         ))
     }
 
-    fn get_swap_out_amount_from_base_to_quote(
-        &self,
-        config: &PoolConfig,
-        amount_out: u64,
-    ) -> Result<SwapAmount> {
-        get_swap_out_amount_from_base_to_quote(self.sqrt_price, config, amount_out)
-    }
-
-    fn get_swap_out_amount_from_quote_to_base(
-        &self,
-        config: &PoolConfig,
-        amount_out: u64,
-    ) -> Result<SwapAmount> {
-        get_swap_out_amount_from_quote_to_base(self.sqrt_price, config, amount_out)
-    }
-
-    fn get_swap_in_amount_from_base_to_quote(
+    fn get_swap_exact_in_amount_from_base_to_quote(
         &self,
         config: &PoolConfig,
         amount_in: u64,
-        swap_mode: SwapMode,
+    ) -> Result<SwapAmount> {
+        let swap_amount = self.get_swap_partial_in_amount_from_base_to_quote(config, amount_in)?;
+        let amount_left = amount_in.safe_sub(swap_amount.amount_in)?;
+        // Do not allow pool to swallow an extra amount when it's base to quote. We only swallow for smoother migration.
+        require!(amount_left == 0, PoolError::NotEnoughLiquidity);
+        Ok(swap_amount)
+    }
+
+    fn get_swap_partial_in_amount_from_base_to_quote(
+        &self,
+        config: &PoolConfig,
+        amount_in: u64,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -520,32 +469,36 @@ impl VirtualPool {
             amount_left = new_amount_left;
         }
 
-        let amount_in = match swap_mode {
-            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
-            SwapMode::ExactIn => {
-                if amount_left > 0 {
-                    return Err(PoolError::NotEnoughLiquidity.into());
-                }
-                amount_in
-            }
-            SwapMode::ExactOut => {
-                // Unreachable
-                return Err(PoolError::UndeterminedError.into());
-            }
-        };
-
         Ok(SwapAmount {
-            amount_in,
+            amount_in: amount_in.safe_sub(amount_left)?,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })
     }
 
-    fn get_swap_in_amount_from_quote_to_base(
+    fn get_swap_exact_in_amount_from_quote_to_base(
         &self,
         config: &PoolConfig,
         amount_in: u64,
-        swap_mode: SwapMode,
+        max_allowed_swallow_threshold: u64,
+    ) -> Result<(SwapAmount, bool)> {
+        let mut swap_amount =
+            self.get_swap_partial_in_amount_from_quote_to_base(config, amount_in)?;
+        let amount_left = amount_in.safe_sub(swap_amount.amount_in)?;
+        // allow pool swallow an extra amount
+        require!(
+            amount_left <= max_allowed_swallow_threshold,
+            PoolError::SwapAmountIsOverAThreshold
+        );
+        // swallow
+        swap_amount.amount_in = amount_in;
+        Ok((swap_amount, amount_left > 0))
+    }
+
+    fn get_swap_partial_in_amount_from_quote_to_base(
+        &self,
+        config: &PoolConfig,
+        amount_in: u64,
     ) -> Result<SwapAmount> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -561,7 +514,7 @@ impl VirtualPool {
                     current_sqrt_price,
                     config.curve[i].sqrt_price,
                     config.curve[i].liquidity,
-                    Rounding::Up, // TODO check whether we should use round down or round up
+                    Rounding::Up,
                 )?;
                 if U256::from(amount_left) < max_amount_in {
                     let next_sqrt_price = get_next_sqrt_price_from_input(
@@ -600,24 +553,8 @@ impl VirtualPool {
             }
         }
 
-        let amount_in = match swap_mode {
-            SwapMode::ExactIn => {
-                // allow pool swallow an extra amount
-                require!(
-                    amount_left <= config.get_max_swallow_quote_amount()?,
-                    PoolError::SwapAmountIsOverAThreshold
-                );
-                amount_in
-            }
-            SwapMode::PartialFill => amount_in.safe_sub(amount_left)?,
-            SwapMode::ExactOut => {
-                // Unreachable
-                return Err(PoolError::UndeterminedError.into());
-            }
-        };
-
         Ok(SwapAmount {
-            amount_in,
+            amount_in: amount_in.safe_sub(amount_left)?,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })

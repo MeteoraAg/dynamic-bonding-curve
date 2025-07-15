@@ -13,7 +13,6 @@ use crate::{
         fee::{FeeMode, VolatilityTracker},
         CollectFeeMode, LiquidityDistributionConfig, MigrationOption, PoolConfig, VirtualPool,
     },
-    SwapMode,
 };
 
 use super::price_math::get_price_from_id;
@@ -88,8 +87,7 @@ fn test_swap() {
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
-            SwapMode::ExactIn,
-            None,
+            config.get_max_swallow_quote_amount().unwrap(),
         )
         .unwrap();
     println!("{:?}", result);
