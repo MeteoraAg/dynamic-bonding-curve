@@ -94,6 +94,33 @@ impl PoolFeesConfig {
         Ok(total_fee_numerator)
     }
 
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<(u64, u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            fee_amount,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
+
+        // update trading fee
+        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let referral_fee = if has_referral {
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+
+        Ok((trading_fee, protocol_fee, referral_fee))
+    }
+
     pub fn get_fee_on_amount(
         &self,
         trade_fee_numerator: u64,

@@ -261,7 +261,7 @@ impl VirtualPool {
         };
 
         let in_amount = if fee_mode.fees_on_input {
-            let (included_fee_in_amount, trade_fee_numerator) = match rate_limiter {
+            let included_fee_in_amount = match rate_limiter {
                 Some(rate_limiter)
                     if rate_limiter.is_rate_limiter_applied(
                         current_point,
@@ -269,31 +269,20 @@ impl VirtualPool {
                         trade_direction,
                     )? =>
                 {
-                    let included_fee_in_amount = rate_limiter.get_included_fee_amount(amount_in)?;
-                    let fee_numerator =
-                        rate_limiter.get_fee_numerator_from_amount(included_fee_in_amount)?;
-                    (included_fee_in_amount, fee_numerator)
+                    rate_limiter.get_included_fee_amount(amount_in)?
                 }
-                _ => (
-                    PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?,
-                    trade_fee_numerator,
-                ),
+                _ => PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?,
             };
 
-            let FeeOnAmountResult {
-                protocol_fee,
-                trading_fee,
-                referral_fee,
-                amount,
-            } = config.pool_fees.get_fee_on_amount(
-                trade_fee_numerator,
-                included_fee_in_amount,
-                fee_mode.has_referral,
-            )?;
+            let fee_amount = included_fee_in_amount.safe_sub(amount_in)?;
+            let (trading_fee, protocol_fee, referral_fee) = config
+                .pool_fees
+                .split_fees(fee_amount, fee_mode.has_referral)?;
+
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            amount
+            amount_in
         } else {
             amount_in
         };
