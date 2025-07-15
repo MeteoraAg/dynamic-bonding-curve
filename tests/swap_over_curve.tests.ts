@@ -215,6 +215,12 @@ describe("Swap Over the Curve", () => {
       admin.publicKey,
       tokenQuoteDecimal
     );
+
+    const feeIncrementBps = 10;
+    const maxLimiterDuration = 86400;
+    const referenceAmount = 1_000_000_000;
+    const collectFeeMode = 0;
+
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -223,8 +229,17 @@ describe("Swap Over the Curve", () => {
       tokenBaseDecimal,
       tokenQuoteDecimal,
       0,
-      1,
-      lockedVesting
+      collectFeeMode,
+      lockedVesting,
+      {
+        baseFeeOption: {
+          cliffFeeNumerator: new BN(2_500_000),
+          firstFactor: feeIncrementBps,
+          secondFactor: new BN(maxLimiterDuration),
+          thirdFactor: new BN(referenceAmount),
+          baseFeeMode: 2, // Rate limiter
+        },
+      }
     );
 
     const params: CreateConfigParams = {
@@ -236,9 +251,10 @@ describe("Swap Over the Curve", () => {
     };
     let config = await createConfig(context.banksClient, program, params);
     let configState = await getConfig(context.banksClient, program, config);
+
     let swapAmount = instructionParams.migrationQuoteThreshold
-      .mul(new BN(120))
-      .div(new BN(100)); // swap more 20%
+      .mul(new BN(150))
+      .div(new BN(100)); // swap more 150%
 
     await mintSplTokenTo(
       context.banksClient,
@@ -287,7 +303,12 @@ describe("Swap Over the Curve", () => {
       swapParams.payer.publicKey
     );
 
-    await swapPartialFill(context.banksClient, program, swapParams);
+    const { computeUnitsConsumed } = await swapPartialFill(
+      context.banksClient,
+      program,
+      swapParams
+    );
+    console.log(`CU used ${computeUnitsConsumed}`);
 
     const afterAmount = await context.banksClient.getBalance(
       swapParams.payer.publicKey
