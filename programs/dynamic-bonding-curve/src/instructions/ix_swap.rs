@@ -189,29 +189,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         current_timestamp,
     )?;
 
-    emit_cpi!(EvtSwap {
-        pool: ctx.accounts.pool.key(),
-        config: ctx.accounts.config.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        params: swap_in_parameters,
-        swap_result,
-        amount_in: user_pay_input_amount,
-        current_timestamp,
-    });
-
-    emit_cpi!(EvtSwap2 {
-        pool: ctx.accounts.pool.key(),
-        config: ctx.accounts.config.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        swap_parameters: params,
-        swap_result,
-        quote_reserve_amount: pool.quote_reserve,
-        migration_threshold: config.migration_quote_threshold,
-        current_timestamp,
-    });
-
     // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,
@@ -257,6 +234,29 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
             )?;
         }
     }
+
+    emit_cpi!(EvtSwap {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: trade_direction.into(),
+        has_referral,
+        params: swap_in_parameters,
+        swap_result,
+        amount_in: user_pay_input_amount,
+        current_timestamp,
+    });
+
+    emit_cpi!(EvtSwap2 {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: trade_direction.into(),
+        has_referral,
+        swap_parameters: params,
+        swap_result,
+        quote_reserve_amount: pool.quote_reserve,
+        migration_threshold: config.migration_quote_threshold,
+        current_timestamp,
+    });
 
     if pool.is_curve_complete(config.migration_quote_threshold) {
         ctx.accounts.base_vault.reload()?;
@@ -465,15 +465,7 @@ fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSwapRe
         rate_limiter,
     )?;
 
-    let included_fee_in_amount = if fee_mode.fees_on_input {
-        swap_result
-            .actual_input_amount
-            .safe_add(swap_result.trading_fee)?
-            .safe_add(swap_result.protocol_fee)?
-            .safe_add(swap_result.referral_fee)?
-    } else {
-        swap_result.actual_input_amount
-    };
+    let included_fee_in_amount = swap_result.get_included_fee_amount_in(fee_mode.fees_on_input)?;
 
     require!(
         included_fee_in_amount <= maximum_amount_in,
@@ -483,6 +475,7 @@ fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSwapRe
     Ok(ProcessSwapResult {
         swap_result,
         user_pay_input_amount: included_fee_in_amount,
+        // For backward compatibility because we are emitting EvtSwap and EvtSwap2
         swap_in_parameters: SwapExactInParameters {
             amount_in: included_fee_in_amount,
             minimum_amount_out: swap_result.output_amount,

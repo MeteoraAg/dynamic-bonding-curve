@@ -1011,6 +1011,21 @@ pub struct SwapResult {
     pub referral_fee: u64,
 }
 
+impl SwapResult {
+    pub fn get_included_fee_amount_in(&self, fee_on_input: bool) -> Result<u64> {
+        let included_fee_amount_in = if fee_on_input {
+            self.actual_input_amount
+                .safe_add(self.trading_fee)?
+                .safe_add(self.protocol_fee)?
+                .safe_add(self.referral_fee)?
+        } else {
+            self.actual_input_amount
+        };
+
+        Ok(included_fee_amount_in)
+    }
+}
+
 pub struct SwapAmount {
     amount_in: u64,
     output_amount: u64,
