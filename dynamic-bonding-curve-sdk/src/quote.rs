@@ -3,7 +3,7 @@ use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
     state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
-    PoolError, SwapMode,
+    SwapMode,
 };
 
 pub fn quote_exact_in(
@@ -25,7 +25,7 @@ pub fn quote_exact_in(
 
     ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
 
-    let swap_mode = SwapMode::try_from(swap_mode).context("invalid swap mode")?;
+    let swap_mode = SwapMode::from(swap_mode);
 
     virtual_pool.update_pre_swap(config, current_timestamp)?;
     let activation_type =
@@ -41,13 +41,17 @@ pub fn quote_exact_in(
         TradeDirection::QuoteToBase
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
+
+    let rate_limiter = config.pool_fees.base_fee.get_fee_rate_limiter().ok();
+
     let (swap_result, _user_pay_input_amount) = virtual_pool.get_swap_exact_in_result(
-        &config,
+        config,
         transfer_fee_excluded_amount_in,
         fee_mode,
         trade_direction,
         current_point,
         swap_mode,
+        rate_limiter.as_ref(),
     )?;
 
     Ok(swap_result)
