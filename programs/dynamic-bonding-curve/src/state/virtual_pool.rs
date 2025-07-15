@@ -445,6 +445,55 @@ impl VirtualPool {
         ))
     }
 
+    fn process_swap_out_amount_from_base_to_quote(
+        lower_curve_point_sqrt_price: u128,
+        current_sqrt_price: u128,
+        amount_left: u64,
+        curve_segment_liquidity: u128,
+    ) -> Result<(u64, u64, u128)> {
+        let max_amount_out = get_delta_amount_quote_unsigned_256(
+            lower_curve_point_sqrt_price,
+            current_sqrt_price,
+            curve_segment_liquidity,
+            Rounding::Down,
+        )?;
+        if U256::from(amount_left) < max_amount_out {
+            let next_sqrt_price = get_next_sqrt_price_from_output(
+                current_sqrt_price,
+                curve_segment_liquidity,
+                amount_left,
+                true,
+            )?;
+
+            let input_amount = get_delta_amount_base_unsigned(
+                next_sqrt_price,
+                current_sqrt_price,
+                curve_segment_liquidity,
+                Rounding::Up,
+            )?;
+
+            Ok((input_amount, 0, next_sqrt_price))
+        } else {
+            let next_sqrt_price = lower_curve_point_sqrt_price;
+            let input_amount = get_delta_amount_base_unsigned(
+                next_sqrt_price,
+                current_sqrt_price,
+                curve_segment_liquidity,
+                Rounding::Up,
+            )?;
+
+            Ok((
+                input_amount,
+                amount_left.safe_sub(
+                    max_amount_out
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                )?,
+                next_sqrt_price,
+            ))
+        }
+    }
+
     fn get_swap_out_amount_from_base_to_quote(
         &self,
         config: &PoolConfig,
@@ -460,63 +509,35 @@ impl VirtualPool {
                 continue;
             }
             if config.curve[i].sqrt_price < current_sqrt_price {
-                let max_amount_out = get_delta_amount_quote_unsigned_256(
-                    config.curve[i].sqrt_price,
-                    current_sqrt_price,
-                    config.curve[i + 1].liquidity,
-                    Rounding::Down,
-                )?;
-                if U256::from(amount_left) < max_amount_out {
-                    let next_sqrt_price = get_next_sqrt_price_from_output(
+                let (input_amount, new_amount_left, next_sqrt_price) =
+                    Self::process_swap_out_amount_from_base_to_quote(
+                        config.curve[i].sqrt_price,
                         current_sqrt_price,
-                        config.curve[i + 1].liquidity,
                         amount_left,
-                        true,
+                        config.curve[i].liquidity,
                     )?;
+                total_input_amount = total_input_amount.safe_add(input_amount)?;
+                current_sqrt_price = next_sqrt_price;
+                amount_left = new_amount_left;
 
-                    let input_amount = get_delta_amount_base_unsigned(
-                        next_sqrt_price,
-                        current_sqrt_price,
-                        config.curve[i + 1].liquidity,
-                        Rounding::Up,
-                    )?;
-
-                    total_input_amount = total_input_amount.safe_add(input_amount)?;
-                    current_sqrt_price = next_sqrt_price;
-                    amount_left = 0;
+                if amount_left == 0 {
                     break;
-                } else {
-                    let next_sqrt_price = config.curve[i].sqrt_price;
-                    let input_amount = get_delta_amount_base_unsigned(
-                        next_sqrt_price,
-                        current_sqrt_price,
-                        config.curve[i + 1].liquidity,
-                        Rounding::Up,
-                    )?;
-                    total_input_amount = total_input_amount.safe_add(input_amount)?;
-                    current_sqrt_price = next_sqrt_price;
-                    amount_left = amount_left.safe_sub(
-                        max_amount_out
-                            .try_into()
-                            .map_err(|_| PoolError::TypeCastFailed)?,
-                    )?;
                 }
             }
         }
-        if amount_left != 0 {
-            let next_sqrt_price = get_next_sqrt_price_from_output(
-                current_sqrt_price,
-                config.curve[0].liquidity,
-                amount_left,
-                true,
-            )?;
 
-            let input_amount = get_delta_amount_base_unsigned(
-                next_sqrt_price,
-                current_sqrt_price,
-                config.curve[0].liquidity,
-                Rounding::Up,
-            )?;
+        // Initial curve point
+        if amount_left != 0 {
+            let (input_amount, new_amount_left, next_sqrt_price) =
+                Self::process_swap_out_amount_from_base_to_quote(
+                    config.sqrt_start_price,
+                    current_sqrt_price,
+                    amount_left,
+                    config.curve[0].liquidity,
+                )?;
+
+            require!(new_amount_left == 0, PoolError::NotEnoughLiquidity);
+
             total_input_amount = total_input_amount.safe_add(input_amount)?;
             current_sqrt_price = next_sqrt_price;
         }
@@ -562,8 +583,10 @@ impl VirtualPool {
                         config.curve[i].liquidity,
                         Rounding::Up,
                     )?;
+
                     total_input_amount = total_input_amount.safe_add(input_amount)?;
                     current_sqrt_price = next_sqrt_price;
+                    amount_left = 0;
                     break;
                 } else {
                     let next_sqrt_price = config.curve[i].sqrt_price;
@@ -583,6 +606,8 @@ impl VirtualPool {
                 }
             }
         }
+
+        require!(amount_left == 0, PoolError::NotEnoughLiquidity);
 
         Ok(SwapAmount {
             amount_in: total_input_amount,
