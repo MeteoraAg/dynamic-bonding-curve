@@ -261,7 +261,7 @@ impl VirtualPool {
         };
 
         let in_amount = if fee_mode.fees_on_input {
-            let included_fee_in_amount = match rate_limiter {
+            let (included_fee_in_amount, trade_fee_numerator) = match rate_limiter {
                 Some(rate_limiter)
                     if rate_limiter.is_rate_limiter_applied(
                         current_point,
@@ -269,9 +269,15 @@ impl VirtualPool {
                         trade_direction,
                     )? =>
                 {
-                    rate_limiter.get_included_fee_amount(amount_in)?
+                    let included_fee_in_amount = rate_limiter.get_included_fee_amount(amount_in)?;
+                    let fee_numerator =
+                        rate_limiter.get_fee_numerator_from_amount(included_fee_in_amount)?;
+                    (included_fee_in_amount, fee_numerator)
                 }
-                _ => PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?,
+                _ => (
+                    PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?,
+                    trade_fee_numerator,
+                ),
             };
 
             let FeeOnAmountResult {

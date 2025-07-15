@@ -219,7 +219,6 @@ impl FeeRateLimiter {
         Ok(excluded_fee_amount)
     }
 
-    // export function for testing
     pub fn get_fee_numerator_from_amount(&self, input_amount: u64) -> Result<u64> {
         let fee_numerator = if input_amount <= self.reference_amount {
             self.cliff_fee_numerator
