@@ -870,7 +870,9 @@ name = "dynamic-bonding-curve-sdk"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytemuck",
  "dynamic-bonding-curve",
+ "ruint",
 ]
 
 [[package]]

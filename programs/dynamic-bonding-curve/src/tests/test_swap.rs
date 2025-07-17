@@ -80,14 +80,13 @@ fn test_swap() {
     );
     let amount_in = 1_000_000_000; // 1k
     let fee_mode = FeeMode::default();
-    let (result, _included_fee_input_amount) = pool
-        .get_swap_exact_in_result(
+    let result = pool
+        .get_swap_result_from_exact_input(
             &config,
             amount_in,
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
-            config.get_max_swallow_quote_amount().unwrap(),
         )
         .unwrap();
     println!("{:?}", result);

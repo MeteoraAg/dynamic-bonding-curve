@@ -4,7 +4,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{get_base_fee_handler, FeeRateLimiter},
+    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
@@ -64,21 +64,51 @@ impl PoolFeesConfig {
     /// The total fee is capped at MAX_FEE_NUMERATOR (99%) to ensure reasonable trading costs.
     ///
     /// Returns the total fee numerator that will be used to calculate actual trading fees.
-    pub fn get_total_trading_fee(
+    pub fn get_total_fee_numerator_from_included_fee_amount(
         &self,
         volatility_tracker: &VolatilityTracker,
         current_point: u64,
         activation_point: u64,
-        amount: u64,
+        included_fee_amount: u64,
         trade_direction: TradeDirection,
     ) -> Result<u64> {
-        let base_fee_numerator = self.base_fee.get_base_fee_numerator(
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
             activation_point,
-            amount,
             trade_direction,
+            included_fee_amount,
         )?;
 
+        self.get_total_fee_numerator(base_fee_numerator, volatility_tracker)
+    }
+
+    pub fn get_total_fee_numerator_from_excluded_fee_amount(
+        &self,
+        volatility_tracker: &VolatilityTracker,
+        current_point: u64,
+        activation_point: u64,
+        excluded_fee_amount: u64,
+        trade_direction: TradeDirection,
+    ) -> Result<u64> {
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
+            current_point,
+            activation_point,
+            trade_direction,
+            excluded_fee_amount,
+        )?;
+
+        self.get_total_fee_numerator(base_fee_numerator, volatility_tracker)
+    }
+
+    fn get_total_fee_numerator(
+        &self,
+        base_fee_numerator: u64,
+        volatility_tracker: &VolatilityTracker,
+    ) -> Result<u64> {
         let total_fee_numerator = self
             .dynamic_fee
             .get_variable_fee_numerator(volatility_tracker)?
@@ -92,33 +122,6 @@ impl PoolFeesConfig {
         };
 
         Ok(total_fee_numerator)
-    }
-
-    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<(u64, u64, u64)> {
-        let protocol_fee = safe_mul_div_cast_u64(
-            fee_amount,
-            self.protocol_fee_percent.into(),
-            100,
-            Rounding::Down,
-        )?;
-
-        // update trading fee
-        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
-
-        let referral_fee = if has_referral {
-            safe_mul_div_cast_u64(
-                protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
-
-        Ok((trading_fee, protocol_fee, referral_fee))
     }
 
     pub fn get_fee_on_amount(
@@ -179,22 +182,42 @@ impl PoolFeesConfig {
     pub fn get_included_fee_amount(
         trade_fee_numerator: u64,
         excluded_fee_amount: u64,
-    ) -> Result<u64> {
+    ) -> Result<(u64, u64)> {
         let included_fee_amount: u64 = safe_mul_div_cast_u64(
             excluded_fee_amount,
             FEE_DENOMINATOR,
             FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
             Rounding::Up,
         )?;
-        // sanity check
-        let (inverse_amount, _trading_fee) =
-            PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, included_fee_amount)?;
-        // that should never happen
-        require!(
-            inverse_amount >= excluded_fee_amount,
-            PoolError::UndeterminedError
-        );
-        Ok(included_fee_amount)
+        let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
+        Ok((included_fee_amount, fee_amount))
+    }
+
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<(u64, u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            fee_amount,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
+
+        // update trading fee
+        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let referral_fee = if has_referral {
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+
+        Ok((trading_fee, protocol_fee, referral_fee))
     }
 }
 
@@ -228,27 +251,17 @@ impl BaseFeeConfig {
             Err(PoolError::InvalidFeeRateLimiter.into())
         }
     }
-    pub fn get_base_fee_numerator(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        amount: u64,
-        trade_direction: TradeDirection,
-    ) -> Result<u64> {
-        let base_fee_handler = get_base_fee_handler(
+
+    pub fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
+        get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,
             self.second_factor,
             self.third_factor,
             self.base_fee_mode,
-        )?;
-        base_fee_handler.get_base_fee_numerator(
-            current_point,
-            activation_point,
-            trade_direction,
-            amount,
         )
     }
+
     pub fn is_fee_rate_limiter_applied(&self, trade_fee_numerator: u64) -> Result<bool> {
         let base_fee_mode =
             BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;

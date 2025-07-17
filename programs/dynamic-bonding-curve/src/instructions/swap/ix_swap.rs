@@ -1,9 +1,12 @@
 use std::u64;
 
-use crate::base_fee::FeeRateLimiter;
 use crate::instruction::Swap as SwapInstruction;
 use crate::math::safe_math::SafeMath;
-use crate::state::{MigrationProgress, SwapResult};
+use crate::state::MigrationProgress;
+use crate::swap::swap_exact_in::process_swap_exact_in;
+use crate::swap::swap_exact_out::process_swap_exact_out;
+use crate::swap::swap_partial_fill::process_swap_partial_fill;
+use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -22,10 +25,35 @@ use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
 
+// only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
+}
+
+// can be used for different swap_mode
+#[derive(AnchorSerialize, AnchorDeserialize, Default)]
+pub struct SwapParameters2 {
+    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
+    pub amount_0: u64,
+    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
+    pub amount_1: u64,
+    /// Swap mode, refer [SwapMode]
+    pub swap_mode: u8,
+    // Padding for future use
+    pub padding: [u8; 32],
+}
+
+#[repr(u8)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+)]
+pub enum SwapMode {
+    #[num_enum(default)]
+    ExactIn,
+    PartialFill,
+    ExactOut,
 }
 
 #[event_cpi]
@@ -161,7 +189,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let rate_limiter = rate_limiter.ok();
     let process_swap_params = ProcessSwapParams {
         pool: &mut pool,
         config: &config,
@@ -170,12 +197,10 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         current_point,
         amount_0,
         amount_1,
-        rate_limiter: rate_limiter.as_ref(),
     };
 
     let ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount,
+        swap_result: swap_result_2,
         swap_in_parameters,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
@@ -183,6 +208,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
     };
 
+    let swap_result = swap_result_2.get_swap_result();
     pool.apply_swap_result(
         &config,
         &swap_result,
@@ -198,7 +224,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         &ctx.accounts.input_token_account,
         input_vault_account,
         input_program,
-        user_pay_input_amount,
+        swap_result_2.included_fee_input_amount,
     )?;
 
     // send to user
@@ -244,7 +270,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         has_referral,
         params: swap_in_parameters,
         swap_result,
-        amount_in: user_pay_input_amount,
+        amount_in: swap_result_2.included_fee_input_amount,
         current_timestamp,
     });
 
@@ -254,7 +280,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         trade_direction: trade_direction.into(),
         has_referral,
         swap_parameters: params,
-        swap_result,
+        swap_result: swap_result_2,
         quote_reserve_amount: pool.quote_reserve,
         migration_threshold: config.migration_quote_threshold,
         current_timestamp,
@@ -299,29 +325,6 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     }
 
     Ok(())
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Default)]
-pub struct SwapParameters2 {
-    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
-    pub amount_0: u64,
-    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
-    pub amount_1: u64,
-    /// Swap mode, refer [SwapMode]
-    pub swap_mode: u8,
-    // Padding for future use
-    pub padding: [u8; 32],
-}
-
-#[repr(u8)]
-#[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
-)]
-pub enum SwapMode {
-    #[num_enum(default)]
-    ExactIn,
-    PartialFill,
-    ExactOut,
 }
 
 pub fn validate_single_swap_instruction<'c, 'info>(
@@ -387,160 +390,4 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         }
     }
     Ok(())
-}
-
-struct ProcessSwapResult {
-    swap_result: SwapResult,
-    user_pay_input_amount: u64,
-    swap_in_parameters: SwapExactInParameters,
-}
-
-struct ProcessSwapParams<'a> {
-    pool: &'a mut VirtualPool,
-    config: &'a PoolConfig,
-    fee_mode: &'a FeeMode,
-    trade_direction: TradeDirection,
-    current_point: u64,
-    amount_0: u64,
-    amount_1: u64,
-    rate_limiter: Option<&'a FeeRateLimiter>,
-}
-
-fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        amount_0: amount_in,
-        amount_1: minimum_amount_out,
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        ..
-    } = params;
-
-    let swap_result = pool
-        .get_swap_exact_in_result(
-            config,
-            amount_in,
-            fee_mode,
-            trade_direction,
-            current_point,
-            config.get_max_swallow_quote_amount()?,
-        )?
-        .0;
-
-    require!(
-        swap_result.output_amount >= minimum_amount_out,
-        PoolError::ExceededSlippage
-    );
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: amount_in,
-        swap_in_parameters: SwapExactInParameters {
-            amount_in,
-            minimum_amount_out,
-        },
-    })
-}
-
-fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        amount_0: amount_in,
-        amount_1: minimum_amount_out,
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    } = params;
-
-    let (swap_result, trigger_migration_swap) = pool.get_swap_exact_in_result(
-        config,
-        amount_in,
-        fee_mode,
-        trade_direction,
-        current_point,
-        // Silent swallow threshold error
-        u64::MAX,
-    )?;
-
-    if !trigger_migration_swap {
-        require!(
-            swap_result.output_amount >= minimum_amount_out,
-            PoolError::ExceededSlippage
-        );
-
-        return Ok(ProcessSwapResult {
-            swap_result,
-            user_pay_input_amount: amount_in,
-            swap_in_parameters: SwapExactInParameters {
-                amount_in,
-                minimum_amount_out: swap_result.output_amount, // This is the output amount after partial fill,
-            },
-        });
-    }
-
-    // It's migration swap we swap full curve using exact out
-    let swap_result = pool.get_swap_exact_out_result(
-        config,
-        swap_result.output_amount, // inverse
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    )?;
-
-    let included_fee_in_amount = swap_result.get_included_fee_amount_in(fee_mode.fees_on_input)?;
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: included_fee_in_amount,
-        // For backward compatibility because we are emitting EvtSwap and EvtSwap2
-        swap_in_parameters: SwapExactInParameters {
-            amount_in: included_fee_in_amount,
-            minimum_amount_out: swap_result.output_amount,
-        },
-    })
-}
-
-fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
-        pool,
-        config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        amount_0: amount_out,
-        amount_1: maximum_amount_in,
-        rate_limiter,
-        ..
-    } = params;
-
-    let swap_result = pool.get_swap_exact_out_result(
-        config,
-        amount_out,
-        fee_mode,
-        trade_direction,
-        current_point,
-        rate_limiter,
-    )?;
-
-    let included_fee_in_amount = swap_result.get_included_fee_amount_in(fee_mode.fees_on_input)?;
-
-    require!(
-        included_fee_in_amount <= maximum_amount_in,
-        PoolError::ExceededSlippage
-    );
-
-    Ok(ProcessSwapResult {
-        swap_result,
-        user_pay_input_amount: included_fee_in_amount,
-        // For backward compatibility because we are emitting EvtSwap and EvtSwap2
-        swap_in_parameters: SwapExactInParameters {
-            amount_in: included_fee_in_amount,
-            minimum_amount_out: swap_result.output_amount,
-        },
-    })
 }

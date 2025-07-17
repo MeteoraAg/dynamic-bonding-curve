@@ -5,6 +5,7 @@ use proptest::proptest;
 
 use crate::constants::fee::MAX_FEE_BPS;
 use crate::constants::fee::MIN_FEE_BPS;
+use crate::state::PoolFeesConfig;
 use crate::{
     activation_handler::ActivationType,
     base_fee::{BaseFeeHandler, FeeRateLimiter},
@@ -93,7 +94,7 @@ fn test_rate_limiter_behavior() {
 
     {
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(reference_amount)
+            .get_fee_numerator_from_included_fee_amount(reference_amount)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, base_fee_bps);
@@ -101,13 +102,13 @@ fn test_rate_limiter_behavior() {
 
     {
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(reference_amount * 3 / 2)
+            .get_fee_numerator_from_included_fee_amount(reference_amount * 3 / 2)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, 133);
 
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(reference_amount * 2)
+            .get_fee_numerator_from_included_fee_amount(reference_amount * 2)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, 150); // 1.5%, (1+1+1) / 2
@@ -115,7 +116,7 @@ fn test_rate_limiter_behavior() {
 
     {
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(reference_amount * 3)
+            .get_fee_numerator_from_included_fee_amount(reference_amount * 3)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, 200); // 2%, (1+1+1+1) / 2
@@ -123,7 +124,7 @@ fn test_rate_limiter_behavior() {
 
     {
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(reference_amount * 4)
+            .get_fee_numerator_from_included_fee_amount(reference_amount * 4)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, 250); // 2.5% (1+1+1+1+1) / 2
@@ -131,7 +132,7 @@ fn test_rate_limiter_behavior() {
 
     {
         let fee_numerator = rate_limiter
-            .get_fee_numerator_from_amount(u64::MAX)
+            .get_fee_numerator_from_included_fee_amount(u64::MAX)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
         assert_eq!(fee_bps, 9899); // 98.99%
@@ -140,7 +141,12 @@ fn test_rate_limiter_behavior() {
 
 fn calculate_output_amount(rate_limiter: &FeeRateLimiter, input_amount: u64) -> u64 {
     let trade_fee_numerator = rate_limiter
-        .get_base_fee_numerator(0, 0, TradeDirection::QuoteToBase, input_amount)
+        .get_base_fee_numerator_from_included_fee_amount(
+            0,
+            0,
+            TradeDirection::QuoteToBase,
+            input_amount,
+        )
         .unwrap();
     let trading_fee: u64 = safe_mul_div_cast_u64(
         input_amount,
@@ -194,7 +200,12 @@ fn test_rate_limiter_base_fee_numerator() {
     {
         // trade from base to quote
         let fee_numerator = rate_limiter
-            .get_base_fee_numerator(0, 0, TradeDirection::BaseToQuote, 2_000_000_000)
+            .get_base_fee_numerator_from_included_fee_amount(
+                0,
+                0,
+                TradeDirection::BaseToQuote,
+                2_000_000_000,
+            )
             .unwrap();
 
         assert_eq!(fee_numerator, rate_limiter.cliff_fee_numerator);
@@ -203,7 +214,7 @@ fn test_rate_limiter_base_fee_numerator() {
     {
         // trade pass last effective point
         let fee_numerator = rate_limiter
-            .get_base_fee_numerator(
+            .get_base_fee_numerator_from_included_fee_amount(
                 rate_limiter.max_limiter_duration + 1,
                 0,
                 TradeDirection::QuoteToBase,
@@ -217,7 +228,7 @@ fn test_rate_limiter_base_fee_numerator() {
     {
         // trade in effective point
         let fee_numerator = rate_limiter
-            .get_base_fee_numerator(
+            .get_base_fee_numerator_from_included_fee_amount(
                 rate_limiter.max_limiter_duration,
                 0,
                 TradeDirection::QuoteToBase,
@@ -233,9 +244,12 @@ fn assert_rate_limiter_inverse(rate_limiter: &FeeRateLimiter, included_fee_amoun
     let excluded_fee_amount = rate_limiter
         .get_excluded_fee_amount(included_fee_amount)
         .unwrap();
-    let inverse_amount = rate_limiter
-        .get_included_fee_amount(excluded_fee_amount)
+
+    let base_fee_numerator = rate_limiter
+        .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         .unwrap();
+    let (inverse_amount, _) =
+        PoolFeesConfig::get_included_fee_amount(base_fee_numerator, excluded_fee_amount).unwrap();
 
     let excluded_fee_inverse_amount = rate_limiter
         .get_excluded_fee_amount(inverse_amount)
@@ -335,7 +349,7 @@ proptest! {
     })]
 
     #[test]
-    fn test_get_included_fee_amount_0(
+    fn test_base_fee_numerator_from_excluded_fee_amount_0(
         excluded_fee_amount in 0..=u64::MAX/100,
     ){
         let base_fee_bps = 100u64; // 1%
@@ -349,13 +363,13 @@ proptest! {
             fee_increment_bps,        // 10 bps
         };
         rate_limiter
-        .get_included_fee_amount(excluded_fee_amount)
+        .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         .unwrap();
     }
 
 
     #[test]
-    fn test_get_included_fee_amount_1(
+    fn test_base_fee_numerator_from_excluded_fee_amount_1(
         excluded_fee_amount in 0..=u64::MAX/100,
     ){
         let base_fee_bps = 100u64; // 1%
@@ -369,13 +383,13 @@ proptest! {
             fee_increment_bps,        // 10 bps
         };
         rate_limiter
-        .get_included_fee_amount(excluded_fee_amount)
+        .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         .unwrap();
     }
 
 
     #[test]
-    fn test_get_included_fee_amount_2(
+    fn test_base_fee_numerator_from_excluded_fee_amount_2(
         base_fee_bps in MIN_FEE_BPS..=MAX_FEE_BPS,
         reference_amount in 1_000u64..=10_000_000_000u64,
         fee_increment_bps in MIN_FEE_BPS..=MAX_FEE_BPS,
@@ -390,7 +404,7 @@ proptest! {
             fee_increment_bps: fee_increment_bps,
         };
         rate_limiter
-        .get_included_fee_amount(excluded_fee_amount)
+        .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         .unwrap();
     }
 }

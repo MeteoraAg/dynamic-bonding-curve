@@ -13,3 +13,7 @@ name = "dynamic_bonding_curve_sdk"
 [dependencies]
 anyhow = "1.0.71"
 dynamic-bonding-curve = { path = "../programs/dynamic-bonding-curve" }
+ruint =  { workspace = true }
+
+[dev-dependencies]
+bytemuck = { workspace = true }

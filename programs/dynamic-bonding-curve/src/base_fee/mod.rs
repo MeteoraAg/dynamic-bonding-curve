@@ -11,12 +11,19 @@ use crate::{
 
 pub trait BaseFeeHandler {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()>;
-    fn get_base_fee_numerator(
+    fn get_base_fee_numerator_from_included_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
         trade_direction: TradeDirection,
-        input_amount: u64,
+        included_fee_amount: u64,
+    ) -> Result<u64>;
+    fn get_base_fee_numerator_from_excluded_fee_amount(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+        trade_direction: TradeDirection,
+        excluded_fee_amount: u64,
     ) -> Result<u64>;
 }
 

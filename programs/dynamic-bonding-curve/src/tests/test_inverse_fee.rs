@@ -12,7 +12,7 @@ proptest! {
         excluded_fee_amount in 0..=184467440737095515u64,
         trade_fee_numerator in MIN_FEE_NUMERATOR..=MAX_FEE_NUMERATOR
     ){
-        let included_fee_amount = PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, excluded_fee_amount).unwrap();
+        let (included_fee_amount, _) = PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, excluded_fee_amount).unwrap();
         let (inverse_amount, _trading_fee) = PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, included_fee_amount).unwrap();
         assert!(inverse_amount == excluded_fee_amount);
     }

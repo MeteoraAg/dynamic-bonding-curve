@@ -108,20 +108,20 @@ impl FeeRateLimiter {
     // It is very difficult to calculate exactly fee_numerator from excluded_fee_amount,
     // With any precision difference, even 1 unit, the excluded_fee_amount will be changed a lot when value of included_fee_amount is high
     // Then a sanity check here is we just ensure fee_numerator >= cliff_fee_numerator
-    pub fn get_included_fee_amount(&self, excluded_fee_amount: u64) -> Result<u64> {
+    // Note: That also exclude the dynamic fee in calculation, so in rate limiter fee mode, fees can be different for different swap modes
+    pub fn get_fee_numerator_from_excluded_fee_amount(
+        &self,
+        excluded_fee_amount: u64,
+    ) -> Result<u64> {
         let excluded_fee_reference_amount = self.get_excluded_fee_amount(self.reference_amount)?;
         if excluded_fee_amount <= excluded_fee_reference_amount {
-            let included_fee_amount = PoolFeesConfig::get_included_fee_amount(
-                self.cliff_fee_numerator,
-                excluded_fee_amount,
-            )?;
-            return Ok(included_fee_amount);
+            return Ok(self.cliff_fee_numerator);
         }
         let (checked_excluded_fee_amount, checked_included_fee_amount, is_overflow) =
             self.get_checked_amounts()?;
         // add the early check
         if excluded_fee_amount == checked_excluded_fee_amount {
-            return Ok(checked_included_fee_amount);
+            return self.get_fee_numerator_from_included_fee_amount(checked_included_fee_amount);
         }
         let included_fee_amount = if excluded_fee_amount < checked_excluded_fee_amount {
             let two = U256::from(2);
@@ -172,7 +172,7 @@ impl FeeRateLimiter {
 
             let remaining_amount_fee_numerator = c + i * a_plus_one;
 
-            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+            let (included_fee_remaining_amount, _) = PoolFeesConfig::get_included_fee_amount(
                 remaining_amount_fee_numerator
                     .try_into()
                     .map_err(|_| PoolError::TypeCastFailed)?,
@@ -193,7 +193,7 @@ impl FeeRateLimiter {
             let excluded_fee_remaining_amount =
                 excluded_fee_amount.safe_sub(checked_excluded_fee_amount)?;
             // remaining_amount should take the max fee
-            let included_fee_remaining_amount = PoolFeesConfig::get_included_fee_amount(
+            let (included_fee_remaining_amount, _) = PoolFeesConfig::get_included_fee_amount(
                 MAX_FEE_NUMERATOR,
                 excluded_fee_remaining_amount,
             )?;
@@ -202,24 +202,32 @@ impl FeeRateLimiter {
                 included_fee_remaining_amount.safe_add(checked_included_fee_amount)?;
             total_amount_in
         };
+
+        let trading_fee = included_fee_amount.safe_sub(excluded_fee_amount)?;
+
+        let fee_numerator = safe_mul_div_cast_u64(
+            trading_fee,
+            FEE_DENOMINATOR,
+            included_fee_amount,
+            Rounding::Up,
+        )?;
+
         // sanity check
-        let (max_excluded_fee_amount, _fee) =
-            PoolFeesConfig::get_excluded_fee_amount(self.cliff_fee_numerator, included_fee_amount)?;
         require!(
-            max_excluded_fee_amount >= excluded_fee_amount,
+            fee_numerator >= self.cliff_fee_numerator,
             PoolError::UndeterminedError
         );
-        Ok(included_fee_amount)
+        Ok(fee_numerator)
     }
 
     pub fn get_excluded_fee_amount(&self, included_fee_amount: u64) -> Result<u64> {
-        let fee_numerator = self.get_fee_numerator_from_amount(included_fee_amount)?;
+        let fee_numerator = self.get_fee_numerator_from_included_fee_amount(included_fee_amount)?;
         let (excluded_fee_amount, _fee) =
             PoolFeesConfig::get_excluded_fee_amount(fee_numerator, included_fee_amount)?;
         Ok(excluded_fee_amount)
     }
 
-    pub fn get_fee_numerator_from_amount(&self, input_amount: u64) -> Result<u64> {
+    pub fn get_fee_numerator_from_included_fee_amount(&self, input_amount: u64) -> Result<u64> {
         let fee_numerator = if input_amount <= self.reference_amount {
             self.cliff_fee_numerator
         } else {
@@ -316,23 +324,37 @@ impl BaseFeeHandler for FeeRateLimiter {
         );
 
         // validate max fee (more amount, then more fee)
-        let min_fee_numerator = self.get_fee_numerator_from_amount(0)?;
-        let max_fee_numerator = self.get_fee_numerator_from_amount(u64::MAX)?;
+        let min_fee_numerator = self.get_fee_numerator_from_included_fee_amount(0)?;
+        let max_fee_numerator = self.get_fee_numerator_from_included_fee_amount(u64::MAX)?;
         require!(
             min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
             PoolError::InvalidFeeRateLimiter
         );
         Ok(())
     }
-    fn get_base_fee_numerator(
+    fn get_base_fee_numerator_from_included_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
         trade_direction: TradeDirection,
-        input_amount: u64,
+        included_fee_amount: u64,
     ) -> Result<u64> {
         if self.is_rate_limiter_applied(current_point, activation_point, trade_direction)? {
-            self.get_fee_numerator_from_amount(input_amount)
+            self.get_fee_numerator_from_included_fee_amount(included_fee_amount)
+        } else {
+            Ok(self.cliff_fee_numerator)
+        }
+    }
+
+    fn get_base_fee_numerator_from_excluded_fee_amount(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+        trade_direction: TradeDirection,
+        excluded_fee_amount: u64,
+    ) -> Result<u64> {
+        if self.is_rate_limiter_applied(current_point, activation_point, trade_direction)? {
+            self.get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)
         } else {
             Ok(self.cliff_fee_numerator)
         }

@@ -2,38 +2,27 @@ import { ProgramTestContext } from "solana-bankrun";
 import {
   createConfig,
   CreateConfigParams,
-  createLocker,
-  createMeteoraMetadata,
   createPoolWithSplToken,
-  MigrateMeteoraParams,
-  migrateToMeteoraDamm,
-  partnerWithdrawSurplus,
-  protocolWithdrawSurplus,
-  swap,
   swap2,
-  SwapParams,
   SwapParams2,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair } from "@solana/web3.js";
 import {
-  createDammConfig,
   designCurve,
   fundSol,
-  getMint,
   getTokenAccount,
   startTest,
   U64_MAX,
 } from "./utils";
-import { createVirtualCurveProgram, derivePoolAuthority } from "./utils";
-import { getConfig, getVirtualPool } from "./utils/fetcher";
+import { createVirtualCurveProgram } from "./utils";
+import { getVirtualPool } from "./utils/fetcher";
 
 import { createToken, mintSplTokenTo } from "./utils/token";
 import { expect } from "chai";
 import { BN } from "bn.js";
 import {
   getAssociatedTokenAddressSync,
-  TOKEN_2022_PROGRAM_ID,
   unpackAccount,
 } from "@solana/spl-token";
 
