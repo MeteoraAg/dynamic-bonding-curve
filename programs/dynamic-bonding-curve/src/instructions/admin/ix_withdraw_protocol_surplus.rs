@@ -41,7 +41,7 @@ pub struct ProtocolWithdrawSurplusCtx<'info> {
     #[account(mut, token::token_program = token_quote_program, token::mint = quote_mint)]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// The mint of of token
+    /// The mint of token
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// Token b program

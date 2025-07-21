@@ -166,7 +166,7 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
-        // that condition is redundant, but is is safe to add this
+        // that condition is redundant, but it is safe to add this
         require!(
             self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
                 && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR,
