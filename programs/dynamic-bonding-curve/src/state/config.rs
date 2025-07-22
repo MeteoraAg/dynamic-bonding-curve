@@ -17,7 +17,7 @@ use crate::{
     safe_math::SafeMath,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, MigratedPoolFee, MigrationFee, PoolError,
+    LockedVestingParams, MigrationFee, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
