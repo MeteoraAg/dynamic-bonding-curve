@@ -29,7 +29,7 @@ Partner can specify these parameters when they create a configuration on all the
 
 - `pool_fees`: include `base_fee` and `dynamic_fee` (optional). Partner can add fee scheduler or rate limiter in `base_fee` or just a fixed fee. `pool_fees` defines the trading fee for any pool that is created from this configuration.
 - `collect_fee_mode` (`0 | 1`): `0` means the virtual pool will only collect fee in quote token, `1` means virtual pool will collect fee in both tokens.
-- `migration_option`: right now we only support migration to Meteora DAMM, so partner must set the value as `0` for this field.
+- `migration_option` (`0 | 1`):  `0` means DammV1 and `1` means DammV2
 - `activation_type` (`0 | 1`): `0` means slot, `1` means timestamp, this field indicates the time unit that pool will work with, mostly in calculating fee scheduler/ rate limiter and dynamic fee.
 - `token_type` (`0 | 1`): `0` means SPL Token, `1` means Token2022.
 - `token_decimal`: the token decimals that the token will use when user creates the virtual pool with this configuration, we only support token decimals from 6 to 9.
@@ -42,7 +42,8 @@ Partner can specify these parameters when they create a configuration on all the
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
 - `locked_vesting`: locked vesting for creator after token is migrated (token will be migrated to [Jup lock](https://lock.jup.ag/))
-- `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2% | 4% | 6%)
+- `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2% | 4% | 6% | Customizable (only for DammV2 migration))
+- `migrated_pool_fee`: allow partner to choose fees on migration pool, that param is only valid if `migration_fee_option == Customizable` and `migration_option == 1` (DammV2 migration)
 - `token_supply`: when the fields are specified, token will have fixed supply in pre and post migration, leftover will be returned to leftover_receiver (configured in config key)
 - `creator_trading_fee_percentage`: the percentage of trading fee and surplus pool creator can get for a pool
 - `token_update_authority`: the option to allow creator/partner to config token authority, 0: creator can update token metadata, 1: immutable, 2: partner can update token metadata, 3: creator can update token metadata and mint token, 4: partner can update token metadata and mint token.
@@ -115,6 +116,7 @@ pnpm test
 - migration_fee_option == 3: 2c4cYd4reUYVRAB9kUUkrq55VPyy2FNQ3FDL4o12JXmq
 - migration_fee_option == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
 - migration_fee_option == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
+- migration_fee_option == 6: A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
 
 
 ## Audits
