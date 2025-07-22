@@ -45,10 +45,9 @@ pub struct ConfigParameters {
     pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
-    pub migrated_pool_fee: Option<MigratedPoolFee>,
+    pub migrated_pool_fee: MigratedPoolFee,
     /// padding for future use
-    pub padding_0: [u8; 7],
-    pub padding_1: [u64; 6],
+    pub padding: [u64; 7],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -89,6 +88,9 @@ pub struct MigratedPoolFee {
 const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
 
 impl MigratedPoolFee {
+    pub fn is_none(&self) -> bool {
+        self.collect_fee_mode == 0 && self.dynamic_fee == 0 && self.pool_fee_bps == 0
+    }
     pub fn validate(&self) -> Result<()> {
         require!(
             self.pool_fee_bps >= MIN_MIGRATED_POOL_FEE_BPS
@@ -238,10 +240,7 @@ impl ConfigParameters {
             }
             MigrationOption::DammV2 => {
                 if migration_fee_option == MigrationFeeOption::Customizable {
-                    let migrated_pool_fee = self
-                        .migrated_pool_fee
-                        .ok_or_else(|| PoolError::InvalidMigratedPoolFee)?;
-                    migrated_pool_fee.validate()?;
+                    self.migrated_pool_fee.validate()?;
                 } else {
                     require!(
                         self.migrated_pool_fee.is_none(),
@@ -438,7 +437,7 @@ pub fn handle_create_config(
         pool_fee_bps: migrated_pool_fee_bps,
         collect_fee_mode: migrated_collect_fee_mode,
         dynamic_fee: migrated_dynamic_fee,
-    } = migrated_pool_fee.unwrap_or_default();
+    } = migrated_pool_fee;
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init(

@@ -93,8 +93,8 @@ export type ConfigParameters = {
     poolFeeBps: number;
     collectFeeMode: number;
     dynamicFee: number;
-  } | null,
-  padding1: BN[];
+  },
+  padding: BN[];
   curve: Array<LiquidityDistributionParameters>;
 };
 

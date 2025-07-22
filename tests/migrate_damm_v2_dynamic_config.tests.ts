@@ -168,7 +168,7 @@ async function fullFlow(
       creatorFeePercentage: 0,
     },
     migratedPoolFee,
-    padding1: [],
+    padding: [],
     curve: curves,
   };
   const params: CreateConfigParams = {

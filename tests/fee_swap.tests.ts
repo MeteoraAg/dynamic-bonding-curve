@@ -11,14 +11,14 @@ import {
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { fundSol, getBalance, getTokenAccount, startTest } from "./utils";
+import { fundSol, getTokenAccount, startTest } from "./utils";
 import {
   createVirtualCurveProgram,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   U64_MAX,
 } from "./utils";
-import { getClaimFeeOperator, getVirtualPool } from "./utils/fetcher";
+import { getVirtualPool } from "./utils/fetcher";
 import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
 import { expect } from "chai";
 
@@ -106,8 +106,12 @@ describe("Fee Swap test", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
-        migratedPoolFee: null,
-        padding1: [],
+        migratedPoolFee: {
+          collectFeeMode: 0,
+          dynamicFee: 0,
+          poolFeeBps: 0,
+        },
+        padding: [],
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -456,8 +460,12 @@ describe("Fee Swap test", () => {
           feePercentage: 0,
           creatorFeePercentage: 0,
         },
-        migratedPoolFee: null,
-        padding1: [],
+        migratedPoolFee: {
+          collectFeeMode: 0,
+          dynamicFee: 0,
+          poolFeeBps: 0,
+        },
+        padding: [],
         curve: curves,
       };
       const params: CreateConfigParams = {

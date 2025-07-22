@@ -1,23 +1,15 @@
 import { BN } from "bn.js";
 import { ProgramTestContext } from "solana-bankrun";
-import { unpack } from "@solana/spl-token-metadata";
 import {
   deserializeMetadata,
-  MetadataAccountData,
 } from "@metaplex-foundation/mpl-token-metadata";
 import {
   BaseFee,
-  claimProtocolFee,
-  ClaimTradeFeeParams,
-  claimTradingFee,
   ConfigParameters,
-  createClaimFeeOperator,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
   createPoolWithToken2022,
-  swap,
-  SwapParams,
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
@@ -34,9 +26,7 @@ import {
   ACCOUNT_TYPE_SIZE,
   ExtensionType,
   getExtensionData,
-  getMetadataPointerState,
   MetadataPointerLayout,
-  MintLayout,
   NATIVE_MINT,
 } from "@solana/spl-token";
 import { expect } from "chai";
@@ -76,10 +66,10 @@ describe("Create pool with token2022", () => {
   it("Partner create config", async () => {
     const baseFee: BaseFee = {
       cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
+      firstFactor: 0,
+      secondFactor: new BN(0),
+      thirdFactor: new BN(0),
+      baseFeeMode: 0,
     };
 
     const curves = [];
@@ -125,8 +115,16 @@ describe("Create pool with token2022", () => {
       tokenSupply: null,
       creatorTradingFeePercentage: 0,
       tokenUpdateAuthority: 0, // mutable
-      migratedPoolFee: null,
-      padding1: [],
+      migrationFee: {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      },
+      migratedPoolFee: {
+        collectFeeMode: 0,
+        dynamicFee: 0,
+        poolFeeBps: 0,
+      },
+      padding0: [],
       curve: curves,
     };
     let params: CreateConfigParams = {

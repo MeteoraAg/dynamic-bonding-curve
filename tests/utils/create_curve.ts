@@ -474,8 +474,12 @@ export function designCurve(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    migratedPoolFee: null,
-    padding1: [],
+    migratedPoolFee: {
+      collectFeeMode: 0,
+      dynamicFee: 0,
+      poolFeeBps: 0,
+    },
+    padding: [],
     curve,
   };
   return instructionParams;
@@ -601,8 +605,12 @@ export function designGraphCurve(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    migratedPoolFee: null,
-    padding1: [],
+    migratedPoolFee: {
+      collectFeeMode: 0,
+      dynamicFee: 0,
+      poolFeeBps: 0,
+    },
+    padding: [],
     curve,
   };
   return instructionParams;
