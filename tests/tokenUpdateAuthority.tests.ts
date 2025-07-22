@@ -124,7 +124,7 @@ describe("Create pool with token2022", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
-      padding0: [],
+      padding: [],
       curve: curves,
     };
     let params: CreateConfigParams = {
