@@ -6,7 +6,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::{SwapResult, SwapResult2},
-    LockedVestingParams, SwapParameters, SwapParameters2,
+    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
 /// Create partner metadata
