@@ -145,4 +145,10 @@ pub enum PoolError {
 
     #[msg("Rate limiter not supported")]
     RateLimiterNotSupported,
+
+    #[msg("Amount left is not zero")]
+    AmountLeftIsNotZero,
+
+    #[msg("Next sqrt price is smaller than start sqrt price")]
+    NextSqrtPriceIsSmallerThanStartSqrtPrice,
 }

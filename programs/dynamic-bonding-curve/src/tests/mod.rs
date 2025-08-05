@@ -20,7 +20,7 @@ mod test_migration_fee_status;
 mod test_rate_limiter;
 
 #[cfg(test)]
-mod dynamic_fee_params;
+mod test_dynamic_fee_params;
 
 #[cfg(test)]
 mod test_inverse_fee;

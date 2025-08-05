@@ -314,15 +314,16 @@ impl VirtualPool {
                     Rounding::Down,
                 )?;
                 if U256::from(amount_left) < max_amount_out {
-                    let next_sqrt_price = get_next_sqrt_price_from_output(
-                        current_sqrt_price,
-                        config.curve[i + 1].liquidity,
-                        amount_left,
-                        true,
-                    )?;
+                    let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
+                        get_next_sqrt_price_from_output(
+                            current_sqrt_price,
+                            config.curve[i + 1].liquidity,
+                            amount_left,
+                            true,
+                        )?;
 
                     let in_amount = get_delta_amount_base_unsigned(
-                        next_sqrt_price,
+                        next_sqrt_price_for_amount_in_calculation,
                         current_sqrt_price,
                         config.curve[i + 1].liquidity,
                         Rounding::Up,
@@ -346,18 +347,19 @@ impl VirtualPool {
             }
         }
         if amount_left != 0 {
-            let next_sqrt_price = get_next_sqrt_price_from_output(
-                current_sqrt_price,
-                config.curve[0].liquidity,
-                amount_left,
-                true,
-            )?;
+            let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
+                get_next_sqrt_price_from_output(
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    amount_left,
+                    true,
+                )?;
             require!(
                 next_sqrt_price >= config.sqrt_start_price,
-                PoolError::NotEnoughLiquidity
+                PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice
             );
             let in_amount = get_delta_amount_base_unsigned(
-                next_sqrt_price,
+                next_sqrt_price_for_amount_in_calculation,
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 Rounding::Up,
@@ -393,16 +395,17 @@ impl VirtualPool {
                     Rounding::Down,
                 )?;
                 if U256::from(amount_left) < max_amount_out {
-                    let next_sqrt_price = get_next_sqrt_price_from_output(
-                        current_sqrt_price,
-                        config.curve[i].liquidity,
-                        amount_left,
-                        false,
-                    )?;
+                    let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
+                        get_next_sqrt_price_from_output(
+                            current_sqrt_price,
+                            config.curve[i].liquidity,
+                            amount_left,
+                            false,
+                        )?;
 
                     let input_amount = get_delta_amount_quote_unsigned(
                         current_sqrt_price,
-                        next_sqrt_price,
+                        next_sqrt_price_for_amount_in_calculation,
                         config.curve[i].liquidity,
                         Rounding::Up,
                     )?;
@@ -430,7 +433,7 @@ impl VirtualPool {
             }
         }
 
-        require!(amount_left == 0, PoolError::NotEnoughLiquidity);
+        require!(amount_left == 0, PoolError::AmountLeftIsNotZero);
 
         Ok(SwapAmountFromOutput {
             amount_in: total_input_amount,
@@ -822,15 +825,34 @@ impl VirtualPool {
             creator_fee,
         } = config.split_partner_and_creator_fee(trading_fee)?;
         if fee_mode.fees_on_base_token {
-            self.partner_base_fee = self.partner_base_fee.safe_add(partner_fee)?;
-            self.protocol_base_fee = self.protocol_base_fee.safe_add(protocol_fee)?;
-            self.creator_base_fee = self.creator_base_fee.safe_add(creator_fee)?;
+            self.partner_base_fee = self
+                .partner_base_fee
+                .checked_add(partner_fee)
+                .ok_or_else(math_error!())?;
+            self.protocol_base_fee = self
+                .protocol_base_fee
+                .checked_add(protocol_fee)
+                .ok_or_else(math_error!())?;
+            self.creator_base_fee = self
+                .creator_base_fee
+                .checked_add(creator_fee)
+                .ok_or_else(math_error!())?;
+
             self.metrics
                 .accumulate_fee(protocol_fee, trading_fee, true)?;
         } else {
-            self.partner_quote_fee = self.partner_quote_fee.safe_add(partner_fee)?;
-            self.protocol_quote_fee = self.protocol_quote_fee.safe_add(protocol_fee)?;
-            self.creator_quote_fee = self.creator_quote_fee.safe_add(creator_fee)?;
+            self.partner_quote_fee = self
+                .partner_quote_fee
+                .checked_add(partner_fee)
+                .ok_or_else(math_error!())?;
+            self.protocol_quote_fee = self
+                .protocol_quote_fee
+                .checked_add(protocol_fee)
+                .ok_or_else(math_error!())?;
+            self.creator_quote_fee = self
+                .creator_quote_fee
+                .checked_add(creator_fee)
+                .ok_or_else(math_error!())?;
             self.metrics
                 .accumulate_fee(protocol_fee, trading_fee, false)?;
         }
@@ -839,17 +861,32 @@ impl VirtualPool {
             output_amount
         } else {
             output_amount
-                .safe_add(trading_fee)?
-                .safe_add(protocol_fee)?
-                .safe_add(referral_fee)?
+                .checked_add(trading_fee)
+                .ok_or_else(math_error!())?
+                .checked_add(protocol_fee)
+                .ok_or_else(math_error!())?
+                .checked_add(referral_fee)
+                .ok_or_else(math_error!())?
         };
 
         if trade_direction == TradeDirection::BaseToQuote {
-            self.base_reserve = self.base_reserve.safe_add(actual_input_amount)?;
-            self.quote_reserve = self.quote_reserve.safe_sub(actual_output_amount)?;
+            self.base_reserve = self
+                .base_reserve
+                .checked_add(actual_input_amount)
+                .ok_or_else(math_error!())?;
+            self.quote_reserve = self
+                .quote_reserve
+                .checked_sub(actual_output_amount)
+                .ok_or_else(math_error!())?;
         } else {
-            self.quote_reserve = self.quote_reserve.safe_add(actual_input_amount)?;
-            self.base_reserve = self.base_reserve.safe_sub(actual_output_amount)?;
+            self.quote_reserve = self
+                .quote_reserve
+                .checked_add(actual_input_amount)
+                .ok_or_else(math_error!())?;
+            self.base_reserve = self
+                .base_reserve
+                .checked_sub(actual_output_amount)
+                .ok_or_else(math_error!())?;
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;
