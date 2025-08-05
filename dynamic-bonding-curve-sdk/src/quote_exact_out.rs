@@ -13,8 +13,6 @@ pub fn quote_exact_out(
     current_slot: u64,
     out_amount: u64,
 ) -> Result<SwapResult2> {
-    let mut pool = *pool;
-
     ensure!(
         !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
@@ -22,7 +20,6 @@ pub fn quote_exact_out(
 
     ensure!(out_amount > 0, "amount is zero");
 
-    pool.update_pre_swap(config, current_timestamp)?;
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
     let current_point = match activation_type {
