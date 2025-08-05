@@ -9,7 +9,7 @@ use crate::{
     },
     PoolError,
 };
-use anchor_lang::{prelude::Pubkey, require};
+use anchor_lang::prelude::Pubkey;
 use rand::prelude::*;
 
 use super::price_math::get_price_from_id;
@@ -229,7 +229,7 @@ fn test_swap_exact_out() {
 #[test]
 fn test_swap_wont_depelete_reserve() {
     let (config, mut pool, mut user) = initialize_pool_and_config();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut count_exact_in = 0;
     let mut count_exact_out = 0;
     for _i in 0..10000 {
@@ -239,7 +239,7 @@ fn test_swap_wont_depelete_reserve() {
             TradeDirection::BaseToQuote
         };
 
-        let amount = rng.gen_range(1000..10_000);
+        let amount = rng.random_range(1000..10_000);
 
         if rng.random::<bool>() {
             if trade_direction == TradeDirection::BaseToQuote && user.base_balance < amount {
