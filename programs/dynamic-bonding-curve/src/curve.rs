@@ -200,20 +200,16 @@ pub fn get_next_sqrt_price_from_quote_amount_out(
     amount: u64,
 ) -> Result<(u128, u128)> {
     let liquidity = U256::from(liquidity);
-    let q_amount = U256::from(amount)
-        .checked_shl(128)
-        .ok_or_else(math_error!())?;
+    let q_amount = U256::from(amount).safe_shl(128)?;
     let quotient_round_up = q_amount.div_ceil(liquidity);
     let result_round_down = U256::from(sqrt_price)
-        .checked_sub(quotient_round_up)
-        .ok_or_else(math_error!())?
+        .safe_sub(quotient_round_up)?
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
 
-    let quotient_round_down = q_amount.checked_div(liquidity).ok_or_else(math_error!())?;
+    let quotient_round_down = q_amount.safe_div(liquidity)?;
     let result_round_up = U256::from(sqrt_price)
-        .checked_sub(quotient_round_down)
-        .ok_or_else(math_error!())?
+        .safe_sub(quotient_round_down)?
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
 
@@ -232,12 +228,8 @@ pub fn get_next_sqrt_price_from_base_amount_out(
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
-    let product = U256::from(amount)
-        .checked_mul(sqrt_price)
-        .ok_or_else(math_error!())?;
-    let denominator = liquidity
-        .checked_sub(U256::from(product))
-        .ok_or_else(math_error!())?;
+    let product = U256::from(amount).safe_mul(sqrt_price)?;
+    let denominator = liquidity.safe_sub(U256::from(product))?;
     let result_round_down = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Down)
         .ok_or_else(|| PoolError::TypeCastFailed)?
         .try_into()

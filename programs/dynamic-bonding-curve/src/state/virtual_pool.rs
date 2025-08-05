@@ -825,34 +825,16 @@ impl VirtualPool {
             creator_fee,
         } = config.split_partner_and_creator_fee(trading_fee)?;
         if fee_mode.fees_on_base_token {
-            self.partner_base_fee = self
-                .partner_base_fee
-                .checked_add(partner_fee)
-                .ok_or_else(math_error!())?;
-            self.protocol_base_fee = self
-                .protocol_base_fee
-                .checked_add(protocol_fee)
-                .ok_or_else(math_error!())?;
-            self.creator_base_fee = self
-                .creator_base_fee
-                .checked_add(creator_fee)
-                .ok_or_else(math_error!())?;
+            self.partner_base_fee = self.partner_base_fee.safe_add(partner_fee)?;
+            self.protocol_base_fee = self.protocol_base_fee.safe_add(protocol_fee)?;
+            self.creator_base_fee = self.creator_base_fee.safe_add(creator_fee)?;
 
             self.metrics
                 .accumulate_fee(protocol_fee, trading_fee, true)?;
         } else {
-            self.partner_quote_fee = self
-                .partner_quote_fee
-                .checked_add(partner_fee)
-                .ok_or_else(math_error!())?;
-            self.protocol_quote_fee = self
-                .protocol_quote_fee
-                .checked_add(protocol_fee)
-                .ok_or_else(math_error!())?;
-            self.creator_quote_fee = self
-                .creator_quote_fee
-                .checked_add(creator_fee)
-                .ok_or_else(math_error!())?;
+            self.partner_quote_fee = self.partner_quote_fee.safe_add(partner_fee)?;
+            self.protocol_quote_fee = self.protocol_quote_fee.safe_add(protocol_fee)?;
+            self.creator_quote_fee = self.creator_quote_fee.safe_add(creator_fee)?;
             self.metrics
                 .accumulate_fee(protocol_fee, trading_fee, false)?;
         }
@@ -861,32 +843,17 @@ impl VirtualPool {
             output_amount
         } else {
             output_amount
-                .checked_add(trading_fee)
-                .ok_or_else(math_error!())?
-                .checked_add(protocol_fee)
-                .ok_or_else(math_error!())?
-                .checked_add(referral_fee)
-                .ok_or_else(math_error!())?
+                .safe_add(trading_fee)?
+                .safe_add(protocol_fee)?
+                .safe_add(referral_fee)?
         };
 
         if trade_direction == TradeDirection::BaseToQuote {
-            self.base_reserve = self
-                .base_reserve
-                .checked_add(actual_input_amount)
-                .ok_or_else(math_error!())?;
-            self.quote_reserve = self
-                .quote_reserve
-                .checked_sub(actual_output_amount)
-                .ok_or_else(math_error!())?;
+            self.base_reserve = self.base_reserve.safe_add(actual_input_amount)?;
+            self.quote_reserve = self.quote_reserve.safe_sub(actual_output_amount)?;
         } else {
-            self.quote_reserve = self
-                .quote_reserve
-                .checked_add(actual_input_amount)
-                .ok_or_else(math_error!())?;
-            self.base_reserve = self
-                .base_reserve
-                .checked_sub(actual_output_amount)
-                .ok_or_else(math_error!())?;
+            self.quote_reserve = self.quote_reserve.safe_add(actual_input_amount)?;
+            self.base_reserve = self.base_reserve.safe_sub(actual_output_amount)?;
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;

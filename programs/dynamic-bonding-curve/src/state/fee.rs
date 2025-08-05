@@ -50,11 +50,7 @@ impl VolatilityTracker {
         let price_ratio: u128 =
             safe_shl_div_cast(upper_sqrt_price, lower_sqrt_price, 64, Rounding::Down)?;
 
-        let delta_bin_id = price_ratio
-            .checked_sub(ONE_Q64)
-            .ok_or_else(math_error!())?
-            .checked_div(bin_step_u128)
-            .ok_or_else(math_error!())?;
+        let delta_bin_id = price_ratio.safe_sub(ONE_Q64)?.safe_div(bin_step_u128)?;
 
         Ok(delta_bin_id.safe_mul(2)?)
     }
@@ -72,12 +68,7 @@ impl VolatilityTracker {
 
         let volatility_accumulator = self
             .volatility_reference
-            .checked_add(
-                delta_price
-                    .checked_mul(BASIS_POINT_MAX.into())
-                    .ok_or_else(math_error!())?,
-            )
-            .ok_or_else(math_error!())?;
+            .safe_add(delta_price.safe_mul(BASIS_POINT_MAX.into())?)?;
 
         self.volatility_accumulator = std::cmp::min(
             volatility_accumulator,
@@ -93,9 +84,7 @@ impl VolatilityTracker {
         sqrt_price_current: u128,
         current_timestamp: u64,
     ) -> Result<()> {
-        let elapsed = current_timestamp
-            .checked_sub(self.last_update_timestamp)
-            .ok_or_else(math_error!())?;
+        let elapsed = current_timestamp.safe_sub(self.last_update_timestamp)?;
         // Not high frequency trade
         if elapsed >= dynamic_fee_config.filter_period as u64 {
             // Update sqrt of last transaction
@@ -104,10 +93,8 @@ impl VolatilityTracker {
             if elapsed < dynamic_fee_config.decay_period as u64 {
                 let volatility_reference = self
                     .volatility_accumulator
-                    .checked_mul(dynamic_fee_config.reduction_factor.into())
-                    .ok_or_else(math_error!())?
-                    .checked_div(BASIS_POINT_MAX.into())
-                    .ok_or_else(math_error!())?;
+                    .safe_mul(dynamic_fee_config.reduction_factor.into())?
+                    .safe_div(BASIS_POINT_MAX.into())?;
 
                 self.volatility_reference = volatility_reference;
             }
