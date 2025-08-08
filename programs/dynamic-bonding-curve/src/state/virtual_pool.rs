@@ -314,16 +314,15 @@ impl VirtualPool {
                     Rounding::Down,
                 )?;
                 if U256::from(amount_left) < max_amount_out {
-                    let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
-                        get_next_sqrt_price_from_output(
-                            current_sqrt_price,
-                            config.curve[i + 1].liquidity,
-                            amount_left,
-                            true,
-                        )?;
+                    let next_sqrt_price = get_next_sqrt_price_from_output(
+                        current_sqrt_price,
+                        config.curve[i + 1].liquidity,
+                        amount_left,
+                        true,
+                    )?;
 
                     let in_amount = get_delta_amount_base_unsigned(
-                        next_sqrt_price_for_amount_in_calculation,
+                        next_sqrt_price,
                         current_sqrt_price,
                         config.curve[i + 1].liquidity,
                         Rounding::Up,
@@ -347,19 +346,18 @@ impl VirtualPool {
             }
         }
         if amount_left != 0 {
-            let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
-                get_next_sqrt_price_from_output(
-                    current_sqrt_price,
-                    config.curve[0].liquidity,
-                    amount_left,
-                    true,
-                )?;
+            let next_sqrt_price = get_next_sqrt_price_from_output(
+                current_sqrt_price,
+                config.curve[0].liquidity,
+                amount_left,
+                true,
+            )?;
             require!(
                 next_sqrt_price >= config.sqrt_start_price,
                 PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice
             );
             let in_amount = get_delta_amount_base_unsigned(
-                next_sqrt_price_for_amount_in_calculation,
+                next_sqrt_price,
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 Rounding::Up,
@@ -395,17 +393,16 @@ impl VirtualPool {
                     Rounding::Down,
                 )?;
                 if U256::from(amount_left) < max_amount_out {
-                    let (next_sqrt_price, next_sqrt_price_for_amount_in_calculation) =
-                        get_next_sqrt_price_from_output(
-                            current_sqrt_price,
-                            config.curve[i].liquidity,
-                            amount_left,
-                            false,
-                        )?;
+                    let next_sqrt_price = get_next_sqrt_price_from_output(
+                        current_sqrt_price,
+                        config.curve[i].liquidity,
+                        amount_left,
+                        false,
+                    )?;
 
                     let input_amount = get_delta_amount_quote_unsigned(
                         current_sqrt_price,
-                        next_sqrt_price_for_amount_in_calculation,
+                        next_sqrt_price,
                         config.curve[i].liquidity,
                         Rounding::Up,
                     )?;
