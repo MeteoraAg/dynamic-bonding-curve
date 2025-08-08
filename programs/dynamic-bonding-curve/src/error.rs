@@ -139,4 +139,16 @@ pub enum PoolError {
 
     #[msg("Invalid migrated pool fee params")]
     InvalidMigratedPoolFee,
+
+    #[msg("Undertermined error")]
+    UndeterminedError,
+
+    #[msg("Rate limiter not supported")]
+    RateLimiterNotSupported,
+
+    #[msg("Amount left is not zero")]
+    AmountLeftIsNotZero,
+
+    #[msg("Next sqrt price is smaller than start sqrt price")]
+    NextSqrtPriceIsSmallerThanStartSqrtPrice,
 }
