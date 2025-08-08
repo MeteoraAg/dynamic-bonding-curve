@@ -170,76 +170,65 @@ pub fn get_next_sqrt_price_from_input(
 
     // round to make sure that we don't pass the target price
     if base_for_quote {
-        get_next_sqrt_price_from_amount_base_rounding_up(sqrt_price, liquidity, amount_in)
+        get_next_sqrt_price_from_base_amount_in_rounding_up(sqrt_price, liquidity, amount_in)
     } else {
-        get_next_sqrt_price_from_amount_quote_rounding_down(sqrt_price, liquidity, amount_in)
+        get_next_sqrt_price_from_quote_amount_in_rounding_down(sqrt_price, liquidity, amount_in)
     }
 }
 
-// first price is for next price, while second price is for amount in calculation
 pub fn get_next_sqrt_price_from_output(
     sqrt_price: u128,
     liquidity: u128,
     amount_out: u64,
     base_for_quote: bool,
-) -> Result<(u128, u128)> {
+) -> Result<u128> {
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
 
     if base_for_quote {
-        get_next_sqrt_price_from_quote_amount_out(sqrt_price, liquidity, amount_out)
+        get_next_sqrt_price_from_quote_amount_out_rounding_down(sqrt_price, liquidity, amount_out)
     } else {
-        get_next_sqrt_price_from_base_amount_out(sqrt_price, liquidity, amount_out)
+        get_next_sqrt_price_from_base_amount_out_rounding_up(sqrt_price, liquidity, amount_out)
     }
 }
 
 /// * `√P' = √P - Δy / L`
-pub fn get_next_sqrt_price_from_quote_amount_out(
+pub fn get_next_sqrt_price_from_quote_amount_out_rounding_down(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
-) -> Result<(u128, u128)> {
+) -> Result<u128> {
     let liquidity = U256::from(liquidity);
     let q_amount = U256::from(amount).safe_shl(128)?;
-    let quotient_round_up = q_amount.div_ceil(liquidity);
-    let result_round_down = U256::from(sqrt_price)
-        .safe_sub(quotient_round_up)?
+    let quotient = q_amount.div_ceil(liquidity);
+    let result = U256::from(sqrt_price)
+        .safe_sub(quotient)?
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
 
-    let quotient_round_down = q_amount.safe_div(liquidity)?;
-    let result_round_up = U256::from(sqrt_price)
-        .safe_sub(quotient_round_down)?
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
-
-    Ok((result_round_up, result_round_down))
+    Ok(result)
 }
 
 ///  √P' = √P * L / (L - Δx * √P)
-pub fn get_next_sqrt_price_from_base_amount_out(
+pub fn get_next_sqrt_price_from_base_amount_out_rounding_up(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
-) -> Result<(u128, u128)> {
+) -> Result<u128> {
     if amount == 0 {
-        return Ok((sqrt_price, sqrt_price));
+        return Ok(sqrt_price);
     }
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_sub(U256::from(product))?;
-    let result_round_down = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Down)
-        .ok_or_else(|| PoolError::TypeCastFailed)?
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
 
-    let result_round_up = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
+    let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
         .ok_or_else(|| PoolError::TypeCastFailed)?
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
-    Ok((result_round_down, result_round_up))
+    Ok(result)
 }
 
 /// Gets the next sqrt price √P' given a delta of token_a
@@ -270,7 +259,7 @@ pub fn get_next_sqrt_price_from_base_amount_out(
 ///  x = L/√P
 ///  √P' = √P * L / (L + Δx * √P)
 ///
-pub fn get_next_sqrt_price_from_amount_base_rounding_up(
+pub fn get_next_sqrt_price_from_base_amount_in_rounding_up(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
@@ -302,7 +291,7 @@ pub fn get_next_sqrt_price_from_amount_base_rounding_up(
 ///
 /// * `√P' = √P + Δy / L`
 ///
-pub fn get_next_sqrt_price_from_amount_quote_rounding_down(
+pub fn get_next_sqrt_price_from_quote_amount_in_rounding_down(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
