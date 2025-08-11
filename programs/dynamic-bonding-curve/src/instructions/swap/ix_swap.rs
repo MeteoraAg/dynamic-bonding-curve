@@ -41,8 +41,6 @@ pub struct SwapParameters2 {
     pub amount_1: u64,
     /// Swap mode, refer [SwapMode]
     pub swap_mode: u8,
-    // Padding for future use
-    pub padding: [u8; 32],
 }
 
 #[repr(u8)]

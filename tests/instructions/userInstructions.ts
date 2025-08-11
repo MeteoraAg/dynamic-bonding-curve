@@ -102,14 +102,14 @@ export async function createPoolWithSplToken(
       tokenProgram,
     })
     .transaction();
-    transaction.add(
-      ComputeBudgetProgram.setComputeUnitLimit({
-        units: 400_000,
-      })
-    );
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    })
+  );
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer, baseMintKP, poolCreator);
-    
+
   await processTransactionMaybeThrow(banksClient, transaction);
 
   return pool;
@@ -143,7 +143,7 @@ export async function createPoolWithToken2022(
       tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
     .transaction();
-  
+
   transaction.add(
     ComputeBudgetProgram.setComputeUnitLimit({
       units: 400_000,
@@ -268,7 +268,6 @@ export async function swapPartialFill(
       amount0: amountIn,
       amount1: minimumAmountOut,
       swapMode: 1,
-      padding: new Array(32).fill(0),
     })
     .accountsPartial({
       poolAuthority,
@@ -514,7 +513,6 @@ export async function getSwapInstruction(
       amount0: amountIn,
       amount1: minimumAmountOut,
       swapMode: 0,
-      padding: new Array(32).fill(0),
     })
     .accountsPartial({
       poolAuthority,
@@ -631,7 +629,6 @@ export async function swap2(
       amount0: amountIn,
       amount1: minimumAmountOut,
       swapMode,
-      padding: new Array(32).fill(0),
     })
     .accountsPartial({
       poolAuthority,
