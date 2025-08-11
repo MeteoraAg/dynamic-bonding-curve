@@ -36,7 +36,7 @@ describe("Backwards compatibility with release_0.1.2 - PoolConfig account", () =
 		const cliffFeeNumerator = view.getBigUint64(baseFeeOffset, true);
 		const periodFrequency = view.getBigUint64(baseFeeOffset + 8, true)
 		const reductionFactor = view.getBigUint64(baseFeeOffset + 16, true)
-		const numberOfPeriod= view.getUint16(baseFeeOffset + 24, true)
+		const numberOfPeriod = view.getUint16(baseFeeOffset + 24, true)
 		const feeSchedulerMode = view.getUint8(baseFeeOffset + 26)
 
 		expect(cliffFeeNumerator).eq(BigInt(2_500_000));
