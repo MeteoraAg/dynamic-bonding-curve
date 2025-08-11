@@ -20,7 +20,6 @@ mod test_migration_fee_status;
 mod test_rate_limiter;
 
 #[cfg(test)]
-<<<<<<< HEAD
 mod test_dynamic_fee_params;
 
 #[cfg(test)]
@@ -28,6 +27,3 @@ mod test_inverse_fee;
 
 #[cfg(test)]
 mod test_math_utils;
-=======
-mod dynamic_fee_params;
->>>>>>> bd6e992 (feat: add customizable pool for damm v2 migration (#99))
