@@ -1,9 +1,9 @@
 import { readFile } from "fs/promises";
 import { PublicKey } from "@solana/web3.js";
-import { VirtualCurveProgram } from "../../utils/types";
+import { VirtualCurveProgram } from "../utils/types";
 
 export async function readIxData(ix: String): Promise<Buffer> {
-	const ixData: Buffer = await readFile(`tests/fixtures/ix_data/release_0.1.2/ix_data-${ix}.bin`);
+	const ixData: Buffer = await readFile(`tests/fixtures/ix_data/ix_data-${ix}.bin`);
 	return ixData;
 }
 

@@ -1,8 +1,8 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { VirtualCurveProgram } from "../../utils/types";
+import { VirtualCurveProgram } from "../utils/types";
 import { Keypair } from "@solana/web3.js";
-import { startTest } from "../../utils";
-import { createVirtualCurveProgram, } from "../../utils";
+import { startTest } from "../utils";
+import { createVirtualCurveProgram, } from "../utils";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { createConfigSplTokenWithBaseFeeParameters, createConfigSplTokenWithBaseFeeParametersParams } from "./instructions/partnerInstructions";
 import { expect } from "chai";

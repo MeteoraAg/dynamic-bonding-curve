@@ -4,7 +4,7 @@ import {
 	TransactionInstruction,
 	Transaction
 } from "@solana/web3.js";
-import { VirtualCurveProgram } from "../../../utils/types";
+import { VirtualCurveProgram } from "../../utils/types";
 import { BanksClient } from "solana-bankrun";
 import {
 	derivePoolAuthority,
@@ -14,12 +14,12 @@ import {
 	getTokenAccount,
 	deriveMigrationMetadataAddress,
 	getTokenProgram,
-} from "../../../utils";
+} from "../../utils";
 import {
 	deriveEventAuthority,
 	readIxData
 } from "../utils";
-import { getConfig, getVirtualPool } from "../../../utils/fetcher";
+import { getConfig, getVirtualPool } from "../../utils/fetcher";
 import {
 	NATIVE_MINT,
 	TOKEN_2022_PROGRAM_ID,

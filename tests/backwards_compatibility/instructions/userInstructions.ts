@@ -15,8 +15,8 @@ import {
 	derivePoolAddress,
 	derivePoolAuthority,
 	deriveTokenVaultAddress,
-} from "../../../utils/accounts";
-import { VirtualCurveProgram } from "../../../utils/types";
+} from "../../utils/accounts";
+import { VirtualCurveProgram } from "../../utils/types";
 import {
 	NATIVE_MINT,
 	TOKEN_2022_PROGRAM_ID,
@@ -27,16 +27,16 @@ import {
 	deriveVirtualPoolMetadata,
 	METAPLEX_PROGRAM_ID,
 	processTransactionMaybeThrow,
-} from "../../../utils";
+} from "../../utils";
 import {
 	getConfig,
 	getVirtualPool,
-} from "../../../utils/fetcher";
+} from "../../utils/fetcher";
 import {
 	getOrCreateAssociatedTokenAccount,
 	unwrapSOLInstruction,
 	wrapSOLInstruction,
-} from "../../../utils";
+} from "../../utils";
 
 export type CreatePoolSplTokenParams = {
 	payer: Keypair;

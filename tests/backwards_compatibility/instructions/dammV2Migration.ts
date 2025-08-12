@@ -15,7 +15,7 @@ import {
 	DAMM_V2_PROGRAM_ID,
 	deriveMigrationDammV2MetadataAddress,
 	derivePoolAuthority,
-} from "../../../utils";
+} from "../../utils";
 import {
 	deriveEventAuthority,
 	readIxData

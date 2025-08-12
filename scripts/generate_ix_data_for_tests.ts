@@ -23,7 +23,7 @@ import {
 } from "../tests/instructions";
 
 import { DynamicBondingCurve as VirtualCurve } from "../target/types/dynamic_bonding_curve";
-import VirtualCurveIDL from "../target/idl/dynamic_bonding_curve.json";
+import VirtualCurveIDL from "./idl/release_0.1.2.json";
 
 /* generate_ix_data_for_tests.ts
  *

@@ -1,8 +1,8 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { VirtualCurveProgram } from "../../utils/types";
+import { VirtualCurveProgram } from "../utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { startTest, } from "../../utils";
-import { createVirtualCurveProgram, } from "../../utils";
+import { startTest, } from "../utils";
+import { createVirtualCurveProgram, } from "../utils";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { createConfig, CreateConfigParams, createPartnerMetadata } from "./instructions/partnerInstructions";
 import { createPoolWithSplToken, createPoolWithToken2022, CreatePoolToken2022Params, createVirtualPoolMetadata, CreateVirtualPoolMetadataParams } from "./instructions/userInstructions";

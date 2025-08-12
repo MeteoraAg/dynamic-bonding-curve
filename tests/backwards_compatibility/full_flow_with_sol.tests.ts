@@ -15,15 +15,15 @@ import {
 	creatorWithdrawSurplus,
 	transferCreator,
 } from "./instructions/creatorInstructions";
-import { Pool, VirtualCurveProgram } from "../../utils/types";
+import { Pool, VirtualCurveProgram } from "../utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, startTest } from "../../utils";
+import { fundSol, getMint, startTest } from "../utils";
 import {
 	createDammConfig,
 	createVirtualCurveProgram,
 	derivePoolAuthority,
-} from "../../utils";
-import { getVirtualPool } from "../../utils/fetcher";
+} from "../utils";
+import { getVirtualPool } from "../utils/fetcher";
 import { NATIVE_MINT } from "@solana/spl-token";
 import {
 	createMeteoraMetadata,
