@@ -65,7 +65,7 @@ async function createConfigSplToken(
 
   curves[curves.length - 1].sqrtPrice = MAX_SQRT_PRICE;
 
-  const instructionParams: ConfigParameters = {
+  const instructionParams = {
     poolFees: {
       baseFee: {
         cliffFeeNumerator: new BN(2_500_000),
@@ -109,7 +109,7 @@ async function createConfigSplToken(
   };
 
   const ix = await program.methods
-    .createConfig(instructionParams)
+    .createConfig(instructionParams as any)
     .accounts({
       config: DUMMY_PUBKEY,
       feeClaimer: DUMMY_PUBKEY,
@@ -189,7 +189,7 @@ async function createConfigToken2022(
   };
 
   const ix = await program.methods
-    .createConfig(instructionParams)
+    .createConfig(instructionParams as any)
     .accounts({
       config: DUMMY_PUBKEY,
       feeClaimer: DUMMY_PUBKEY,
@@ -273,7 +273,7 @@ async function createConfigSplTokenForSwapDamm(
   };
 
   const ix = await program.methods
-    .createConfig(instructionParams)
+    .createConfig(instructionParams as any)
     .accounts({
       config: DUMMY_PUBKEY,
       feeClaimer: DUMMY_PUBKEY,
@@ -360,7 +360,7 @@ async function createConfigSplTokenForSwapDammv2(
   };
 
   const ix = await program.methods
-    .createConfig(instructionParams)
+    .createConfig(instructionParams as any)
     .accounts({
       config: DUMMY_PUBKEY,
       feeClaimer: DUMMY_PUBKEY,
@@ -440,7 +440,7 @@ async function createConfigSplTokenWithBaseFeeParameters(
   };
 
   const ix = await program.methods
-    .createConfig(instructionParams)
+    .createConfig(instructionParams as any)
     .accounts({
       config: DUMMY_PUBKEY,
       feeClaimer: DUMMY_PUBKEY,
