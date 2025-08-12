@@ -8,7 +8,7 @@ import { createConfig, CreateConfigParams, createPartnerMetadata } from "./instr
 import { createPoolWithSplToken, createPoolWithToken2022, CreatePoolToken2022Params, createVirtualPoolMetadata, CreateVirtualPoolMetadataParams } from "./instructions/userInstructions";
 import { claimCreatorTradingFee } from "./instructions/creatorInstructions";
 
-describe("Backwards compatibility with release_0.1.2 - misc", () => {
+describe("Backwards compatibility - misc", () => {
 	let context: ProgramTestContext;
 	let user: Keypair;
 	let program: VirtualCurveProgram;

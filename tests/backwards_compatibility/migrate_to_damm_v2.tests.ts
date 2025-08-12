@@ -21,7 +21,7 @@ import { NATIVE_MINT } from "@solana/spl-token";
 
 import { createMeteoraDammV2Metadata, MigrateMeteoraDammV2Params, migrateToDammV2 } from "./instructions/dammV2Migration";
 
-describe("Backwards compatibility with release_0.1.2 - DAMMv2 migration", () => {
+describe("Backwards compatibility - DAMMv2 migration", () => {
 	let context: ProgramTestContext;
 	let admin: Keypair;
 	let operator: Keypair;

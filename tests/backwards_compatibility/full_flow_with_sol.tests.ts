@@ -36,7 +36,7 @@ import {
 } from "./instructions/meteoraMigration";
 import { expect } from "chai";
 
-describe("Backwards compatibility with release_0.1.2 - DAMM full flow", () => {
+describe("Backwards compatibility - DAMM full flow", () => {
 	let context: ProgramTestContext;
 	let admin: Keypair;
 	let operator: Keypair;
