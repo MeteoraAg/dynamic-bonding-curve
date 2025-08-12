@@ -2,7 +2,7 @@
 
 ### The reason behind this
 Backwards compatibility testing ensures that instruction data (IX data) generated from previous program versions can still be executed successfully on newer versions of the program.
-This is critical for Program Upgrades When deploying program updates to mainnet, existing transactions or pre-signed instructions from older versions must continue to work without failing.
+This is critical for Program Upgrades when deploying program updates to mainnet from older versions must continue to work without failing.
 
 The test works by:
 1. Generating instruction data using the exact same parameters and program interface from previous idl version
