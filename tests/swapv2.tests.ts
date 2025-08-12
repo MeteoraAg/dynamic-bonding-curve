@@ -385,7 +385,7 @@ describe("Swap V2", () => {
       virtualPoolState.quoteReserve.toString(),
       instructionParams.migrationQuoteThreshold.toString()
     );
-    expect(virtualPoolState.quoteReserve.toNumber()).greaterThan(
+    expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
     );
   });
@@ -504,7 +504,7 @@ describe("Swap V2", () => {
       virtualPoolState.quoteReserve.toString(),
       instructionParams.migrationQuoteThreshold.toString()
     );
-    expect(virtualPoolState.quoteReserve.toNumber()).greaterThan(
+    expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
     );
   });

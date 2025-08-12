@@ -1,4 +1,7 @@
-use std::ops::{BitAnd, BitXor};
+use std::{
+    ops::{BitAnd, BitXor},
+    u128,
+};
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -490,7 +493,7 @@ impl VirtualPool {
                 self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
             TradeDirection::QuoteToBase => {
-                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in)?
+                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in, u128::MAX)?
             }
         };
 
@@ -578,9 +581,11 @@ impl VirtualPool {
             TradeDirection::BaseToQuote => {
                 self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
-            TradeDirection::QuoteToBase => {
-                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in)?
-            }
+            TradeDirection::QuoteToBase => self.calculate_quote_to_base_from_amount_in(
+                config,
+                actual_amount_in,
+                config.migration_sqrt_price,
+            )?,
         };
 
         let included_fee_input_amount = if amount_left != 0 {
@@ -736,6 +741,7 @@ impl VirtualPool {
         &self,
         config: &PoolConfig,
         amount_in: u64,
+        stop_sqrt_price: u128, // will be migration_sqrt_price in partial fill
     ) -> Result<SwapAmountFromInput> {
         // finding new target price
         let mut total_output_amount = 0u64;
@@ -746,10 +752,11 @@ impl VirtualPool {
             if config.curve[i].sqrt_price == 0 || config.curve[i].liquidity == 0 {
                 break;
             }
-            if config.curve[i].sqrt_price > current_sqrt_price {
+            let reference_sqrt_price = stop_sqrt_price.min(config.curve[i].sqrt_price);
+            if reference_sqrt_price > current_sqrt_price {
                 let max_amount_in = get_delta_amount_quote_unsigned_256(
                     current_sqrt_price,
-                    config.curve[i].sqrt_price,
+                    reference_sqrt_price,
                     config.curve[i].liquidity,
                     Rounding::Up, // TODO check whether we should use round down or round up
                 )?;
@@ -772,7 +779,7 @@ impl VirtualPool {
                     amount_left = 0;
                     break;
                 } else {
-                    let next_sqrt_price = config.curve[i].sqrt_price;
+                    let next_sqrt_price = reference_sqrt_price;
                     let output_amount = get_delta_amount_base_unsigned(
                         current_sqrt_price,
                         next_sqrt_price,
@@ -786,6 +793,19 @@ impl VirtualPool {
                             .try_into()
                             .map_err(|_| PoolError::TypeCastFailed)?,
                     )?;
+                    if next_sqrt_price == stop_sqrt_price {
+                        #[cfg(feature = "local")]
+                        {
+                            let amount_consumed = amount_in.safe_sub(amount_left)?;
+                            require!(
+                                self.quote_reserve.safe_add(amount_consumed)?
+                                    >= config.migration_quote_threshold,
+                                PoolError::UndeterminedError
+                            );
+                        }
+
+                        break;
+                    }
                 }
             }
         }
