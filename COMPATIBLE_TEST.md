@@ -16,7 +16,9 @@ The test works by:
     anchor run ixdata -- path_to_idl_file
 ```
 
-ex: `anchor run ixdata -- ./release_0.1.2.json`
+ex: `anchor run ixdata -- release_0.1.2.json`
+
+(Can update more IDL versions under `./scripts/idl/..`)
 
 - Step 2 Run compatible test
 ```bash

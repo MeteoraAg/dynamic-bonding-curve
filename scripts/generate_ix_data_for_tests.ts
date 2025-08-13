@@ -11,8 +11,9 @@ import {
 import { DynamicBondingCurve as VirtualCurve } from "../target/types/dynamic_bonding_curve";
 
 const args = process.argv.slice(2); // Remove node path and script path
-const VirtualCurveIDL = require(args[0]);
-
+var path = require("path");
+var absolutePath = path.resolve("./scripts/idl/" + args[0]);
+const VirtualCurveIDL = require(absolutePath);
 const isOldVersion = VirtualCurveIDL.metadata.version == "0.1.2";
 
 /* generate_ix_data_for_tests.ts
@@ -137,19 +138,19 @@ async function createConfigToken2022(
 
   const baseFee = isOldVersion
     ? {
-        cliffFeeNumerator: new BN(2_500_000),
-        numberOfPeriod: 0,
-        reductionFactor: new BN(0),
-        periodFrequency: new BN(0),
-        feeSchedulerMode: 0,
-      }
+      cliffFeeNumerator: new BN(2_500_000),
+      numberOfPeriod: 0,
+      reductionFactor: new BN(0),
+      periodFrequency: new BN(0),
+      feeSchedulerMode: 0,
+    }
     : {
-        cliffFeeNumerator: new BN(2_500_000),
-        firstFactor: 0, // first factor | number_of_period
-        thirdFactor: new BN(0), // third factor | reduction_factor
-        secondFactor: new BN(0), // second factor | period_frequency
-        baseFeeMode: 0,
-      };
+      cliffFeeNumerator: new BN(2_500_000),
+      firstFactor: 0, // first factor | number_of_period
+      thirdFactor: new BN(0), // third factor | reduction_factor
+      secondFactor: new BN(0), // second factor | period_frequency
+      baseFeeMode: 0,
+    };
 
   const instructionParams = {
     poolFees: {
@@ -222,19 +223,19 @@ async function createConfigSplTokenForSwapDamm(
 
   const baseFee = isOldVersion
     ? {
-        cliffFeeNumerator: new BN(2_500_000),
-        numberOfPeriod: 0,
-        reductionFactor: new BN(0),
-        periodFrequency: new BN(0),
-        feeSchedulerMode: 0,
-      }
+      cliffFeeNumerator: new BN(2_500_000),
+      numberOfPeriod: 0,
+      reductionFactor: new BN(0),
+      periodFrequency: new BN(0),
+      feeSchedulerMode: 0,
+    }
     : {
-        cliffFeeNumerator: new BN(2_500_000),
-        firstFactor: 0, // first factor | number_of_period
-        thirdFactor: new BN(0), // third factor | reduction_factor
-        secondFactor: new BN(0), // second factor | period_frequency
-        baseFeeMode: 0,
-      };
+      cliffFeeNumerator: new BN(2_500_000),
+      firstFactor: 0, // first factor | number_of_period
+      thirdFactor: new BN(0), // third factor | reduction_factor
+      secondFactor: new BN(0), // second factor | period_frequency
+      baseFeeMode: 0,
+    };
 
   const instructionParams = {
     poolFees: {
@@ -306,19 +307,19 @@ async function createConfigSplTokenForSwapDammv2(
 
   const baseFee = isOldVersion
     ? {
-        cliffFeeNumerator: new BN(2_500_000),
-        numberOfPeriod: 0,
-        reductionFactor: new BN(0),
-        periodFrequency: new BN(0),
-        feeSchedulerMode: 0,
-      }
+      cliffFeeNumerator: new BN(2_500_000),
+      numberOfPeriod: 0,
+      reductionFactor: new BN(0),
+      periodFrequency: new BN(0),
+      feeSchedulerMode: 0,
+    }
     : {
-        cliffFeeNumerator: new BN(2_500_000),
-        firstFactor: 0, // first factor | number_of_period
-        thirdFactor: new BN(0), // third factor | reduction_factor
-        secondFactor: new BN(0), // second factor | period_frequency
-        baseFeeMode: 0,
-      };
+      cliffFeeNumerator: new BN(2_500_000),
+      firstFactor: 0, // first factor | number_of_period
+      thirdFactor: new BN(0), // third factor | reduction_factor
+      secondFactor: new BN(0), // second factor | period_frequency
+      baseFeeMode: 0,
+    };
 
   const instructionParams = {
     poolFees: {
@@ -388,19 +389,19 @@ async function createConfigSplTokenWithBaseFeeParameters(
 
   const baseFee = isOldVersion
     ? {
-        cliffFeeNumerator: new BN(2_500_000),
-        numberOfPeriod: 10,
-        reductionFactor: new BN(14),
-        periodFrequency: new BN(3),
-        feeSchedulerMode: 0,
-      }
+      cliffFeeNumerator: new BN(2_500_000),
+      numberOfPeriod: 10,
+      reductionFactor: new BN(14),
+      periodFrequency: new BN(3),
+      feeSchedulerMode: 0,
+    }
     : {
-        cliffFeeNumerator: new BN(2_500_000),
-        firstFactor: 10, // first factor | number_of_period
-        thirdFactor: new BN(14), // third factor | reduction_factor
-        secondFactor: new BN(3), // second factor | period_frequency
-        baseFeeMode: 0,
-      };
+      cliffFeeNumerator: new BN(2_500_000),
+      firstFactor: 10, // first factor | number_of_period
+      thirdFactor: new BN(14), // third factor | reduction_factor
+      secondFactor: new BN(3), // second factor | period_frequency
+      baseFeeMode: 0,
+    };
 
   const instructionParams = {
     poolFees: {
