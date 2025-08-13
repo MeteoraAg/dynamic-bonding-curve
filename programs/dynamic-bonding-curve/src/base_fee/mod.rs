@@ -11,12 +11,19 @@ use crate::{
 
 pub trait BaseFeeHandler {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()>;
-    fn get_base_fee_numerator(
+    fn get_base_fee_numerator_from_included_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
         trade_direction: TradeDirection,
-        input_amount: u64,
+        included_fee_amount: u64,
+    ) -> Result<u64>;
+    fn get_base_fee_numerator_from_excluded_fee_amount(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+        trade_direction: TradeDirection,
+        excluded_fee_amount: u64,
     ) -> Result<u64>;
 }
 
@@ -32,7 +39,7 @@ pub fn get_base_fee_handler(
     match base_fee_mode {
         BaseFeeMode::FeeSchedulerLinear | BaseFeeMode::FeeSchedulerExponential => {
             let fee_scheduler = FeeScheduler {
-                cliff_fee_numerator: cliff_fee_numerator,
+                cliff_fee_numerator,
                 number_of_period: first_factor,
                 period_frequency: second_factor,
                 reduction_factor: third_factor,
@@ -42,7 +49,7 @@ pub fn get_base_fee_handler(
         }
         BaseFeeMode::RateLimiter => {
             let fee_rate_limiter = FeeRateLimiter {
-                cliff_fee_numerator: cliff_fee_numerator,
+                cliff_fee_numerator,
                 fee_increment_bps: first_factor,
                 max_limiter_duration: second_factor,
                 reference_amount: third_factor,

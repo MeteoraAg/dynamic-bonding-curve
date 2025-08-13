@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.6] [PR #119](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/119)
+### Added
+- Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
+- Emit new event in 2 swap endpoints `EvtSwap2`, that includes more information about `quote_reserve_amount`, `migration_threshold` and `included_fee_input_amount` 
+
 ## dynamic_bonding_curve [0.1.5] [PR #113](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/113)
 ### Added
 - Allow more option for migration fee on Damm V2, and partner can config a customizable fee when token is migrated.

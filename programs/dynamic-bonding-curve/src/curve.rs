@@ -170,10 +170,65 @@ pub fn get_next_sqrt_price_from_input(
 
     // round to make sure that we don't pass the target price
     if base_for_quote {
-        get_next_sqrt_price_from_amount_base_rounding_up(sqrt_price, liquidity, amount_in)
+        get_next_sqrt_price_from_base_amount_in_rounding_up(sqrt_price, liquidity, amount_in)
     } else {
-        get_next_sqrt_price_from_amount_quote_rounding_down(sqrt_price, liquidity, amount_in)
+        get_next_sqrt_price_from_quote_amount_in_rounding_down(sqrt_price, liquidity, amount_in)
     }
+}
+
+pub fn get_next_sqrt_price_from_output(
+    sqrt_price: u128,
+    liquidity: u128,
+    amount_out: u64,
+    base_for_quote: bool,
+) -> Result<u128> {
+    assert!(sqrt_price > 0);
+    assert!(liquidity > 0);
+
+    if base_for_quote {
+        get_next_sqrt_price_from_quote_amount_out_rounding_down(sqrt_price, liquidity, amount_out)
+    } else {
+        get_next_sqrt_price_from_base_amount_out_rounding_up(sqrt_price, liquidity, amount_out)
+    }
+}
+
+/// * `√P' = √P - Δy / L`
+pub fn get_next_sqrt_price_from_quote_amount_out_rounding_down(
+    sqrt_price: u128,
+    liquidity: u128,
+    amount: u64,
+) -> Result<u128> {
+    let liquidity = U256::from(liquidity);
+    let q_amount = U256::from(amount).safe_shl(128)?;
+    let quotient = q_amount.div_ceil(liquidity);
+    let result = U256::from(sqrt_price)
+        .safe_sub(quotient)?
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
+
+    Ok(result)
+}
+
+///  √P' = √P * L / (L - Δx * √P)
+pub fn get_next_sqrt_price_from_base_amount_out_rounding_up(
+    sqrt_price: u128,
+    liquidity: u128,
+    amount: u64,
+) -> Result<u128> {
+    if amount == 0 {
+        return Ok(sqrt_price);
+    }
+    let sqrt_price = U256::from(sqrt_price);
+    let liquidity = U256::from(liquidity);
+
+    let product = U256::from(amount).safe_mul(sqrt_price)?;
+    let denominator = liquidity.safe_sub(U256::from(product))?;
+
+    let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
+        .ok_or_else(|| PoolError::TypeCastFailed)?
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
+    Ok(result)
 }
 
 /// Gets the next sqrt price √P' given a delta of token_a
@@ -204,7 +259,7 @@ pub fn get_next_sqrt_price_from_input(
 ///  x = L/√P
 ///  √P' = √P * L / (L + Δx * √P)
 ///
-pub fn get_next_sqrt_price_from_amount_base_rounding_up(
+pub fn get_next_sqrt_price_from_base_amount_in_rounding_up(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,
@@ -229,14 +284,14 @@ pub fn get_next_sqrt_price_from_amount_base_rounding_up(
 /// Move price down by rounding down so that exact output of token 0 is met.
 /// 2. In the exact input case, token 1 supply increases leading to price increase.
 /// Do not round down to minimize price impact. We only need to meet input
-/// change and not gurantee exact output for token 0.
+/// change and not guarantee exact output for token 0.
 ///
 ///
 /// # Formula
 ///
 /// * `√P' = √P + Δy / L`
 ///
-pub fn get_next_sqrt_price_from_amount_quote_rounding_down(
+pub fn get_next_sqrt_price_from_quote_amount_in_rounding_down(
     sqrt_price: u128,
     liquidity: u128,
     amount: u64,

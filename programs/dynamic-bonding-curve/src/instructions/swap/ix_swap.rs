@@ -1,6 +1,12 @@
+use std::u64;
+
+use crate::instruction::Swap as SwapInstruction;
 use crate::math::safe_math::SafeMath;
 use crate::state::MigrationProgress;
-use crate::EvtCurveComplete;
+use crate::swap::swap_exact_in::process_swap_exact_in;
+use crate::swap::swap_exact_out::process_swap_exact_out;
+use crate::swap::swap_partial_fill::process_swap_partial_fill;
+use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -10,19 +16,42 @@ use crate::{
     token::{transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
+use crate::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use num_enum::{FromPrimitive, IntoPrimitive};
 
-use crate::instruction::Swap as SwapInstruction;
-
+// only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
+}
+
+// can be used for different swap_mode
+#[derive(AnchorSerialize, AnchorDeserialize, Default)]
+pub struct SwapParameters2 {
+    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
+    pub amount_0: u64,
+    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
+    pub amount_1: u64,
+    /// Swap mode, refer [SwapMode]
+    pub swap_mode: u8,
+}
+
+#[repr(u8)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+)]
+pub enum SwapMode {
+    #[num_enum(default)]
+    ExactIn,
+    PartialFill,
+    ExactOut,
 }
 
 #[event_cpi]
@@ -87,12 +116,15 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-// TODO impl swap exact out
-pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-    let SwapParameters {
-        amount_in,
-        minimum_amount_out,
+pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    let SwapParameters2 {
+        amount_0,
+        amount_1,
+        swap_mode,
+        ..
     } = params;
+
+    let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
     let trade_direction = ctx.accounts.get_trade_direction();
     let (
@@ -121,7 +153,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         ),
     };
 
-    require!(amount_in > 0, PoolError::AmountIsZero);
+    require!(amount_0 > 0, PoolError::AmountIsZero);
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
 
@@ -132,7 +164,8 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 
     // another validation to prevent snipers to craft multiple swap instructions in 1 tx
     // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
-    if let Ok(rate_limiter) = config.pool_fees.base_fee.get_fee_rate_limiter() {
+    let rate_limiter = config.pool_fees.base_fee.get_fee_rate_limiter();
+    if let Ok(rate_limiter) = &rate_limiter {
         if rate_limiter.is_rate_limiter_applied(
             current_point,
             pool.activation_point,
@@ -154,14 +187,26 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result =
-        pool.get_swap_result(&config, amount_in, fee_mode, trade_direction, current_point)?;
+    let process_swap_params = ProcessSwapParams {
+        pool: &mut pool,
+        config: &config,
+        fee_mode,
+        trade_direction,
+        current_point,
+        amount_0,
+        amount_1,
+    };
 
-    require!(
-        swap_result.output_amount >= minimum_amount_out,
-        PoolError::ExceededSlippage
-    );
+    let ProcessSwapResult {
+        swap_result: swap_result_2,
+        swap_in_parameters,
+    } = match swap_mode {
+        SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
+        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params)?,
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
+    };
 
+    let swap_result = swap_result_2.get_swap_result();
     pool.apply_swap_result(
         &config,
         &swap_result,
@@ -177,7 +222,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         &ctx.accounts.input_token_account,
         input_vault_account,
         input_program,
-        amount_in,
+        swap_result_2.included_fee_input_amount,
     )?;
 
     // send to user
@@ -220,10 +265,22 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         trade_direction: trade_direction.into(),
-        params,
-        swap_result,
         has_referral,
-        amount_in,
+        params: swap_in_parameters,
+        swap_result,
+        amount_in: swap_result_2.included_fee_input_amount,
+        current_timestamp,
+    });
+
+    emit_cpi!(EvtSwap2 {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: trade_direction.into(),
+        has_referral,
+        swap_parameters: params,
+        swap_result: swap_result_2,
+        quote_reserve_amount: pool.quote_reserve,
+        migration_threshold: config.migration_quote_threshold,
         current_timestamp,
     });
 
@@ -330,6 +387,5 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             }
         }
     }
-
     Ok(())
 }
