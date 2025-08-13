@@ -9,19 +9,19 @@ import {
 	CreatorWithdrawMigrationFeeParams,
 	withdrawLeftover,
 } from "./instructions";
-import { Pool, VirtualCurveProgram } from "../../utils/types";
+import { Pool, VirtualCurveProgram } from "../utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { createDammV2Config, fundSol, getMint, startTest } from "../../utils";
+import { createDammV2Config, fundSol, getMint, startTest } from "../utils";
 import {
 	createVirtualCurveProgram,
 	derivePoolAuthority,
-} from "../../utils";
-import { getVirtualPool } from "../../utils/fetcher";
+} from "../utils";
+import { getVirtualPool } from "../utils/fetcher";
 import { NATIVE_MINT } from "@solana/spl-token";
 
 import { createMeteoraDammV2Metadata, MigrateMeteoraDammV2Params, migrateToDammV2 } from "./instructions/dammV2Migration";
 
-describe("Backwards compatibility with release_0.1.2 - DAMMv2 migration", () => {
+describe("Backwards compatibility - DAMMv2 migration", () => {
 	let context: ProgramTestContext;
 	let admin: Keypair;
 	let operator: Keypair;

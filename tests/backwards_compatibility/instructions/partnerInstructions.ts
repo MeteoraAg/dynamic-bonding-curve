@@ -5,7 +5,7 @@ import {
 	TransactionInstruction,
 	Transaction
 } from "@solana/web3.js";
-import { VirtualCurveProgram } from "../../../utils/types";
+import { VirtualCurveProgram } from "../../utils/types";
 import { BanksClient } from "solana-bankrun";
 import {
 	deriveEventAuthority,
@@ -19,12 +19,12 @@ import {
 	getTokenAccount,
 	derivePartnerMetadata,
 	getTokenProgram,
-} from "../../../utils";
+} from "../../utils";
 import {
 	getConfig,
 	getPartnerMetadata,
 	getVirtualPool,
-} from "../../../utils/fetcher";
+} from "../../utils/fetcher";
 import { expect } from "chai";
 import {
 	NATIVE_MINT,

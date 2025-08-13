@@ -15,15 +15,15 @@ import {
 	creatorWithdrawSurplus,
 	transferCreator,
 } from "./instructions/creatorInstructions";
-import { Pool, VirtualCurveProgram } from "../../utils/types";
+import { Pool, VirtualCurveProgram } from "../utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, startTest } from "../../utils";
+import { fundSol, getMint, startTest } from "../utils";
 import {
 	createDammConfig,
 	createVirtualCurveProgram,
 	derivePoolAuthority,
-} from "../../utils";
-import { getVirtualPool } from "../../utils/fetcher";
+} from "../utils";
+import { getVirtualPool } from "../utils/fetcher";
 import { NATIVE_MINT } from "@solana/spl-token";
 import {
 	createMeteoraMetadata,
@@ -36,7 +36,7 @@ import {
 } from "./instructions/meteoraMigration";
 import { expect } from "chai";
 
-describe("Backwards compatibility with release_0.1.2 - DAMM full flow", () => {
+describe("Backwards compatibility - DAMM full flow", () => {
 	let context: ProgramTestContext;
 	let admin: Keypair;
 	let operator: Keypair;

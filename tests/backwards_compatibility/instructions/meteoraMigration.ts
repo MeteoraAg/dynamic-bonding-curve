@@ -27,7 +27,7 @@ import {
 	getOrCreateAssociatedTokenAccount,
 	getMeteoraDammMigrationMetadata,
 	getConfig,
-} from "../../../utils";
+} from "../../utils";
 import {
 	deriveEventAuthority,
 	readIxData

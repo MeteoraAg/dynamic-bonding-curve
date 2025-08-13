@@ -1,14 +1,14 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { VirtualCurveProgram } from "../../utils/types";
+import { VirtualCurveProgram } from "../utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { startTest, } from "../../utils";
-import { createVirtualCurveProgram, } from "../../utils";
+import { startTest, } from "../utils";
+import { createVirtualCurveProgram, } from "../utils";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { createConfig, CreateConfigParams, createPartnerMetadata } from "./instructions/partnerInstructions";
 import { createPoolWithSplToken, createPoolWithToken2022, CreatePoolToken2022Params, createVirtualPoolMetadata, CreateVirtualPoolMetadataParams } from "./instructions/userInstructions";
 import { claimCreatorTradingFee } from "./instructions/creatorInstructions";
 
-describe("Backwards compatibility with release_0.1.2 - misc", () => {
+describe("Backwards compatibility - misc", () => {
 	let context: ProgramTestContext;
 	let user: Keypair;
 	let program: VirtualCurveProgram;

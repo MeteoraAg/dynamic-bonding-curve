@@ -1,13 +1,13 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { VirtualCurveProgram } from "../../utils/types";
+import { VirtualCurveProgram } from "../utils/types";
 import { Keypair } from "@solana/web3.js";
-import { startTest } from "../../utils";
-import { createVirtualCurveProgram, } from "../../utils";
+import { startTest } from "../utils";
+import { createVirtualCurveProgram, } from "../utils";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { createConfigSplTokenWithBaseFeeParameters, createConfigSplTokenWithBaseFeeParametersParams } from "./instructions/partnerInstructions";
 import { expect } from "chai";
 
-describe("Backwards compatibility with release_0.1.2 - PoolConfig account", () => {
+describe("Backwards compatibility - PoolConfig account", () => {
 	let context: ProgramTestContext;
 	let user: Keypair;
 	let program: VirtualCurveProgram;
@@ -31,13 +31,15 @@ describe("Backwards compatibility with release_0.1.2 - PoolConfig account", () =
 		const data = Buffer.from(account.data);
 		const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
+		// 8 bytes disc + 32 bytes quote_mint + 32 bytes fee_claimer + 32 bytes leftover_receiver
 		const baseFeeOffset = 8 + 32 + 32 + 32;
 
 		const cliffFeeNumerator = view.getBigUint64(baseFeeOffset, true);
-		const periodFrequency = view.getBigUint64(baseFeeOffset + 8, true)
-		const reductionFactor = view.getBigUint64(baseFeeOffset + 16, true)
-		const numberOfPeriod = view.getUint16(baseFeeOffset + 24, true)
-		const feeSchedulerMode = view.getUint8(baseFeeOffset + 26)
+		const periodFrequency = view.getBigUint64(baseFeeOffset + 8, true) // second factor | period_frequency
+		const reductionFactor = view.getBigUint64(baseFeeOffset + 16, true) // third factor | reduction_factor
+		const numberOfPeriod = view.getUint16(baseFeeOffset + 24, true) // first factor | number_of_period
+		const feeSchedulerMode = view.getUint8(baseFeeOffset + 26) // base fee mode
+
 
 		expect(cliffFeeNumerator).eq(BigInt(2_500_000));
 		expect(periodFrequency).eq(BigInt(3));
