@@ -78,10 +78,6 @@ impl FeeRateLimiter {
         Ok(max_index)
     }
 
-    pub fn get_max_out_amount_with_min_base_fee(&self) -> Result<u64> {
-        self.get_excluded_fee_amount(self.reference_amount)
-    }
-
     pub fn get_checked_amounts(&self) -> Result<(u64, u64, bool)> {
         let max_index = self.get_max_index()?;
         let x0 = U256::from(self.reference_amount);

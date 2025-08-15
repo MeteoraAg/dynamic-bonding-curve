@@ -453,17 +453,17 @@ impl VirtualPool {
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = config
-            .pool_fees
-            .get_total_fee_numerator_from_included_fee_amount(
-                &self.volatility_tracker,
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-            )?;
-
         let actual_amount_in = if fee_mode.fees_on_input {
+            let trade_fee_numerator = config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    amount_in,
+                    trade_direction,
+                )?;
+
             let FeeOnAmountResult {
                 amount,
                 protocol_fee,
@@ -500,6 +500,16 @@ impl VirtualPool {
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
         } else {
+            let trade_fee_numerator = config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    output_amount,
+                    trade_direction,
+                )?;
+
             let FeeOnAmountResult {
                 amount,
                 protocol_fee,
@@ -542,17 +552,17 @@ impl VirtualPool {
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = config
-            .pool_fees
-            .get_total_fee_numerator_from_included_fee_amount(
-                &self.volatility_tracker,
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-            )?;
-
         let mut actual_amount_in = if fee_mode.fees_on_input {
+            let trade_fee_numerator = config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    amount_in,
+                    trade_direction,
+                )?;
+
             let FeeOnAmountResult {
                 amount,
                 protocol_fee,
@@ -624,6 +634,16 @@ impl VirtualPool {
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
         } else {
+            let trade_fee_numerator = config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    output_amount,
+                    trade_direction,
+                )?;
+
             let FeeOnAmountResult {
                 amount,
                 protocol_fee,
@@ -718,6 +738,10 @@ impl VirtualPool {
                 amount_left,
                 true,
             )?;
+            require!(
+                next_sqrt_price >= config.sqrt_start_price,
+                PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice
+            );
 
             let output_amount = get_delta_amount_quote_unsigned(
                 next_sqrt_price,
@@ -1040,21 +1064,6 @@ pub struct SwapResult {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
-}
-
-impl SwapResult {
-    pub fn get_included_fee_amount_in(&self, fee_on_input: bool) -> Result<u64> {
-        let included_fee_amount_in = if fee_on_input {
-            self.actual_input_amount
-                .safe_add(self.trading_fee)?
-                .safe_add(self.protocol_fee)?
-                .safe_add(self.referral_fee)?
-        } else {
-            self.actual_input_amount
-        };
-
-        Ok(included_fee_amount_in)
-    }
 }
 
 #[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Copy, Clone)]

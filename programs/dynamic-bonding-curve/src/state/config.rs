@@ -133,28 +133,8 @@ impl PoolFeesConfig {
         let (amount, trading_fee) =
             PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
-        let protocol_fee = safe_mul_div_cast_u64(
-            trading_fee,
-            self.protocol_fee_percent.into(),
-            100,
-            Rounding::Down,
-        )?;
-
-        // update trading fee
-        let trading_fee: u64 = trading_fee.safe_sub(protocol_fee)?;
-
-        let referral_fee = if has_referral {
-            safe_mul_div_cast_u64(
-                protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+        let (trading_fee, protocol_fee, referral_fee) =
+            self.split_fees(trading_fee, has_referral)?;
 
         Ok(FeeOnAmountResult {
             amount,
@@ -260,17 +240,6 @@ impl BaseFeeConfig {
             self.third_factor,
             self.base_fee_mode,
         )
-    }
-
-    pub fn is_fee_rate_limiter_applied(&self, trade_fee_numerator: u64) -> Result<bool> {
-        let base_fee_mode =
-            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
-
-        if base_fee_mode == BaseFeeMode::RateLimiter {
-            return Ok(trade_fee_numerator > self.cliff_fee_numerator);
-        }
-
-        Ok(false)
     }
 }
 
