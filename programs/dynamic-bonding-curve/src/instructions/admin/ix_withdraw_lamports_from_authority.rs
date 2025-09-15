@@ -6,7 +6,7 @@ use anchor_lang::{
 use crate::{const_pda, treasury};
 
 #[derive(Accounts)]
-pub struct WithdrawLamportsFromAuthority<'info> {
+pub struct WithdrawLamportsFromPoolAuthority<'info> {
     /// CHECK: pool authority
     #[account(
         mut,
@@ -24,8 +24,8 @@ pub struct WithdrawLamportsFromAuthority<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_withdraw_lamports_from_authority(
-    ctx: Context<WithdrawLamportsFromAuthority>,
+pub fn handle_withdraw_lamports_from_pool_authority(
+    ctx: Context<WithdrawLamportsFromPoolAuthority>,
 ) -> Result<()> {
     let pool_authority = &ctx.accounts.pool_authority;
     let lamports = pool_authority.lamports();

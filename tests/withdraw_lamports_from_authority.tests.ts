@@ -9,7 +9,7 @@ import {
 } from "./utils";
 import { expect } from "chai";
 
-describe.only("Withdraw lamports from authority", () => {
+describe("Withdraw lamports from authority", () => {
     let context: ProgramTestContext;
     let program: VirtualCurveProgram;
     let treasury = new PublicKey("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv")
@@ -26,14 +26,14 @@ describe.only("Withdraw lamports from authority", () => {
 
     it("test withdraw", async () => {
         let poolAuthority = derivePoolAuthority()
-        
+
 
         await fundSol(context.banksClient, context.payer, [poolAuthority])
 
         let prePoolAuthorityBalance = (await context.banksClient.getAccount(poolAuthority)).lamports;
         let preTreasuryBalance = (await context.banksClient.getAccount(treasury)).lamports;
 
-        const withdrawTx = await program.methods.withdrawLamportsFromAuthority().accountsPartial({
+        const withdrawTx = await program.methods.withdrawLamportsFromPoolAuthority().accountsPartial({
             poolAuthority,
             receiver: treasury
         }).transaction()
