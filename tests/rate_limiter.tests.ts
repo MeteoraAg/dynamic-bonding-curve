@@ -22,7 +22,7 @@ import { BN } from "bn.js";
 import { expect } from "chai";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
-describe.only("Rate limiter", () => {
+describe("Rate limiter", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let operator: Keypair;
@@ -211,7 +211,7 @@ describe.only("Rate limiter", () => {
     );
   });
 
-  it.only("Try to send multiple instructions", async () => {
+  it("Try to send multiple instructions", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let initialMarketcap = 30; // 30 SOL;
     let migrationMarketcap = 300; // 300 SOL;
