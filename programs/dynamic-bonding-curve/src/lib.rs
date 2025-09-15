@@ -47,6 +47,12 @@ pub mod dynamic_bonding_curve {
         instructions::handle_protocol_withdraw_surplus(ctx)
     }
 
+    pub fn withdraw_lamports_from_pool_authority(
+        ctx: Context<WithdrawLamportsFromPoolAuthority>,
+    ) -> Result<()> {
+        instructions::handle_withdraw_lamports_from_pool_authority(ctx)
+    }
+
     /// PARTNER FUNCTIONS ////
     pub fn create_partner_metadata(
         ctx: Context<CreatePartnerMetadataCtx>,
