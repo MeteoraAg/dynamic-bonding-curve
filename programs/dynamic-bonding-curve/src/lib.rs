@@ -180,7 +180,7 @@ pub mod dynamic_bonding_curve {
 
     // migrate damm v2
     #[deprecated(
-        since = "0.1.3",
+        since = "0.1.7",
         note = "It's unneeded. Will be removed in next release version"
     )]
     pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
