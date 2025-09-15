@@ -30,9 +30,9 @@ pub struct MigrateDammV2Ctx<'info> {
     #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
 
-    /// migration metadata
-    #[account(has_one = virtual_pool)]
-    pub migration_metadata: AccountLoader<'info, MeteoraDammV2Metadata>,
+    /// CHECK: Deprecated. Unused anymore.
+    #[deprecated]
+    pub migration_metadata: UncheckedAccount<'info>,
 
     /// virtual pool config key
     pub config: AccountLoader<'info, PoolConfig>,
@@ -492,8 +492,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         PoolError::NotPermitToDoThisAction
     );
 
-    let migration_metadata = ctx.accounts.migration_metadata.load()?;
-
     require!(
         virtual_pool.is_curve_complete(config.migration_quote_threshold),
         PoolError::PoolIsIncompleted
@@ -538,7 +536,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         (
             partner_liquidity_distribution,
             creator_liquidity_distribution,
-            migration_metadata.partner,
+            config.fee_claimer,
             virtual_pool.creator,
         )
     } else {
@@ -546,7 +544,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             creator_liquidity_distribution,
             partner_liquidity_distribution,
             virtual_pool.creator,
-            migration_metadata.partner,
+            config.fee_claimer,
         )
     };
 
