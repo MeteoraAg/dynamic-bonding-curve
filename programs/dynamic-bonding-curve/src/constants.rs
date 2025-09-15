@@ -45,8 +45,6 @@ pub const PARTNER_AND_CREATOR_SURPLUS_SHARE: u8 = 80; // 80 %
 
 static_assertions::const_assert!(PARTNER_AND_CREATOR_SURPLUS_SHARE <= 100);
 
-pub const MAX_SWALLOW_PERCENTAGE: u8 = 20; // 20 %
-
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u64 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u64 = 108000; // 12 hours
 static_assertions::const_assert_eq!(

@@ -25,7 +25,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
     )?;
 
     require!(
-        swap_result.amount_left <= config.get_max_swallow_quote_amount()?,
+        swap_result.amount_left == 0,
         PoolError::SwapAmountIsOverAThreshold
     );
 
