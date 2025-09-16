@@ -6,6 +6,7 @@ import {
   CreateConfigParams,
   createPoolWithSplToken,
   swap,
+  SwapMode,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
@@ -207,6 +208,7 @@ async function fullFlow(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.PartialFill,
     referralTokenAccount: null,
   });
 
