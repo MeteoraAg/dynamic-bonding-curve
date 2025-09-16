@@ -43,7 +43,5 @@ pub fn quote_exact_in(
         current_point,
     )?;
 
-    ensure!(swap_result.amount_left == 0, "Amount left is non-zero");
-
     Ok(swap_result)
 }

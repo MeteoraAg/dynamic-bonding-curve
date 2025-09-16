@@ -25,11 +25,6 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
     )?;
 
     require!(
-        swap_result.amount_left == 0,
-        PoolError::SwapAmountIsOverAThreshold
-    );
-
-    require!(
         swap_result.output_amount >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
