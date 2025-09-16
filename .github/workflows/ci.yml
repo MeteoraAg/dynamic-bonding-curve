@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - release_0.1.7
+      - fix_last_swap_issue
 
 env:
   SOLANA_CLI_VERSION: 2.1.0
@@ -106,5 +107,42 @@ jobs:
       - run: pnpm install
         shell: bash
       # Run tests with nightly toolchain
-      - run: pnpm test & pnpm ctest
+      - run: pnpm test
+        shell: bash
+
+  backward_compatiable_test:
+    runs-on: ubuntu-latest
+    needs: program_changed_files
+    if: needs.program_changed_files.outputs.program == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-solana
+      - uses: ./.github/actions/setup-dep
+      - uses: ./.github/actions/setup-anchor
+      # Install pnpm
+      - uses: pnpm/action-setup@v3 # docs https://pnpm.io/continuous-integration#github-actions
+        with:
+          version: 9.5.0 # Optional: specify a pnpm version
+
+      # Install nightly toolchains
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: clippy    
+      # Cache rust, cargo
+      - uses: Swatinem/rust-cache@v2
+
+      # Cache node_modules
+      - uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+      - run: which anchor
+        shell: bash
+      # Testing
+      - run: pnpm install
+        shell: bash
+      # Run tests with nightly toolchain
+      - run: pnpm ctest
         shell: bash
