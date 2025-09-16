@@ -14,6 +14,7 @@ import {
   CreateConfigParams,
   createPoolWithSplToken,
   swap,
+  SwapMode,
   SwapParams,
 } from "./instructions";
 import {
@@ -165,6 +166,7 @@ async function setupPrerequisite(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.PartialFill,
     referralTokenAccount: null,
   };
 

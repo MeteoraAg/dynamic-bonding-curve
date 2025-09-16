@@ -839,7 +839,7 @@ export async function swapSimulate(
   await processTransactionMaybeThrow(banksClient, wrapSolTx);
 
   const transaction = await program.methods
-    .swap({ amountIn, minimumAmountOut })
+    .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: SwapMode.PartialFill })
     .accountsPartial({
       poolAuthority,
       config,
