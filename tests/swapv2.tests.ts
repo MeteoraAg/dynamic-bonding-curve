@@ -256,10 +256,6 @@ describe("Swap V2", () => {
       swapMode: SwapMode.ExactIn,
     };
 
-    console.log({
-      swapAmount: swapAmount.toString(),
-      migrationQuoteThreshold: instructionParams.migrationQuoteThreshold.toString()
-    })
     await swap2(context.banksClient, program, swapParams);
     const postVaultBalance =
       (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
