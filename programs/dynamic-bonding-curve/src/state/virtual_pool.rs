@@ -492,9 +492,11 @@ impl VirtualPool {
             TradeDirection::BaseToQuote => {
                 self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
-            TradeDirection::QuoteToBase => {
-                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in, u128::MAX)?
-            }
+            TradeDirection::QuoteToBase => self.calculate_quote_to_base_from_amount_in(
+                config,
+                actual_amount_in,
+                config.migration_sqrt_price,
+            )?,
         };
 
         let actual_amount_out = if fee_mode.fees_on_input {
