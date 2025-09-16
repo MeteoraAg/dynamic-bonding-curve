@@ -2,7 +2,10 @@ use std::u64;
 
 use crate::{
     constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE},
-    params::{liquidity_distribution::LiquidityDistributionParameters, swap::TradeDirection},
+    params::{
+        liquidity_distribution::{get_migration_threshold_price, LiquidityDistributionParameters},
+        swap::TradeDirection,
+    },
     state::{
         fee::{FeeMode, VolatilityTracker},
         CollectFeeMode, LiquidityDistributionConfig, PoolConfig, SwapResult2, VirtualPool,
@@ -27,9 +30,12 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
             .unwrap(),
     }];
 
+    let migration_sqrt_price =
+        get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
     let mut config = PoolConfig {
         migration_quote_threshold,
         sqrt_start_price,
+        migration_sqrt_price,
         collect_fee_mode: CollectFeeMode::OutputToken.into(),
         ..Default::default()
     };
@@ -67,7 +73,8 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
 #[test]
 fn test_swap() {
     let (config, pool, _user) = initialize_pool_and_config();
-    let amount_in = 1_000_000_000; // 1k
+    let amount_in = config.migration_quote_threshold; // 1k
+
     let trade_direction = TradeDirection::QuoteToBase;
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let result = pool
