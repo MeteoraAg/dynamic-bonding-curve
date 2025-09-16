@@ -53,7 +53,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_withdraw_lamports_from_pool_authority(ctx)
     }
 
-    /// PARTNER FUNCTIONS ////
+    /// PARTNER FUNCTIONS ///
     pub fn create_partner_metadata(
         ctx: Context<CreatePartnerMetadataCtx>,
         metadata: CreatePartnerMetadataParameters,

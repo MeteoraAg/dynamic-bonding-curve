@@ -158,6 +158,12 @@ export async function createPoolWithToken2022(
   return pool;
 }
 
+export enum SwapMode {
+  ExactIn,
+  PartialFill,
+  ExactOut
+}
+
 export type SwapParams = {
   config: PublicKey;
   payer: Keypair;
@@ -166,6 +172,7 @@ export type SwapParams = {
   outputTokenMint: PublicKey;
   amountIn: BN;
   minimumAmountOut: BN;
+  swapMode: SwapMode;
   referralTokenAccount: PublicKey | null;
 };
 
@@ -337,6 +344,7 @@ export async function swap(
     outputTokenMint,
     amountIn,
     minimumAmountOut,
+    swapMode,
     referralTokenAccount,
   } = params;
 
@@ -401,7 +409,7 @@ export async function swap(
   }
 
   const transaction = await program.methods
-    .swap({ amountIn, minimumAmountOut })
+    .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: swapMode })
     .accountsPartial({
       poolAuthority,
       config,

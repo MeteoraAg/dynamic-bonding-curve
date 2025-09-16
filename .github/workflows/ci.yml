@@ -106,5 +106,8 @@ jobs:
       - run: pnpm install
         shell: bash
       # Run tests with nightly toolchain
-      - run: pnpm test & pnpm ctest
+      - run: pnpm test
+        shell: bash
+      # backwards compatibility test
+      - run: pnpm ctest
         shell: bash

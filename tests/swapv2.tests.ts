@@ -4,12 +4,14 @@ import {
   CreateConfigParams,
   createPoolWithSplToken,
   swap2,
+  SwapMode,
   SwapParams2,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair } from "@solana/web3.js";
 import {
   designCurve,
+  FEE_DENOMINATOR,
   fundSol,
   getTokenAccount,
   startTest,
@@ -92,9 +94,8 @@ describe("Swap V2", () => {
       instructionParams,
     };
     let config = await createConfig(context.banksClient, program, params);
-    let swapAmount = instructionParams.migrationQuoteThreshold
-      .mul(new BN(120))
-      .div(new BN(100)); // swap more 20%
+    // exact amount in is migration quote threshold amount
+    let swapAmount = instructionParams.migrationQuoteThreshold;
 
     await mintSplTokenTo(
       context.banksClient,
@@ -140,7 +141,7 @@ describe("Swap V2", () => {
       amount0: swapAmount,
       amount1: new BN(0),
       referralTokenAccount: null,
-      swapMode: 0, //exact in
+      swapMode: SwapMode.ExactIn,
     };
     await swap2(context.banksClient, program, swapParams);
     const postVaultBalance =
@@ -156,7 +157,7 @@ describe("Swap V2", () => {
       virtualPool
     );
 
-    expect(virtualPoolState.quoteReserve.toNumber()).greaterThan(
+    expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
     );
   });
@@ -202,9 +203,11 @@ describe("Swap V2", () => {
       instructionParams,
     };
     let config = await createConfig(context.banksClient, program, params);
-    let swapAmount = instructionParams.migrationQuoteThreshold
-      .mul(new BN(120))
-      .div(new BN(100)); // swap more 20%
+
+    const tradeFeeNumerator = instructionParams.poolFees.baseFee.cliffFeeNumerator;
+    // swapAmount - swapAmount * fee_numerator / denominator = migration_quote_threshold;
+    let {div, mod} = instructionParams.migrationQuoteThreshold.mul(FEE_DENOMINATOR).divmod(FEE_DENOMINATOR.sub(tradeFeeNumerator));
+    const swapAmount = mod.isZero() ? div: div.add(new BN(1)) // round up
 
     await mintSplTokenTo(
       context.banksClient,
@@ -250,8 +253,9 @@ describe("Swap V2", () => {
       amount0: swapAmount,
       amount1: new BN(0),
       referralTokenAccount: null,
-      swapMode: 0, //exact in
+      swapMode: SwapMode.ExactIn,
     };
+
     await swap2(context.banksClient, program, swapParams);
     const postVaultBalance =
       (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
@@ -266,7 +270,7 @@ describe("Swap V2", () => {
       virtualPool
     );
 
-    expect(virtualPoolState.quoteReserve.toNumber()).greaterThan(
+    expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
     );
   });
@@ -360,7 +364,7 @@ describe("Swap V2", () => {
       amount0: swapAmount,
       amount1: new BN(0),
       referralTokenAccount: null,
-      swapMode: 1, //partial fill
+      swapMode: SwapMode.PartialFill,
     };
     await swap2(context.banksClient, program, swapParams);
     const postVaultBalance =
@@ -479,7 +483,7 @@ describe("Swap V2", () => {
       amount0: swapAmount,
       amount1: new BN(0),
       referralTokenAccount: null,
-      swapMode: 1, //partial fill
+      swapMode: SwapMode.PartialFill
     };
     await swap2(context.banksClient, program, swapParams);
     const postVaultBalance =
@@ -609,7 +613,7 @@ describe("Swap V2", () => {
       amount0: outAmount,
       amount1: U64_MAX, // yolo
       referralTokenAccount: null,
-      swapMode: 2, // exact out
+      swapMode: SwapMode.ExactOut
     };
 
     const { computeUnitsConsumed } = await swap2(

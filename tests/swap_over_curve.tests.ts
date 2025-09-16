@@ -10,6 +10,7 @@ import {
   partnerWithdrawSurplus,
   protocolWithdrawSurplus,
   swap,
+  SwapMode,
   SwapParams,
   swapPartialFill,
 } from "./instructions";
@@ -28,11 +29,6 @@ import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken, mintSplTokenTo } from "./utils/token";
 import { expect } from "chai";
 import { BN } from "bn.js";
-import {
-  getAssociatedTokenAddressSync,
-  NATIVE_MINT,
-  unpackAccount,
-} from "@solana/spl-token";
 
 describe("Swap Over the Curve", () => {
   let context: ProgramTestContext;
@@ -145,6 +141,7 @@ describe("Swap Over the Curve", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: swapAmount,
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
     await swap(context.banksClient, program, swapParams);
@@ -296,6 +293,7 @@ describe("Swap Over the Curve", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: swapAmount,
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
 
