@@ -3,8 +3,8 @@ import {
 	createConfigForSwapDammv2,
 	CreateConfigForSwapParams,
 	createPoolWithSplToken,
-	swap,
-	SwapParams,
+	swap2,
+	Swap2Params,
 	creatorWithdrawMigrationFee,
 	CreatorWithdrawMigrationFeeParams,
 	withdrawLeftover,
@@ -20,6 +20,7 @@ import { getVirtualPool } from "../utils/fetcher";
 import { NATIVE_MINT } from "@solana/spl-token";
 
 import { createMeteoraDammV2Metadata, MigrateMeteoraDammV2Params, migrateToDammV2 } from "./instructions/dammV2Migration";
+import { SwapMode } from "../instructions";
 
 describe("Backwards compatibility - DAMMv2 migration", () => {
 	let context: ProgramTestContext;
@@ -76,15 +77,16 @@ describe("Backwards compatibility - DAMMv2 migration", () => {
 	});
 
 	it("swap", async () => {
-		const params: SwapParams = {
+		const params: Swap2Params = {
 			config,
 			payer: user,
 			pool: virtualPool,
 			inputTokenMint: NATIVE_MINT,
 			outputTokenMint: virtualPoolState.baseMint,
+			swapMode: SwapMode.PartialFill,
 			referralTokenAccount: null,
 		};
-		await swap(context.banksClient, program, params);
+		await swap2(context.banksClient, program, params);
 	});
 
 	it("createConfigSplTokenForSwapDammv2", async () => {
