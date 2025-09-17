@@ -7,7 +7,7 @@ use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
+        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -832,16 +832,6 @@ impl PoolConfig {
                 locked_liquidity: creator_locked_lp,
             },
         })
-    }
-
-    pub fn get_max_swallow_quote_amount(&self) -> Result<u64> {
-        let max_swallow_amount = safe_mul_div_cast_u64(
-            self.migration_quote_threshold,
-            MAX_SWALLOW_PERCENTAGE.into(),
-            100,
-            Rounding::Down,
-        )?;
-        Ok(max_swallow_amount)
     }
 
     pub fn split_partner_and_creator_fee(&self, fee: u64) -> Result<PartnerAndCreatorSplitFee> {

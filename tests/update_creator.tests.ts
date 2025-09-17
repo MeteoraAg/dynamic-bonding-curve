@@ -8,6 +8,7 @@ import {
   createPoolWithSplToken,
   creatorWithdrawSurplus,
   swap,
+  SwapMode,
   SwapParams,
   transferCreator,
 } from "./instructions";
@@ -248,6 +249,7 @@ async function fullFlowUpdateCreatorInPreBondingCurve(
     inputTokenMint: quoteMint,
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
+    swapMode: SwapMode.PartialFill,
     minimumAmountOut: new BN(0),
     referralTokenAccount: null,
   };
@@ -317,6 +319,7 @@ async function fullFlowUpdateCreatorPoolCreated(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.PartialFill,
     referralTokenAccount: null,
   };
   await swap(banksClient, program, params);

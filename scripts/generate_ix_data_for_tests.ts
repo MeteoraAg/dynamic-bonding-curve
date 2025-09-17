@@ -6,6 +6,7 @@ import { MAX_SQRT_PRICE, MIN_SQRT_PRICE, U64_MAX } from "../tests/utils";
 import {
   InitializePoolParameters,
   ConfigParameters,
+  SwapMode,
 } from "../tests/instructions";
 
 import { DynamicBondingCurve as VirtualCurve } from "../target/types/dynamic_bonding_curve";
@@ -688,6 +689,36 @@ async function swap(program: Program<VirtualCurve>): Promise<Buffer> {
   return ix.data;
 }
 
+async function swap2(program: Program<VirtualCurve>): Promise<Buffer> {
+  const instructionParams = {
+    // 6 SOL
+    amount0: new BN(6e9),
+    amount1: new BN(321),
+    swapMode: SwapMode.PartialFill,
+  };
+
+  const ix = await program.methods
+    .swap2(instructionParams)
+    .accountsPartial({
+      poolAuthority: DUMMY_PUBKEY,
+      config: DUMMY_PUBKEY,
+      pool: DUMMY_PUBKEY,
+      inputTokenAccount: DUMMY_PUBKEY,
+      outputTokenAccount: DUMMY_PUBKEY,
+      baseVault: DUMMY_PUBKEY,
+      quoteVault: DUMMY_PUBKEY,
+      baseMint: DUMMY_PUBKEY,
+      quoteMint: DUMMY_PUBKEY,
+      payer: DUMMY_PUBKEY,
+      tokenBaseProgram: DUMMY_PUBKEY,
+      tokenQuoteProgram: DUMMY_PUBKEY,
+      referralTokenAccount: DUMMY_PUBKEY,
+    })
+    .instruction();
+
+  return ix.data;
+}
+
 /// PERMISSIONLESS FUNCTIONS ///
 
 async function createLocker(program: Program<VirtualCurve>): Promise<Buffer> {
@@ -926,6 +957,7 @@ async function main() {
     transferPoolCreator,
     creatorWithdrawMigrationFee,
     swap,
+    swap2,
     createLocker,
     withdrawLeftover,
     migrationMeteoraDammCreateMetadata,

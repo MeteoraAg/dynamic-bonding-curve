@@ -7,6 +7,7 @@ import {
     CreateConfigParams,
     createPoolWithSplToken,
     swap,
+    SwapMode,
     SwapParams,
     withdrawLeftover,
 } from "./instructions";
@@ -169,6 +170,7 @@ describe("Fixed token supply", () => {
             outputTokenMint: virtualPoolState.baseMint,
             amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
             minimumAmountOut: new BN(0),
+            swapMode: SwapMode.PartialFill,
             referralTokenAccount: null,
         };
         await swap(context.banksClient, program, params);

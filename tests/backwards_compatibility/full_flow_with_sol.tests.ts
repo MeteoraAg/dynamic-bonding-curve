@@ -1,8 +1,8 @@
 import { ProgramTestContext } from "solana-bankrun";
 import {
 	createPoolWithSplToken,
-	swap,
-	SwapParams,
+	swap2,
+	Swap2Params,
 } from "./instructions/userInstructions";
 import {
 	ClaimTradeFeeParams,
@@ -35,6 +35,7 @@ import {
 	creatorClaimLpDamm,
 } from "./instructions/meteoraMigration";
 import { expect } from "chai";
+import { SwapMode } from "../instructions";
 
 describe("Backwards compatibility - DAMM full flow", () => {
 	let context: ProgramTestContext;
@@ -100,16 +101,17 @@ describe("Backwards compatibility - DAMM full flow", () => {
 		expect(baseMintData.mintAuthorityOption).eq(0);
 	});
 
-	it("swap", async () => {
-		const params: SwapParams = {
+	it("swap2", async () => {
+		const params: Swap2Params = {
 			config,
 			payer: user,
 			pool: virtualPool,
 			inputTokenMint: NATIVE_MINT,
 			outputTokenMint: virtualPoolState.baseMint,
+			swapMode: SwapMode.PartialFill,
 			referralTokenAccount: null,
 		};
-		await swap(context.banksClient, program, params);
+		await swap2(context.banksClient, program, params);
 	});
 
 	it("migrationMeteoraDammCreateMetadata", async () => {

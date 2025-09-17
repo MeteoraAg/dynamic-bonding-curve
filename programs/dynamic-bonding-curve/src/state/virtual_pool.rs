@@ -257,6 +257,11 @@ impl VirtualPool {
             }
         };
 
+        require!(
+            next_sqrt_price <= config.migration_sqrt_price,
+            PoolError::SwapAmountIsOverAThreshold
+        );
+
         let (excluded_fee_input_amount, included_fee_input_amount) = if fee_mode.fees_on_input {
             let trade_fee_numerator = config
                 .pool_fees
@@ -492,10 +497,14 @@ impl VirtualPool {
             TradeDirection::BaseToQuote => {
                 self.calculate_base_to_quote_from_amount_in(config, actual_amount_in)?
             }
-            TradeDirection::QuoteToBase => {
-                self.calculate_quote_to_base_from_amount_in(config, actual_amount_in, u128::MAX)?
-            }
+            TradeDirection::QuoteToBase => self.calculate_quote_to_base_from_amount_in(
+                config,
+                actual_amount_in,
+                config.migration_sqrt_price,
+            )?,
         };
+
+        require!(amount_left == 0, PoolError::SwapAmountIsOverAThreshold);
 
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
