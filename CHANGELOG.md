@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
+### Added
+- Adding new endpoint `withdraw_lamports_from_pool_authority` to withdraw excessive lamports to treasury
+
+### Deprecated
+- Endpoint `migration_damm_v2_create_metadata` and `migration_metadata` account, migrator doesn't need `migration_metadata` anymore in damm v2
+
+### Fixed
+- Using `saturating_sub` instead of `safe_sub` for `elapsed` calculation
+- Rate limiter is not apply for swap2
+- Validating base fee for rate limiter 
+
+### Breaking Changes
+- Swap ExactIn and SwapExactOut won't take surplus for the last swap, instead of returning error if `pool.sqrt_price` is over `migration_sqrt_price`
+
 ## dynamic_bonding_curve [0.1.6] [PR #119](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/119)
 ### Added
 - Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
