@@ -219,7 +219,19 @@ describe("Full flow with spl-token", () => {
       dammConfig,
     };
 
+    const beforePoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(beforePoolAuthorityLamport.toString()).eq("0");
+
     await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+
+    const afterPoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(afterPoolAuthorityLamport.toString()).eq("0");
 
     // validate mint authority
     const baseMintData = await getMint(

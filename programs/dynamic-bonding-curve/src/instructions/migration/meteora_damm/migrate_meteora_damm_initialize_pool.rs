@@ -4,6 +4,7 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 use crate::{
     const_pda,
     params::fee_parameters::to_bps,
+    rent_calculator::MeteoraDammMigrationFeeCalculator,
     safe_math::SafeMath,
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
@@ -159,7 +160,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             &system_instruction::transfer(
                 &self.payer.key(),
                 &self.pool_authority.key(),
-                50_000_000, // TODO calculate correct lamport here
+                MeteoraDammMigrationFeeCalculator::get_initialize_pool_rent()?,
             ),
             &[
                 self.payer.to_account_info(),

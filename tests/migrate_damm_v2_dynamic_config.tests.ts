@@ -10,11 +10,7 @@ import {
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import {
-  createDammV2DynamicConfig,
-  fundSol,
-  startTest,
-} from "./utils";
+import { createDammV2DynamicConfig, fundSol, startTest } from "./utils";
 import {
   createVirtualCurveProgram,
   derivePoolAuthority,
@@ -64,8 +60,16 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     const migratedPoolFee = {
       poolFeeBps: 100,
       collectFeeMode: 0,
-      dynamicFee: 0
+      dynamicFee: 0,
     };
+
+    const poolAuthority = derivePoolAuthority();
+    const beforePoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(beforePoolAuthorityLamport.toString()).eq("0");
+
     const { pool, poolConfig } = await fullFlow(
       context.banksClient,
       program,
@@ -77,21 +81,37 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       migratedPoolFee
     );
 
+    const afterPoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(afterPoolAuthorityLamport.toString()).eq("0");
+
     const dammPoolState = await getDammV2Pool(context.banksClient, pool);
-    const poolConfigState = await getConfig(context.banksClient, program, poolConfig)
+    const poolConfigState = await getConfig(
+      context.banksClient,
+      program,
+      poolConfig
+    );
     // validate pool config
-    expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee)
-    expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode)
-    const feeBpsValue = poolConfigState.migratedPoolFeeBps
-    expect(feeBpsValue).eq(migratedPoolFee.poolFeeBps)
+    expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee);
+    expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode);
+    const feeBpsValue = poolConfigState.migratedPoolFeeBps;
+    expect(feeBpsValue).eq(migratedPoolFee.poolFeeBps);
 
     // validate pool state
-    const poolFeeNumerator = migratedPoolFee.poolFeeBps * 1_000_000_000 / 10_000;
-    expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator)
-    expect(dammPoolState.collectFeeMode).eq(convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode))
-    expect(dammPoolState.poolFees.dynamicFee.initialized).eq(migratedPoolFee.dynamicFee)
+    const poolFeeNumerator =
+      (migratedPoolFee.poolFeeBps * 1_000_000_000) / 10_000;
+    expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
+      poolFeeNumerator
+    );
+    expect(dammPoolState.collectFeeMode).eq(
+      convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+    );
+    expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
+      migratedPoolFee.dynamicFee
+    );
   });
-
 });
 
 async function fullFlow(

@@ -1,8 +1,6 @@
 import { BN } from "bn.js";
 import { ProgramTestContext } from "solana-bankrun";
-import {
-  deserializeMetadata,
-} from "@metaplex-foundation/mpl-token-metadata";
+import { deserializeMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import {
   BaseFee,
   ConfigParameters,
