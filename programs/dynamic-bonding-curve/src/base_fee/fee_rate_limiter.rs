@@ -358,4 +358,12 @@ impl BaseFeeHandler for FeeRateLimiter {
             Ok(self.cliff_fee_numerator)
         }
     }
+
+    fn validate_min_base_fee(&self) -> Result<()> {
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR,
+            PoolError::InvalidMinBaseFee
+        );
+        Ok(())
+    }
 }

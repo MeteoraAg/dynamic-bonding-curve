@@ -113,4 +113,14 @@ impl BaseFeeHandler for FeeScheduler {
     ) -> Result<u64> {
         self.get_base_fee_numerator(current_point, activation_point)
     }
+
+    fn validate_min_base_fee(&self) -> Result<()> {
+        let min_base_fee_numerator = self.get_min_base_fee_numerator()?;
+
+        require!(
+            min_base_fee_numerator >= MIN_FEE_NUMERATOR,
+            PoolError::InvalidMinBaseFee
+        );
+        Ok(())
+    }
 }

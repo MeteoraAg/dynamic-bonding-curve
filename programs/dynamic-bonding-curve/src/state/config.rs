@@ -272,6 +272,13 @@ impl BaseFeeConfig {
 
         Ok(false)
     }
+
+    pub fn validate_base_fee(&self) -> Result<()> {
+        let base_fee_handler = self.get_base_fee_handler()?;
+        base_fee_handler.validate_min_base_fee()?;
+
+        Ok(())
+    }
 }
 
 #[zero_copy]

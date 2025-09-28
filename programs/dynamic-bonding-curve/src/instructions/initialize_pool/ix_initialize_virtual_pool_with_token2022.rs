@@ -117,6 +117,9 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+    // validate min base fee
+    config.pool_fees.base_fee.validate_base_fee()?;
+
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
     require!(
