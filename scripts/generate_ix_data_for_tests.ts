@@ -390,14 +390,14 @@ async function createConfigSplTokenWithBaseFeeParameters(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
+      cliffFeeNumerator: new BN(10_000_000),
       numberOfPeriod: 10,
       reductionFactor: new BN(14),
       periodFrequency: new BN(3),
       feeSchedulerMode: 0,
     }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
+      cliffFeeNumerator: new BN(10_000_000),
       firstFactor: 10, // first factor | number_of_period
       thirdFactor: new BN(14), // third factor | reduction_factor
       secondFactor: new BN(3), // second factor | period_frequency
