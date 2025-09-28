@@ -117,6 +117,43 @@ export async function processTransactionMaybeThrow(
   }
 }
 
+export async function expectThrowsAsync(
+  fn: () => Promise<void>,
+  errorMessage: String
+) {
+  try {
+    await fn();
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      throw err;
+    } else {
+      if (!err.message.toLowerCase().includes(errorMessage.toLowerCase())) {
+        throw new Error(
+          `Unexpected error: ${err.message}. Expected error: ${errorMessage}`
+        );
+      }
+      return;
+    }
+  }
+  throw new Error("Expected an error but didn't get one");
+}
+
+export function getDbcProgramErrorCodeHexString(errorMessage: String) {
+  const error = VirtualCurveIDL.errors.find(
+    (e) =>
+      e.name.toLowerCase() === errorMessage.toLowerCase() ||
+      e.msg.toLowerCase() === errorMessage.toLowerCase()
+  );
+
+  if (!error) {
+    throw new Error(
+      `Unknown stake for fee error message / name: ${errorMessage}`
+    );
+  }
+
+  return "0x" + error.code.toString(16);
+}
+
 export const wrapSOLInstruction = (
   from: PublicKey,
   to: PublicKey,
