@@ -16,7 +16,7 @@ pub struct WithdrawLamportsFromPoolAuthority<'info> {
 
     /// CHECK: The treasury address
     #[account(
-        mut,
+       mut,
        address = treasury::ID
     )]
     pub receiver: UncheckedAccount<'info>,
