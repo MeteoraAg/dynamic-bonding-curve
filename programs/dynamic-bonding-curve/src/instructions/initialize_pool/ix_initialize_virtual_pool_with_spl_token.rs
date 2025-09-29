@@ -136,6 +136,10 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
+
     let initial_base_supply = config.get_initial_base_supply()?;
 
     let token_type_value =

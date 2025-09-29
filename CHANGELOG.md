@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 - Swap ExactIn and SwapExactOut won't take surplus for the last swap, instead of returning error if `pool.sqrt_price` is over `migration_sqrt_price`
+- Changing min base fee from 1 bps (0.01%) to 25 bps (0.25%). Effected to endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`. Not able to work if min base fee less than 25 bps.
 
 ## dynamic_bonding_curve [0.1.6] [PR #119](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/119)
 ### Added

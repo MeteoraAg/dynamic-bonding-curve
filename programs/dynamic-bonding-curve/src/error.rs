@@ -151,4 +151,7 @@ pub enum PoolError {
 
     #[msg("Next sqrt price is smaller than start sqrt price")]
     NextSqrtPriceIsSmallerThanStartSqrtPrice,
+
+    #[msg("Invalid min base fee")]
+    InvalidMinBaseFee,
 }

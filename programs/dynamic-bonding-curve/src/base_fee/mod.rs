@@ -25,6 +25,8 @@ pub trait BaseFeeHandler {
         trade_direction: TradeDirection,
         excluded_fee_amount: u64,
     ) -> Result<u64>;
+
+    fn validate_min_base_fee(&self) -> Result<()>;
 }
 
 pub fn get_base_fee_handler(
