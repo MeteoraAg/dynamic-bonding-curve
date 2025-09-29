@@ -161,7 +161,7 @@ export async function createPoolWithToken2022(
 export enum SwapMode {
   ExactIn,
   PartialFill,
-  ExactOut
+  ExactOut,
 }
 
 export type SwapParams = {
@@ -839,7 +839,11 @@ export async function swapSimulate(
   await processTransactionMaybeThrow(banksClient, wrapSolTx);
 
   const transaction = await program.methods
-    .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: SwapMode.PartialFill })
+    .swap2({
+      amount0: amountIn,
+      amount1: minimumAmountOut,
+      swapMode: SwapMode.PartialFill,
+    })
     .accountsPartial({
       poolAuthority,
       config,

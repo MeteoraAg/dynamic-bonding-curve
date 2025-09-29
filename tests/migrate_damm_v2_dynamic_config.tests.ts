@@ -251,7 +251,11 @@ async function fullFlow(
     dammConfig,
   };
 
-  const pool = await migrateToDammV2(banksClient, program, migrationParams);
+  const { dammPool: pool } = await migrateToDammV2(
+    banksClient,
+    program,
+    migrationParams
+  );
 
   return { pool, poolConfig: config, dammConfig };
 }

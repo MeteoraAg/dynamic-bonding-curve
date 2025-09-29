@@ -8,6 +8,7 @@ import {
   creatorWithdrawMigrationFee,
   partnerWithdrawMigrationFee,
   swap,
+  SwapMode,
   SwapParams,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
@@ -238,6 +239,7 @@ async function fullFlow(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.ExactIn,
     referralTokenAccount: null,
   };
   await swap(banksClient, program, params);

@@ -81,6 +81,9 @@ pub mod fee {
     pub const PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20%
+
+    // 0.01
+    pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
 }
 
 pub mod seeds {

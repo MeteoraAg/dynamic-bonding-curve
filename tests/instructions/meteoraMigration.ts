@@ -171,6 +171,8 @@ export async function migrateToMeteoraDamm(
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer);
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  return dammPool;
 }
 
 export type LockLPDammForCreatorParams = {
@@ -433,7 +435,7 @@ export async function partnerClaimLpDamm(
       banksClient,
       payer,
       lpMint,
-      payer.publicKey,
+      configState.feeClaimer,
       TOKEN_PROGRAM_ID
     );
 
@@ -497,7 +499,7 @@ export async function creatorClaimLpDamm(
       banksClient,
       payer,
       lpMint,
-      payer.publicKey,
+      virtualPoolState.creator,
       TOKEN_PROGRAM_ID
     );
 

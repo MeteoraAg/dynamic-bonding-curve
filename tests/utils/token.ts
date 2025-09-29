@@ -58,7 +58,7 @@ export async function createToken(
   banksClient: BanksClient,
   payer: Keypair,
   mintAuthority: PublicKey,
-  decimal: number,
+  decimal: number
 ): Promise<PublicKey> {
   const mintKeypair = Keypair.generate();
   const rent = await banksClient.getRent();
@@ -125,7 +125,7 @@ export async function mintSplTokenTo(
   mint: PublicKey,
   mintAuthority: Keypair,
   toWallet: PublicKey,
-  rawAmount: number,
+  rawAmount: bigint | number
 ) {
   const destination = await getOrCreateAssociatedTokenAccount(
     banksClient,
