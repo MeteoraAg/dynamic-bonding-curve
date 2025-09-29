@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Adding new endpoint `withdraw_lamports_from_pool_authority` to withdraw excessive lamports to treasury
 
+### Changed
+- Changing min base fee from 1 bps (0.01%) to 25 bps (0.025%)
+
 ### Deprecated
 - Endpoint `migration_damm_v2_create_metadata` and `migration_metadata` account, migrator doesn't need `migration_metadata` anymore in damm v2
 
