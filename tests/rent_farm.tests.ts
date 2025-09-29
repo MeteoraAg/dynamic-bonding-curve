@@ -13,6 +13,8 @@ import { BN } from "bn.js";
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
+  claimPoolCreationFee,
+  createClaimFeeOperator,
   createConfig,
   createMeteoraDammV2Metadata,
   createMeteoraMetadata,
@@ -39,6 +41,7 @@ import {
   getConfig,
   getVirtualPool,
   startTest,
+  TREASURY,
   U64_MAX,
   VirtualCurveProgram,
 } from "./utils";
@@ -55,6 +58,7 @@ describe("Rent fee farm", () => {
   let exploiterCreator: Keypair;
   let migrator: Keypair;
   let program: VirtualCurveProgram;
+  let operator: Keypair;
 
   let totalTokenSupply = 1_000_000_000; // 1 billion
   let initialMarketcap = 30; // 30 SOL;
@@ -71,7 +75,6 @@ describe("Rent fee farm", () => {
   };
   let leftOver = 10_000;
 
-  let referenceAmount = new BN(1_000_000_000);
   let migrateDammV1Config: PublicKey;
   let migrateDammV2Config: PublicKey;
   let migrateDammV1ConfigToken2022: PublicKey;
@@ -83,11 +86,13 @@ describe("Rent fee farm", () => {
     exploiterPartner = Keypair.generate();
     migrator = Keypair.generate();
     exploiterCreator = Keypair.generate();
+    operator = Keypair.generate();
 
     const receivers = [
       exploiterPartner.publicKey,
       migrator.publicKey,
       exploiterCreator.publicKey,
+      operator.publicKey,
     ];
     await fundSol(context.banksClient, admin, receivers);
     program = createVirtualCurveProgram();
@@ -167,6 +172,11 @@ describe("Rent fee farm", () => {
         instructionParams,
       }
     );
+
+    await createClaimFeeOperator(context.banksClient, program, {
+      admin,
+      operator: operator.publicKey,
+    });
   });
 
   describe("Farm rent fee DAMM v1", async () => {
@@ -533,6 +543,74 @@ describe("Rent fee farm", () => {
           },
         });
       });
+    });
+  });
+
+  describe("Claim creation fee", async () => {
+    it("non farmable pool", async () => {
+      const pool = await createPoolWithSplToken(context.banksClient, program, {
+        poolCreator: admin,
+        payer: admin,
+        quoteMint,
+        config: migrateDammV1Config,
+        instructionParams: {
+          name: "test token spl",
+          symbol: "TEST",
+          uri: "https://example.com",
+        },
+      });
+
+      const beforeTreasuryLamport = await context.banksClient.getBalance(
+        TREASURY
+      );
+
+      await claimPoolCreationFee(context.banksClient, program, {
+        operator,
+        pool,
+      });
+
+      const afterTreasuryLamport = await context.banksClient.getBalance(
+        TREASURY
+      );
+
+      expect(afterTreasuryLamport == beforeTreasuryLamport).to.be.true;
+    });
+
+    it("farmable pool", async () => {
+      const pool = await createPoolWithToken2022(context.banksClient, program, {
+        poolCreator: exploiterCreator,
+        payer: exploiterCreator,
+        quoteMint,
+        config: migrateDammV1ConfigToken2022,
+        instructionParams: {
+          name: "",
+          symbol: "",
+          uri: "",
+        },
+      });
+
+      let beforeTreasuryLamport = await context.banksClient.getBalance(
+        TREASURY
+      );
+
+      await claimPoolCreationFee(context.banksClient, program, {
+        operator,
+        pool,
+      });
+
+      let afterTreasuryLamport = await context.banksClient.getBalance(TREASURY);
+      expect(afterTreasuryLamport > beforeTreasuryLamport).to.be.true;
+
+      // Claim again yield nothing
+      beforeTreasuryLamport = afterTreasuryLamport;
+
+      await claimPoolCreationFee(context.banksClient, program, {
+        operator,
+        pool,
+      });
+
+      afterTreasuryLamport = await context.banksClient.getBalance(TREASURY);
+      expect(afterTreasuryLamport == beforeTreasuryLamport).to.be.true;
     });
   });
 });

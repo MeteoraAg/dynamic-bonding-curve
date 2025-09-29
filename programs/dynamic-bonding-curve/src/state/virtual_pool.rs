@@ -154,7 +154,7 @@ pub const PARTNER_MASK: u8 = 0b100;
 pub const CREATOR_MASK: u8 = 0b010;
 
 pub const CREATION_FEE_CHARGED_MASK: u8 = 0b001;
-pub const CREATION_FEE_HARVESTED_MASK: u8 = 0b010;
+pub const CREATION_FEE_CLAIMED_MASK: u8 = 0b010;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -1047,6 +1047,18 @@ impl VirtualPool {
 
     pub fn set_migration_progress(&mut self, progress: u8) {
         self.migration_progress = progress;
+    }
+
+    pub fn has_creation_fee(&self) -> bool {
+        self.creation_fee_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
+    }
+
+    pub fn creation_fee_claimed(&self) -> bool {
+        self.creation_fee_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
+    }
+
+    pub fn update_creation_fee_claimed(&mut self) {
+        self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
     }
 }
 
