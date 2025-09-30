@@ -155,7 +155,6 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     let should_charge_creation_fee = collect_fee_mode == CollectFeeMode::OutputToken;
 
-    // Meteora migrator only migrate for SOL/USDC/JUP/TRUMP quote mint pools
     if should_charge_creation_fee {
         invoke(
             &system_instruction::transfer(

@@ -153,8 +153,8 @@ const_assert_eq!(VirtualPool::INIT_SPACE, 416);
 pub const PARTNER_MASK: u8 = 0b100;
 pub const CREATOR_MASK: u8 = 0b010;
 
-pub const CREATION_FEE_CHARGED_MASK: u8 = 0b001;
-pub const CREATION_FEE_CLAIMED_MASK: u8 = 0b010;
+const CREATION_FEE_CHARGED_MASK: u8 = 0b01;
+const CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]

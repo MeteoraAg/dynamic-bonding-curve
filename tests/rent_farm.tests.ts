@@ -138,7 +138,6 @@ describe("Rent fee farm", () => {
     instructionParams.creatorLpPercentage = 90;
     instructionParams.creatorLockedLpPercentage = 0;
     instructionParams.partnerLockedLpPercentage = 0;
-    // Meteora migrator only migrate for SOL/USDC/JUP/TRUMP quote mint pools
     instructionParams.collectFeeMode = 1; // Output only
 
     migrateDammV1Config = await createConfig(context.banksClient, program, {
