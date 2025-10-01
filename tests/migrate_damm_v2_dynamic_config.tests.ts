@@ -10,7 +10,12 @@ import {
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createDammV2DynamicConfig, fundSol, startTest } from "./utils";
+import {
+  createDammV2DynamicConfig,
+  fundSol,
+  MIGRATOR_RENT_BUFFER,
+  startTest,
+} from "./utils";
 import {
   createVirtualCurveProgram,
   derivePoolAuthority,
@@ -85,7 +90,9 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       poolAuthority
     );
 
-    expect(afterPoolAuthorityLamport.toString()).eq("0");
+    expect(afterPoolAuthorityLamport.toString()).eq(
+      MIGRATOR_RENT_BUFFER.toString()
+    );
 
     const dammPoolState = await getDammV2Pool(context.banksClient, pool);
     const poolConfigState = await getConfig(

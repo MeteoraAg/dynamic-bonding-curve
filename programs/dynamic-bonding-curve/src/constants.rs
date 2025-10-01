@@ -52,6 +52,8 @@ static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SLOTS
 );
 
+pub const MIGRATION_RENT_BUFFER: u64 = 10_000_000; // 0.01 SOL
+
 /// Store constants related to fees
 pub mod fee {
 

@@ -13,7 +13,7 @@ use ruint::aliases::U512;
 
 use crate::{
     const_pda,
-    constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIGRATION_RENT_BUFFER, MIN_SQRT_PRICE},
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     params::fee_parameters::{to_bps, to_numerator},
     rent_calculator::MeteoraDammV2MigrationFeeCalculator,
@@ -198,7 +198,8 @@ impl<'info> MigrateDammV2Ctx<'info> {
             &system_instruction::transfer(
                 &self.payer.key(),
                 &self.pool_authority.key(),
-                MeteoraDammV2MigrationFeeCalculator::get_initialize_pool_rent()?,
+                MeteoraDammV2MigrationFeeCalculator::get_initialize_pool_rent()?
+                    .safe_add(MIGRATION_RENT_BUFFER)?,
             ),
             &[
                 self.payer.to_account_info(),

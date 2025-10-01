@@ -3,6 +3,7 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 
 use crate::{
     const_pda,
+    constants::MIGRATION_RENT_BUFFER,
     params::fee_parameters::to_bps,
     rent_calculator::MeteoraDammMigrationFeeCalculator,
     safe_math::SafeMath,
@@ -160,7 +161,8 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             &system_instruction::transfer(
                 &self.payer.key(),
                 &self.pool_authority.key(),
-                MeteoraDammMigrationFeeCalculator::get_initialize_pool_rent()?,
+                MeteoraDammMigrationFeeCalculator::get_initialize_pool_rent()?
+                    .safe_add(MIGRATION_RENT_BUFFER)?,
             ),
             &[
                 self.payer.to_account_info(),
