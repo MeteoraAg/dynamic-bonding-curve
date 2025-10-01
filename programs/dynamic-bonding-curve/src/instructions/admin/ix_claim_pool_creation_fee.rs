@@ -1,5 +1,7 @@
-use anchor_lang::prelude::*;
-use crate::{constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE, state::*, *, EvtClaimPoolCreationFee};
+use crate::{
+    constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE, state::*,
+    EvtClaimPoolCreationFee, *,
+};
 
 /// Accounts for withdraw creation fees
 #[event_cpi]
@@ -17,7 +19,7 @@ pub struct ClaimCreationFeeCtx<'info> {
 
     /// CHECK: treasury
     #[account(
-        mut, 
+        mut,
         address = treasury::ID
     )]
     pub treasury: UncheckedAccount<'info>,
@@ -32,8 +34,12 @@ pub fn handle_claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Resu
         drop(pool);
 
         // Transfer the creation fee to the treasury
-        ctx.accounts.pool.sub_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
-        ctx.accounts.treasury.add_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+        ctx.accounts
+            .pool
+            .sub_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+        ctx.accounts
+            .treasury
+            .add_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
 
         let mut pool = ctx.accounts.pool.load_mut()?;
         pool.update_creation_fee_claimed();
