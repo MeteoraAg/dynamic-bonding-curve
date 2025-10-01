@@ -192,9 +192,9 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
                         },
                         &[&pool_authority_seeds[..]],
                     ),
-    initial_base_amount,
-    initial_quote_amount,
-  None,
+                    initial_base_amount,
+                    initial_quote_amount,
+                    None,
                 )?;
 
                 Ok(())

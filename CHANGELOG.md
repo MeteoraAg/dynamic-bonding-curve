@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - A pool creation fee of 0.01 SOL will be charged if the pool `collect_fee_mode` is `CollectFeeMode::OutputToken` and `base_mint` is `token_2022` (endpoint: `initialize_virtual_pool_with_token2022`)
-- Optimize SOL transferred to pool authority during migration by transferring only necessary needed amount.
+- Optimize SOL transferred to pool authority during migration by transferring only necessary needed amount. Implement flash rent in migration to damm and damm v2 as well as create locker that requires at least 1 SOL in `pool authority`
 
 ### Added
 
