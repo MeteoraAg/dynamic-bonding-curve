@@ -13,10 +13,9 @@ use ruint::aliases::U512;
 
 use crate::{
     const_pda,
-    constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIGRATION_RENT_BUFFER, MIN_SQRT_PRICE},
+    constants::{fee::FEE_DENOMINATOR, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     params::fee_parameters::{to_bps, to_numerator},
-    rent_calculator::MeteoraDammV2MigrationFeeCalculator,
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
@@ -192,21 +191,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to pool authority to pay rent fee?
-        msg!("transfer lamport to pool_authority");
-        invoke(
-            &system_instruction::transfer(
-                &self.payer.key(),
-                &self.pool_authority.key(),
-                MeteoraDammV2MigrationFeeCalculator::get_initialize_pool_rent()?
-                    .safe_add(MIGRATION_RENT_BUFFER)?,
-            ),
-            &[
-                self.payer.to_account_info(),
-                self.pool_authority.to_account_info(),
-                self.system_program.to_account_info(),
-            ],
-        )?;
+        let before_lamports = self.pool_authority.lamports();
 
         if migration_fee_option == MigrationFeeOption::Customizable {
             let base_fee_numerator =
@@ -311,6 +296,21 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 },
             )?;
         }
+
+        let after_lamports = self.pool_authority.lamports();
+        let consumed_lamports = before_lamports.safe_sub(after_lamports)?;
+
+        let transfer_ix = system_instruction::transfer(
+            &self.payer.key(),
+            &self.pool_authority.key(),
+            consumed_lamports,
+        );
+        let accounts = &[
+            self.payer.to_account_info(),
+            self.pool_authority.to_account_info(),
+            self.system_program.to_account_info(),
+        ];
+        invoke(&transfer_ix, accounts)?;
 
         Ok(())
     }

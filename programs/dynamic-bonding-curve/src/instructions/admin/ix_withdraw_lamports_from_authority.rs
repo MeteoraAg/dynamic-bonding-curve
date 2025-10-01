@@ -3,7 +3,7 @@ use anchor_lang::{
     system_program::{transfer, Transfer},
 };
 
-use crate::{const_pda, treasury};
+use crate::{const_pda, constants::FLASH_RENT_FUND, treasury};
 
 #[derive(Accounts)]
 pub struct WithdrawLamportsFromPoolAuthority<'info> {
@@ -29,7 +29,8 @@ pub fn handle_withdraw_lamports_from_pool_authority(
 ) -> Result<()> {
     let pool_authority = &ctx.accounts.pool_authority;
     let lamports = pool_authority.lamports();
-    if lamports > 0 {
+    let withdrawable_lamports = lamports.saturating_sub(FLASH_RENT_FUND);
+    if withdrawable_lamports > 0 {
         let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
         transfer(
             CpiContext::new_with_signer(
@@ -40,7 +41,7 @@ pub fn handle_withdraw_lamports_from_pool_authority(
                 },
                 &[&seeds[..]],
             ),
-            lamports,
+            withdrawable_lamports,
         )?;
     }
 

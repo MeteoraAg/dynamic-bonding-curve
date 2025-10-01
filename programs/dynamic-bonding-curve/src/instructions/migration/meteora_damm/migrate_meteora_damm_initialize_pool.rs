@@ -3,9 +3,7 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 
 use crate::{
     const_pda,
-    constants::MIGRATION_RENT_BUFFER,
     params::fee_parameters::to_bps,
-    rent_calculator::MeteoraDammMigrationFeeCalculator,
     safe_math::SafeMath,
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
@@ -155,21 +153,8 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to pool authority to pay rent fee?
-        msg!("transfer lamport to pool_authority");
-        invoke(
-            &system_instruction::transfer(
-                &self.payer.key(),
-                &self.pool_authority.key(),
-                MeteoraDammMigrationFeeCalculator::get_initialize_pool_rent()?
-                    .safe_add(MIGRATION_RENT_BUFFER)?,
-            ),
-            &[
-                self.payer.to_account_info(),
-                self.pool_authority.to_account_info(),
-                self.system_program.to_account_info(),
-            ],
-        )?;
+        let before_lamports = self.pool_authority.lamports();
+
         // Vault authority create pool
         msg!("create pool");
         dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
@@ -209,6 +194,21 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
             initial_quote_amount,
             None,
         )?;
+
+        let after_lamports = self.pool_authority.lamports();
+        let consumed_lamports = before_lamports.safe_sub(after_lamports)?;
+
+        let transfer_ix = system_instruction::transfer(
+            &self.payer.key(),
+            &self.pool_authority.key(),
+            consumed_lamports,
+        );
+        let accounts = &[
+            self.payer.to_account_info(),
+            self.pool_authority.to_account_info(),
+            self.system_program.to_account_info(),
+        ];
+        invoke(&transfer_ix, accounts)?;
 
         Ok(())
     }

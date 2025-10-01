@@ -9,10 +9,11 @@ import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  FLASH_RENT_FUND,
   LOCKER_PROGRAM_ID,
   VAULT_PROGRAM_ID,
 } from "./constants";
-import { METAPLEX_PROGRAM_ID } from ".";
+import { derivePoolAuthority, METAPLEX_PROGRAM_ID } from ".";
 import {
   ACCOUNT_SIZE,
   AccountLayout,
@@ -104,6 +105,15 @@ export async function startTest() {
           lamports: 1_000_000_000,
           data: tokenAccData,
           owner: TOKEN_PROGRAM_ID,
+          executable: false,
+        },
+      },
+      {
+        address: derivePoolAuthority(),
+        info: {
+          lamports: FLASH_RENT_FUND,
+          data: new Uint8Array(),
+          owner: SystemProgram.programId,
           executable: false,
         },
       },

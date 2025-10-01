@@ -18,7 +18,7 @@ import {
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, MIGRATOR_RENT_BUFFER, startTest } from "./utils";
+import { FLASH_RENT_FUND, fundSol, getMint, startTest } from "./utils";
 import {
   createDammConfig,
   createVirtualCurveProgram,
@@ -223,7 +223,9 @@ describe("Full flow with spl-token", () => {
       poolAuthority
     );
 
-    expect(beforePoolAuthorityLamport.toString()).eq("0");
+    expect(beforePoolAuthorityLamport.toString()).eq(
+      FLASH_RENT_FUND.toString()
+    );
 
     await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
 
@@ -231,9 +233,7 @@ describe("Full flow with spl-token", () => {
       poolAuthority
     );
 
-    expect(afterPoolAuthorityLamport.toString()).eq(
-      MIGRATOR_RENT_BUFFER.toString()
-    );
+    expect(afterPoolAuthorityLamport.toString()).eq(FLASH_RENT_FUND.toString());
 
     // validate mint authority
     const baseMintData = await getMint(

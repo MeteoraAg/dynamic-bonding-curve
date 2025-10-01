@@ -8,6 +8,9 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 pub const U24_MAX: u32 = 0xffffff;
 
 pub const ONE_Q64: u128 = 1u128 << 64;
+
+pub const FLASH_RENT_FUND: u64 = 1_000_000_000; // 1 SOL
+
 pub mod dynamic_fee {
 
     pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
@@ -51,8 +54,6 @@ static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS
 );
-
-pub const MIGRATION_RENT_BUFFER: u64 = 10_000_000; // 0.01 SOL
 
 /// Store constants related to fees
 pub mod fee {
