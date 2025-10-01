@@ -1,4 +1,3 @@
-use anchor_lang::solana_program::{program::invoke, system_instruction};
 use anchor_spl::token::{Burn, Token, TokenAccount};
 
 use crate::{
@@ -153,61 +152,54 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        // Send some lamport to pool authority to pay rent fee?
-        msg!("transfer lamport to pool_authority");
-        invoke(
-            &system_instruction::transfer(
-                &self.payer.key(),
-                &self.pool_authority.key(),
-                50_000_000, // TODO calculate correct lamport here
-            ),
-            &[
-                self.payer.to_account_info(),
-                self.pool_authority.to_account_info(),
-                self.system_program.to_account_info(),
-            ],
-        )?;
-        // Vault authority create pool
-        msg!("create pool");
-        dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
-            CpiContext::new_with_signer(
+        flash_rent(
+            self.pool_authority.to_account_info(),
+            self.payer.to_account_info(),
+            self.system_program.to_account_info(),
+            || {
+                // Vault authority create pool
+                msg!("create pool");
+                dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
+                CpiContext::new_with_signer(
                 self.amm_program.to_account_info(),
                 dynamic_amm::cpi::accounts::InitializePermissionlessConstantProductPoolWithConfig2 {
-                    pool: self.pool.to_account_info(),
-                    config: self.damm_config.to_account_info(),
-                    lp_mint: self.lp_mint.to_account_info(),
-                    token_a_mint: self.token_a_mint.to_account_info(),
-                    token_b_mint: self.token_b_mint.to_account_info(),
-                    a_vault: self.a_vault.to_account_info(),
-                    b_vault: self.b_vault.to_account_info(),
-                    a_token_vault: self.a_token_vault.to_account_info(),
-                    b_token_vault: self.b_token_vault.to_account_info(),
-                    a_vault_lp_mint: self.a_vault_lp_mint.to_account_info(),
-                    b_vault_lp_mint: self.b_vault_lp_mint.to_account_info(),
-                    a_vault_lp: self.a_vault_lp.to_account_info(),
-                    b_vault_lp: self.b_vault_lp.to_account_info(),
-                    payer_token_a: self.base_vault.to_account_info(),
-                    payer_token_b: self.quote_vault.to_account_info(),
-                    payer_pool_lp: self.virtual_pool_lp.to_account_info(), // ?
-                    protocol_token_a_fee: self.protocol_token_a_fee.to_account_info(),
-                    protocol_token_b_fee: self.protocol_token_b_fee.to_account_info(),
-                    payer: self.pool_authority.to_account_info(),
-                    rent: self.rent.to_account_info(),
-                    metadata_program: self.metadata_program.to_account_info(),
-                    mint_metadata: self.mint_metadata.to_account_info(),
-                    vault_program: self.vault_program.to_account_info(),
-                    token_program: self.token_program.to_account_info(),
-                    associated_token_program: self.associated_token_program.to_account_info(),
-                    system_program: self.system_program.to_account_info(),
-                },
-                &[&pool_authority_seeds[..]],
-            ),
-            initial_base_amount,
-            initial_quote_amount,
-            None,
-        )?;
+                            pool: self.pool.to_account_info(),
+                            config: self.damm_config.to_account_info(),
+                            lp_mint: self.lp_mint.to_account_info(),
+                            token_a_mint: self.token_a_mint.to_account_info(),
+                            token_b_mint: self.token_b_mint.to_account_info(),
+                            a_vault: self.a_vault.to_account_info(),
+                            b_vault: self.b_vault.to_account_info(),
+                            a_token_vault: self.a_token_vault.to_account_info(),
+                            b_token_vault: self.b_token_vault.to_account_info(),
+                            a_vault_lp_mint: self.a_vault_lp_mint.to_account_info(),
+                            b_vault_lp_mint: self.b_vault_lp_mint.to_account_info(),
+                            a_vault_lp: self.a_vault_lp.to_account_info(),
+                            b_vault_lp: self.b_vault_lp.to_account_info(),
+                            payer_token_a: self.base_vault.to_account_info(),
+                            payer_token_b: self.quote_vault.to_account_info(),
+                            payer_pool_lp: self.virtual_pool_lp.to_account_info(), // ?
+                            protocol_token_a_fee: self.protocol_token_a_fee.to_account_info(),
+                            protocol_token_b_fee: self.protocol_token_b_fee.to_account_info(),
+                            payer: self.pool_authority.to_account_info(),
+                            rent: self.rent.to_account_info(),
+                            metadata_program: self.metadata_program.to_account_info(),
+                            mint_metadata: self.mint_metadata.to_account_info(),
+                            vault_program: self.vault_program.to_account_info(),
+                            token_program: self.token_program.to_account_info(),
+                            associated_token_program: self.associated_token_program.to_account_info(),
+                            system_program: self.system_program.to_account_info(),
+                        },
+                        &[&pool_authority_seeds[..]],
+                    ),
+                    initial_base_amount,
+                    initial_quote_amount,
+                    None,
+                )?;
 
-        Ok(())
+                Ok(())
+            },
+        )
     }
 }
 

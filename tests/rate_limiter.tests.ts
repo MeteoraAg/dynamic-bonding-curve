@@ -6,6 +6,7 @@ import {
   getSwap2Instruction,
   getSwapInstruction,
   swap,
+  SwapMode,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -139,6 +140,7 @@ describe("Rate limiter", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: referenceAmount,
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.ExactIn,
       referralTokenAccount: null,
     });
 
@@ -164,6 +166,7 @@ describe("Rate limiter", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: referenceAmount.mul(new BN(2)),
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.ExactIn,
       referralTokenAccount: null,
     });
 
@@ -193,6 +196,7 @@ describe("Rate limiter", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: referenceAmount.mul(new BN(2)),
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.ExactIn,
       referralTokenAccount: null,
     });
 
@@ -312,6 +316,7 @@ describe("Rate limiter", () => {
         outputTokenMint: virtualPoolState.baseMint,
         amountIn: referenceAmount,
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       }
     );
@@ -327,6 +332,7 @@ describe("Rate limiter", () => {
         outputTokenMint: virtualPoolState.baseMint,
         amountIn: referenceAmount,
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       }
     );

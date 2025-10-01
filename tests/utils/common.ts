@@ -252,7 +252,6 @@ export async function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-
 export const getCurrentSlot = async (banksClient: BanksClient): Promise<BN> => {
   let slot = await banksClient.getSlot();
   return new BN(slot.toString());
@@ -262,7 +261,6 @@ export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
   await context.warpToSlot(clock.slot + BigInt(slots.toString()));
 }
-
 
 export const SET_COMPUTE_UNIT_LIMIT_IX =
   web3.ComputeBudgetProgram.setComputeUnitLimit({
@@ -452,13 +450,13 @@ export async function createDammV2DynamicConfig(
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
   const program = createDammV2Program();
- 
+
   const [config] = PublicKey.findProgramAddressSync(
     [Buffer.from("config"), new BN(0).toBuffer("le", 8)],
     DAMM_V2_PROGRAM_ID
   );
   const transaction = await program.methods
-    .createDynamicConfig(new BN(0), {poolCreatorAuthority})
+    .createDynamicConfig(new BN(0), { poolCreatorAuthority })
     .accountsPartial({
       config,
       admin: payer.publicKey,

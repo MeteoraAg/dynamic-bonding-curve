@@ -217,6 +217,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
+        false,
     );
 
     emit_cpi!(EvtInitializePool {

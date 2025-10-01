@@ -53,6 +53,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_withdraw_lamports_from_pool_authority(ctx)
     }
 
+    pub fn claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
+        instructions::handle_claim_pool_creation_fee(ctx)
+    }
+
     /// PARTNER FUNCTIONS ///
     pub fn create_partner_metadata(
         ctx: Context<CreatePartnerMetadataCtx>,

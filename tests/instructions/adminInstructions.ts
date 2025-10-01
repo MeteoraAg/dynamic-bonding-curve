@@ -17,6 +17,7 @@ import {
 } from "../utils";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { expect } from "chai";
+import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 
 export type CreateClaimfeeOperatorParams = {
   admin: Keypair;
@@ -82,10 +83,50 @@ export async function closeClaimFeeOperator(
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 
+export type ClaimPoolCreationFeeParams = {
+  operator: Keypair;
+  pool: PublicKey;
+};
+
+export async function claimPoolCreationFee(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  params: ClaimPoolCreationFeeParams
+) {
+  const { operator, pool } = params;
+
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+
+  const transaction = await program.methods
+    .claimPoolCreationFee()
+    .accountsPartial({
+      pool,
+      treasury: TREASURY,
+      operator: operator.publicKey,
+      systemProgram: SYSTEM_PROGRAM_ID,
+      claimFeeOperator,
+    })
+    // Trick to bypass bankrun transaction has been processed if we wish to execute same tx again
+    .remainingAccounts([
+      {
+        pubkey: PublicKey.unique(),
+        isSigner: false,
+        isWritable: false,
+      },
+    ])
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(operator);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
 export type ClaimProtocolFeeParams = {
   operator: Keypair;
   pool: PublicKey;
 };
+
 export async function claimProtocolFee(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
@@ -102,8 +143,6 @@ export async function claimProtocolFee(
     banksClient,
     poolState.quoteVault
   );
-
-
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -134,8 +173,13 @@ export async function claimProtocolFee(
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const tokenQuoteAccountState = await getTokenAccount(banksClient, tokenQuoteAccount);
-  const preQuoteTokenBalance = tokenQuoteAccountState ? tokenQuoteAccountState.amount : 0;
+  const tokenQuoteAccountState = await getTokenAccount(
+    banksClient,
+    tokenQuoteAccount
+  );
+  const preQuoteTokenBalance = tokenQuoteAccountState
+    ? tokenQuoteAccountState.amount
+    : 0;
 
   const transaction = await program.methods
     .claimProtocolFee()
