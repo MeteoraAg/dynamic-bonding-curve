@@ -85,7 +85,11 @@ describe("Swap Over the Curve", () => {
       tokenQuoteDecimal,
       0,
       1,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
 
     const params: CreateConfigParams = {
@@ -228,6 +232,10 @@ describe("Swap Over the Curve", () => {
       0,
       collectFeeMode,
       lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      },
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),

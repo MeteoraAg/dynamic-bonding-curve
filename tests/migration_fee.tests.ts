@@ -92,12 +92,12 @@ describe("Migration fee", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 99,
+        creatorFeePercentage: 80,
+      }
     );
-    instructionParams.migrationFee = {
-      feePercentage: 10,
-      creatorFeePercentage: 80,
-    };
     const params: CreateConfigParams = {
       payer: partner,
       leftoverReceiver: partner.publicKey,

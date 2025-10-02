@@ -4,10 +4,11 @@ import {
   ConfigParameters,
   LiquidityDistributionParameters,
   LockedVestingParams,
+  MigrationFeeParams,
 } from "../instructions";
 import Decimal from "decimal.js";
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE } from "./constants";
-import { assert } from "chai";
+import { assert, expect } from "chai";
 
 function fromDecimalToBN(value: Decimal): BN {
   return new BN(value.floor().toFixed());
@@ -127,9 +128,11 @@ export const getFirstCurve = (
   migrationSqrPrice: BN,
   migrationAmount: BN,
   swapAmount: BN,
-  migrationQuoteThreshold: BN
+  migrationQuoteThreshold: BN,
+  migrationFee: number,
 ) => {
-  let sqrtStartPrice = migrationSqrPrice.mul(migrationAmount).div(swapAmount);
+  let sqrtStartPrice = migrationSqrPrice.mul(migrationAmount).div(swapAmount).mul(new BN(100)).div(new BN(100 - migrationFee));
+  expect(sqrtStartPrice < migrationSqrPrice);
   let liquidity = getLiquidity(
     swapAmount,
     migrationQuoteThreshold,
@@ -298,11 +301,14 @@ const getSwapAmountWithBuffer = (
 const getMigrationBaseToken = (
   migrationQuoteThreshold: BN,
   sqrtMigrationPrice: BN,
-  migrationOption: number
+  migrationOption: number,
+  migrationFeePercent: number,
 ): BN => {
+  let migrationQuoteFee = migrationQuoteThreshold.mul(new BN(migrationFeePercent)).div(new BN(100));
+  let migrationQuoteAmount = migrationQuoteThreshold.sub(migrationQuoteFee);
   if (migrationOption == 0) {
     let price = sqrtMigrationPrice.mul(sqrtMigrationPrice);
-    let quote = migrationQuoteThreshold.shln(128);
+    let quote = migrationQuoteAmount.shln(128);
     let { div, mod } = quote.divmod(price);
     if (!mod.isZero()) {
       div = div.add(new BN(1));
@@ -310,7 +316,7 @@ const getMigrationBaseToken = (
     return div;
   } else if (migrationOption == 1) {
     let liquidity = getInitialLiquidityFromDeltaQuote(
-      migrationQuoteThreshold,
+      migrationQuoteAmount,
       MIN_SQRT_PRICE,
       sqrtMigrationPrice
     );
@@ -332,7 +338,8 @@ export const getTotalSupplyFromCurve = (
   curve: Array<LiquidityDistributionParameters>,
   lockedVesting: LockedVestingParams,
   migrationOption: number,
-  leftOver: BN
+  leftOver: BN,
+  migrationFeePercent: number,
 ): BN => {
   let sqrtMigrationPrice = getMigrationThresholdPrice(
     migrationQuoteThreshold,
@@ -352,7 +359,8 @@ export const getTotalSupplyFromCurve = (
   let migrationBaseAmount = getMigrationBaseToken(
     migrationQuoteThreshold,
     sqrtMigrationPrice,
-    migrationOption
+    migrationOption,
+    migrationFeePercent
   );
   let totalVestingAmount = getTotalVestingAmount(lockedVesting);
   let minimumBaseSupplyWithBuffer = swapBaseAmountBuffer
@@ -381,6 +389,7 @@ export function designCurve(
   creatorTradingFeePercentage: number,
   collectFeeMode: number,
   lockedVesting: LockedVestingParams,
+  migrationFee: MigrationFeeParams,
   opts?: {
     baseFeeOption?: {
       baseFeeMode: number;
@@ -402,7 +411,10 @@ export function designCurve(
     migrationQuoteThreshold * 10 ** tokenQuoteDecimal
   );
 
-  let migrationPrice = new Decimal(migrationQuoteThreshold.toString()).div(
+  let migrationQuoteFee = migrationQuoteThresholdWithDecimals.mul(new BN(migrationFee.feePercentage)).div(new BN(100));
+  let migrationQuoteAmount = migrationQuoteThresholdWithDecimals.sub(migrationQuoteFee);
+
+  let migrationPrice = new Decimal(migrationQuoteAmount.toString()).div(
     new Decimal(migrationBaseSupply.toString())
   );
   let migrateSqrtPrice = getSqrtPriceFromPrice(
@@ -411,11 +423,14 @@ export function designCurve(
     tokenQuoteDecimal
   );
 
+
   let migrationBaseAmount = getMigrationBaseToken(
-    new BN(migrationQuoteThresholdWithDecimals),
+    migrationQuoteThresholdWithDecimals,
     migrateSqrtPrice,
-    migrationOption
+    migrationOption,
+    migrationFee.feePercentage,
   );
+
   let totalVestingAmount = getTotalVestingAmount(lockedVesting);
   let swapAmount = totalSupply.sub(migrationBaseAmount).sub(totalVestingAmount);
 
@@ -423,7 +438,8 @@ export function designCurve(
     migrateSqrtPrice,
     migrationBaseAmount,
     swapAmount,
-    migrationQuoteThresholdWithDecimals
+    migrationQuoteThresholdWithDecimals,
+    migrationFee.feePercentage,
   );
 
   let totalDynamicSupply = getTotalSupplyFromCurve(
@@ -432,7 +448,8 @@ export function designCurve(
     curve,
     lockedVesting,
     migrationOption,
-    new BN(0)
+    new BN(0),
+    migrationFee.feePercentage,
   );
 
   let remainingAmount = totalSupply.sub(totalDynamicSupply);
@@ -479,10 +496,7 @@ export function designCurve(
     },
     creatorTradingFeePercentage,
     tokenUpdateAuthority: 0,
-    migrationFee: {
-      feePercentage: 0,
-      creatorFeePercentage: 0,
-    },
+    migrationFee,
     migratedPoolFee: {
       collectFeeMode: 0,
       dynamicFee: 0,
@@ -596,7 +610,8 @@ export function designGraphCurve(
     curve,
     lockedVesting,
     migrationOption,
-    totalLeftover
+    totalLeftover,
+    0
   );
 
   if (totalDynamicSupply.gt(totalSupply)) {

@@ -82,7 +82,11 @@ describe("Design default curve", () => {
       tokenQuoteDecimal,
       0,
       1,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,
@@ -141,7 +145,11 @@ describe("Design default curve", () => {
       tokenQuoteDecimal,
       0,
       1,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,

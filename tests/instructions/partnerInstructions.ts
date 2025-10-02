@@ -64,6 +64,13 @@ export type LiquidityDistributionParameters = {
   liquidity: BN;
 };
 
+
+export type MigrationFeeParams = {
+  feePercentage: number;
+  creatorFeePercentage: number;
+};
+
+
 export type ConfigParameters = {
   poolFees: {
     baseFee: BaseFee;
@@ -85,10 +92,7 @@ export type ConfigParameters = {
   tokenSupply: TokenSupplyParams | null;
   creatorTradingFeePercentage: number;
   tokenUpdateAuthority: number;
-  migrationFee: {
-    feePercentage: number;
-    creatorFeePercentage: number;
-  };
+  migrationFee: MigrationFeeParams;
   migratedPoolFee: {
     poolFeeBps: number;
     collectFeeMode: number;
