@@ -92,7 +92,11 @@ describe("Update creator", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,
@@ -157,7 +161,11 @@ describe("Update creator", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,

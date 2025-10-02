@@ -83,7 +83,11 @@ describe("Swap V2", () => {
       tokenQuoteDecimal,
       0,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
 
     const params: CreateConfigParams = {
@@ -192,7 +196,11 @@ describe("Swap V2", () => {
       tokenQuoteDecimal,
       0,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
 
     const params: CreateConfigParams = {
@@ -206,8 +214,8 @@ describe("Swap V2", () => {
 
     const tradeFeeNumerator = instructionParams.poolFees.baseFee.cliffFeeNumerator;
     // swapAmount - swapAmount * fee_numerator / denominator = migration_quote_threshold;
-    let {div, mod} = instructionParams.migrationQuoteThreshold.mul(FEE_DENOMINATOR).divmod(FEE_DENOMINATOR.sub(tradeFeeNumerator));
-    const swapAmount = mod.isZero() ? div: div.add(new BN(1)) // round up
+    let { div, mod } = instructionParams.migrationQuoteThreshold.mul(FEE_DENOMINATOR).divmod(FEE_DENOMINATOR.sub(tradeFeeNumerator));
+    const swapAmount = mod.isZero() ? div : div.add(new BN(1)) // round up
 
     await mintSplTokenTo(
       context.banksClient,
@@ -305,7 +313,11 @@ describe("Swap V2", () => {
       tokenQuoteDecimal,
       0,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
 
     const params: CreateConfigParams = {
@@ -424,7 +436,11 @@ describe("Swap V2", () => {
       tokenQuoteDecimal,
       0,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
 
     const params: CreateConfigParams = {
@@ -547,6 +563,10 @@ describe("Swap V2", () => {
       0,
       collectFeeMode,
       lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      },
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),

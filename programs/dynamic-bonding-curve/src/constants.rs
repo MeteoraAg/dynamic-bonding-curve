@@ -55,6 +55,8 @@ static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SLOTS
 );
 
+pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
+
 /// Store constants related to fees
 pub mod fee {
 
