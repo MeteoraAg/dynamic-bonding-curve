@@ -246,16 +246,6 @@ describe("Creator and Partner share trading fees and surplus", () => {
 });
 
 
-
-
-function diff(a: BN, b: BN, precision: BN): BN {
-    if (a.cmp(b) == 0) {
-        return new BN(0);
-    }
-    let diff = a.cmp(b) == 1 ? a.sub(b) : b.sub(a);
-    let diffWithPrecision = diff.mul(precision).div(a);
-    return diffWithPrecision
-}
 async function fullFlow(
     banksClient: BanksClient,
     program: VirtualCurveProgram,
@@ -322,13 +312,8 @@ async function fullFlow(
         expect(virtualPoolState.partnerBaseFee.toString()).eq("0");
         expect(virtualPoolState.partnerQuoteFee.toString()).eq("0");
     } else {
-        let creatorBaseMutiplier = virtualPoolState.creatorBaseFee.mul(new BN(partnerTradingFeePercentage));
-        let partnerBaseMultiplier = virtualPoolState.partnerBaseFee.mul(new BN(creatorTradingFeePercentage));
-        expect(diff(creatorBaseMutiplier, partnerBaseMultiplier, new BN(1_000_000_000)).toString()).eq("0");
-
-        let creatorQuoteMutiplier = virtualPoolState.creatorQuoteFee.mul(new BN(partnerTradingFeePercentage));
-        let partnerQuoteMultiplier = virtualPoolState.partnerQuoteFee.mul(new BN(creatorTradingFeePercentage));
-        expect(diff(creatorQuoteMutiplier, partnerQuoteMultiplier, new BN(1_000_000_000)).toString()).eq("0");
+        expect(virtualPoolState.creatorBaseFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.partnerBaseFee.mul(new BN(creatorTradingFeePercentage)).toString());
+        expect(virtualPoolState.creatorQuoteFee.mul(new BN(partnerTradingFeePercentage)).toString()).eq(virtualPoolState.partnerQuoteFee.mul(new BN(creatorTradingFeePercentage)).toString());
     }
 
     // migrate

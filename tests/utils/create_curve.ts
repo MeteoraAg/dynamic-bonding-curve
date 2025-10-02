@@ -401,8 +401,8 @@ export function designCurve(
   }
 ): ConfigParameters {
   let migrationBaseSupply = new BN(totalTokenSupply)
-    .mul(new BN(percentageSupplyOnMigration))
-    .div(new BN(100));
+    .mul(new BN(percentageSupplyOnMigration * 100))
+    .div(new BN(10000));
 
   let totalSupply = new BN(totalTokenSupply).mul(
     new BN(10).pow(new BN(tokenBaseDecimal))
@@ -411,8 +411,8 @@ export function designCurve(
     migrationQuoteThreshold * 10 ** tokenQuoteDecimal
   );
 
-  let migrationQuoteFee = migrationQuoteThresholdWithDecimals.mul(new BN(migrationFee.feePercentage)).div(new BN(100));
-  let migrationQuoteAmount = migrationQuoteThresholdWithDecimals.sub(migrationQuoteFee);
+  let migrationQuoteFee = migrationQuoteThreshold * migrationFee.feePercentage / 100;
+  let migrationQuoteAmount = migrationQuoteThreshold - migrationQuoteFee;
 
   let migrationPrice = new Decimal(migrationQuoteAmount.toString()).div(
     new Decimal(migrationBaseSupply.toString())
@@ -422,7 +422,6 @@ export function designCurve(
     tokenBaseDecimal,
     tokenQuoteDecimal
   );
-
 
   let migrationBaseAmount = getMigrationBaseToken(
     migrationQuoteThresholdWithDecimals,

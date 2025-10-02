@@ -63,7 +63,7 @@ describe("Migration fee", () => {
 
   it("Creator and partner withdraw migration fee", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
-    let percentageSupplyOnMigration = 10; // 10%;
+    let percentageSupplyOnMigration = 0.9; // 0.9%;
     let migrationQuoteThreshold = 300; // 300 sol
     let migrationOption = 0;
     let tokenBaseDecimal = 6;
