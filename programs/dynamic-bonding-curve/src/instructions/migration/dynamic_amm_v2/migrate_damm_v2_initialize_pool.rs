@@ -362,7 +362,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
         msg!("create position");
-        damm_v2::cpi::create_position(CpiContext::new_with_signer(
+        damm_v2::cpi::create_position(CpiContext::new(
             self.amm_program.to_account_info(),
             damm_v2::cpi::accounts::CreatePosition {
                 owner: self.pool_authority.to_account_info(),
@@ -385,7 +385,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 event_authority: self.damm_event_authority.to_account_info(),
                 program: self.amm_program.to_account_info(),
             },
-            &[&pool_authority_seeds[..]],
         ))?;
 
         msg!("add liquidity");
