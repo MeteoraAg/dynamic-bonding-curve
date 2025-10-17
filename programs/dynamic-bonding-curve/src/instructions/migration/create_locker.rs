@@ -1,6 +1,7 @@
 use crate::{
     const_pda,
     constants::seeds::BASE_LOCKER_PREFIX,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking,
     state::{MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
@@ -89,36 +90,43 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
 
     let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
 
-    flash_rent(
-        ctx.accounts.pool_authority.to_account_info(),
-        ctx.accounts.payer.to_account_info(),
-        ctx.accounts.system_program.to_account_info(),
-        || {
-            msg!("create vesting escrow for creator");
-            locker::cpi::create_vesting_escrow_v2(
-                CpiContext::new_with_signer(
-                    ctx.accounts.locker_program.to_account_info(),
-                    CreateVestingEscrowV2 {
-                        base: ctx.accounts.base.to_account_info(), // use payer token account for base key, unique
-                        escrow: ctx.accounts.escrow.to_account_info(),
-                        escrow_token: ctx.accounts.escrow_token.to_account_info(),
-                        token_mint: ctx.accounts.base_mint.to_account_info(),
-                        sender: ctx.accounts.pool_authority.to_account_info(),
-                        sender_token: ctx.accounts.base_vault.to_account_info(),
-                        recipient: ctx.accounts.creator.to_account_info(),
-                        token_program: ctx.accounts.token_program.to_account_info(),
-                        system_program: ctx.accounts.system_program.to_account_info(),
-                        event_authority: ctx.accounts.locker_event_authority.to_account_info(),
-                        program: ctx.accounts.locker_program.to_account_info(),
-                    },
-                    &[&base_seeds[..], &pool_authority_seeds[..]],
-                ),
-                vesting_params,
-                None,
-            )?;
+    let create_locker_fn = || {
+        flash_rent(
+            ctx.accounts.pool_authority.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            || {
+                msg!("create vesting escrow for creator");
+                locker::cpi::create_vesting_escrow_v2(
+                    CpiContext::new_with_signer(
+                        ctx.accounts.locker_program.to_account_info(),
+                        CreateVestingEscrowV2 {
+                            base: ctx.accounts.base.to_account_info(), // use payer token account for base key, unique
+                            escrow: ctx.accounts.escrow.to_account_info(),
+                            escrow_token: ctx.accounts.escrow_token.to_account_info(),
+                            token_mint: ctx.accounts.base_mint.to_account_info(),
+                            sender: ctx.accounts.pool_authority.to_account_info(),
+                            sender_token: ctx.accounts.base_vault.to_account_info(),
+                            recipient: ctx.accounts.creator.to_account_info(),
+                            token_program: ctx.accounts.token_program.to_account_info(),
+                            system_program: ctx.accounts.system_program.to_account_info(),
+                            event_authority: ctx.accounts.locker_event_authority.to_account_info(),
+                            program: ctx.accounts.locker_program.to_account_info(),
+                        },
+                        &[&base_seeds[..], &pool_authority_seeds[..]],
+                    ),
+                    vesting_params,
+                    None,
+                )?;
 
-            Ok(())
-        },
+                Ok(())
+            },
+        )
+    };
+
+    cpi_with_account_lamport_and_owner_checking(
+        create_locker_fn,
+        ctx.accounts.pool_authority.to_account_info(),
     )?;
 
     // set progress

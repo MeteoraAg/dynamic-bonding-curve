@@ -2,6 +2,7 @@ use std::u64;
 
 use crate::{
     const_pda,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking,
     state::{MigrationProgress, VirtualPool},
     *,
 };
@@ -78,27 +79,32 @@ impl<'info> MigrateMeteoraDammLockLpTokenCtx<'info> {
     fn lock(&self, bump: u8, max_amount: u64) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        dynamic_amm::cpi::lock(
-            CpiContext::new_with_signer(
-                self.amm_program.to_account_info(),
-                dynamic_amm::cpi::accounts::Lock {
-                    pool: self.pool.to_account_info(),
-                    lp_mint: self.lp_mint.to_account_info(),
-                    a_vault: self.a_vault.to_account_info(),
-                    b_vault: self.b_vault.to_account_info(),
-                    a_vault_lp_mint: self.a_vault_lp_mint.to_account_info(),
-                    b_vault_lp_mint: self.b_vault_lp_mint.to_account_info(),
-                    a_vault_lp: self.a_vault_lp.to_account_info(),
-                    b_vault_lp: self.b_vault_lp.to_account_info(),
-                    token_program: self.token_program.to_account_info(),
-                    escrow_vault: self.escrow_vault.to_account_info(),
-                    lock_escrow: self.lock_escrow.to_account_info(),
-                    owner: self.pool_authority.to_account_info(),
-                    source_tokens: self.source_tokens.to_account_info(),
-                },
-                &[&pool_authority_seeds[..]],
-            ),
-            max_amount,
+        cpi_with_account_lamport_and_owner_checking(
+            || {
+                dynamic_amm::cpi::lock(
+                    CpiContext::new_with_signer(
+                        self.amm_program.to_account_info(),
+                        dynamic_amm::cpi::accounts::Lock {
+                            pool: self.pool.to_account_info(),
+                            lp_mint: self.lp_mint.to_account_info(),
+                            a_vault: self.a_vault.to_account_info(),
+                            b_vault: self.b_vault.to_account_info(),
+                            a_vault_lp_mint: self.a_vault_lp_mint.to_account_info(),
+                            b_vault_lp_mint: self.b_vault_lp_mint.to_account_info(),
+                            a_vault_lp: self.a_vault_lp.to_account_info(),
+                            b_vault_lp: self.b_vault_lp.to_account_info(),
+                            token_program: self.token_program.to_account_info(),
+                            escrow_vault: self.escrow_vault.to_account_info(),
+                            lock_escrow: self.lock_escrow.to_account_info(),
+                            owner: self.pool_authority.to_account_info(),
+                            source_tokens: self.source_tokens.to_account_info(),
+                        },
+                        &[&pool_authority_seeds[..]],
+                    ),
+                    max_amount,
+                )
+            },
+            self.pool_authority.to_account_info(),
         )?;
 
         Ok(())

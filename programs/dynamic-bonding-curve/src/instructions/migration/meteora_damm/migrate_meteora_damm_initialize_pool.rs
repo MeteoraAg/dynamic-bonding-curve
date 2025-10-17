@@ -2,6 +2,7 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 
 use crate::{
     const_pda,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
     state::{
@@ -152,14 +153,15 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
-        flash_rent(
-            self.pool_authority.to_account_info(),
-            self.payer.to_account_info(),
-            self.system_program.to_account_info(),
-            || {
-                // Vault authority create pool
-                msg!("create pool");
-                dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
+        let create_pool_fn = || {
+            flash_rent(
+                self.pool_authority.to_account_info(),
+                self.payer.to_account_info(),
+                self.system_program.to_account_info(),
+                || {
+                    // Vault authority create pool
+                    msg!("create pool");
+                    dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
                 CpiContext::new_with_signer(
                 self.amm_program.to_account_info(),
                 dynamic_amm::cpi::accounts::InitializePermissionlessConstantProductPoolWithConfig2 {
@@ -197,8 +199,14 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
                     None,
                 )?;
 
-                Ok(())
-            },
+                    Ok(())
+                },
+            )
+        };
+
+        cpi_with_account_lamport_and_owner_checking(
+            create_pool_fn,
+            self.pool_authority.to_account_info(),
         )
     }
 }
