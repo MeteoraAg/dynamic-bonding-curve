@@ -1,3 +1,4 @@
+use crate::PoolError;
 use anchor_lang::prelude::*;
 
 pub fn cpi_with_account_lamport_and_owner_checking<'info>(
@@ -12,8 +13,14 @@ pub fn cpi_with_account_lamport_and_owner_checking<'info>(
     let after_lamports = account.lamports();
     let after_owner = *account.owner;
 
-    assert_eq!(before_lamports, after_lamports, "lamport mismatch");
-    assert_eq!(before_owner, after_owner, "owner mismatch");
+    require!(
+        before_lamports == after_lamports,
+        PoolError::AccountInvariantViolation
+    );
+    require!(
+        before_owner.eq(&after_owner),
+        PoolError::AccountInvariantViolation
+    );
 
     Ok(())
 }

@@ -66,7 +66,7 @@ pub fn transfer_from_user<'a, 'c: 'info, 'info>(
         authority.to_account_info(),
     ];
 
-    invoke_signed(&instruction, &account_infos, &[])?;
+    invoke(&instruction, &account_infos)?;
 
     Ok(())
 }
