@@ -154,4 +154,7 @@ pub enum PoolError {
 
     #[msg("Invalid min base fee")]
     InvalidMinBaseFee,
+
+    #[msg("Account invariant violation")]
+    AccountInvariantViolation,
 }
