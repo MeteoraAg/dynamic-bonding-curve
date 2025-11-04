@@ -7,6 +7,7 @@ import {
   CreateConfigParams,
   createPoolWithSplToken,
   swap,
+  SwapMode,
   SwapParams,
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
@@ -172,6 +173,7 @@ describe("Fee Swap test", () => {
         outputTokenMint: virtualPoolState.baseMint,
         amountIn: new BN(inAmount),
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
       await swap(context.banksClient, program, params);
@@ -296,6 +298,7 @@ describe("Fee Swap test", () => {
         outputTokenMint: NATIVE_MINT,
         amountIn: new BN(inAmount.toString()),
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
       await swap(context.banksClient, program, params);
@@ -526,6 +529,7 @@ describe("Fee Swap test", () => {
         outputTokenMint: virtualPoolState.baseMint,
         amountIn: new BN(inAmount),
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
       await swap(context.banksClient, program, params);
@@ -644,6 +648,7 @@ describe("Fee Swap test", () => {
         outputTokenMint: NATIVE_MINT,
         amountIn: new BN(inAmount.toString()),
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
       await swap(context.banksClient, program, params);

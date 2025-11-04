@@ -117,6 +117,43 @@ export async function processTransactionMaybeThrow(
   }
 }
 
+export async function expectThrowsAsync(
+  fn: () => Promise<void>,
+  errorMessage: String
+) {
+  try {
+    await fn();
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      throw err;
+    } else {
+      if (!err.message.toLowerCase().includes(errorMessage.toLowerCase())) {
+        throw new Error(
+          `Unexpected error: ${err.message}. Expected error: ${errorMessage}`
+        );
+      }
+      return;
+    }
+  }
+  throw new Error("Expected an error but didn't get one");
+}
+
+export function getDbcProgramErrorCodeHexString(errorMessage: String) {
+  const error = VirtualCurveIDL.errors.find(
+    (e) =>
+      e.name.toLowerCase() === errorMessage.toLowerCase() ||
+      e.msg.toLowerCase() === errorMessage.toLowerCase()
+  );
+
+  if (!error) {
+    throw new Error(
+      `Unknown stake for fee error message / name: ${errorMessage}`
+    );
+  }
+
+  return "0x" + error.code.toString(16);
+}
+
 export const wrapSOLInstruction = (
   from: PublicKey,
   to: PublicKey,
@@ -215,7 +252,6 @@ export async function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-
 export const getCurrentSlot = async (banksClient: BanksClient): Promise<BN> => {
   let slot = await banksClient.getSlot();
   return new BN(slot.toString());
@@ -225,7 +261,6 @@ export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
   await context.warpToSlot(clock.slot + BigInt(slots.toString()));
 }
-
 
 export const SET_COMPUTE_UNIT_LIMIT_IX =
   web3.ComputeBudgetProgram.setComputeUnitLimit({
@@ -415,13 +450,13 @@ export async function createDammV2DynamicConfig(
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
   const program = createDammV2Program();
- 
+
   const [config] = PublicKey.findProgramAddressSync(
     [Buffer.from("config"), new BN(0).toBuffer("le", 8)],
     DAMM_V2_PROGRAM_ID
   );
   const transaction = await program.methods
-    .createDynamicConfig(new BN(0), {poolCreatorAuthority})
+    .createDynamicConfig(new BN(0), { poolCreatorAuthority })
     .accountsPartial({
       config,
       admin: payer.publicKey,

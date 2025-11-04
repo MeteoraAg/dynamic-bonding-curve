@@ -6,8 +6,8 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_SQRT_PRICE, MIN_MIGRATED_POOL_FEE_BPS,
-        MIN_SQRT_PRICE,
+        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
+        MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -61,7 +61,7 @@ const_assert_eq!(MigrationFee::INIT_SPACE, 2);
 impl MigrationFee {
     pub fn validate(&self) -> Result<()> {
         require!(
-            self.fee_percentage <= 50,
+            self.fee_percentage <= MAX_MIGRATION_FEE_PERCENTAGE,
             PoolError::InvalidMigratorFeePercentage
         );
         if self.fee_percentage == 0 {

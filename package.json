@@ -2,8 +2,7 @@
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "test": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/**/*.tests.ts",
-    "ltest": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/*.tests.ts",
+    "test": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/*.tests.ts",
     "ctest": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/backwards_compatibility/*.tests.ts"
   },
   "dependencies": {

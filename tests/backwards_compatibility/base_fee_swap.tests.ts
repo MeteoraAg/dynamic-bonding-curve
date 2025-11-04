@@ -41,7 +41,7 @@ describe("Backwards compatibility - PoolConfig account", () => {
 		const feeSchedulerMode = view.getUint8(baseFeeOffset + 26) // base fee mode
 
 
-		expect(cliffFeeNumerator).eq(BigInt(2_500_000));
+		expect(cliffFeeNumerator).eq(BigInt(10_000_000));
 		expect(periodFrequency).eq(BigInt(3));
 		expect(reductionFactor).eq(BigInt(14));
 		expect(numberOfPeriod).eq(10);

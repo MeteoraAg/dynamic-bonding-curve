@@ -12,6 +12,7 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
     EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
@@ -136,6 +137,10 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
+
     let initial_base_supply = config.get_initial_base_supply()?;
 
     let token_type_value =
@@ -149,21 +154,26 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
 
     let token_authority = config.get_token_authority()?;
     // create token metadata
-    process_create_token_metadata(ProcessCreateTokenMetadataParams {
-        system_program: ctx.accounts.system_program.to_account_info(),
-        payer: ctx.accounts.payer.to_account_info(),
-        pool_authority: ctx.accounts.pool_authority.to_account_info(),
-        mint: ctx.accounts.base_mint.to_account_info(),
-        metadata_program: ctx.accounts.metadata_program.to_account_info(),
-        mint_metadata: ctx.accounts.mint_metadata.to_account_info(),
-        creator: ctx.accounts.creator.to_account_info(),
-        name: &name,
-        symbol: &symbol,
-        uri: &uri,
-        pool_authority_bump: const_pda::pool_authority::BUMP,
-        token_authority,
-        partner: config.fee_claimer,
-    })?;
+    cpi_with_account_lamport_and_owner_checking(
+        || {
+            process_create_token_metadata(ProcessCreateTokenMetadataParams {
+                system_program: ctx.accounts.system_program.to_account_info(),
+                payer: ctx.accounts.payer.to_account_info(),
+                pool_authority: ctx.accounts.pool_authority.to_account_info(),
+                mint: ctx.accounts.base_mint.to_account_info(),
+                metadata_program: ctx.accounts.metadata_program.to_account_info(),
+                mint_metadata: ctx.accounts.mint_metadata.to_account_info(),
+                creator: ctx.accounts.creator.to_account_info(),
+                name: &name,
+                symbol: &symbol,
+                uri: &uri,
+                pool_authority_bump: const_pda::pool_authority::BUMP,
+                token_authority,
+                partner: config.fee_claimer,
+            })
+        },
+        ctx.accounts.pool_authority.to_account_info(),
+    )?;
 
     // mint token
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
@@ -213,6 +223,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
+        false,
     );
 
     emit_cpi!(EvtInitializePool {

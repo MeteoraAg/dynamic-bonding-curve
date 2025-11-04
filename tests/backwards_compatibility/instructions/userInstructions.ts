@@ -37,6 +37,7 @@ import {
 	unwrapSOLInstruction,
 	wrapSOLInstruction,
 } from "../../utils";
+import { SwapMode } from "../../instructions";
 
 export type CreatePoolSplTokenParams = {
 	payer: Keypair;
@@ -148,19 +149,20 @@ export async function createPoolWithToken2022(
 	return pool;
 }
 
-export type SwapParams = {
+export type Swap2Params = {
 	config: PublicKey;
 	payer: Keypair;
 	pool: PublicKey;
 	inputTokenMint: PublicKey;
 	outputTokenMint: PublicKey;
+	swapMode: SwapMode;
 	referralTokenAccount: PublicKey | null;
 };
 
-export async function swap(
+export async function swap2(
 	banksClient: BanksClient,
 	program: VirtualCurveProgram,
-	params: SwapParams
+	params: Swap2Params
 ): Promise<{
 	pool: PublicKey;
 	computeUnitsConsumed: number;
@@ -255,7 +257,7 @@ export async function swap(
 			{ pubkey: eventAuthority, isSigner: false, isWritable: false },
 			{ pubkey: program.programId, isSigner: false, isWritable: false },
 		],
-		data: await readIxData("swap"),
+		data: await readIxData("swap2"),
 	});
 
 	const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({

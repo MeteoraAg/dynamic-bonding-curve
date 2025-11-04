@@ -1,5 +1,7 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
+use crate::constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE;
+use crate::state::CollectFeeMode;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -10,6 +12,8 @@ use crate::{
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::system_instruction;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::{
@@ -117,6 +121,9 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
+
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
     require!(
@@ -142,6 +149,26 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         signer_seeds,
     );
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
+
+    let collect_fee_mode = CollectFeeMode::try_from(config.collect_fee_mode)
+        .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+    let should_charge_creation_fee = collect_fee_mode == CollectFeeMode::OutputToken;
+
+    if should_charge_creation_fee {
+        invoke(
+            &system_instruction::transfer(
+                &ctx.accounts.payer.key(),
+                &ctx.accounts.pool.key(),
+                TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
+            ),
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.pool.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+    }
 
     // transfer minimum rent to mint account
     update_account_lamports_to_minimum_balance(
@@ -240,6 +267,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
+        should_charge_creation_fee,
     );
 
     emit_cpi!(EvtInitializePool {

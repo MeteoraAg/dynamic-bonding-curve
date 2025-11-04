@@ -43,10 +43,5 @@ pub fn quote_exact_in(
         current_point,
     )?;
 
-    ensure!(
-        swap_result.amount_left <= config.get_max_swallow_quote_amount()?,
-        "Amount left is over a threshold"
-    );
-
     Ok(swap_result)
 }

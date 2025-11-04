@@ -158,6 +158,12 @@ export async function createPoolWithToken2022(
   return pool;
 }
 
+export enum SwapMode {
+  ExactIn,
+  PartialFill,
+  ExactOut,
+}
+
 export type SwapParams = {
   config: PublicKey;
   payer: Keypair;
@@ -166,6 +172,7 @@ export type SwapParams = {
   outputTokenMint: PublicKey;
   amountIn: BN;
   minimumAmountOut: BN;
+  swapMode: SwapMode;
   referralTokenAccount: PublicKey | null;
 };
 
@@ -337,6 +344,7 @@ export async function swap(
     outputTokenMint,
     amountIn,
     minimumAmountOut,
+    swapMode,
     referralTokenAccount,
   } = params;
 
@@ -401,7 +409,7 @@ export async function swap(
   }
 
   const transaction = await program.methods
-    .swap({ amountIn, minimumAmountOut })
+    .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: swapMode })
     .accountsPartial({
       poolAuthority,
       config,
@@ -457,7 +465,7 @@ export async function swap(
   };
 }
 
-export async function getSwapInstruction(
+export async function getSwap2Instruction(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
   params: SwapParams
@@ -513,6 +521,89 @@ export async function getSwapInstruction(
       amount0: amountIn,
       amount1: minimumAmountOut,
       swapMode: 0,
+    })
+    .accountsPartial({
+      poolAuthority,
+      config,
+      pool,
+      inputTokenAccount,
+      outputTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint,
+      payer: payer.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      referralTokenAccount,
+    })
+    .remainingAccounts([
+      {
+        isSigner: false,
+        isWritable: false,
+        pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      },
+    ])
+    .instruction();
+
+  return instruction;
+}
+
+export async function getSwapInstruction(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  params: SwapParams
+): Promise<TransactionInstruction> {
+  const {
+    config,
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amountIn,
+    minimumAmountOut,
+    referralTokenAccount,
+  } = params;
+
+  const poolAuthority = derivePoolAuthority();
+  let poolState = await getVirtualPool(banksClient, program, pool);
+
+  const configState = await getConfig(banksClient, program, config);
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const isInputBaseMint = inputTokenMint.equals(poolState.baseMint);
+
+  const quoteMint = isInputBaseMint ? outputTokenMint : inputTokenMint;
+  const [inputTokenProgram, outputTokenProgram] = isInputBaseMint
+    ? [tokenBaseProgram, TOKEN_PROGRAM_ID]
+    : [TOKEN_PROGRAM_ID, tokenBaseProgram];
+
+  const [
+    { ata: inputTokenAccount, ix: _createInputTokenXIx },
+    { ata: outputTokenAccount, ix: _createOutputTokenYIx },
+  ] = await Promise.all([
+    getOrCreateAssociatedTokenAccount(
+      banksClient,
+      payer,
+      inputTokenMint,
+      payer.publicKey,
+      inputTokenProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      banksClient,
+      payer,
+      outputTokenMint,
+      payer.publicKey,
+      outputTokenProgram
+    ),
+  ]);
+
+  const instruction = await program.methods
+    .swap({
+      amountIn,
+      minimumAmountOut,
     })
     .accountsPartial({
       poolAuthority,
@@ -748,7 +839,11 @@ export async function swapSimulate(
   await processTransactionMaybeThrow(banksClient, wrapSolTx);
 
   const transaction = await program.methods
-    .swap({ amountIn, minimumAmountOut })
+    .swap2({
+      amount0: amountIn,
+      amount1: minimumAmountOut,
+      swapMode: SwapMode.PartialFill,
+    })
     .accountsPartial({
       poolAuthority,
       config,

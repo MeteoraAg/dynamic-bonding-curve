@@ -8,6 +8,7 @@ import {
   createPoolWithSplToken,
   creatorWithdrawSurplus,
   swap,
+  SwapMode,
   SwapParams,
   transferCreator,
 } from "./instructions";
@@ -91,7 +92,11 @@ describe("Update creator", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,
@@ -156,7 +161,11 @@ describe("Update creator", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      }
     );
     const params: CreateConfigParams = {
       payer: partner,
@@ -248,6 +257,7 @@ async function fullFlowUpdateCreatorInPreBondingCurve(
     inputTokenMint: quoteMint,
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
+    swapMode: SwapMode.PartialFill,
     minimumAmountOut: new BN(0),
     referralTokenAccount: null,
   };
@@ -317,6 +327,7 @@ async function fullFlowUpdateCreatorPoolCreated(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.PartialFill,
     referralTokenAccount: null,
   };
   await swap(banksClient, program, params);

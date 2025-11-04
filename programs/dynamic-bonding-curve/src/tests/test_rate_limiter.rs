@@ -23,7 +23,7 @@ fn test_validate_rate_limiter() {
     // validate collect fee mode
     {
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 10_0000,
+            cliff_fee_numerator: 2_500_000,  // min base fee is 25 bps (0.25%)
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
             fee_increment_bps: 10,           // 10 bps
@@ -35,21 +35,21 @@ fn test_validate_rate_limiter() {
     // validate zero rate limiter
     {
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 10_0000,
+            cliff_fee_numerator: 2_500_000,
             reference_amount: 1,     // 1SOL
             max_limiter_duration: 0, // 60 seconds
             fee_increment_bps: 0,    // 10 bps
         };
         assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 10_0000,
+            cliff_fee_numerator: 2_500_000,
             reference_amount: 0,     // 1SOL
             max_limiter_duration: 1, // 60 seconds
             fee_increment_bps: 0,    // 10 bps
         };
         assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 10_0000,
+            cliff_fee_numerator: 2_500_000,
             reference_amount: 0,     // 1SOL
             max_limiter_duration: 0, // 60 seconds
             fee_increment_bps: 1,    // 10 bps

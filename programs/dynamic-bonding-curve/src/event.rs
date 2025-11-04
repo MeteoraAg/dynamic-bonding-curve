@@ -143,11 +143,6 @@ pub struct EvtCreateMeteoraMigrationMetadata {
 }
 
 #[event]
-pub struct EvtCreateDammV2MigrationMetadata {
-    pub virtual_pool: Pubkey,
-}
-
-#[event]
 pub struct EvtProtocolWithdrawSurplus {
     pub pool: Pubkey,
     pub surplus_amount: u64,
@@ -190,4 +185,11 @@ pub struct EvtWithdrawMigrationFee {
 pub struct EvtPartnerWithdrawMigrationFee {
     pub pool: Pubkey,
     pub fee: u64,
+}
+
+#[event]
+pub struct EvtClaimPoolCreationFee {
+    pub pool: Pubkey,
+    pub treasury: Pubkey,
+    pub creation_fee: u64,
 }

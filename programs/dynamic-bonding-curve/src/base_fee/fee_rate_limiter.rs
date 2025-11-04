@@ -291,6 +291,12 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
+                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR,
+            PoolError::InvalidFeeRateLimiter
+        );
+
         if self.is_zero_rate_limiter() {
             return Ok(());
         }
@@ -313,13 +319,6 @@ impl BaseFeeHandler for FeeRateLimiter {
             to_numerator(self.fee_increment_bps.into(), FEE_DENOMINATOR.into())?;
         require!(
             fee_increment_numerator < FEE_DENOMINATOR,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        // that condition is redundant, but it is safe to add this
-        require!(
-            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR,
             PoolError::InvalidFeeRateLimiter
         );
 
@@ -358,5 +357,13 @@ impl BaseFeeHandler for FeeRateLimiter {
         } else {
             Ok(self.cliff_fee_numerator)
         }
+    }
+
+    fn validate_min_base_fee(&self) -> Result<()> {
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR,
+            PoolError::InvalidMinBaseFee
+        );
+        Ok(())
     }
 }

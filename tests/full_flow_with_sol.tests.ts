@@ -13,11 +13,12 @@ import {
   partnerWithdrawSurplus,
   protocolWithdrawSurplus,
   swap,
+  SwapMode,
   SwapParams,
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, startTest } from "./utils";
+import { FLASH_RENT_FUND, fundSol, getMint, startTest } from "./utils";
 import {
   createDammConfig,
   createVirtualCurveProgram,
@@ -191,6 +192,7 @@ describe("Full flow with spl-token", () => {
       outputTokenMint: virtualPoolState.baseMint,
       amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
       minimumAmountOut: new BN(0),
+      swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
     await swap(context.banksClient, program, params);
@@ -217,7 +219,21 @@ describe("Full flow with spl-token", () => {
       dammConfig,
     };
 
+    const beforePoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(beforePoolAuthorityLamport.toString()).eq(
+      FLASH_RENT_FUND.toString()
+    );
+
     await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+
+    const afterPoolAuthorityLamport = await context.banksClient.getBalance(
+      poolAuthority
+    );
+
+    expect(afterPoolAuthorityLamport.toString()).eq(FLASH_RENT_FUND.toString());
 
     // validate mint authority
     const baseMintData = await getMint(

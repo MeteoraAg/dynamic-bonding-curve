@@ -1,4 +1,4 @@
-import { BN } from "bn.js";
+import { BN } from "@coral-xyz/anchor";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
     ClaimCreatorTradeFeeParams,
@@ -11,6 +11,7 @@ import {
     creatorWithdrawSurplus,
     partnerWithdrawSurplus,
     swap,
+    SwapMode,
     SwapParams,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
@@ -83,7 +84,11 @@ describe("Creator and Partner share trading fees and surplus", () => {
             tokenQuoteDecimal,
             creatorTradingFeePercentage,
             collectFeeMode,
-            lockedVesting
+            lockedVesting,
+            {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            }
         );
         const params: CreateConfigParams = {
             payer: partner,
@@ -126,7 +131,11 @@ describe("Creator and Partner share trading fees and surplus", () => {
             tokenQuoteDecimal,
             creatorTradingFeePercentage,
             collectFeeMode,
-            lockedVesting
+            lockedVesting,
+            {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            }
         );
         const params: CreateConfigParams = {
             payer: partner,
@@ -169,7 +178,11 @@ describe("Creator and Partner share trading fees and surplus", () => {
             tokenQuoteDecimal,
             creatorTradingFeePercentage,
             collectFeeMode,
-            lockedVesting
+            lockedVesting,
+            {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            }
         );
         const params: CreateConfigParams = {
             payer: partner,
@@ -211,7 +224,11 @@ describe("Creator and Partner share trading fees and surplus", () => {
             tokenQuoteDecimal,
             creatorTradingFeePercentage,
             collectFeeMode,
-            lockedVesting
+            lockedVesting,
+            {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            }
         );
         const params: CreateConfigParams = {
             payer: partner,
@@ -229,7 +246,6 @@ describe("Creator and Partner share trading fees and surplus", () => {
 });
 
 
-
 async function fullFlow(
     banksClient: BanksClient,
     program: VirtualCurveProgram,
@@ -238,7 +254,7 @@ async function fullFlow(
     user: Keypair,
     admin: Keypair,
     quoteMint: PublicKey,
-    partner: Keypair,
+    partner: Keypair
 ) {
     // create pool
     let virtualPool = await createPoolWithSplToken(banksClient, program, {
@@ -276,6 +292,7 @@ async function fullFlow(
         outputTokenMint: virtualPoolState.baseMint,
         amountIn,
         minimumAmountOut: new BN(0),
+        swapMode: SwapMode.PartialFill,
         referralTokenAccount: null,
     };
     await swap(banksClient, program, params);
@@ -287,6 +304,7 @@ async function fullFlow(
         program,
         virtualPool
     );
+
     if (creatorTradingFeePercentage == 0) {
         expect(virtualPoolState.creatorBaseFee.toString()).eq("0");
         expect(virtualPoolState.creatorQuoteFee.toString()).eq("0");

@@ -8,6 +8,7 @@ import {
   creatorWithdrawMigrationFee,
   partnerWithdrawMigrationFee,
   swap,
+  SwapMode,
   SwapParams,
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
@@ -62,7 +63,7 @@ describe("Migration fee", () => {
 
   it("Creator and partner withdraw migration fee", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
-    let percentageSupplyOnMigration = 10; // 10%;
+    let percentageSupplyOnMigration = 0.9; // 0.9%;
     let migrationQuoteThreshold = 300; // 300 sol
     let migrationOption = 0;
     let tokenBaseDecimal = 6;
@@ -91,12 +92,12 @@ describe("Migration fee", () => {
       tokenQuoteDecimal,
       creatorTradingFeePercentage,
       collectFeeMode,
-      lockedVesting
+      lockedVesting,
+      {
+        feePercentage: 99,
+        creatorFeePercentage: 80,
+      }
     );
-    instructionParams.migrationFee = {
-      feePercentage: 10,
-      creatorFeePercentage: 80,
-    };
     const params: CreateConfigParams = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
@@ -238,6 +239,7 @@ async function fullFlow(
     outputTokenMint: virtualPoolState.baseMint,
     amountIn,
     minimumAmountOut: new BN(0),
+    swapMode: SwapMode.ExactIn,
     referralTokenAccount: null,
   };
   await swap(banksClient, program, params);
