@@ -657,6 +657,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
+    charge_migration_fee(
+        ctx.accounts.payer.to_account_info(),
+        ctx.accounts.pool_authority.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+        config.quote_mint,
+    )?;
+
     // TODO emit event
 
     Ok(())

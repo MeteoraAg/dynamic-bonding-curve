@@ -8,5 +8,6 @@ pub mod withdraw_leftover;
 pub use withdraw_leftover::*;
 pub mod ix_withdraw_migration_fee;
 pub use ix_withdraw_migration_fee::*;
-pub mod flash_rent;
-pub use flash_rent::*;
+
+mod utils;
+pub use utils::*;

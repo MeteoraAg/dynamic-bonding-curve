@@ -1,6 +1,8 @@
+use crate::constants::fee::{FEE_TIER_0_LAMPORT, FEE_TIER_0_MINT, FEE_TIER_1_LAMPORT};
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke, system_instruction},
+    system_program::{transfer, Transfer},
 };
 
 pub fn flash_rent<'info, F: Fn() -> Result<()>>(
@@ -22,4 +24,28 @@ pub fn flash_rent<'info, F: Fn() -> Result<()>>(
         invoke(&transfer_ix, accounts)?;
     }
     Ok(())
+}
+
+pub fn charge_migration_fee<'info>(
+    payer: AccountInfo<'info>,
+    pool_authority: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    quote_mint_pubkey: Pubkey,
+) -> Result<()> {
+    let fee_amount = if FEE_TIER_0_MINT
+        .iter()
+        .any(|mint| mint.eq(&quote_mint_pubkey))
+    {
+        FEE_TIER_0_LAMPORT
+    } else {
+        FEE_TIER_1_LAMPORT
+    };
+    let cpi_context = CpiContext::new(
+        system_program,
+        Transfer {
+            from: payer,
+            to: pool_authority,
+        },
+    );
+    transfer(cpi_context, fee_amount)
 }

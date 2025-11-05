@@ -1,3 +1,4 @@
+use anchor_lang::prelude::*;
 use static_assertions::const_assert;
 
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
@@ -59,6 +60,7 @@ pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
 /// Store constants related to fees
 pub mod fee {
+    use super::*;
 
     /// Default fee denominator. DO NOT simply update it as it will break logic that depends on it as default value.
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
@@ -89,6 +91,17 @@ pub mod fee {
 
     // 0.01
     pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
+
+    pub const FEE_TIER_0_LAMPORT: u64 = 1_000_000; // 0.001 SOL
+    pub const FEE_TIER_1_LAMPORT: u64 = 5_000_000; // 0.005 SOL
+
+    pub const FEE_TIER_0_MINT: [Pubkey; 5] = [
+        Pubkey::from_str_const("So11111111111111111111111111111111111111112"), // SOL
+        Pubkey::from_str_const("6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN"), // Trump
+        Pubkey::from_str_const("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+        Pubkey::from_str_const("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"), // JUP
+        Pubkey::from_str_const("METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL"), // MET
+    ];
 }
 
 pub mod seeds {

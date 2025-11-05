@@ -18,7 +18,13 @@ import {
 } from "./instructions";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { FLASH_RENT_FUND, fundSol, getMint, startTest } from "./utils";
+import {
+  FEE_TIER_0_LAMPORT,
+  FLASH_RENT_FUND,
+  fundSol,
+  getMint,
+  startTest,
+} from "./utils";
 import {
   createDammConfig,
   createVirtualCurveProgram,
@@ -233,7 +239,12 @@ describe("Full flow with spl-token", () => {
       poolAuthority
     );
 
-    expect(afterPoolAuthorityLamport.toString()).eq(FLASH_RENT_FUND.toString());
+    const poolAuthorityLamportAfterMigrationFee =
+    afterPoolAuthorityLamport - BigInt(FEE_TIER_0_LAMPORT);
+
+    expect(poolAuthorityLamportAfterMigrationFee.toString()).eq(
+      FLASH_RENT_FUND.toString()
+    );
 
     // validate mint authority
     const baseMintData = await getMint(

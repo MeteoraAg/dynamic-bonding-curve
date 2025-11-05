@@ -37,3 +37,4 @@ export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
 export const FEE_DENOMINATOR = new BN(1_000_000_000);
 export const FLASH_RENT_FUND = 1e9;
+export const FEE_TIER_0_LAMPORT = 1_000_000; // 0.001 SOL
