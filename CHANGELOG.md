@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.8] [PR #146](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/146)
+
+### Changed
+
+- A migration fee will be charged upon migration. 0.001 SOL will be charged for tier 0 mints (JUP/SOL/USDC/MET/TRUMP), while 0.005 SOL for other mints.
+
 ## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
 
 ### Changed
