@@ -1,3 +1,4 @@
+use anchor_lang::prelude::*;
 use static_assertions::const_assert;
 
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
@@ -59,6 +60,9 @@ pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
 /// Store constants related to fees
 pub mod fee {
+    use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
+
+    use super::*;
 
     /// Default fee denominator. DO NOT simply update it as it will break logic that depends on it as default value.
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
@@ -89,6 +93,42 @@ pub mod fee {
 
     // 0.01
     pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
+
+    const SOL_USD_PRICE: u64 = 154_953_575;
+    const JUP_USD_PRICE: u64 = 342_077;
+    const TRUMP_USD_PRICE: u64 = 7_064_480;
+    const MET_USD_PRICE: u64 = 332_550;
+
+    const SOL_MIGRATION_FEE: u64 = 10_000_000; // 0.01 SOL
+    const USDC_MIGRATION_FEE: u64 = SOL_USD_PRICE.div_ceil(LAMPORTS_PER_SOL / 10_000_000);
+    const JUP_MIGRATION_FEE: u64 = USDC_MIGRATION_FEE.div_ceil(JUP_USD_PRICE);
+    const TRUMP_MIGRATION_FEE: u64 = USDC_MIGRATION_FEE.div_ceil(TRUMP_USD_PRICE);
+    const MET_MIGRATION_FEE: u64 = USDC_MIGRATION_FEE.div_ceil(MET_USD_PRICE);
+
+    pub const MINTS_WITH_FLAT_FEES: [(Pubkey, u64); 5] = [
+        (
+            Pubkey::from_str_const("So11111111111111111111111111111111111111112"),
+            SOL_MIGRATION_FEE,
+        ),
+        (
+            Pubkey::from_str_const("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            USDC_MIGRATION_FEE,
+        ),
+        (
+            Pubkey::from_str_const("JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
+            JUP_MIGRATION_FEE,
+        ),
+        (
+            Pubkey::from_str_const("6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN"),
+            TRUMP_MIGRATION_FEE,
+        ),
+        (
+            Pubkey::from_str_const("METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL"),
+            MET_MIGRATION_FEE,
+        ),
+    ];
+
+    pub const NON_FLAT_FEES_MIGRATION_FEE_BPS: u64 = 10; // 0.1%
 }
 
 pub mod seeds {

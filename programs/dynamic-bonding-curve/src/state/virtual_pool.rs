@@ -142,7 +142,7 @@ pub struct VirtualPool {
     pub creator_base_fee: u64,
     /// creator quote fee
     pub creator_quote_fee: u64,
-    pub creation_fee_bits: u8,
+    pub fee_info_bits: u8,
     pub _padding_0: [u8; 7],
     /// Padding for further use
     pub _padding_1: [u64; 6],
@@ -155,6 +155,7 @@ pub const CREATOR_MASK: u8 = 0b010;
 
 const CREATION_FEE_CHARGED_MASK: u8 = 0b01;
 const CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const MIGRATION_PROTOCOL_FEE_CLAIMED_MASK: u8 = 0b100;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -213,7 +214,7 @@ impl VirtualPool {
         self.base_reserve = base_reserve;
 
         if has_creation_fee {
-            self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CHARGED_MASK);
+            self.fee_info_bits = self.fee_info_bits.bitxor(CREATION_FEE_CHARGED_MASK);
         }
     }
 
@@ -1050,15 +1051,27 @@ impl VirtualPool {
     }
 
     pub fn has_creation_fee(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
+        self.fee_info_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
     }
 
     pub fn creation_fee_claimed(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
+        self.fee_info_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
     }
 
     pub fn update_creation_fee_claimed(&mut self) {
-        self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
+        self.fee_info_bits = self.fee_info_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
+    }
+
+    pub fn update_migration_protocol_fee_claimed(&mut self) {
+        self.fee_info_bits = self
+            .fee_info_bits
+            .bitxor(MIGRATION_PROTOCOL_FEE_CLAIMED_MASK);
+    }
+
+    pub fn migration_protocol_fee_claimed(&self) -> bool {
+        self.fee_info_bits
+            .bitand(MIGRATION_PROTOCOL_FEE_CLAIMED_MASK)
+            != 0
     }
 }
 

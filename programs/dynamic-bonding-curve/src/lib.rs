@@ -57,6 +57,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_pool_creation_fee(ctx)
     }
 
+    pub fn claim_migration_protocol_fee(ctx: Context<ClaimMigrationProtocolFeeCtx>) -> Result<()> {
+        instructions::handle_claim_migration_protocol_fee(ctx)
+    }
+
     /// PARTNER FUNCTIONS ///
     pub fn create_partner_metadata(
         ctx: Context<CreatePartnerMetadataCtx>,

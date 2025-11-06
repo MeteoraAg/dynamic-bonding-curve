@@ -386,6 +386,7 @@ pub fn handle_create_config(
         sqrt_migration_price,
         MigrationOption::try_from(migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?,
+        ctx.accounts.quote_mint.key(),
     )?;
 
     require!(

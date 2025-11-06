@@ -157,4 +157,10 @@ pub enum PoolError {
 
     #[msg("Account invariant violation")]
     AccountInvariantViolation,
+
+    #[msg("Invalid version")]
+    InvalidVersion,
+
+    #[msg("Migration protocol fee claimed")]
+    MigrationProtocolFeeClaimed,
 }

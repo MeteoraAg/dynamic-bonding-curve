@@ -12,3 +12,5 @@ pub mod ix_withdraw_lamports_from_authority;
 pub use ix_withdraw_lamports_from_authority::*;
 pub mod ix_claim_pool_creation_fee;
 pub use ix_claim_pool_creation_fee::*;
+pub mod ix_claim_migration_protocol_fee;
+pub use ix_claim_migration_protocol_fee::*;

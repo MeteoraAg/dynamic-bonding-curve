@@ -6,7 +6,10 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{
+            FEE_DENOMINATOR, MAX_BASIS_POINT, MAX_FEE_NUMERATOR, MINTS_WITH_FLAT_FEES,
+            NON_FLAT_FEES_MIGRATION_FEE_BPS,
+        },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
@@ -580,6 +583,11 @@ impl LiquidityDistributionConfig {
 }
 
 impl PoolConfig {
+    // Versioning
+    // 0: Do not have protocol fee on migration. Will be deprecated soon with timeline for integrator to switchover.
+    // 1: Added protocol fee on migration.
+    pub const LATEST_VERSION: u8 = 1;
+
     pub fn init(
         &mut self,
         quote_mint: &Pubkey,
@@ -614,7 +622,7 @@ impl PoolConfig {
         migrated_dynamic_fee: u8,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
-        self.version = 0;
+        self.version = Self::LATEST_VERSION;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.leftover_receiver = *leftover_receiver;
@@ -662,8 +670,16 @@ impl PoolConfig {
     }
 
     pub fn get_migration_quote_amount_for_config(&self) -> Result<MigrationAmount> {
+        let protocol_fee_excluded_migration_quote_threshold = match self.version {
+            0 => self.migration_quote_threshold,
+            1 => PoolConfig::get_protocol_fee_excluded_migration_quote_amount(
+                self.migration_quote_threshold,
+                self.quote_mint,
+            )?,
+            _ => return Err(PoolError::InvalidVersion.into()),
+        };
         PoolConfig::get_migration_quote_amount(
-            self.migration_quote_threshold,
+            protocol_fee_excluded_migration_quote_threshold,
             self.migration_fee_percentage,
         )
     }
@@ -860,6 +876,54 @@ impl PoolConfig {
             partner_fee,
             creator_fee,
         })
+    }
+
+    pub fn get_migration_protocol_fee(quote_token_address: Pubkey) -> (bool, u64) {
+        let flat_fee = MINTS_WITH_FLAT_FEES
+            .iter()
+            .find(|(mint, _amount)| mint.eq(&quote_token_address))
+            .map(|(_address, amount)| *amount);
+
+        if let Some(flat_fee) = flat_fee {
+            (true, flat_fee)
+        } else {
+            (false, NON_FLAT_FEES_MIGRATION_FEE_BPS)
+        }
+    }
+
+    pub fn get_protocol_fee_excluded_migration_quote_amount(
+        migration_quote_threshold: u64,
+        quote_token_address: Pubkey,
+    ) -> Result<u64> {
+        let (is_flat_fee, fee) = Self::get_migration_protocol_fee(quote_token_address);
+
+        if is_flat_fee {
+            let flat_fee = fee;
+            require!(
+                migration_quote_threshold > flat_fee,
+                PoolError::InsufficientLiquidityForMigration
+            );
+
+            Ok(migration_quote_threshold.safe_sub(flat_fee)?)
+        } else {
+            let fee_bps = fee;
+            let fee_amount = safe_mul_div_cast_u64(
+                migration_quote_threshold,
+                fee_bps,
+                MAX_BASIS_POINT,
+                Rounding::Up,
+            )?;
+
+            let protocol_fee_excluded_migration_quote_threshold =
+                migration_quote_threshold.saturating_sub(fee_amount);
+
+            require!(
+                protocol_fee_excluded_migration_quote_threshold > 0,
+                PoolError::InsufficientLiquidityForMigration
+            );
+
+            Ok(protocol_fee_excluded_migration_quote_threshold)
+        }
     }
 }
 
