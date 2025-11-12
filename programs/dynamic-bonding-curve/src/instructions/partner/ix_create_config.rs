@@ -50,8 +50,8 @@ impl LpImpermanentLockInfoParams {
 
                 if self.lock_percentage > 0 {
                     require!(
-                        self.lock_duration as u64 >= MIN_LOCK_DURATION_IN_SECONDS
-                            && self.lock_duration as u64 <= MAX_LOCK_DURATION_IN_SECONDS,
+                        u64::from(self.lock_duration) >= MIN_LOCK_DURATION_IN_SECONDS
+                            && u64::from(self.lock_duration) <= MAX_LOCK_DURATION_IN_SECONDS,
                         PoolError::InvalidVestingParameters
                     );
                 } else {
