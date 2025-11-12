@@ -11,7 +11,10 @@ use std::cmp::{max, min};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    constants::{
+        seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+        MIN_LOCKED_LP_PERCENTAGE,
+    },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
@@ -138,6 +141,11 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.get_total_locked_lp_percentage()? >= MIN_LOCKED_LP_PERCENTAGE,
+        PoolError::InvalidVestingParameters
+    );
 
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;

@@ -19,12 +19,59 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, LockedVestingConfig, MigrationFeeOption, MigrationOption, PoolConfig,
-        TokenAuthorityOption, TokenType,
+        CollectFeeMode, LockedVestingConfig, LpImpermanentLockInfo, MigrationFeeOption,
+        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct LpImpermanentLockInfoParams {
+    pub lock_percentage: u8,
+    pub lock_duration: u32,
+}
+
+impl LpImpermanentLockInfoParams {
+    pub fn validate(&self, migration_option: MigrationOption) -> Result<()> {
+        match migration_option {
+            MigrationOption::MeteoraDamm => {
+                // DAMM support only permanent lock
+                require!(
+                    self.lock_percentage == 0 && self.lock_duration == 0,
+                    PoolError::InvalidVestingParameters
+                );
+            }
+            MigrationOption::DammV2 => {
+                require!(
+                    self.lock_percentage <= 100,
+                    PoolError::InvalidVestingParameters
+                );
+
+                if self.lock_percentage > 0 {
+                    require!(
+                        self.lock_duration as u64 >= MIN_LOCK_DURATION_IN_SECONDS
+                            && self.lock_duration as u64 <= MAX_LOCK_DURATION_IN_SECONDS,
+                        PoolError::InvalidVestingParameters
+                    );
+                } else {
+                    require!(self.lock_duration == 0, PoolError::InvalidVestingParameters);
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl From<LpImpermanentLockInfoParams> for LpImpermanentLockInfo {
+    fn from(params: LpImpermanentLockInfoParams) -> Self {
+        Self {
+            lock_percentage: params.lock_percentage,
+            lp_lock_duration_bytes: params.lock_duration.to_le_bytes(),
+        }
+    }
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ConfigParameters {
@@ -120,7 +167,7 @@ pub struct TokenSupplyParams {
     /// pre migration token supply
     pub pre_migration_token_supply: u64,
     /// post migration token supply
-    /// becase DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
+    /// because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
     /// that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)
     pub post_migration_token_supply: u64,
 }
@@ -265,11 +312,26 @@ impl ConfigParameters {
             PoolError::InvalidTokenDecimals
         );
 
+        self.creator_impermanent_locked_lp_info
+            .validate(migration_option_value)?;
+        self.partner_impermanent_locked_lp_info
+            .validate(migration_option_value)?;
+
+        let sum_lp_locked_percentage = self
+            .partner_locked_lp_percentage
+            .safe_add(self.creator_locked_lp_percentage)?
+            .safe_add(self.creator_impermanent_locked_lp_info.lock_percentage)?
+            .safe_add(self.partner_impermanent_locked_lp_info.lock_percentage)?;
+
+        require!(
+            sum_lp_locked_percentage >= MIN_LOCKED_LP_PERCENTAGE,
+            PoolError::InvalidVestingParameters
+        );
+
         let sum_lp_percentage = self
             .partner_lp_percentage
-            .safe_add(self.partner_locked_lp_percentage)?
             .safe_add(self.creator_lp_percentage)?
-            .safe_add(self.creator_locked_lp_percentage)?;
+            .safe_add(sum_lp_locked_percentage)?;
         require!(sum_lp_percentage == 100, PoolError::InvalidFeePercentage);
 
         require!(
