@@ -69,6 +69,11 @@ export type MigrationFeeParams = {
   creatorFeePercentage: number;
 };
 
+export type LpImpermanentLockInfoParams = {
+  lockPercentage: number;
+  lockDuration: number;
+};
+
 export type ConfigParameters = {
   poolFees: {
     baseFee: BaseFee;
@@ -96,7 +101,8 @@ export type ConfigParameters = {
     collectFeeMode: number;
     dynamicFee: number;
   };
-  padding: BN[];
+  partnerImpermanentLockedLpInfo: LpImpermanentLockInfoParams;
+  creatorImpermanentLockedLpInfo: LpImpermanentLockInfoParams;
   curve: Array<LiquidityDistributionParameters>;
 };
 
@@ -118,7 +124,11 @@ export async function createConfig(
   const config = Keypair.generate();
 
   const transaction = await program.methods
-    .createConfig(instructionParams)
+    .createConfig({
+      ...instructionParams,
+      padding0: new Array(64).fill(new BN(5)),
+      padding1: 0,
+    })
     .accountsPartial({
       config: config.publicKey,
       feeClaimer,

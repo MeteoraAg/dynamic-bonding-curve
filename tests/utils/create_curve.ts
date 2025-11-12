@@ -129,9 +129,13 @@ export const getFirstCurve = (
   migrationAmount: BN,
   swapAmount: BN,
   migrationQuoteThreshold: BN,
-  migrationFee: number,
+  migrationFee: number
 ) => {
-  let sqrtStartPrice = migrationSqrPrice.mul(migrationAmount).div(swapAmount).mul(new BN(100)).div(new BN(100 - migrationFee));
+  let sqrtStartPrice = migrationSqrPrice
+    .mul(migrationAmount)
+    .div(swapAmount)
+    .mul(new BN(100))
+    .div(new BN(100 - migrationFee));
   expect(sqrtStartPrice < migrationSqrPrice);
   let liquidity = getLiquidity(
     swapAmount,
@@ -302,9 +306,11 @@ const getMigrationBaseToken = (
   migrationQuoteThreshold: BN,
   sqrtMigrationPrice: BN,
   migrationOption: number,
-  migrationFeePercent: number,
+  migrationFeePercent: number
 ): BN => {
-  let migrationQuoteFee = migrationQuoteThreshold.mul(new BN(migrationFeePercent)).div(new BN(100));
+  let migrationQuoteFee = migrationQuoteThreshold
+    .mul(new BN(migrationFeePercent))
+    .div(new BN(100));
   let migrationQuoteAmount = migrationQuoteThreshold.sub(migrationQuoteFee);
   if (migrationOption == 0) {
     let price = sqrtMigrationPrice.mul(sqrtMigrationPrice);
@@ -339,7 +345,7 @@ export const getTotalSupplyFromCurve = (
   lockedVesting: LockedVestingParams,
   migrationOption: number,
   leftOver: BN,
-  migrationFeePercent: number,
+  migrationFeePercent: number
 ): BN => {
   let sqrtMigrationPrice = getMigrationThresholdPrice(
     migrationQuoteThreshold,
@@ -411,7 +417,8 @@ export function designCurve(
     migrationQuoteThreshold * 10 ** tokenQuoteDecimal
   );
 
-  let migrationQuoteFee = migrationQuoteThreshold * migrationFee.feePercentage / 100;
+  let migrationQuoteFee =
+    (migrationQuoteThreshold * migrationFee.feePercentage) / 100;
   let migrationQuoteAmount = migrationQuoteThreshold - migrationQuoteFee;
 
   let migrationPrice = new Decimal(migrationQuoteAmount.toString()).div(
@@ -427,7 +434,7 @@ export function designCurve(
     migrationQuoteThresholdWithDecimals,
     migrateSqrtPrice,
     migrationOption,
-    migrationFee.feePercentage,
+    migrationFee.feePercentage
   );
 
   let totalVestingAmount = getTotalVestingAmount(lockedVesting);
@@ -438,7 +445,7 @@ export function designCurve(
     migrationBaseAmount,
     swapAmount,
     migrationQuoteThresholdWithDecimals,
-    migrationFee.feePercentage,
+    migrationFee.feePercentage
   );
 
   let totalDynamicSupply = getTotalSupplyFromCurve(
@@ -448,7 +455,7 @@ export function designCurve(
     lockedVesting,
     migrationOption,
     new BN(0),
-    migrationFee.feePercentage,
+    migrationFee.feePercentage
   );
 
   let remainingAmount = totalSupply.sub(totalDynamicSupply);
@@ -495,13 +502,20 @@ export function designCurve(
     },
     creatorTradingFeePercentage,
     tokenUpdateAuthority: 0,
+    creatorImpermanentLockedLpInfo: {
+      lockDuration: 0,
+      lockPercentage: 0,
+    },
+    partnerImpermanentLockedLpInfo: {
+      lockDuration: 0,
+      lockPercentage: 0,
+    },
     migrationFee,
     migratedPoolFee: {
       collectFeeMode: 0,
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    padding: [],
     curve,
   };
   return instructionParams;
@@ -652,7 +666,14 @@ export function designGraphCurve(
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    padding: [],
+    creatorImpermanentLockedLpInfo: {
+      lockDuration: 0,
+      lockPercentage: 0,
+    },
+    partnerImpermanentLockedLpInfo: {
+      lockDuration: 0,
+      lockPercentage: 0,
+    },
     curve,
   };
   return instructionParams;

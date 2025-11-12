@@ -107,7 +107,14 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        padding: [],
+        creatorImpermanentLockedLpInfo: {
+          lockDuration: 0,
+          lockPercentage: 0,
+        },
+        partnerImpermanentLockedLpInfo: {
+          lockDuration: 0,
+          lockPercentage: 0,
+        },
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -433,7 +440,14 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        padding: [],
+        creatorImpermanentLockedLpInfo: {
+          lockDuration: 0,
+          lockPercentage: 0,
+        },
+        partnerImpermanentLockedLpInfo: {
+          lockDuration: 0,
+          lockPercentage: 0,
+        },
         curve: curves,
       };
       const params: CreateConfigParams = {
