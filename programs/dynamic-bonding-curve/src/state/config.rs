@@ -549,8 +549,10 @@ pub struct PoolConfig {
     pub migrated_dynamic_fee: u8,
     /// migrated pool fee in bps
     pub migrated_pool_fee_bps: u16,
+    pub partner_lp_impermanent_lock_info: LpImpermanentLockInfo,
+    pub creator_lp_impermanent_lock_info: LpImpermanentLockInfo,
     /// padding 1
-    pub _padding_1: [u8; 12],
+    pub _padding_1: [u8; 2],
     /// padding 2
     pub _padding_2: u128,
     /// minimum price
@@ -562,6 +564,19 @@ pub struct PoolConfig {
 }
 
 const_assert_eq!(PoolConfig::INIT_SPACE, 1040);
+
+#[zero_copy]
+#[derive(InitSpace, Debug, Default)]
+pub struct LpImpermanentLockInfo {
+    pub lock_percentage: u8,
+    pub lp_lock_duration_bytes: [u8; 4],
+}
+
+impl LpImpermanentLockInfo {
+    pub fn get_lp_lock_duration(&self) -> u32 {
+        u32::from_le_bytes(self.lp_lock_duration_bytes)
+    }
+}
 
 #[zero_copy]
 #[derive(InitSpace, Debug, Default)]
@@ -612,7 +627,9 @@ impl PoolConfig {
         migrated_pool_fee_bps: u16,
         migrated_collect_fee_mode: u8,
         migrated_dynamic_fee: u8,
-        curve: &Vec<LiquidityDistributionParameters>,
+        partner_lp_migration_lock_duration: LpImpermanentLockInfo,
+        creator_lp_migration_lock_duration: LpImpermanentLockInfo,
+        curve: &[LiquidityDistributionParameters],
     ) {
         self.version = 0;
         self.quote_mint = *quote_mint;
@@ -653,6 +670,9 @@ impl PoolConfig {
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
+
+        self.creator_lp_impermanent_lock_info = creator_lp_migration_lock_duration;
+        self.partner_lp_impermanent_lock_info = partner_lp_migration_lock_duration;
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {
@@ -812,6 +832,12 @@ impl PoolConfig {
             100,
             Rounding::Down,
         )?;
+        let partner_impermanent_locked_lp = safe_mul_div_cast_u128(
+            liquidity,
+            self.partner_lp_impermanent_lock_info.lock_percentage.into(),
+            100,
+            Rounding::Down,
+        )?;
         let partner_lp = safe_mul_div_cast_u128(
             liquidity,
             self.partner_lp_percentage.into(),
@@ -824,19 +850,40 @@ impl PoolConfig {
             100,
             Rounding::Down,
         )?;
+        let creator_impermanent_locked_lp = safe_mul_div_cast_u128(
+            liquidity,
+            self.creator_lp_impermanent_lock_info.lock_percentage.into(),
+            100,
+            Rounding::Down,
+        )?;
 
         let creator_lp = liquidity
             .safe_sub(partner_locked_lp)?
+            .safe_sub(partner_impermanent_locked_lp)?
             .safe_sub(partner_lp)?
-            .safe_sub(creator_locked_lp)?;
+            .safe_sub(creator_locked_lp)?
+            .safe_sub(creator_impermanent_locked_lp)?;
+
         Ok(LiquidityDistribution {
             partner: LiquidityDistributionItem {
                 unlocked_liquidity: partner_lp,
                 locked_liquidity: partner_locked_lp,
+                impermanent_locked_liquidity: partner_impermanent_locked_lp,
+                lock_duration: self.partner_lp_impermanent_lock_info.get_lp_lock_duration(),
+                locked_lp_percentage: self.partner_locked_lp_percentage,
+                impermanent_locked_lp_percentage: self
+                    .partner_lp_impermanent_lock_info
+                    .lock_percentage,
             },
             creator: LiquidityDistributionItem {
                 unlocked_liquidity: creator_lp,
                 locked_liquidity: creator_locked_lp,
+                impermanent_locked_liquidity: creator_impermanent_locked_lp,
+                lock_duration: self.creator_lp_impermanent_lock_info.get_lp_lock_duration(),
+                locked_lp_percentage: self.creator_locked_lp_percentage,
+                impermanent_locked_lp_percentage: self
+                    .creator_lp_impermanent_lock_info
+                    .lock_percentage,
             },
         })
     }
@@ -861,6 +908,14 @@ impl PoolConfig {
             creator_fee,
         })
     }
+
+    pub fn get_total_locked_lp_percentage(&self) -> Result<u8> {
+        Ok(self
+            .partner_locked_lp_percentage
+            .safe_add(self.creator_locked_lp_percentage)?
+            .safe_add(self.partner_lp_impermanent_lock_info.lock_percentage)?
+            .safe_add(self.creator_lp_impermanent_lock_info.lock_percentage)?)
+    }
 }
 
 pub struct PartnerAndCreatorSplitFee {
@@ -883,11 +938,18 @@ pub struct LiquidityDistribution {
 pub struct LiquidityDistributionItem {
     pub unlocked_liquidity: u128,
     pub locked_liquidity: u128,
+    pub impermanent_locked_liquidity: u128,
+    pub lock_duration: u32,
+    pub locked_lp_percentage: u8,
+    pub impermanent_locked_lp_percentage: u8,
 }
 
 impl LiquidityDistributionItem {
     pub fn get_total_liquidity(&self) -> Result<u128> {
-        Ok(self.unlocked_liquidity.safe_add(self.locked_liquidity)?)
+        Ok(self
+            .unlocked_liquidity
+            .safe_add(self.locked_liquidity)?
+            .safe_add(self.impermanent_locked_liquidity)?)
     }
 }
 

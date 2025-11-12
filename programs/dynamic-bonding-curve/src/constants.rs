@@ -57,6 +57,12 @@ static_assertions::const_assert_eq!(
 
 pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
+pub const MIN_LOCKED_LP_PERCENTAGE: u8 = 1; // 1%
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 365 * 100; // 100 years
+pub const MIN_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 7; // 7 days
+
+static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
+
 /// Store constants related to fees
 pub mod fee {
 
@@ -107,4 +113,5 @@ pub mod seeds {
     pub const PARTNER_METADATA_PREFIX: &[u8] = b"partner_metadata";
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
+    pub const VESTING_PREFIX: &[u8] = b"vesting";
 }

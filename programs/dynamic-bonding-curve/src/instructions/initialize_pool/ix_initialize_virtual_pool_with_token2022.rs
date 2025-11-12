@@ -1,6 +1,7 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
 use crate::constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE;
+use crate::constants::MIN_LOCKED_LP_PERCENTAGE;
 use crate::state::CollectFeeMode;
 use crate::{
     activation_handler::get_current_point,
@@ -121,6 +122,12 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.get_total_locked_lp_percentage()? >= MIN_LOCKED_LP_PERCENTAGE,
+        PoolError::InvalidVestingParameters
+    );
+
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;
 
