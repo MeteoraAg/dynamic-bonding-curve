@@ -507,7 +507,6 @@ async function createPool(
       poolFeeBps: 0,
     },
     poolCreationFee: new BN(0),
-    padding: [],
     curve: curves,
   };
   const params: CreateConfigParams = {

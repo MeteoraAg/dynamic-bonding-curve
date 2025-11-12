@@ -119,7 +119,6 @@ describe("Create locker", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -275,7 +274,6 @@ describe("Create locker", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
       };
       const params: CreateConfigParams = {

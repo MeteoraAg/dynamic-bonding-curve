@@ -125,7 +125,6 @@ describe("Migrate to damm v2", () => {
         poolFeeBps: 0,
       },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
     const params: CreateConfigParams = {

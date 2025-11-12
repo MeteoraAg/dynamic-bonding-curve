@@ -510,7 +510,6 @@ export function designCurve(
       poolFeeBps: 0,
     },
     poolCreationFee: new BN(0),
-    padding: [],
     curve,
   };
   return instructionParams;
@@ -662,7 +661,6 @@ export function designGraphCurve(
       poolFeeBps: 0,
     },
     poolCreationFee: new BN(0),
-    padding: [],
     curve,
   };
   return instructionParams;

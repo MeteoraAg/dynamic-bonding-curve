@@ -92,7 +92,6 @@ describe("Simulate CU swap", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
       };
       const createConfigParams: CreateConfigParams = {

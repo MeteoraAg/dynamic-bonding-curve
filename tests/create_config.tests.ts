@@ -94,7 +94,6 @@ describe("Create config", () => {
         poolFeeBps: 0,
       },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
   });

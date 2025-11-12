@@ -134,7 +134,6 @@ describe("Full flow with spl-token", () => {
         poolFeeBps: 0,
       },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
     const params: CreateConfigParams = {

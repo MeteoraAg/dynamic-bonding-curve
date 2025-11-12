@@ -108,7 +108,6 @@ describe("Fee Swap test", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
       };
       const params: CreateConfigParams = {
@@ -435,8 +434,6 @@ describe("Fee Swap test", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
-        curve: curves,
       };
       const params: CreateConfigParams = {
         payer: partner,
