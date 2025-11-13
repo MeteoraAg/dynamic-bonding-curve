@@ -6,3 +6,5 @@ pub mod ix_withdraw_partner_surplus;
 pub use ix_withdraw_partner_surplus::*;
 pub mod ix_create_partner_metadata;
 pub use ix_create_partner_metadata::*;
+pub mod ix_create_damm_v2_config;
+pub use ix_create_damm_v2_config::*;

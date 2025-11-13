@@ -70,6 +70,14 @@ pub mod dynamic_bonding_curve {
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
+
+    pub fn create_dammv2_config(
+        ctx: Context<CreateConfigCtx>,
+        config_parameters: DammV2ConfigParameters,
+    ) -> Result<()> {
+        instructions::handle_create_damm_v2_config(ctx, config_parameters)
+    }
+
     pub fn claim_trading_fee(
         ctx: Context<ClaimTradingFeesCtx>,
         max_amount_a: u64,

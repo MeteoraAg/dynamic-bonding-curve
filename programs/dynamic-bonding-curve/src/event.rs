@@ -6,7 +6,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::{SwapResult, SwapResult2},
-    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
+    ConfigParameters, DammV2ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
 /// Create partner metadata
@@ -58,6 +58,15 @@ pub struct EvtCreateConfigV2 {
     pub fee_claimer: Pubkey,
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
+}
+
+#[event]
+pub struct EvtCreateDammV2Config {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: DammV2ConfigParameters,
 }
 
 /// Create claim fee operator

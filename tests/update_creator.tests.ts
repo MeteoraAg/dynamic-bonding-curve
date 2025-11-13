@@ -5,6 +5,7 @@ import { LiteSVM } from "litesvm";
 import {
   ClaimCreatorTradeFeeParams,
   claimCreatorTradingFee,
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -87,7 +88,7 @@ describe("Update creator", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -151,7 +152,7 @@ describe("Update creator", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

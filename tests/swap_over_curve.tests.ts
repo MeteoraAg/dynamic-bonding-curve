@@ -1,5 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import {
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -81,7 +82,7 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -216,7 +217,7 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

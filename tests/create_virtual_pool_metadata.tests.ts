@@ -102,9 +102,6 @@ describe("Create virtual pool metadata", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
-<<<<<<< HEAD
-      padding: [],
-=======
       creatorImpermanentLockedLpInfo: {
         lockDuration: 0,
         lockPercentage: 0,
@@ -113,10 +110,9 @@ describe("Create virtual pool metadata", () => {
         lockDuration: 0,
         lockPercentage: 0,
       },
->>>>>>> eec0915 (fix: existing e2e tests)
       curve: curves,
     };
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

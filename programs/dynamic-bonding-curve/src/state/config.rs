@@ -627,8 +627,8 @@ impl PoolConfig {
         migrated_pool_fee_bps: u16,
         migrated_collect_fee_mode: u8,
         migrated_dynamic_fee: u8,
-        partner_lp_migration_lock_duration: LpImpermanentLockInfo,
-        creator_lp_migration_lock_duration: LpImpermanentLockInfo,
+        partner_lp_impermanent_lock_info: LpImpermanentLockInfo,
+        creator_lp_impermanent_lock_info: LpImpermanentLockInfo,
         curve: &[LiquidityDistributionParameters],
     ) {
         self.version = 0;
@@ -671,8 +671,8 @@ impl PoolConfig {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
 
-        self.creator_lp_impermanent_lock_info = creator_lp_migration_lock_duration;
-        self.partner_lp_impermanent_lock_info = partner_lp_migration_lock_duration;
+        self.creator_lp_impermanent_lock_info = creator_lp_impermanent_lock_info;
+        self.partner_lp_impermanent_lock_info = partner_lp_impermanent_lock_info;
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {

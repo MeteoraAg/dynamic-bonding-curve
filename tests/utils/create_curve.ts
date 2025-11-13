@@ -502,14 +502,6 @@ export function designCurve(
     },
     creatorTradingFeePercentage,
     tokenUpdateAuthority: 0,
-    creatorImpermanentLockedLpInfo: {
-      lockDuration: 0,
-      lockPercentage: 0,
-    },
-    partnerImpermanentLockedLpInfo: {
-      lockDuration: 0,
-      lockPercentage: 0,
-    },
     migrationFee,
     migratedPoolFee: {
       collectFeeMode: 0,
@@ -665,14 +657,6 @@ export function designGraphCurve(
       collectFeeMode: 0,
       dynamicFee: 0,
       poolFeeBps: 0,
-    },
-    creatorImpermanentLockedLpInfo: {
-      lockDuration: 0,
-      lockPercentage: 0,
-    },
-    partnerImpermanentLockedLpInfo: {
-      lockDuration: 0,
-      lockPercentage: 0,
     },
     curve,
   };

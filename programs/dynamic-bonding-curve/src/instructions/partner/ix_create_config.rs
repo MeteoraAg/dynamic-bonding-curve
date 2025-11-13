@@ -6,9 +6,8 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
-        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LP_PERCENTAGE,
-        MIN_LOCK_DURATION_IN_SECONDS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
+        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
+        MIN_LOCKED_LP_PERCENTAGE, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -25,53 +24,6 @@ use crate::{
     token::{get_token_program_flags, is_supported_quote_mint},
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct LpImpermanentLockInfoParams {
-    pub lock_percentage: u8,
-    pub lock_duration: u32,
-}
-
-impl LpImpermanentLockInfoParams {
-    pub fn validate(&self, migration_option: MigrationOption) -> Result<()> {
-        match migration_option {
-            MigrationOption::MeteoraDamm => {
-                // DAMM support only permanent lock
-                require!(
-                    self.lock_percentage == 0 && self.lock_duration == 0,
-                    PoolError::InvalidVestingParameters
-                );
-            }
-            MigrationOption::DammV2 => {
-                require!(
-                    self.lock_percentage <= 100,
-                    PoolError::InvalidVestingParameters
-                );
-
-                if self.lock_percentage > 0 {
-                    require!(
-                        u64::from(self.lock_duration) >= MIN_LOCK_DURATION_IN_SECONDS
-                            && u64::from(self.lock_duration) <= MAX_LOCK_DURATION_IN_SECONDS,
-                        PoolError::InvalidVestingParameters
-                    );
-                } else {
-                    require!(self.lock_duration == 0, PoolError::InvalidVestingParameters);
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl From<LpImpermanentLockInfoParams> for LpImpermanentLockInfo {
-    fn from(params: LpImpermanentLockInfoParams) -> Self {
-        Self {
-            lock_percentage: params.lock_percentage,
-            lp_lock_duration_bytes: params.lock_duration.to_le_bytes(),
-        }
-    }
-}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ConfigParameters {
@@ -94,10 +46,8 @@ pub struct ConfigParameters {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
-    pub partner_impermanent_locked_lp_info: LpImpermanentLockInfoParams,
-    pub creator_impermanent_locked_lp_info: LpImpermanentLockInfoParams,
     /// padding for future use
-    pub padding0: [u64; 5],
+    pub padding: [u64; 7],
     pub padding1: u8,
     pub curve: Vec<LiquidityDistributionParameters>,
 }
@@ -313,16 +263,9 @@ impl ConfigParameters {
             PoolError::InvalidTokenDecimals
         );
 
-        self.creator_impermanent_locked_lp_info
-            .validate(migration_option_value)?;
-        self.partner_impermanent_locked_lp_info
-            .validate(migration_option_value)?;
-
         let sum_lp_locked_percentage = self
             .partner_locked_lp_percentage
-            .safe_add(self.creator_locked_lp_percentage)?
-            .safe_add(self.creator_impermanent_locked_lp_info.lock_percentage)?
-            .safe_add(self.partner_impermanent_locked_lp_info.lock_percentage)?;
+            .safe_add(self.creator_locked_lp_percentage)?;
 
         require!(
             sum_lp_locked_percentage >= MIN_LOCKED_LP_PERCENTAGE,
@@ -429,10 +372,122 @@ pub fn handle_create_config(
         token_update_authority,
         migration_fee,
         migrated_pool_fee,
-        creator_impermanent_locked_lp_info,
-        partner_impermanent_locked_lp_info,
         ..
     } = config_parameters.clone();
+
+    let evt_create_config = process_create_config(
+        ProcessCreateConfigArgs {
+            pool_fees,
+            collect_fee_mode,
+            migration_option,
+            activation_type,
+            token_type,
+            token_decimal,
+            partner_lp_percentage,
+            partner_locked_lp_percentage,
+            partner_lp_impermanent_lock_info: LpImpermanentLockInfo::default(),
+            creator_lp_percentage,
+            creator_locked_lp_percentage,
+            creator_lp_impermanent_lock_info: LpImpermanentLockInfo::default(),
+            migration_quote_threshold,
+            sqrt_start_price,
+            locked_vesting,
+            migration_fee_option,
+            token_supply,
+            curve,
+            creator_trading_fee_percentage,
+            token_update_authority,
+            migration_fee,
+            migrated_pool_fee,
+        },
+        ProcessCreateConfigAccounts {
+            config: &ctx.accounts.config,
+            quote_mint: &ctx.accounts.quote_mint,
+            fee_claimer: &ctx.accounts.fee_claimer,
+            leftover_receiver: &ctx.accounts.leftover_receiver,
+        },
+    )?;
+
+    emit_cpi!(evt_create_config);
+
+    emit_cpi!(EvtCreateConfigV2 {
+        config: ctx.accounts.config.key(),
+        fee_claimer: ctx.accounts.fee_claimer.key(),
+        quote_mint: ctx.accounts.quote_mint.key(),
+        leftover_receiver: ctx.accounts.leftover_receiver.key(),
+        config_parameters
+    });
+
+    Ok(())
+}
+
+pub struct ProcessCreateConfigArgs {
+    pub pool_fees: PoolFeeParameters,
+    pub collect_fee_mode: u8,
+    pub migration_option: u8,
+    pub activation_type: u8,
+    pub token_type: u8,
+    pub token_decimal: u8,
+    pub partner_lp_percentage: u8,
+    pub partner_locked_lp_percentage: u8,
+    pub partner_lp_impermanent_lock_info: LpImpermanentLockInfo,
+    pub creator_lp_percentage: u8,
+    pub creator_locked_lp_percentage: u8,
+    pub creator_lp_impermanent_lock_info: LpImpermanentLockInfo,
+    pub migration_quote_threshold: u64,
+    pub sqrt_start_price: u128,
+    pub locked_vesting: LockedVestingParams,
+    pub migration_fee_option: u8,
+    pub token_supply: Option<TokenSupplyParams>,
+    pub curve: Vec<LiquidityDistributionParameters>,
+    pub creator_trading_fee_percentage: u8,
+    pub token_update_authority: u8,
+    pub migration_fee: MigrationFee,
+    pub migrated_pool_fee: MigratedPoolFee,
+}
+
+pub struct ProcessCreateConfigAccounts<'a, 'info> {
+    pub config: &'a AccountLoader<'info, PoolConfig>,
+    pub quote_mint: &'a InterfaceAccount<'info, Mint>,
+    pub fee_claimer: &'a UncheckedAccount<'info>,
+    pub leftover_receiver: &'a UncheckedAccount<'info>,
+}
+
+pub fn process_create_config<'a, 'info>(
+    args: ProcessCreateConfigArgs,
+    accounts: ProcessCreateConfigAccounts<'a, 'info>,
+) -> Result<EvtCreateConfig> {
+    let ProcessCreateConfigArgs {
+        pool_fees,
+        collect_fee_mode,
+        migration_option,
+        activation_type,
+        token_type,
+        token_decimal,
+        partner_lp_percentage,
+        partner_locked_lp_percentage,
+        partner_lp_impermanent_lock_info,
+        creator_lp_percentage,
+        creator_locked_lp_percentage,
+        creator_lp_impermanent_lock_info,
+        migration_quote_threshold,
+        sqrt_start_price,
+        locked_vesting,
+        migration_fee_option,
+        token_supply,
+        curve,
+        creator_trading_fee_percentage,
+        token_update_authority,
+        migration_fee,
+        migrated_pool_fee,
+    } = args;
+
+    let ProcessCreateConfigAccounts {
+        config,
+        quote_mint,
+        fee_claimer,
+        leftover_receiver,
+    } = accounts;
 
     let sqrt_migration_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
@@ -487,7 +542,7 @@ pub fn handle_create_config(
             )?;
 
             require!(
-                ctx.accounts.leftover_receiver.key() != Pubkey::default(),
+                leftover_receiver.key() != Pubkey::default(),
                 PoolError::InvalidLeftoverAddress
             );
             require!(
@@ -507,11 +562,11 @@ pub fn handle_create_config(
         dynamic_fee: migrated_dynamic_fee,
     } = migrated_pool_fee;
 
-    let mut config = ctx.accounts.config.load_init()?;
-    config.init(
-        &ctx.accounts.quote_mint.key(),
-        ctx.accounts.fee_claimer.key,
-        ctx.accounts.leftover_receiver.key,
+    let mut config_state = config.load_init()?;
+    config_state.init(
+        &quote_mint.key(),
+        fee_claimer.key,
+        leftover_receiver.key,
         &pool_fees,
         creator_trading_fee_percentage,
         token_update_authority,
@@ -521,7 +576,7 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
-        get_token_program_flags(&ctx.accounts.quote_mint).into(),
+        get_token_program_flags(&quote_mint).into(),
         partner_locked_lp_percentage,
         partner_lp_percentage,
         creator_locked_lp_percentage,
@@ -539,16 +594,16 @@ pub fn handle_create_config(
         migrated_pool_fee_bps,
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
-        partner_impermanent_locked_lp_info.into(),
-        creator_impermanent_locked_lp_info.into(),
+        partner_lp_impermanent_lock_info,
+        creator_lp_impermanent_lock_info,
         &curve,
     );
 
-    emit_cpi!(EvtCreateConfig {
-        config: ctx.accounts.config.key(),
-        fee_claimer: ctx.accounts.fee_claimer.key(),
-        quote_mint: ctx.accounts.quote_mint.key(),
-        owner: ctx.accounts.leftover_receiver.key(),
+    Ok(EvtCreateConfig {
+        config: config.key(),
+        fee_claimer: fee_claimer.key(),
+        quote_mint: quote_mint.key(),
+        owner: leftover_receiver.key(),
         pool_fees,
         collect_fee_mode,
         migration_option,
@@ -568,16 +623,6 @@ pub fn handle_create_config(
         post_migration_token_supply,
         locked_vesting,
         migration_fee_option,
-        curve
-    });
-
-    emit_cpi!(EvtCreateConfigV2 {
-        config: ctx.accounts.config.key(),
-        fee_claimer: ctx.accounts.fee_claimer.key(),
-        quote_mint: ctx.accounts.quote_mint.key(),
-        leftover_receiver: ctx.accounts.leftover_receiver.key(),
-        config_parameters: config_parameters
-    });
-
-    Ok(())
+        curve,
+    })
 }

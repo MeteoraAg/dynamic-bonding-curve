@@ -91,17 +91,9 @@ describe("Simulate CU swap", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        creatorImpermanentLockedLpInfo: {
-          lockDuration: 0,
-          lockPercentage: 0,
-        },
-        partnerImpermanentLockedLpInfo: {
-          lockDuration: 0,
-          lockPercentage: 0,
-        },
         curve: curves,
       };
-      const createConfigParams: CreateConfigParams = {
+      const createConfigParams: CreateConfigParams<ConfigParameters> = {
         payer: user,
         leftoverReceiver: user.publicKey,
         feeClaimer: user.publicKey,

@@ -1,5 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import {
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
@@ -78,7 +79,7 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -172,7 +173,7 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -273,7 +274,7 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -377,7 +378,7 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -493,7 +494,7 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
