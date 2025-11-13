@@ -48,7 +48,6 @@ pub struct ConfigParameters {
     pub migrated_pool_fee: MigratedPoolFee,
     /// padding for future use
     pub padding: [u64; 7],
-    pub padding1: u8,
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
