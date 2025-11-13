@@ -589,7 +589,7 @@ impl<'info> ParsedRemainingAccounts<'info> {
         migration_fee_option: MigrationFeeOption,
     ) -> Result<(Self, RemainingAccountsBumps, ActivationType)> {
         require!(
-            remaining_accounts.len() > 1,
+            !remaining_accounts.is_empty(),
             ErrorCode::AccountNotEnoughKeys
         );
 
