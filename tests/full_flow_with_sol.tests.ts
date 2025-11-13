@@ -136,7 +136,7 @@ describe("Full flow with spl-token", () => {
       poolCreationFee: new BN(0),
       curve: curves,
     };
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

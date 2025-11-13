@@ -87,7 +87,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -151,7 +151,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -215,7 +215,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -279,7 +279,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
         creatorFeePercentage: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

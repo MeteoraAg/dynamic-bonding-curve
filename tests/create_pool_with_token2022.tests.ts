@@ -127,10 +127,9 @@ describe("Create pool with token2022", () => {
         poolFeeBps: 0,
       },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

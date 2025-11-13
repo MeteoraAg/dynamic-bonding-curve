@@ -14,13 +14,16 @@ import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
   claimPoolCreationFee,
+  ConfigParameters,
   createClaimFeeOperator,
   createConfig,
+  createDammV2OnlyConfig,
   createMeteoraDammV2Metadata,
   createMeteoraMetadata,
   createPoolWithSplToken,
   createPoolWithToken2022,
   creatorClaimLpDamm,
+  DammV2ConfigParameters,
   deriveDammV2PoolAuthority,
   derivePositionNftAccount,
   MigrateMeteoraDammV2Params,
@@ -137,34 +140,48 @@ describe("Rent fee farm", () => {
     });
 
     instructionParams.migrationOption = 1;
-    instructionParams.creatorLockedLpPercentage = 0;
-    instructionParams.partnerLockedLpPercentage = 0;
-    instructionParams.partnerImpermanentLockedLpInfo = {
-      lockDuration: 86400 * 7,
-      lockPercentage: 5,
+
+    let dammV2ConfigParameters: DammV2ConfigParameters = {
+      ...instructionParams,
+      creatorLpInfo: {
+        lockDuration: 86400 * 7, // 7 days
+        lpImpermanentLockPercentage: 5,
+        lpPermanentLockPercentage: 0,
+        lpPercentage: 65,
+      },
+      partnerLpInfo: {
+        lockDuration: 86400 * 7, // 7 days
+        lpImpermanentLockPercentage: 5,
+        lpPermanentLockPercentage: 0,
+        lpPercentage: 25,
+      },
     };
-    instructionParams.creatorImpermanentLockedLpInfo = {
-      lockDuration: 86400 * 7,
-      lockPercentage: 5,
-    };
 
-    migrateDammV2Config = await createConfig(svm, program, {
-      payer: exploiterPartner,
-      leftoverReceiver: exploiterPartner.publicKey,
-      feeClaimer: exploiterPartner.publicKey,
-      quoteMint,
-      instructionParams,
-    });
+    migrateDammV2Config = await createDammV2OnlyConfig(
+      svm,
+      program,
+      {
+        payer: exploiterPartner,
+        leftoverReceiver: exploiterPartner.publicKey,
+        feeClaimer: exploiterPartner.publicKey,
+        quoteMint,
+        instructionParams: dammV2ConfigParameters,
+      }
+    );
 
-    instructionParams.tokenType = 1;
+    dammV2ConfigParameters.tokenType = 1;
 
-    migrateDammV1ConfigToken2022 = await createConfig(svm, program, {
-      payer: exploiterPartner,
-      leftoverReceiver: exploiterPartner.publicKey,
-      feeClaimer: exploiterPartner.publicKey,
-      quoteMint,
-      instructionParams,
-    });
+    migrateDammV2ConfigToken2022 = await createDammV2OnlyConfig(
+      svm,
+      program,
+      {
+        payer: exploiterPartner,
+        leftoverReceiver: exploiterPartner.publicKey,
+        feeClaimer: exploiterPartner.publicKey,
+        quoteMint,
+        instructionParams: dammV2ConfigParameters,
+      }
+    );
 
     await createClaimFeeOperator(svm, program, {
       admin,

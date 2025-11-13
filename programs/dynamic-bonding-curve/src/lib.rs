@@ -73,11 +73,19 @@ pub mod dynamic_bonding_curve {
     ) -> Result<()> {
         instructions::handle_create_partner_metadata(ctx, metadata)
     }
+
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
+    }
+
+    pub fn create_dammv2_config(
+        ctx: Context<CreateConfigCtx>,
+        config_parameters: DammV2ConfigParameters,
+    ) -> Result<()> {
+        instructions::handle_create_damm_v2_config(ctx, config_parameters)
     }
 
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]

@@ -106,18 +106,52 @@ export type ConfigParameters = {
   curve: Array<LiquidityDistributionParameters>;
 };
 
-export type CreateConfigParams = {
+export type LpDistributionInfo = {
+  lpPercentage: number;
+  lpPermanentLockPercentage: number;
+  lpImpermanentLockPercentage: number;
+  lockDuration: number;
+};
+
+export type DammV2ConfigParameters = {
+  poolFees: {
+    baseFee: BaseFee;
+    dynamicFee: DynamicFee | null;
+  };
+  collectFeeMode: number;
+  activationType: number;
+  tokenType: number;
+  tokenDecimal: number;
+  migrationQuoteThreshold: BN;
+  sqrtStartPrice: BN;
+  lockedVesting: LockedVestingParams;
+  migrationFeeOption: number;
+  tokenSupply: TokenSupplyParams | null;
+  creatorTradingFeePercentage: number;
+  tokenUpdateAuthority: number;
+  migrationFee: MigrationFeeParams;
+  migratedPoolFee: {
+    poolFeeBps: number;
+    collectFeeMode: number;
+    dynamicFee: number;
+  };
+  curve: Array<LiquidityDistributionParameters>;
+  partnerLpInfo: LpDistributionInfo;
+  creatorLpInfo: LpDistributionInfo;
+};
+
+export type CreateConfigParams<T> = {
   payer: Keypair;
   leftoverReceiver: PublicKey;
   feeClaimer: PublicKey;
   quoteMint: PublicKey;
-  instructionParams: ConfigParameters;
+  instructionParams: T;
 };
 
 export async function createConfig(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateConfigParams
+  params: CreateConfigParams<ConfigParameters>
 ): Promise<PublicKey> {
   const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
     params;
@@ -126,7 +160,7 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
-      padding0: new Array(64).fill(new BN(5)),
+      padding: new Array(64).fill(new BN(7)),
       padding1: 0,
     })
     .accountsPartial({
@@ -154,6 +188,72 @@ export async function createConfig(
   );
   expect(configState.creatorLockedLpPercentage).equal(
     instructionParams.creatorLockedLpPercentage
+  );
+
+  return config.publicKey;
+}
+
+export async function createDammV2OnlyConfig(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  params: CreateConfigParams<DammV2ConfigParameters>
+): Promise<PublicKey> {
+  const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
+    params;
+  const config = Keypair.generate();
+
+  const transaction = await program.methods
+    .createDammv2Config({
+      ...instructionParams,
+      padding: new Array(64).fill(new BN(7)),
+      padding1: 0,
+    })
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      payer: payer.publicKey,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer, config);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+  const configState = await getConfig(banksClient, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+
+  expect(configState.partnerLpPercentage).equal(
+    instructionParams.partnerLpInfo.lpPercentage
+  );
+  expect(configState.partnerLpImpermanentLockInfo.lockPercentage).equal(
+    instructionParams.partnerLpInfo.lpImpermanentLockPercentage
+  );
+  expect(
+    new BN(
+      configState.partnerLpImpermanentLockInfo.lpLockDurationBytes,
+      "le"
+    ).toNumber()
+  ).equal(instructionParams.partnerLpInfo.lockDuration);
+  expect(configState.creatorLockedLpPercentage).equal(
+    instructionParams.creatorLpInfo.lpPermanentLockPercentage
+  );
+
+  expect(configState.creatorLpPercentage).equal(
+    instructionParams.creatorLpInfo.lpPercentage
+  );
+  expect(configState.creatorLpImpermanentLockInfo.lockPercentage).equal(
+    instructionParams.creatorLpInfo.lpImpermanentLockPercentage
+  );
+  expect(
+    new BN(
+      configState.creatorLpImpermanentLockInfo.lpLockDurationBytes,
+      "le"
+    ).toNumber()
+  ).equal(instructionParams.creatorLpInfo.lockDuration);
+  expect(configState.creatorLockedLpPercentage).equal(
+    instructionParams.creatorLpInfo.lpPermanentLockPercentage
   );
 
   return config.publicKey;

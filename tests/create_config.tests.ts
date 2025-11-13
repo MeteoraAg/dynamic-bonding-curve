@@ -99,7 +99,7 @@ describe("Create config", () => {
   });
 
   it("create config", async () => {
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -120,7 +120,7 @@ describe("Create config", () => {
     };
 
     instructionParams.poolFees.baseFee = baseFee;
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

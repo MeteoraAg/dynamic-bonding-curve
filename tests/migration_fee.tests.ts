@@ -4,6 +4,7 @@ import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -84,7 +85,7 @@ describe("Migration fee", () => {
         creatorFeePercentage: 80,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

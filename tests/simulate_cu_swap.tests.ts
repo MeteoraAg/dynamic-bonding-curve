@@ -94,7 +94,7 @@ describe("Simulate CU swap", () => {
         poolCreationFee: new BN(0),
         curve: curves,
       };
-      const createConfigParams: CreateConfigParams = {
+      const createConfigParams: CreateConfigParams<ConfigParameters> = {
         payer: user,
         leftoverReceiver: user.publicKey,
         feeClaimer: user.publicKey,

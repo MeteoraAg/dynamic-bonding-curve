@@ -117,7 +117,7 @@ async function createPartnerConfig(
     poolCreationFee: new BN(0),
     curve: curves,
   };
-  const params: CreateConfigParams = {
+  const params: CreateConfigParams<ConfigParameters> = {
     payer,
     leftoverReceiver: owner,
     feeClaimer,

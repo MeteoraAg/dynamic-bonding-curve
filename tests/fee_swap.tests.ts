@@ -107,10 +107,13 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
+<<<<<<< HEAD
         poolCreationFee: new BN(0),
+=======
+>>>>>>> 34931ff (feat: make a new endpoint to create only dammv2 related config)
         curve: curves,
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,
@@ -435,7 +438,7 @@ describe("Fee Swap test", () => {
         },
         poolCreationFee: new BN(0),
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,

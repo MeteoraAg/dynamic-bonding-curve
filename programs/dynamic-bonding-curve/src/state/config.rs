@@ -671,8 +671,8 @@ impl PoolConfig {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
 
-        self.creator_lp_impermanent_lock_info = creator_lp_migration_lock_duration;
-        self.partner_lp_impermanent_lock_info = partner_lp_migration_lock_duration;
+        self.creator_lp_impermanent_lock_info = creator_lp_impermanent_lock_info;
+        self.partner_lp_impermanent_lock_info = partner_lp_impermanent_lock_info;
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {
