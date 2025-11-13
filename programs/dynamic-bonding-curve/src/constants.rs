@@ -58,7 +58,9 @@ static_assertions::const_assert_eq!(
 pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
 pub const MIN_LOCKED_LP_PERCENTAGE: u8 = 1; // 1%
-pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 365 * 100; // 100 years
+
+// Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 365 * 10; // 10 years
 pub const MIN_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 7; // 7 days
 
 static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
@@ -93,8 +95,8 @@ pub mod fee {
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20%
 
-    // 0.01
-    pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
+    // 0.015
+    pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 15_000_000;
 }
 
 pub mod seeds {

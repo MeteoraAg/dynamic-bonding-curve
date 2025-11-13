@@ -1,5 +1,6 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
+  AccountMeta,
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
@@ -99,6 +100,53 @@ export async function migrateToDammV2(
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
+  const remainingAccounts: AccountMeta[] = [
+    {
+      isSigner: false,
+      isWritable: false,
+      pubkey: dammConfig,
+    },
+  ];
+
+  const partnerLpPercentage =
+    configState.partnerLockedLpPercentage +
+    configState.partnerLpPercentage +
+    configState.partnerLpImpermanentLockInfo.lockPercentage;
+
+  const creatorLpPercentage =
+    configState.creatorLockedLpPercentage +
+    configState.creatorLpPercentage +
+    configState.creatorLpImpermanentLockInfo.lockPercentage;
+
+  const minLpPercentage = Math.min(partnerLpPercentage, creatorLpPercentage);
+  const maxLpPercentage = Math.max(partnerLpPercentage, creatorLpPercentage);
+
+  if (maxLpPercentage > 0) {
+    const vestingAddress = PublicKey.findProgramAddressSync(
+      [Buffer.from("vesting"), firstPosition.toBytes()],
+      program.programId
+    )[0];
+
+    remainingAccounts.push({
+      isSigner: false,
+      isWritable: true,
+      pubkey: vestingAddress,
+    });
+  }
+
+  if (minLpPercentage > 0) {
+    const vestingAddress = PublicKey.findProgramAddressSync(
+      [Buffer.from("vesting"), secondPosition.toBytes()],
+      program.programId
+    )[0];
+
+    remainingAccounts.push({
+      isSigner: false,
+      isWritable: true,
+      pubkey: vestingAddress,
+    });
+  }
+
   const transaction = await program.methods
     .migrationDammV2()
     .accountsStrict({
@@ -128,13 +176,7 @@ export async function migrateToDammV2(
       systemProgram: SystemProgram.programId,
       dammEventAuthority: deriveDammV2EventAuthority(),
     })
-    .remainingAccounts([
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: dammConfig,
-      },
-    ])
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.add(
     ComputeBudgetProgram.setComputeUnitLimit({

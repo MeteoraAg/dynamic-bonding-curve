@@ -78,7 +78,7 @@ describe("Rent fee farm", () => {
 
   let migrateDammV1Config: PublicKey;
   let migrateDammV2Config: PublicKey;
-  let migrateDammV1ConfigToken2022: PublicKey;
+  let migrateDammV2ConfigToken2022: PublicKey;
   let quoteMint: PublicKey;
 
   beforeEach(async () => {
@@ -123,9 +123,9 @@ describe("Rent fee farm", () => {
     );
 
     instructionParams.partnerLpPercentage = 10;
-    instructionParams.creatorLpPercentage = 90;
-    instructionParams.creatorLockedLpPercentage = 0;
-    instructionParams.partnerLockedLpPercentage = 0;
+    instructionParams.creatorLpPercentage = 80;
+    instructionParams.creatorLockedLpPercentage = 5;
+    instructionParams.partnerLockedLpPercentage = 5;
     instructionParams.collectFeeMode = 1; // Output only
 
     migrateDammV1Config = await createConfig(svm, program, {
@@ -137,6 +137,16 @@ describe("Rent fee farm", () => {
     });
 
     instructionParams.migrationOption = 1;
+    instructionParams.creatorLockedLpPercentage = 0;
+    instructionParams.partnerLockedLpPercentage = 0;
+    instructionParams.partnerImpermanentLockedLpInfo = {
+      lockDuration: 86400 * 7,
+      lockPercentage: 5,
+    };
+    instructionParams.creatorImpermanentLockedLpInfo = {
+      lockDuration: 86400 * 7,
+      lockPercentage: 5,
+    };
 
     migrateDammV2Config = await createConfig(svm, program, {
       payer: exploiterPartner,
@@ -396,6 +406,21 @@ describe("Rent fee farm", () => {
         migrationParams
       );
 
+      const clock = await context.banksClient.getClock();
+      // Wrap around 8 days later for position fully withdraw
+      const slotMs = 400;
+      const secondsDuration = 86400 * 8;
+      const slotToAdvance = Math.ceil((secondsDuration * 1000) / slotMs);
+
+      const newClock = new Clock(
+        clock.slot + BigInt(slotToAdvance),
+        clock.epochStartTimestamp,
+        clock.epoch,
+        clock.leaderScheduleEpoch,
+        clock.unixTimestamp + BigInt(secondsDuration)
+      );
+      context.setClock(newClock);
+
       const lamportRecovered = await withdrawAndClosePosition(
         svm,
         firstPosition,
@@ -462,7 +487,7 @@ describe("Rent fee farm", () => {
           poolCreator: exploiterCreator,
           payer: exploiterCreator,
           quoteMint,
-          config: migrateDammV1ConfigToken2022,
+          config: migrateDammV2ConfigToken2022,
           instructionParams: {
             name: "",
             symbol: "",
@@ -504,7 +529,7 @@ describe("Rent fee farm", () => {
         poolCreator: exploiterCreator,
         payer: exploiterCreator,
         quoteMint,
-        config: migrateDammV1ConfigToken2022,
+        config: migrateDammV2ConfigToken2022,
         instructionParams: {
           name: "",
           symbol: "",
@@ -635,8 +660,37 @@ async function withdrawAndClosePosition(
     .instruction();
 
   const beforeBalance = svm.getBalance(signer.publicKey);
-  const closeTx = new Transaction().add(withdrawIx, closePositionIx);
 
+  const instructions = [withdrawIx, closePositionIx];
+
+  const vestingPositionAddress = PublicKey.findProgramAddressSync(
+    [Buffer.from("vesting"), position.toBuffer()],
+    createVirtualCurveProgram().programId
+  )[0];
+  const vestingAccount = await svm.getAccount(vestingPositionAddress);
+
+  if (vestingAccount) {
+    const refreshVestingIx = await dammV2Program.methods
+      .refreshVesting()
+      .accountsPartial({
+        pool,
+        position,
+        positionNftAccount,
+        owner: signer.publicKey,
+      })
+      .remainingAccounts([
+        {
+          isWritable: true,
+          isSigner: false,
+          pubkey: vestingPositionAddress,
+        },
+      ])
+      .instruction();
+
+    instructions.unshift(refreshVestingIx);
+  }
+
+  const closeTx = new Transaction().add(...instructions);
   sendTransactionMaybeThrow(svm, closeTx, [signer]);
 
   const afterBalance = svm.getBalance(signer.publicKey);
