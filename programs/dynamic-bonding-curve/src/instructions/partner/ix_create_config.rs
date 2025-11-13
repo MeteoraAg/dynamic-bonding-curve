@@ -8,7 +8,7 @@ use crate::{
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
         MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
-        MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
+        MIN_LOCKED_LP_PERCENTAGE, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -187,32 +187,22 @@ impl LockedVestingParams {
 
 impl ConfigParameters {
     pub fn validate<'info>(&self, quote_mint: &InterfaceAccount<'info, Mint>) -> Result<()> {
-        // validate quote mint
-        require!(
-            is_supported_quote_mint(quote_mint)?,
-            PoolError::InvalidQuoteMint
-        );
+        validate_common_config_parameters(ValidateCommonConfigParametersArgs {
+            quote_mint,
+            pool_fees: &self.pool_fees,
+            migration_fee: &self.migration_fee,
+            activation_type: self.activation_type,
+            collect_fee_mode: self.collect_fee_mode,
+            creator_trading_fee_percentage: self.creator_trading_fee_percentage,
+            token_type: self.token_type,
+            token_update_authority: self.token_update_authority,
+            token_decimal: self.token_decimal,
+            migration_quote_threshold: self.migration_quote_threshold,
+            locked_vesting: &self.locked_vesting,
+            sqrt_start_price: self.sqrt_start_price,
+            curve: &self.curve,
+        })?;
 
-        let activation_type = ActivationType::try_from(self.activation_type)
-            .map_err(|_| PoolError::TypeCastFailed)?;
-
-        // validate fee
-        self.pool_fees
-            .validate(self.collect_fee_mode, activation_type)?;
-
-        // validate creator trading fee percentage
-        require!(
-            self.creator_trading_fee_percentage <= 100,
-            PoolError::InvalidCreatorTradingFeePercentage
-        );
-
-        self.migration_fee.validate()?;
-
-        // validate collect fee mode
-        require!(
-            CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
-            PoolError::InvalidCollectFeeMode
-        );
         // validate migration option and token type
         let migration_option_value = MigrationOption::try_from(self.migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?;
@@ -253,18 +243,6 @@ impl ConfigParameters {
             }
         }
 
-        // validate token update authority
-        require!(
-            TokenAuthorityOption::try_from(self.token_update_authority).is_ok(),
-            PoolError::InvalidTokenAuthorityOption
-        );
-
-        // validate token decimals
-        require!(
-            self.token_decimal >= 6 && self.token_decimal <= 9,
-            PoolError::InvalidTokenDecimals
-        );
-
         let sum_lp_locked_percentage = self
             .partner_locked_lp_percentage
             .safe_add(self.creator_locked_lp_percentage)?;
@@ -285,9 +263,6 @@ impl ConfigParameters {
             PoolError::InvalidQuoteThreshold
         );
 
-        // validate vesting params
-        self.locked_vesting.validate()?;
-
         // validate pool creation fee
         if self.pool_creation_fee > 0 {
             require!(
@@ -296,37 +271,6 @@ impl ConfigParameters {
                 PoolError::InvalidPoolCreationFee
             )
         }
-
-        // validate price and liquidity
-        require!(
-            self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,
-            PoolError::InvalidCurve
-        );
-        let curve_length = self.curve.len();
-        require!(
-            curve_length > 0 && curve_length <= MAX_CURVE_POINT,
-            PoolError::InvalidCurve
-        );
-        require!(
-            self.curve[0].sqrt_price > self.sqrt_start_price
-                && self.curve[0].liquidity > 0
-                && self.curve[0].sqrt_price <= MAX_SQRT_PRICE,
-            PoolError::InvalidCurve
-        );
-
-        for i in 1..curve_length {
-            require!(
-                self.curve[i].sqrt_price > self.curve[i - 1].sqrt_price
-                    && self.curve[i].liquidity > 0,
-                PoolError::InvalidCurve
-            );
-        }
-
-        // the last price in curve must be smaller than or equal max price
-        require!(
-            self.curve[curve_length - 1].sqrt_price <= MAX_SQRT_PRICE,
-            PoolError::InvalidCurve
-        );
 
         Ok(())
     }
@@ -636,4 +580,120 @@ pub fn process_create_config<'a, 'info>(
         migration_fee_option,
         curve,
     })
+}
+
+pub struct ValidateCommonConfigParametersArgs<'a, 'b, 'info> {
+    pub quote_mint: &'a InterfaceAccount<'info, Mint>,
+    pub pool_fees: &'b PoolFeeParameters,
+    pub migration_fee: &'b MigrationFee,
+    pub activation_type: u8,
+    pub collect_fee_mode: u8,
+    pub creator_trading_fee_percentage: u8,
+    pub token_type: u8,
+    pub token_update_authority: u8,
+    pub token_decimal: u8,
+    pub migration_quote_threshold: u64,
+    pub locked_vesting: &'b LockedVestingParams,
+    pub sqrt_start_price: u128,
+    pub curve: &'b [LiquidityDistributionParameters],
+}
+
+pub fn validate_common_config_parameters<'a, 'b, 'info>(
+    args: ValidateCommonConfigParametersArgs<'a, 'b, 'info>,
+) -> Result<()> {
+    let ValidateCommonConfigParametersArgs {
+        quote_mint,
+        pool_fees,
+        migration_fee,
+        activation_type,
+        collect_fee_mode,
+        creator_trading_fee_percentage,
+        token_type,
+        token_update_authority,
+        token_decimal,
+        migration_quote_threshold,
+        locked_vesting,
+        sqrt_start_price,
+        curve,
+    } = args;
+
+    // validate quote mint
+    require!(
+        is_supported_quote_mint(quote_mint)?,
+        PoolError::InvalidQuoteMint
+    );
+
+    let activation_type =
+        ActivationType::try_from(activation_type).map_err(|_| PoolError::TypeCastFailed)?;
+
+    // validate fee
+    pool_fees.validate(collect_fee_mode, activation_type)?;
+
+    // validate creator trading fee percentage
+    require!(
+        creator_trading_fee_percentage <= 100,
+        PoolError::InvalidCreatorTradingFeePercentage
+    );
+
+    migration_fee.validate()?;
+    // validate collect fee mode
+    require!(
+        CollectFeeMode::try_from(collect_fee_mode).is_ok(),
+        PoolError::InvalidCollectFeeMode
+    );
+
+    let maybe_token_type_value = TokenType::try_from(token_type);
+    require!(maybe_token_type_value.is_ok(), PoolError::InvalidTokenType);
+
+    // validate token update authority
+    require!(
+        TokenAuthorityOption::try_from(token_update_authority).is_ok(),
+        PoolError::InvalidTokenAuthorityOption
+    );
+
+    // validate token decimals
+    require!(
+        token_decimal >= 6 && token_decimal <= 9,
+        PoolError::InvalidTokenDecimals
+    );
+
+    require!(
+        migration_quote_threshold > 0,
+        PoolError::InvalidQuoteThreshold
+    );
+
+    // validate vesting params
+    locked_vesting.validate()?;
+
+    // validate price and liquidity
+    require!(
+        sqrt_start_price >= MIN_SQRT_PRICE && sqrt_start_price < MAX_SQRT_PRICE,
+        PoolError::InvalidCurve
+    );
+    let curve_length = curve.len();
+    require!(
+        curve_length > 0 && curve_length <= MAX_CURVE_POINT,
+        PoolError::InvalidCurve
+    );
+    require!(
+        curve[0].sqrt_price > sqrt_start_price
+            && curve[0].liquidity > 0
+            && curve[0].sqrt_price <= MAX_SQRT_PRICE,
+        PoolError::InvalidCurve
+    );
+
+    for i in 1..curve_length {
+        require!(
+            curve[i].sqrt_price > curve[i - 1].sqrt_price && curve[i].liquidity > 0,
+            PoolError::InvalidCurve
+        );
+    }
+
+    // the last price in curve must be smaller than or equal max price
+    require!(
+        curve[curve_length - 1].sqrt_price <= MAX_SQRT_PRICE,
+        PoolError::InvalidCurve
+    );
+
+    Ok(())
 }
