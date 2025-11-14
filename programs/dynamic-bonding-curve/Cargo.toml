@@ -1,6 +1,6 @@
 [package]
 name = "dynamic-bonding-curve"
-version = "0.1.7"
+version = "0.1.8"
 description = "Created with Anchor"
 edition = "2021"
 
