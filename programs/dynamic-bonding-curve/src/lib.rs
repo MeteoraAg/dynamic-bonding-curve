@@ -71,11 +71,11 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    pub fn create_dammv2_config(
+    pub fn create_config_for_dammv2_migration(
         ctx: Context<CreateConfigCtx>,
         config_parameters: DammV2ConfigParameters,
     ) -> Result<()> {
-        instructions::handle_create_damm_v2_config(ctx, config_parameters)
+        instructions::handle_create_config_for_dammv2_migration(ctx, config_parameters)
     }
 
     pub fn claim_trading_fee(

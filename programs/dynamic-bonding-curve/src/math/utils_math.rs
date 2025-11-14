@@ -3,6 +3,7 @@ use num_traits::cast::FromPrimitive;
 use ruint::aliases::U256;
 
 use crate::{
+    constants::SLOT_MS,
     safe_math::SafeMath,
     u128x128_math::{mul_shr, shl_div, Rounding},
     PoolError,
@@ -93,4 +94,9 @@ pub fn sqrt_u256(radicand: U256) -> Option<U256> {
         (bit, _) = bit.overflowing_shr(2);
     }
     Some(result)
+}
+
+pub fn time_to_slot(time: u64) -> Result<u64> {
+    let result = u128::from(time).safe_mul(1000)?.safe_div(SLOT_MS.into())?;
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }

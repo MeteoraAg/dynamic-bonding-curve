@@ -19,11 +19,11 @@ use crate::{
     params::fee_parameters::{to_bps, to_numerator},
     safe_math::SafeMath,
     state::{
-        LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
+        LiquidityDistribution, LpVestingInfo, MigrationAmount, MigrationFeeOption, MigrationOption,
         MigrationProgress, PoolConfig, VirtualPool,
     },
     u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u128,
+    utils_math::{safe_mul_div_cast_u128, time_to_slot},
     *,
 };
 
@@ -270,10 +270,10 @@ impl<'info> MigrateDammV2Ctx<'info> {
         )
     }
 
-    fn impermanent_lock_liquidity(
+    fn vest_liquidity(
         &self,
-        impermanent_lock_liquidity: u128,
-        lock_duration: u32,
+        vested_liquidity: u128,
+        lp_vesting_info: LpVestingInfo,
         pool_authority_bump: u8,
         position_account: &AccountInfo<'info>,
         position_nft_account: &AccountInfo<'info>,
@@ -281,17 +281,11 @@ impl<'info> MigrateDammV2Ctx<'info> {
         vesting_bump: u8,
         pool_activation_type: ActivationType,
     ) -> Result<()> {
-        // There's 1 config is using slot activation. Thus, we need some estimation conversion here.
-        // https://solscan.io/account/A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
-        let cliff_point = get_cliff_point(pool_activation_type, lock_duration.into())?;
-
-        let vesting_params = damm_v2::types::VestingParameters {
-            cliff_point: Some(cliff_point),
-            liquidity_per_period: 0,
-            cliff_unlock_liquidity: impermanent_lock_liquidity,
-            period_frequency: 0,
-            number_of_period: 0,
-        };
+        let vesting_params = get_damm_v2_vesting_parameters(
+            pool_activation_type,
+            vested_liquidity,
+            &lp_vesting_info,
+        )?;
 
         let pool_authority_seeds = pool_authority_seeds!(pool_authority_bump);
 
@@ -769,6 +763,10 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {
         msg!("lock permanent liquidity for first position");
+        msg!(
+            "locked liquidity: {}",
+            first_position_liquidity_distribution.locked_liquidity
+        );
         ctx.accounts.lock_permanent_liquidity_for_first_position(
             first_position_liquidity_distribution.locked_liquidity,
             const_pda::pool_authority::BUMP,
@@ -776,7 +774,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     }
 
     // lock impermanent liquidity for first position
-    if first_position_liquidity_distribution.impermanent_locked_liquidity > 0 {
+    if first_position_liquidity_distribution.vested_liquidity > 0 {
         msg!("lock impermanent liquidity for first position");
 
         let Some(first_position_vesting_account) =
@@ -785,9 +783,9 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             return Err(ErrorCode::AccountNotEnoughKeys.into());
         };
 
-        ctx.accounts.impermanent_lock_liquidity(
-            first_position_liquidity_distribution.impermanent_locked_liquidity,
-            first_position_liquidity_distribution.lock_duration,
+        ctx.accounts.vest_liquidity(
+            first_position_liquidity_distribution.vested_liquidity,
+            first_position_liquidity_distribution.lp_vesting_info,
             const_pda::pool_authority::BUMP,
             &ctx.accounts.first_position,
             &ctx.accounts.first_position_nft_account,
@@ -827,21 +825,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
         let liquidity_subject_to_lock = liquidity_for_second_position.safe_sub(unlocked_lp)?;
 
-        let (impermanent_locked_lp, locked_lp) =
-            if second_position_liquidity_distribution.locked_lp_percentage == 0 {
-                (liquidity_subject_to_lock, 0)
-            } else {
-                let impermanent_locked_lp = safe_mul_div_cast_u128(
-                    liquidity_subject_to_lock,
-                    second_position_liquidity_distribution
-                        .impermanent_locked_lp_percentage
-                        .into(),
-                    100,
-                    Rounding::Down,
-                )?;
-                let locked_lp = liquidity_subject_to_lock.safe_sub(impermanent_locked_lp)?;
-                (impermanent_locked_lp, locked_lp)
-            };
+        let numerator = second_position_liquidity_distribution
+            .lp_vesting_info
+            .vesting_percentage;
+
+        let denominator =
+            numerator.safe_add(second_position_liquidity_distribution.locked_lp_percentage)?;
+
+        let vested_lp = safe_mul_div_cast_u128(
+            liquidity_subject_to_lock,
+            numerator.into(),
+            denominator.into(),
+            Rounding::Down,
+        )?;
+        let locked_lp = liquidity_subject_to_lock.safe_sub(vested_lp)?;
 
         ctx.accounts.create_second_position(
             unlocked_lp,
@@ -849,7 +846,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             const_pda::pool_authority::BUMP,
         )?;
 
-        if impermanent_locked_lp > 0 {
+        if vested_lp > 0 {
             let Some(second_position_vesting_account) =
                 &parsed_remaining_accounts.second_position_vesting_account
             else {
@@ -874,11 +871,9 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
                 return Err(PoolError::InvalidAccount.into());
             };
 
-            let lock_duration = second_position_liquidity_distribution.lock_duration;
-
-            ctx.accounts.impermanent_lock_liquidity(
-                impermanent_locked_lp,
-                lock_duration,
+            ctx.accounts.vest_liquidity(
+                vested_lp,
+                second_position_liquidity_distribution.lp_vesting_info,
                 const_pda::pool_authority::BUMP,
                 &second_position,
                 &second_position_nft_account,
@@ -951,25 +946,51 @@ fn get_liquidity_for_adding_liquidity(
     }
 }
 
-fn get_cliff_point(
+fn get_damm_v2_vesting_parameters(
     pool_activation_type: ActivationType,
-    lock_duration_in_seconds: u64,
-) -> Result<u64> {
+    vested_liquidity: u128,
+    lp_vesting_info: &LpVestingInfo,
+) -> Result<damm_v2::types::VestingParameters> {
     let clock = Clock::get()?;
+    let current_timestamp = clock.unix_timestamp as u64;
+
+    let frequency = lp_vesting_info.get_frequency();
+    let number_of_period = lp_vesting_info.get_number_of_periods();
+
+    let cliff_duration_from_migration_time =
+        lp_vesting_info.get_cliff_duration_from_migration_time();
+    let liquidity_per_period: u128 = if number_of_period > 0 {
+        vested_liquidity.safe_div(number_of_period.into())?
+    } else {
+        0
+    };
+    let cliff_unlock_liquidity =
+        vested_liquidity.safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;
 
     match pool_activation_type {
         ActivationType::Slot => {
-            let current_slot = clock.slot;
-            let slot_ms = 400;
-            let lock_duration_in_ms = lock_duration_in_seconds.safe_mul(1_000)?;
-            let lock_duration_in_slots = lock_duration_in_ms.div_ceil(slot_ms);
-            let cliff_point = current_slot.safe_add(lock_duration_in_slots)?;
-            Ok(cliff_point)
+            let cliff_duration_in_slots = time_to_slot(cliff_duration_from_migration_time.into())?;
+            let cliff_point = clock.slot.safe_add(cliff_duration_in_slots)?;
+            let period_frequency_in_slots = time_to_slot(frequency)?;
+
+            Ok(damm_v2::types::VestingParameters {
+                cliff_point: Some(cliff_point),
+                liquidity_per_period,
+                cliff_unlock_liquidity,
+                period_frequency: period_frequency_in_slots,
+                number_of_period,
+            })
         }
         ActivationType::Timestamp => {
-            let current_timestamp = clock.unix_timestamp as u64;
-            let cliff_point = current_timestamp.safe_add(lock_duration_in_seconds)?;
-            Ok(cliff_point)
+            let cliff_point =
+                current_timestamp.safe_add(cliff_duration_from_migration_time.into())?;
+            Ok(damm_v2::types::VestingParameters {
+                cliff_point: Some(cliff_point),
+                liquidity_per_period,
+                cliff_unlock_liquidity,
+                period_frequency: frequency,
+                number_of_period,
+            })
         }
     }
 }
