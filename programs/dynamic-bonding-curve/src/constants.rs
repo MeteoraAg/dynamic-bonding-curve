@@ -60,8 +60,11 @@ pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 pub const MIN_LOCKED_LP_PERCENTAGE: u8 = 10; // 10%
 
 // Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
-pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 365 * 10; // 10 years
-pub const MIN_LOCK_DURATION_IN_SECONDS: u64 = 60 * 60 * 24 * 7; // 7 days
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 10; // 10 years
+pub const MAX_LOCK_DURATION_IN_SLOTS: u64 = 9000 * 24 * 365 * 10; // 10 years
+
+// https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L52
+pub const SLOT_MS: u64 = 400;
 
 static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
 

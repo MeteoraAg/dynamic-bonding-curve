@@ -19,8 +19,8 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, LockedVestingConfig, LpImpermanentLockInfo, MigrationFeeOption,
-        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
+        CollectFeeMode, LockedVestingConfig, LpVestingInfo, MigrationFeeOption, MigrationOption,
+        PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
@@ -341,10 +341,8 @@ pub fn handle_create_config(
             token_decimal,
             partner_lp_percentage,
             partner_locked_lp_percentage,
-            partner_lp_impermanent_lock_info: LpImpermanentLockInfo::default(),
             creator_lp_percentage,
             creator_locked_lp_percentage,
-            creator_lp_impermanent_lock_info: LpImpermanentLockInfo::default(),
             migration_quote_threshold,
             sqrt_start_price,
             locked_vesting,
@@ -355,6 +353,8 @@ pub fn handle_create_config(
             token_update_authority,
             migration_fee,
             migrated_pool_fee,
+            partner_lp_vesting_info: LpVestingInfo::default(),
+            creator_lp_vesting_info: LpVestingInfo::default(),
         },
         ProcessCreateConfigAccounts {
             config: &ctx.accounts.config,
@@ -386,10 +386,8 @@ pub struct ProcessCreateConfigArgs {
     pub token_decimal: u8,
     pub partner_lp_percentage: u8,
     pub partner_locked_lp_percentage: u8,
-    pub partner_lp_impermanent_lock_info: LpImpermanentLockInfo,
     pub creator_lp_percentage: u8,
     pub creator_locked_lp_percentage: u8,
-    pub creator_lp_impermanent_lock_info: LpImpermanentLockInfo,
     pub migration_quote_threshold: u64,
     pub sqrt_start_price: u128,
     pub locked_vesting: LockedVestingParams,
@@ -400,6 +398,8 @@ pub struct ProcessCreateConfigArgs {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
+    pub partner_lp_vesting_info: LpVestingInfo,
+    pub creator_lp_vesting_info: LpVestingInfo,
 }
 
 pub struct ProcessCreateConfigAccounts<'a, 'info> {
@@ -422,10 +422,8 @@ pub fn process_create_config<'a, 'info>(
         token_decimal,
         partner_lp_percentage,
         partner_locked_lp_percentage,
-        partner_lp_impermanent_lock_info,
         creator_lp_percentage,
         creator_locked_lp_percentage,
-        creator_lp_impermanent_lock_info,
         migration_quote_threshold,
         sqrt_start_price,
         locked_vesting,
@@ -436,6 +434,8 @@ pub fn process_create_config<'a, 'info>(
         token_update_authority,
         migration_fee,
         migrated_pool_fee,
+        creator_lp_vesting_info,
+        partner_lp_vesting_info,
     } = args;
 
     let ProcessCreateConfigAccounts {

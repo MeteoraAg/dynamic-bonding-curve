@@ -14,7 +14,6 @@ import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
   claimPoolCreationFee,
-  ConfigParameters,
   createClaimFeeOperator,
   createConfig,
   createDammV2OnlyConfig,
@@ -144,16 +143,26 @@ describe("Rent fee farm", () => {
     let dammV2ConfigParameters: DammV2ConfigParameters = {
       ...instructionParams,
       creatorLpInfo: {
-        lockDuration: 86400 * 7, // 7 days
-        lpImpermanentLockPercentage: 5,
-        lpPermanentLockPercentage: 0,
         lpPercentage: 65,
+        lpPermanentLockPercentage: 0,
+        lpVestingInfo: {
+          vestingPercentage: 5,
+          frequency: new BN(0),
+          cliffDurationFromMigrationTime: 86400 * 7,
+          numberOfPeriods: 0,
+          bpsPerPeriod: 0,
+        },
       },
       partnerLpInfo: {
-        lockDuration: 86400 * 7, // 7 days
-        lpImpermanentLockPercentage: 5,
         lpPermanentLockPercentage: 0,
         lpPercentage: 25,
+        lpVestingInfo: {
+          vestingPercentage: 5,
+          frequency: new BN(0),
+          cliffDurationFromMigrationTime: 86400 * 7,
+          numberOfPeriods: 0,
+          bpsPerPeriod: 0,
+        },
       },
     };
 

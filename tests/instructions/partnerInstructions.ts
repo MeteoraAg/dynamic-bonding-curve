@@ -106,11 +106,18 @@ export type ConfigParameters = {
   curve: Array<LiquidityDistributionParameters>;
 };
 
+export type LpVestingInfoParams = {
+  vestingPercentage: number;
+  cliffDurationFromMigrationTime: number;
+  bpsPerPeriod: number;
+  frequency: BN;
+  numberOfPeriods: number;
+};
+
 export type LpDistributionInfo = {
   lpPercentage: number;
   lpPermanentLockPercentage: number;
-  lpImpermanentLockPercentage: number;
-  lockDuration: number;
+  lpVestingInfo: LpVestingInfoParams;
 };
 
 export type DammV2ConfigParameters = {
@@ -161,7 +168,6 @@ export async function createConfig(
     .createConfig({
       ...instructionParams,
       padding: new Array(64).fill(new BN(7)),
-      padding1: 0,
     })
     .accountsPartial({
       config: config.publicKey,
@@ -206,7 +212,6 @@ export async function createDammV2OnlyConfig(
     .createDammv2Config({
       ...instructionParams,
       padding: new Array(64).fill(new BN(7)),
-      padding1: 0,
     })
     .accountsPartial({
       config: config.publicKey,
@@ -227,33 +232,43 @@ export async function createDammV2OnlyConfig(
   expect(configState.partnerLpPercentage).equal(
     instructionParams.partnerLpInfo.lpPercentage
   );
-  expect(configState.partnerLpImpermanentLockInfo.lockPercentage).equal(
-    instructionParams.partnerLpInfo.lpImpermanentLockPercentage
+
+  let vestingLpInfo = configState.partnerLpVestingInfo;
+  let ixVestingLpInfo = instructionParams.partnerLpInfo.lpVestingInfo;
+
+  expect(vestingLpInfo.vestingPercentage).equal(
+    ixVestingLpInfo.vestingPercentage
   );
   expect(
-    new BN(
-      configState.partnerLpImpermanentLockInfo.lpLockDurationBytes,
-      "le"
-    ).toNumber()
-  ).equal(instructionParams.partnerLpInfo.lockDuration);
-  expect(configState.creatorLockedLpPercentage).equal(
-    instructionParams.creatorLpInfo.lpPermanentLockPercentage
+    new BN(vestingLpInfo.cliffDurationFromMigrationTime, "le").toNumber()
+  ).equal(ixVestingLpInfo.cliffDurationFromMigrationTime);
+  expect(new BN(vestingLpInfo.bpsPerPeriod, "le").toNumber()).equal(
+    ixVestingLpInfo.bpsPerPeriod
+  );
+  expect(new BN(vestingLpInfo.frequency, "le").toNumber()).equal(
+    ixVestingLpInfo.frequency.toNumber()
+  );
+  expect(new BN(vestingLpInfo.numberOfPeriods, "le").toNumber()).equal(
+    ixVestingLpInfo.numberOfPeriods
   );
 
-  expect(configState.creatorLpPercentage).equal(
-    instructionParams.creatorLpInfo.lpPercentage
-  );
-  expect(configState.creatorLpImpermanentLockInfo.lockPercentage).equal(
-    instructionParams.creatorLpInfo.lpImpermanentLockPercentage
+  vestingLpInfo = configState.creatorLpVestingInfo;
+  ixVestingLpInfo = instructionParams.creatorLpInfo.lpVestingInfo;
+
+  expect(vestingLpInfo.vestingPercentage).equal(
+    ixVestingLpInfo.vestingPercentage
   );
   expect(
-    new BN(
-      configState.creatorLpImpermanentLockInfo.lpLockDurationBytes,
-      "le"
-    ).toNumber()
-  ).equal(instructionParams.creatorLpInfo.lockDuration);
-  expect(configState.creatorLockedLpPercentage).equal(
-    instructionParams.creatorLpInfo.lpPermanentLockPercentage
+    new BN(vestingLpInfo.cliffDurationFromMigrationTime, "le").toNumber()
+  ).equal(ixVestingLpInfo.cliffDurationFromMigrationTime);
+  expect(new BN(vestingLpInfo.bpsPerPeriod, "le").toNumber()).equal(
+    ixVestingLpInfo.bpsPerPeriod
+  );
+  expect(new BN(vestingLpInfo.frequency, "le").toNumber()).equal(
+    ixVestingLpInfo.frequency.toNumber()
+  );
+  expect(new BN(vestingLpInfo.numberOfPeriods, "le").toNumber()).equal(
+    ixVestingLpInfo.numberOfPeriods
   );
 
   return config.publicKey;

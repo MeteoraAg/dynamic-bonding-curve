@@ -111,12 +111,12 @@ export async function migrateToDammV2(
   const partnerLpPercentage =
     configState.partnerLockedLpPercentage +
     configState.partnerLpPercentage +
-    configState.partnerLpImpermanentLockInfo.lockPercentage;
+    configState.partnerLpVestingInfo.vestingPercentage;
 
   const creatorLpPercentage =
     configState.creatorLockedLpPercentage +
     configState.creatorLpPercentage +
-    configState.creatorLpImpermanentLockInfo.lockPercentage;
+    configState.creatorLpVestingInfo.vestingPercentage;
 
   const minLpPercentage = Math.min(partnerLpPercentage, creatorLpPercentage);
   const maxLpPercentage = Math.max(partnerLpPercentage, creatorLpPercentage);

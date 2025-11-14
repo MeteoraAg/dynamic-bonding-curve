@@ -1,16 +1,17 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 
 use crate::{
     constants::{
-        MAX_LOCK_DURATION_IN_SECONDS, MIN_LOCKED_LP_PERCENTAGE, MIN_LOCK_DURATION_IN_SECONDS,
+        MAX_LOCK_DURATION_IN_SECONDS, MAX_LOCK_DURATION_IN_SLOTS, MIN_LOCKED_LP_PERCENTAGE,
     },
     params::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     process_create_config,
     safe_math::SafeMath,
-    state::{LpImpermanentLockInfo, MigrationFeeOption, MigrationOption},
+    state::{LpVestingInfo, MigrationFeeOption, MigrationOption},
+    utils_math::time_to_slot,
     validate_common_config_parameters, CreateConfigCtx, EvtCreateDammV2Config, LockedVestingParams,
     MigratedPoolFee, MigrationFee, PoolError, ProcessCreateConfigAccounts, ProcessCreateConfigArgs,
     TokenSupplyParams, ValidateCommonConfigParametersArgs,
@@ -20,8 +21,135 @@ use crate::{
 pub struct LpDistributionInfo {
     pub lp_percentage: u8,
     pub lp_permanent_lock_percentage: u8,
-    pub lp_impermanent_lock_percentage: u8,
-    pub lock_duration: u32,
+    pub lp_vesting_info: LpVestingInfoParams,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+pub struct LpVestingInfoParams {
+    pub vesting_percentage: u8,
+    pub cliff_duration_from_migration_time: u32,
+    pub bps_per_period: u16,
+    pub frequency: u64,
+    pub number_of_periods: u16,
+}
+
+impl LpVestingInfoParams {
+    pub fn validate(&self) -> Result<()> {
+        if self.is_none() {
+            return Ok(());
+        }
+
+        require!(
+            self.vesting_percentage > 0 && self.vesting_percentage <= 100,
+            PoolError::InvalidVestingParameters
+        );
+
+        if self.number_of_periods > 0 {
+            require!(
+                self.frequency > 0 && self.bps_per_period > 0,
+                PoolError::InvalidVestingParameters
+            );
+        }
+
+        let total_bps_after_cliff =
+            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
+
+        require!(
+            total_bps_after_cliff <= 10_000,
+            PoolError::InvalidVestingParameters
+        );
+
+        // We not sure the damm v2 config will be in slot / time activation. Therefore, we validate both time + slot based to ensure that later during migration we won't have issue.
+        // There's 1 config is using slot activation. Thus, we need some estimation conversion here.
+        // https://solscan.io/account/A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
+        let vesting_duration_in_seconds = u64::from(self.cliff_duration_from_migration_time)
+            .safe_add(self.frequency.safe_mul(self.number_of_periods.into())?)?;
+
+        require!(
+            vesting_duration_in_seconds <= MAX_LOCK_DURATION_IN_SECONDS,
+            PoolError::InvalidVestingParameters
+        );
+
+        let cliff_duration_from_migration_in_slots = time_to_slot(vesting_duration_in_seconds)?;
+        let frequency_in_slots = time_to_slot(self.frequency)?;
+        let vesting_duration_in_slots = cliff_duration_from_migration_in_slots
+            .safe_add(frequency_in_slots.safe_mul(self.number_of_periods.into())?)?;
+
+        require!(
+            vesting_duration_in_slots <= MAX_LOCK_DURATION_IN_SLOTS,
+            PoolError::InvalidVestingParameters
+        );
+
+        Ok(())
+    }
+
+    pub fn get_locked_percentage_at_day_one(&self) -> Result<u8> {
+        let vest_bps_at_day_one = self.vest_bps_locked_at_day_one()?;
+
+        let locked_percentage_at_day_one = vest_bps_at_day_one.safe_div(100)?;
+
+        Ok(locked_percentage_at_day_one
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
+        let total_bps_after_cliff =
+            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
+
+        let cliff_unlock_bps = 10_000u64.safe_sub(total_bps_after_cliff)?;
+        Ok(cliff_unlock_bps
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    fn vest_bps_locked_at_day_one(&self) -> Result<u16> {
+        if self.is_none() {
+            return Ok(0);
+        }
+
+        // Everything released after one day. All liquidities are locked at day one.
+        if u64::from(self.cliff_duration_from_migration_time) > SECONDS_PER_DAY {
+            return Ok(10_000);
+        }
+
+        let period = SECONDS_PER_DAY
+            .safe_sub(self.cliff_duration_from_migration_time.into())?
+            .safe_div(self.frequency)?;
+
+        let period = period.min(self.number_of_periods.into());
+
+        let cliff_unlock_bps = self.calculate_cliff_unlock_bps()?;
+
+        let bps_unlocked_at_day_one = u64::from(cliff_unlock_bps)
+            .safe_add(u64::from(self.bps_per_period).safe_mul(period)?)?;
+
+        let bps_locked_at_day_one = 10_000u64.safe_sub(bps_unlocked_at_day_one)?;
+
+        Ok(bps_locked_at_day_one
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    fn is_none(&self) -> bool {
+        self.vesting_percentage == 0
+            && self.cliff_duration_from_migration_time == 0
+            && self.bps_per_period == 0
+            && self.frequency == 0
+            && self.number_of_periods == 0
+    }
+
+    fn to_lp_vesting_info(self) -> LpVestingInfo {
+        LpVestingInfo {
+            vesting_percentage: self.vesting_percentage,
+            cliff_duration_from_migration_time: self
+                .cliff_duration_from_migration_time
+                .to_le_bytes(),
+            bps_per_period: self.bps_per_period.to_le_bytes(),
+            frequency: self.frequency.to_le_bytes(),
+            number_of_periods: self.number_of_periods.to_le_bytes(),
+        }
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -44,7 +172,6 @@ pub struct DammV2ConfigParameters {
     pub migrated_pool_fee: MigratedPoolFee,
     /// padding for future use
     pub padding: [u64; 7],
-    pub padding1: u8,
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -82,59 +209,36 @@ impl DammV2ConfigParameters {
         let LpDistributionInfo {
             lp_percentage: creator_lp_percentage,
             lp_permanent_lock_percentage: creator_permanent_lock_percentage,
-            lp_impermanent_lock_percentage: creator_lp_impermanent_lock_percentage,
-            lock_duration: creator_lock_duration,
+            lp_vesting_info: creator_lp_vesting_info,
         } = self.creator_lp_info;
+
+        creator_lp_vesting_info.validate()?;
 
         let LpDistributionInfo {
             lp_percentage: partner_lp_percentage,
             lp_permanent_lock_percentage: partner_permanent_lock_percentage,
-            lp_impermanent_lock_percentage: partner_lp_impermanent_lock_percentage,
-            lock_duration: partner_lock_duration,
+            lp_vesting_info: partner_lp_vesting_info,
         } = self.partner_lp_info;
 
-        if creator_lp_impermanent_lock_percentage == 0 {
-            require!(
-                creator_lock_duration == 0,
-                PoolError::InvalidVestingParameters
-            );
-        } else {
-            require!(
-                u64::from(creator_lock_duration) >= MIN_LOCK_DURATION_IN_SECONDS
-                    && u64::from(creator_lock_duration) <= MAX_LOCK_DURATION_IN_SECONDS,
-                PoolError::InvalidVestingParameters
-            );
-        }
-
-        if partner_lp_impermanent_lock_percentage == 0 {
-            require!(
-                partner_lock_duration == 0,
-                PoolError::InvalidVestingParameters
-            );
-        } else {
-            require!(
-                u64::from(partner_lock_duration) >= MIN_LOCK_DURATION_IN_SECONDS
-                    && u64::from(partner_lock_duration) <= MAX_LOCK_DURATION_IN_SECONDS,
-                PoolError::InvalidVestingParameters
-            );
-        }
+        partner_lp_vesting_info.validate()?;
 
         let lp_sum_percentage = creator_lp_percentage
             .safe_add(partner_lp_percentage)?
             .safe_add(creator_permanent_lock_percentage)?
             .safe_add(partner_permanent_lock_percentage)?
-            .safe_add(creator_lp_impermanent_lock_percentage)?
-            .safe_add(partner_lp_impermanent_lock_percentage)?;
+            .safe_add(creator_lp_vesting_info.vesting_percentage)?
+            .safe_add(partner_lp_vesting_info.vesting_percentage)?;
 
         require!(lp_sum_percentage == 100, PoolError::InvalidFeePercentage);
 
-        let locked_lp_sum_percentage = creator_permanent_lock_percentage
-            .safe_add(partner_permanent_lock_percentage)?
-            .safe_add(creator_lp_impermanent_lock_percentage)?
-            .safe_add(partner_lp_impermanent_lock_percentage)?;
+        let locked_percentage_at_day_one = creator_lp_vesting_info
+            .get_locked_percentage_at_day_one()?
+            .safe_add(partner_lp_vesting_info.get_locked_percentage_at_day_one()?)?
+            .safe_add(creator_permanent_lock_percentage)?
+            .safe_add(partner_permanent_lock_percentage)?;
 
         require!(
-            locked_lp_sum_percentage >= MIN_LOCKED_LP_PERCENTAGE,
+            locked_percentage_at_day_one >= MIN_LOCKED_LP_PERCENTAGE,
             PoolError::InvalidVestingParameters
         );
 
@@ -147,7 +251,7 @@ impl DammV2ConfigParameters {
     }
 }
 
-pub fn handle_create_damm_v2_config(
+pub fn handle_create_config_for_dammv2_migration(
     ctx: Context<CreateConfigCtx>,
     config_parameters: DammV2ConfigParameters,
 ) -> Result<()> {
@@ -193,16 +297,10 @@ pub fn handle_create_damm_v2_config(
             token_update_authority,
             creator_locked_lp_percentage: creator_lp_info.lp_permanent_lock_percentage,
             creator_lp_percentage: creator_lp_info.lp_percentage,
-            creator_lp_impermanent_lock_info: LpImpermanentLockInfo {
-                lock_percentage: creator_lp_info.lp_impermanent_lock_percentage,
-                lp_lock_duration_bytes: creator_lp_info.lock_duration.to_le_bytes(),
-            },
             partner_locked_lp_percentage: partner_lp_info.lp_permanent_lock_percentage,
             partner_lp_percentage: partner_lp_info.lp_percentage,
-            partner_lp_impermanent_lock_info: LpImpermanentLockInfo {
-                lock_percentage: partner_lp_info.lp_impermanent_lock_percentage,
-                lp_lock_duration_bytes: partner_lp_info.lock_duration.to_le_bytes(),
-            },
+            partner_lp_vesting_info: partner_lp_info.lp_vesting_info.to_lp_vesting_info(),
+            creator_lp_vesting_info: creator_lp_info.lp_vesting_info.to_lp_vesting_info(),
             curve,
         },
         ProcessCreateConfigAccounts {
