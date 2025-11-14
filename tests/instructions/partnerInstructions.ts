@@ -207,7 +207,7 @@ export async function createDammV2OnlyConfig(
   const config = Keypair.generate();
 
   const transaction = await program.methods
-    .createDammv2Config({
+    .createConfigForDammv2Migration({
       ...instructionParams,
       padding: new Array(64).fill(new BN(7)),
     })
