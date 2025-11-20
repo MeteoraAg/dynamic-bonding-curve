@@ -7,20 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `create_config_for_dammv2_migration` endpoint to allow create `PoolConfig` account for only DAMM v2 migration with LP vesting configuration.
-- `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
-
-### Removed
-
-- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig`. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
-
-### Changed
-
-- `migration_damm_v2` endpoint require `vesting` account for `first_position` and `second_position` if LP vesting was configured.
-- Increase migration fee for DAMMv2 token2022 pool from `0.01` to `0.015` SOL due to user able to get more lamports by closing `vesting` account from `lock_position`.
-
 ### Changed
 
 ### Deprecated
@@ -37,7 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--
+- `create_config_for_dammv2_migration` endpoint to allow create `PoolConfig` account for only DAMM v2 migration with LP vesting configuration.
+- `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
+
+### Removed
+
+- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
+
+### Changed
+
+- `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
+- Increase migration fee for DAMMv2 token2022 pool from `0.01` to `0.015` SOL due to user able to get more lamports by closing `vesting` account from `lock_position`.
 
 ## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
 
