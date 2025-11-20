@@ -402,7 +402,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
 
     fn create_second_position(
         &self,
-        liquidity: u128,
+        total_liquidity: u128,
         locked_liquidity: u128,
         bump: u8,
     ) -> Result<()> {
@@ -434,7 +434,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
         ))?;
 
         msg!("add liquidity");
-        let total_liquidity = liquidity.safe_add(locked_liquidity)?;
         cpi_with_account_lamport_and_owner_checking(
             || {
                 damm_v2::cpi::add_liquidity(
@@ -598,8 +597,13 @@ impl<'info> ParsedRemainingAccounts<'info> {
             let damm_config = damm_config_loader.load()?;
             validate_config_key(&damm_config, migration_fee_option)?;
 
-            ActivationType::try_from(damm_config.activation_type)
-                .map_err(|_| PoolError::TypeCastFailed)?
+            // When the config is dynamic type, DBC will set activation type to timestamp
+            if damm_config.config_type == 1 {
+                ActivationType::Timestamp
+            } else {
+                ActivationType::try_from(damm_config.activation_type)
+                    .map_err(|_| PoolError::TypeCastFailed)?
+            }
         };
 
         // Backward compatibility: if only 1 remaining accounts, it is damm config account
@@ -763,10 +767,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     // lock permanent liquidity
     if first_position_liquidity_distribution.locked_liquidity > 0 {
         msg!("lock permanent liquidity for first position");
-        msg!(
-            "locked liquidity: {}",
-            first_position_liquidity_distribution.locked_liquidity
-        );
         ctx.accounts.lock_permanent_liquidity_for_first_position(
             first_position_liquidity_distribution.locked_liquidity,
             const_pda::pool_authority::BUMP,
@@ -840,8 +840,10 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         )?;
         let locked_lp = liquidity_subject_to_lock.safe_sub(vested_lp)?;
 
+        let total_liquidity = unlocked_lp.safe_add(liquidity_subject_to_lock)?;
+
         ctx.accounts.create_second_position(
-            unlocked_lp,
+            total_liquidity,
             locked_lp,
             const_pda::pool_authority::BUMP,
         )?;
@@ -959,11 +961,13 @@ fn get_damm_v2_vesting_parameters(
 
     let cliff_duration_from_migration_time =
         lp_vesting_info.get_cliff_duration_from_migration_time();
+
     let liquidity_per_period: u128 = if number_of_period > 0 {
         vested_liquidity.safe_div(number_of_period.into())?
     } else {
         0
     };
+
     let cliff_unlock_liquidity =
         vested_liquidity.safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;
 
