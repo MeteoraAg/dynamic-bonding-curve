@@ -13,6 +13,7 @@ use crate::{
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
 use anchor_lang::solana_program::program::invoke;
 use anchor_lang::solana_program::system_instruction;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
@@ -124,7 +125,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        config.get_total_locked_lp_percentage_at_day_one()? >= MIN_LOCKED_LP_PERCENTAGE,
+        config.get_total_locked_lp_percentage_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LP_PERCENTAGE,
         PoolError::InvalidVestingParameters
     );
 
