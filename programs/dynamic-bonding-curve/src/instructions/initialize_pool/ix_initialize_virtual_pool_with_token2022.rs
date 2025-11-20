@@ -124,7 +124,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        config.get_total_locked_lp_percentage()? >= MIN_LOCKED_LP_PERCENTAGE,
+        config.get_total_locked_lp_percentage_at_day_one()? >= MIN_LOCKED_LP_PERCENTAGE,
         PoolError::InvalidVestingParameters
     );
 
