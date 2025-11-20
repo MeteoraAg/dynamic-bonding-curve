@@ -180,7 +180,7 @@ export async function migrateToDammV2(
     .transaction();
   transaction.add(
     ComputeBudgetProgram.setComputeUnitLimit({
-      units: 500_000,
+      units: 600_000,
     })
   );
   sendTransactionMaybeThrow(svm, transaction, [
