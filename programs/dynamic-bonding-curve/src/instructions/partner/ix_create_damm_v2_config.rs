@@ -1,4 +1,4 @@
-use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
+use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 
 use crate::{
@@ -35,7 +35,7 @@ pub struct LpVestingInfoParams {
 
 impl LpVestingInfoParams {
     pub fn validate(&self) -> Result<()> {
-        if self.is_none() {
+        if self.to_lp_vesting_info().is_none() {
             return Ok(());
         }
 
@@ -81,62 +81,6 @@ impl LpVestingInfoParams {
         );
 
         Ok(())
-    }
-
-    pub fn get_locked_percentage_at_day_one(&self) -> Result<u8> {
-        let vest_bps_at_day_one = self.vest_bps_locked_at_day_one()?;
-
-        let locked_percentage_at_day_one = vest_bps_at_day_one.safe_div(100)?;
-
-        Ok(locked_percentage_at_day_one
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?)
-    }
-
-    fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
-        let total_bps_after_cliff =
-            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
-
-        let cliff_unlock_bps = 10_000u64.safe_sub(total_bps_after_cliff)?;
-        Ok(cliff_unlock_bps
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?)
-    }
-
-    fn vest_bps_locked_at_day_one(&self) -> Result<u16> {
-        if self.is_none() {
-            return Ok(0);
-        }
-
-        // Everything released after one day. All liquidities are locked at day one.
-        if u64::from(self.cliff_duration_from_migration_time) > SECONDS_PER_DAY {
-            return Ok(10_000);
-        }
-
-        let period = SECONDS_PER_DAY
-            .safe_sub(self.cliff_duration_from_migration_time.into())?
-            .safe_div(self.frequency)?;
-
-        let period = period.min(self.number_of_periods.into());
-
-        let cliff_unlock_bps = self.calculate_cliff_unlock_bps()?;
-
-        let bps_unlocked_at_day_one = u64::from(cliff_unlock_bps)
-            .safe_add(u64::from(self.bps_per_period).safe_mul(period)?)?;
-
-        let bps_locked_at_day_one = 10_000u64.safe_sub(bps_unlocked_at_day_one)?;
-
-        Ok(bps_locked_at_day_one
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?)
-    }
-
-    fn is_none(&self) -> bool {
-        self.vesting_percentage == 0
-            && self.cliff_duration_from_migration_time == 0
-            && self.bps_per_period == 0
-            && self.frequency == 0
-            && self.number_of_periods == 0
     }
 
     fn to_lp_vesting_info(self) -> LpVestingInfo {
@@ -230,6 +174,9 @@ impl DammV2ConfigParameters {
             .safe_add(partner_lp_vesting_info.vesting_percentage)?;
 
         require!(lp_sum_percentage == 100, PoolError::InvalidFeePercentage);
+
+        let creator_lp_vesting_info: LpVestingInfo = creator_lp_vesting_info.to_lp_vesting_info();
+        let partner_lp_vesting_info: LpVestingInfo = partner_lp_vesting_info.to_lp_vesting_info();
 
         let locked_percentage_at_day_one = creator_lp_vesting_info
             .get_locked_percentage_at_day_one()?

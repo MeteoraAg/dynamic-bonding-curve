@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
@@ -557,27 +557,92 @@ const_assert_eq!(PoolConfig::INIT_SPACE, 1040);
 #[derive(Debug, Default, InitSpace)]
 pub struct LpVestingInfo {
     pub vesting_percentage: u8,
-    pub cliff_duration_from_migration_time: [u8; 4],
+    pub cliff_duration_from_migration_time: [u8; 4], // Use [u8; N] ensure no padding
     pub bps_per_period: [u8; 2],
     pub frequency: [u8; 8],
     pub number_of_periods: [u8; 2],
 }
 
 impl LpVestingInfo {
+    #[inline(always)]
     pub fn get_cliff_duration_from_migration_time(&self) -> u32 {
         u32::from_le_bytes(self.cliff_duration_from_migration_time)
     }
 
+    #[inline(always)]
     pub fn get_bps_per_period(&self) -> u16 {
         u16::from_le_bytes(self.bps_per_period)
     }
 
+    #[inline(always)]
     pub fn get_frequency(&self) -> u64 {
         u64::from_le_bytes(self.frequency)
     }
 
+    #[inline(always)]
     pub fn get_number_of_periods(&self) -> u16 {
         u16::from_le_bytes(self.number_of_periods)
+    }
+
+    pub fn get_locked_percentage_at_day_one(&self) -> Result<u8> {
+        let vest_bps_at_day_one = self.vest_bps_locked_at_day_one()?;
+        let vesting_bps = u32::from(self.vesting_percentage).safe_mul(100)?;
+
+        let vest_bps_at_day_one = u32::from(vest_bps_at_day_one)
+            .safe_mul(vesting_bps)?
+            .safe_div(10_000)?;
+
+        let locked_percentage_at_day_one = vest_bps_at_day_one.safe_div(100)?;
+
+        Ok(locked_percentage_at_day_one
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
+        let total_bps_after_cliff =
+            u64::from(self.get_bps_per_period()).safe_mul(self.get_number_of_periods().into())?;
+
+        let cliff_unlock_bps = 10_000u64.safe_sub(total_bps_after_cliff)?;
+        Ok(cliff_unlock_bps
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    fn vest_bps_locked_at_day_one(&self) -> Result<u16> {
+        if self.is_none() {
+            return Ok(0);
+        }
+
+        // Everything released after one day. All liquidities are locked at day one.
+        if u64::from(self.get_cliff_duration_from_migration_time()) > SECONDS_PER_DAY {
+            return Ok(10_000);
+        }
+
+        let period = SECONDS_PER_DAY
+            .safe_sub(self.get_cliff_duration_from_migration_time().into())?
+            .safe_div(self.get_frequency())?;
+
+        let period = period.min(self.get_number_of_periods().into());
+
+        let cliff_unlock_bps = self.calculate_cliff_unlock_bps()?;
+
+        let bps_unlocked_at_day_one = u64::from(cliff_unlock_bps)
+            .safe_add(u64::from(self.get_bps_per_period()).safe_mul(period)?)?;
+
+        let bps_locked_at_day_one = 10_000u64.safe_sub(bps_unlocked_at_day_one)?;
+
+        Ok(bps_locked_at_day_one
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.vesting_percentage == 0
+            && self.get_cliff_duration_from_migration_time() == 0
+            && self.get_bps_per_period() == 0
+            && self.get_frequency() == 0
+            && self.get_number_of_periods() == 0
     }
 }
 
@@ -916,12 +981,21 @@ impl PoolConfig {
         Ok((protocol_fee, partner_fee))
     }
 
-    pub fn get_total_locked_lp_percentage(&self) -> Result<u8> {
-        Ok(self
+    pub fn get_total_locked_lp_percentage_at_day_one(&self) -> Result<u8> {
+        let partner_locked_percentage_at_day_one = self
+            .partner_lp_vesting_info
+            .get_locked_percentage_at_day_one()?;
+        let creator_locked_percentage_at_day_one = self
+            .creator_lp_vesting_info
+            .get_locked_percentage_at_day_one()?;
+
+        let total_locked_lp_percentage_at_day_one = self
             .partner_locked_lp_percentage
+            .safe_add(partner_locked_percentage_at_day_one)?
             .safe_add(self.creator_locked_lp_percentage)?
-            .safe_add(self.partner_lp_vesting_info.vesting_percentage)?
-            .safe_add(self.creator_lp_vesting_info.vesting_percentage)?)
+            .safe_add(creator_locked_percentage_at_day_one)?;
+
+        Ok(total_locked_lp_percentage_at_day_one)
     }
 }
 
@@ -968,4 +1042,61 @@ pub struct MigrationAmount {
 pub struct MigrationFeeDistribution {
     pub partner_migration_fee: u64,
     pub creator_migration_fee: u64,
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_locked_percentage_at_day_one() {
+        let cliff_duration_from_migration_time = SECONDS_PER_DAY as u32 / 2;
+        let bps_per_period: u16 = 100;
+        let frequency: u64 = 3600; // 1 hour
+
+        // Total bps = 10_000
+        // We want cliff to unlock 5_000 bps (50%) at day one
+        let bps_after_cliff = 10_000 - 5_000;
+        let number_of_periods = bps_after_cliff / bps_per_period;
+
+        // Total unlock bps at day one = 5000 + (12 * 100) = 6200
+        // Locked percentage at day one = 10000 - 6200 = 3800
+        // Expected locked percentage at day one = 38%
+        // Creator lock 38% of 40% at day one = 15.2% -> 15%
+        let creator_lp_vesting_info = LpVestingInfo {
+            vesting_percentage: 40,
+            cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
+            bps_per_period: bps_per_period.to_le_bytes(),
+            frequency: frequency.to_le_bytes(),
+            number_of_periods: number_of_periods.to_le_bytes(),
+        };
+
+        let creator_lp_locked_at_day_one = creator_lp_vesting_info
+            .get_locked_percentage_at_day_one()
+            .unwrap();
+
+        assert_eq!(creator_lp_locked_at_day_one, 15);
+
+        let partner_lp_vesting_info = creator_lp_vesting_info.clone();
+
+        let mut config = PoolConfig::default();
+        config.partner_locked_lp_percentage = 1;
+        config.creator_locked_lp_percentage = 1;
+
+        config.partner_lp_vesting_info = partner_lp_vesting_info;
+        config.creator_lp_vesting_info = creator_lp_vesting_info;
+
+        let total_locked_lp_percentage_at_day_one =
+            config.get_total_locked_lp_percentage_at_day_one().unwrap();
+
+        assert_eq!(32, total_locked_lp_percentage_at_day_one);
+        assert_eq!(
+            creator_lp_locked_at_day_one
+                + partner_lp_vesting_info
+                    .get_locked_percentage_at_day_one()
+                    .unwrap()
+                + config.partner_locked_lp_percentage
+                + config.creator_locked_lp_percentage,
+            total_locked_lp_percentage_at_day_one
+        );
+    }
 }
