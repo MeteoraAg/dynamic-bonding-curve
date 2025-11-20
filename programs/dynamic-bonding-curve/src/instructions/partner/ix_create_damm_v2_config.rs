@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 
 use crate::{
@@ -179,8 +179,8 @@ impl DammV2ConfigParameters {
         let partner_lp_vesting_info: LpVestingInfo = partner_lp_vesting_info.to_lp_vesting_info();
 
         let locked_percentage_at_day_one = creator_lp_vesting_info
-            .get_locked_percentage_at_day_one()?
-            .safe_add(partner_lp_vesting_info.get_locked_percentage_at_day_one()?)?
+            .get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)?
+            .safe_add(partner_lp_vesting_info.get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)?)?
             .safe_add(creator_permanent_lock_percentage)?
             .safe_add(partner_permanent_lock_percentage)?;
 
