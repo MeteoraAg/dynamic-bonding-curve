@@ -419,18 +419,25 @@ describe("Rent fee farm", () => {
       });
 
       const poolAuthority = derivePoolAuthority();
-      const dammV2Config = await createDammV2Config(svm, admin, poolAuthority);
+      const dammV2Config = await createDammV2Config(
+        svm,
+        admin,
+        poolAuthority,
+        1 // Time-based activation
+      );
       const migrationParams: MigrateMeteoraDammV2Params = {
         payer: migrator,
         virtualPool,
         dammConfig: dammV2Config,
       };
 
-      const { dammPool, firstPosition, secondPosition } = await migrateToDammV2(
-        svm,
-        program,
-        migrationParams
-      );
+      const {
+        dammPool,
+        firstPosition,
+        secondPosition,
+        partnerVestingAddress,
+        creatorVestingAddress,
+      } = await migrateToDammV2(svm, program, migrationParams);
 
       const clock = await context.banksClient.getClock();
       // Wrap around 8 days later for position fully withdraw
@@ -451,14 +458,16 @@ describe("Rent fee farm", () => {
         svm,
         firstPosition,
         dammPool,
-        exploiterCreator
+        exploiterCreator,
+        creatorVestingAddress
       );
 
       const lamportRecovered2 = await withdrawAndClosePosition(
         svm,
         secondPosition,
         dammPool,
-        exploiterPartner
+        exploiterPartner,
+        partnerVestingAddress
       );
 
       console.log(
@@ -591,7 +600,8 @@ async function withdrawAndClosePosition(
   svm: LiteSVM,
   position: PublicKey,
   pool: PublicKey,
-  signer: Keypair
+  signer: Keypair,
+  vestingPositionAddress: PublicKey
 ): Promise<bigint> {
   const dammV2Program = createDammV2Program();
   const poolAccount = svm.getAccount(pool);
@@ -689,12 +699,8 @@ async function withdrawAndClosePosition(
 
   const instructions = [withdrawIx, closePositionIx];
 
-  const vestingPositionAddress = PublicKey.findProgramAddressSync(
-    [Buffer.from("vesting"), position.toBuffer()],
-    createVirtualCurveProgram().programId
-  )[0];
   const vestingAccount = await svm.getAccount(vestingPositionAddress);
-
+    
   if (vestingAccount) {
     const refreshVestingIx = await dammV2Program.methods
       .refreshVesting()

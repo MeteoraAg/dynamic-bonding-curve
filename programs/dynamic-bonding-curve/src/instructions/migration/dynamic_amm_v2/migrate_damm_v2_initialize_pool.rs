@@ -11,9 +11,12 @@ use damm_v2::types::{
 use ruint::aliases::U512;
 
 use crate::{
-    activation_handler::ActivationType,
     const_pda,
-    constants::{fee::FEE_DENOMINATOR, seeds::VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{
+        fee::FEE_DENOMINATOR,
+        seeds::{CREATOR_VESTING_PREFIX, PARTNER_VESTING_PREFIX},
+        MAX_SQRT_PRICE, MIN_SQRT_PRICE,
+    },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     params::fee_parameters::{to_bps, to_numerator},
@@ -23,7 +26,7 @@ use crate::{
         MigrationProgress, PoolConfig, VirtualPool,
     },
     u128x128_math::Rounding,
-    utils_math::{safe_mul_div_cast_u128, time_to_slot},
+    utils_math::safe_mul_div_cast_u128,
     *,
 };
 
@@ -270,29 +273,26 @@ impl<'info> MigrateDammV2Ctx<'info> {
         )
     }
 
-    fn vest_liquidity(
+    fn vest_liquidity<'a>(
         &self,
         vested_liquidity: u128,
         lp_vesting_info: LpVestingInfo,
         pool_authority_bump: u8,
         position_account: &AccountInfo<'info>,
         position_nft_account: &AccountInfo<'info>,
-        vesting_account: &AccountInfo<'info>,
-        vesting_bump: u8,
-        pool_activation_type: ActivationType,
+        vesting_account_and_seeds: VestingAccountAndSignerSeeds<'a, 'info>,
     ) -> Result<()> {
-        let vesting_params = get_damm_v2_vesting_parameters(
-            pool_activation_type,
-            vested_liquidity,
-            &lp_vesting_info,
-        )?;
-
+        let vesting_params = get_damm_v2_vesting_parameters(vested_liquidity, &lp_vesting_info)?;
         let pool_authority_seeds = pool_authority_seeds!(pool_authority_bump);
 
+        let vesting_account = vesting_account_and_seeds.get_vesting_account()?;
+
+        let pool_key = self.pool.key();
+
         let vesting_seeds = &[
-            VESTING_PREFIX,
-            position_account.key.as_ref(),
-            &[vesting_bump],
+            vesting_account_and_seeds.seed_prefix,
+            pool_key.as_ref(),
+            &[vesting_account_and_seeds.bump],
         ];
 
         let lock_position = || {
@@ -564,29 +564,29 @@ pub struct ParsedRemainingAccounts<'info> {
     /// CHECK: DAMM v2 pool config
     pub config: UncheckedAccount<'info>,
     #[account(mut)]
-    pub first_position_vesting_account: Option<AccountInfo<'info>>,
+    pub partner_position_vesting_account: Option<AccountInfo<'info>>,
     #[account(mut)]
-    pub second_position_vesting_account: Option<AccountInfo<'info>>,
+    pub creator_position_vesting_account: Option<AccountInfo<'info>>,
 }
 
 pub struct RemainingAccountsBumps {
-    pub first_position_vesting_account_bump: u8,
-    pub second_position_vesting_account_bump: u8,
+    pub partner_position_vesting_account_bump: u8,
+    pub creator_position_vesting_account_bump: u8,
 }
 
 impl<'info> ParsedRemainingAccounts<'info> {
     pub fn validate_and_parse<'c: 'info>(
         mut remaining_accounts: &'c [AccountInfo<'info>],
-        first_position_key: &Pubkey,
-        second_position_key: Option<&Pubkey>,
         migration_fee_option: MigrationFeeOption,
-    ) -> Result<(Self, RemainingAccountsBumps, ActivationType)> {
+        pool_key: Pubkey,
+    ) -> Result<(Self, RemainingAccountsBumps)> {
         require!(
             !remaining_accounts.is_empty(),
             ErrorCode::AccountNotEnoughKeys
         );
 
-        let pool_activation_type = {
+        {
+            // Validate damm config account
             let account = remaining_accounts
                 .first()
                 .ok_or(ErrorCode::AccountNotEnoughKeys)?;
@@ -596,14 +596,6 @@ impl<'info> ParsedRemainingAccounts<'info> {
 
             let damm_config = damm_config_loader.load()?;
             validate_config_key(&damm_config, migration_fee_option)?;
-
-            // When the config is dynamic type, DBC will set activation type to timestamp
-            if damm_config.config_type == 1 {
-                ActivationType::Timestamp
-            } else {
-                ActivationType::try_from(damm_config.activation_type)
-                    .map_err(|_| PoolError::TypeCastFailed)?
-            }
         };
 
         // Backward compatibility: if only 1 remaining accounts, it is damm config account
@@ -616,20 +608,19 @@ impl<'info> ParsedRemainingAccounts<'info> {
             return Ok((
                 ParsedRemainingAccounts {
                     config: config_account,
-                    first_position_vesting_account: None,
-                    second_position_vesting_account: None,
+                    partner_position_vesting_account: None,
+                    creator_position_vesting_account: None,
                 },
                 RemainingAccountsBumps {
-                    first_position_vesting_account_bump: 0,
-                    second_position_vesting_account_bump: 0,
+                    partner_position_vesting_account_bump: 0,
+                    creator_position_vesting_account_bump: 0,
                 },
-                pool_activation_type,
             ));
         }
 
         let mut bumps = RemainingAccountsBumps {
-            first_position_vesting_account_bump: 0,
-            second_position_vesting_account_bump: 0,
+            partner_position_vesting_account_bump: 0,
+            creator_position_vesting_account_bump: 0,
         };
 
         let accounts = ParsedRemainingAccounts::try_accounts(
@@ -640,38 +631,45 @@ impl<'info> ParsedRemainingAccounts<'info> {
             &mut BTreeSet::new(),
         )?;
 
-        if let Some(first_vesting_account) = accounts.first_position_vesting_account.as_ref() {
+        if let Some(partner) = accounts.partner_position_vesting_account.as_ref() {
             let (vesting_key, bump) = Pubkey::find_program_address(
-                &[VESTING_PREFIX, first_position_key.as_ref()],
+                &[PARTNER_VESTING_PREFIX, pool_key.as_ref()],
                 &crate::ID,
             );
 
-            require!(
-                first_vesting_account.key.eq(&vesting_key),
-                PoolError::InvalidAccount
-            );
-
-            bumps.first_position_vesting_account_bump = bump;
+            require!(partner.key.eq(&vesting_key), PoolError::InvalidAccount);
+            bumps.partner_position_vesting_account_bump = bump;
         }
 
-        if let Some(second_position_account) = accounts.second_position_vesting_account.as_ref() {
-            let Some(second_position_key) = second_position_key else {
-                return Err(PoolError::InvalidAccount.into());
-            };
-
+        if let Some(creator_position_account) = accounts.creator_position_vesting_account.as_ref() {
             let (vesting_key, bump) = Pubkey::find_program_address(
-                &[VESTING_PREFIX, second_position_key.as_ref()],
+                &[CREATOR_VESTING_PREFIX, pool_key.as_ref()],
                 &crate::ID,
             );
             require!(
-                second_position_account.key.eq(&vesting_key),
+                creator_position_account.key.eq(&vesting_key),
                 PoolError::InvalidAccount
             );
 
-            bumps.second_position_vesting_account_bump = bump;
+            bumps.creator_position_vesting_account_bump = bump;
         }
 
-        Ok((accounts, bumps, pool_activation_type))
+        Ok((accounts, bumps))
+    }
+}
+
+struct VestingAccountAndSignerSeeds<'a, 'info> {
+    pub vesting_account: &'a Option<AccountInfo<'info>>,
+    pub seed_prefix: &'static [u8],
+    pub bump: u8,
+}
+
+impl<'a, 'info> VestingAccountAndSignerSeeds<'a, 'info> {
+    pub fn get_vesting_account(&self) -> Result<&'a AccountInfo<'info>> {
+        let Some(vesting_account) = self.vesting_account.as_ref() else {
+            return Err(ErrorCode::AccountNotEnoughKeys.into());
+        };
+        Ok(vesting_account)
     }
 }
 
@@ -682,12 +680,11 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
-    let (parsed_remaining_accounts, remaining_accounts_bump, pool_activation_type) =
+    let (parsed_remaining_accounts, remaining_accounts_bump) =
         ParsedRemainingAccounts::validate_and_parse(
             &ctx.remaining_accounts[..],
-            ctx.accounts.first_position.key,
-            ctx.accounts.second_position.as_ref().map(|p| p.key),
             migration_fee_option,
+            ctx.accounts.pool.key(),
         )?;
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
@@ -735,6 +732,8 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         second_position_liquidity_distribution,
         first_position_owner,
         second_position_owner,
+        first_position_vesting_account_and_seeds,
+        second_position_vesting_account_and_seeds,
     ) = if partner_liquidity_distribution.get_total_liquidity()?
         > creator_liquidity_distribution.get_total_liquidity()?
     {
@@ -743,6 +742,16 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             creator_liquidity_distribution,
             config.fee_claimer,
             virtual_pool.creator,
+            VestingAccountAndSignerSeeds {
+                vesting_account: &parsed_remaining_accounts.partner_position_vesting_account,
+                seed_prefix: PARTNER_VESTING_PREFIX,
+                bump: remaining_accounts_bump.partner_position_vesting_account_bump,
+            },
+            VestingAccountAndSignerSeeds {
+                vesting_account: &parsed_remaining_accounts.creator_position_vesting_account,
+                seed_prefix: CREATOR_VESTING_PREFIX,
+                bump: remaining_accounts_bump.creator_position_vesting_account_bump,
+            },
         )
     } else {
         (
@@ -750,6 +759,16 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             partner_liquidity_distribution,
             virtual_pool.creator,
             config.fee_claimer,
+            VestingAccountAndSignerSeeds {
+                vesting_account: &parsed_remaining_accounts.creator_position_vesting_account,
+                seed_prefix: CREATOR_VESTING_PREFIX,
+                bump: remaining_accounts_bump.creator_position_vesting_account_bump,
+            },
+            VestingAccountAndSignerSeeds {
+                vesting_account: &parsed_remaining_accounts.partner_position_vesting_account,
+                seed_prefix: PARTNER_VESTING_PREFIX,
+                bump: remaining_accounts_bump.partner_position_vesting_account_bump,
+            },
         )
     };
 
@@ -777,21 +796,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     if first_position_liquidity_distribution.vested_liquidity > 0 {
         msg!("lock impermanent liquidity for first position");
 
-        let Some(first_position_vesting_account) =
-            &parsed_remaining_accounts.first_position_vesting_account
-        else {
-            return Err(ErrorCode::AccountNotEnoughKeys.into());
-        };
-
         ctx.accounts.vest_liquidity(
             first_position_liquidity_distribution.vested_liquidity,
             first_position_liquidity_distribution.lp_vesting_info,
             const_pda::pool_authority::BUMP,
             &ctx.accounts.first_position,
             &ctx.accounts.first_position_nft_account,
-            first_position_vesting_account,
-            remaining_accounts_bump.first_position_vesting_account_bump,
-            pool_activation_type,
+            first_position_vesting_account_and_seeds,
         )?;
     }
 
@@ -849,12 +860,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         )?;
 
         if vested_lp > 0 {
-            let Some(second_position_vesting_account) =
-                &parsed_remaining_accounts.second_position_vesting_account
-            else {
-                return Err(ErrorCode::AccountNotEnoughKeys.into());
-            };
-
             let Some(second_position) = ctx
                 .accounts
                 .second_position
@@ -879,9 +884,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
                 const_pda::pool_authority::BUMP,
                 &second_position,
                 &second_position_nft_account,
-                second_position_vesting_account,
-                remaining_accounts_bump.second_position_vesting_account_bump,
-                pool_activation_type,
+                second_position_vesting_account_and_seeds,
             )?;
         }
 
@@ -949,7 +952,6 @@ fn get_liquidity_for_adding_liquidity(
 }
 
 fn get_damm_v2_vesting_parameters(
-    pool_activation_type: ActivationType,
     vested_liquidity: u128,
     lp_vesting_info: &LpVestingInfo,
 ) -> Result<damm_v2::types::VestingParameters> {
@@ -971,30 +973,13 @@ fn get_damm_v2_vesting_parameters(
     let cliff_unlock_liquidity =
         vested_liquidity.safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;
 
-    match pool_activation_type {
-        ActivationType::Slot => {
-            let cliff_duration_in_slots = time_to_slot(cliff_duration_from_migration_time.into())?;
-            let cliff_point = clock.slot.safe_add(cliff_duration_in_slots)?;
-            let period_frequency_in_slots = time_to_slot(frequency)?;
+    let cliff_point = current_timestamp.safe_add(cliff_duration_from_migration_time.into())?;
 
-            Ok(damm_v2::types::VestingParameters {
-                cliff_point: Some(cliff_point),
-                liquidity_per_period,
-                cliff_unlock_liquidity,
-                period_frequency: period_frequency_in_slots,
-                number_of_period,
-            })
-        }
-        ActivationType::Timestamp => {
-            let cliff_point =
-                current_timestamp.safe_add(cliff_duration_from_migration_time.into())?;
-            Ok(damm_v2::types::VestingParameters {
-                cliff_point: Some(cliff_point),
-                liquidity_per_period,
-                cliff_unlock_liquidity,
-                period_frequency: frequency,
-                number_of_period,
-            })
-        }
-    }
+    Ok(damm_v2::types::VestingParameters {
+        cliff_point: Some(cliff_point),
+        liquidity_per_period,
+        cliff_unlock_liquidity,
+        period_frequency: frequency,
+        number_of_period,
+    })
 }
