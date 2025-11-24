@@ -393,7 +393,8 @@ export async function createDammConfig(
 export async function createDammV2Config(
   svm: LiteSVM,
   payer: Keypair,
-  poolCreatorAuthority: PublicKey
+  poolCreatorAuthority: PublicKey,
+  activationType: number = 0
 ): Promise<PublicKey> {
   const program = createDammV2Program();
   const params = {
@@ -415,7 +416,7 @@ export async function createDammV2Config(
     sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
     vaultConfigKey: PublicKey.default,
     poolCreatorAuthority,
-    activationType: 0,
+    activationType,
     collectFeeMode: 0,
   };
   const [config] = PublicKey.findProgramAddressSync(

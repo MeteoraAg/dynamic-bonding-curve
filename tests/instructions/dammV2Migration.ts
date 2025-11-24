@@ -59,6 +59,8 @@ export async function migrateToDammV2(
   dammPool: PublicKey;
   firstPosition: PublicKey;
   secondPosition: PublicKey;
+  partnerVestingAddress: PublicKey;
+  creatorVestingAddress: PublicKey;
 }> {
   const { payer, virtualPool, dammConfig } = params;
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
@@ -108,42 +110,41 @@ export async function migrateToDammV2(
     },
   ];
 
-  const partnerLpPercentage =
-    configState.partnerLockedLpPercentage +
-    configState.partnerLpPercentage +
-    configState.partnerLpVestingInfo.vestingPercentage;
+  const partnerVestingAddress = PublicKey.findProgramAddressSync(
+    [Buffer.from("partner_vesting"), dammPool.toBytes()],
+    program.programId
+  )[0];
 
-  const creatorLpPercentage =
-    configState.creatorLockedLpPercentage +
-    configState.creatorLpPercentage +
-    configState.creatorLpVestingInfo.vestingPercentage;
+  const creatorVestingAddress = PublicKey.findProgramAddressSync(
+    [Buffer.from("creator_vesting"), dammPool.toBytes()],
+    program.programId
+  )[0];
 
-  const minLpPercentage = Math.min(partnerLpPercentage, creatorLpPercentage);
-  const maxLpPercentage = Math.max(partnerLpPercentage, creatorLpPercentage);
-
-  if (maxLpPercentage > 0) {
-    const vestingAddress = PublicKey.findProgramAddressSync(
-      [Buffer.from("vesting"), firstPosition.toBytes()],
-      program.programId
-    )[0];
-
+  if (configState.partnerLpVestingInfo.vestingPercentage > 0) {
     remainingAccounts.push({
       isSigner: false,
       isWritable: true,
-      pubkey: vestingAddress,
+      pubkey: partnerVestingAddress,
+    });
+  } else {
+    remainingAccounts.push({
+      isSigner: false,
+      isWritable: false,
+      pubkey: program.programId,
     });
   }
 
-  if (minLpPercentage > 0) {
-    const vestingAddress = PublicKey.findProgramAddressSync(
-      [Buffer.from("vesting"), secondPosition.toBytes()],
-      program.programId
-    )[0];
-
+  if (configState.creatorLpVestingInfo.vestingPercentage > 0) {
     remainingAccounts.push({
       isSigner: false,
       isWritable: true,
-      pubkey: vestingAddress,
+      pubkey: creatorVestingAddress,
+    });
+  } else {
+    remainingAccounts.push({
+      isSigner: false,
+      isWritable: false,
+      pubkey: program.programId,
     });
   }
 
@@ -193,6 +194,8 @@ export async function migrateToDammV2(
     dammPool,
     firstPosition,
     secondPosition,
+    partnerVestingAddress,
+    creatorVestingAddress,
   };
 }
 

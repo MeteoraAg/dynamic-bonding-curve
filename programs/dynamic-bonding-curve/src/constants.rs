@@ -61,10 +61,6 @@ pub const MIN_LOCKED_LP_PERCENTAGE: u8 = 10; // 10%
 
 // Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
 pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 10; // 10 years
-pub const MAX_LOCK_DURATION_IN_SLOTS: u64 = 9000 * 24 * 365 * 10; // 10 years
-
-// https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L52
-pub const SLOT_MS: u64 = 400;
 
 static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
 
@@ -118,5 +114,6 @@ pub mod seeds {
     pub const PARTNER_METADATA_PREFIX: &[u8] = b"partner_metadata";
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
-    pub const VESTING_PREFIX: &[u8] = b"vesting";
+    pub const PARTNER_VESTING_PREFIX: &[u8] = b"partner_vesting";
+    pub const CREATOR_VESTING_PREFIX: &[u8] = b"creator_vesting";
 }

@@ -2,16 +2,13 @@ use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 
 use crate::{
-    constants::{
-        MAX_LOCK_DURATION_IN_SECONDS, MAX_LOCK_DURATION_IN_SLOTS, MIN_LOCKED_LP_PERCENTAGE,
-    },
+    constants::{MAX_LOCK_DURATION_IN_SECONDS, MIN_LOCKED_LP_PERCENTAGE},
     params::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     process_create_config,
     safe_math::SafeMath,
     state::{LpVestingInfo, MigrationFeeOption, MigrationOption},
-    utils_math::time_to_slot,
     validate_common_config_parameters, CreateConfigCtx, EvtCreateDammV2Config, LockedVestingParams,
     MigratedPoolFee, MigrationFee, PoolError, ProcessCreateConfigAccounts, ProcessCreateConfigArgs,
     TokenSupplyParams, ValidateCommonConfigParametersArgs,
@@ -59,24 +56,13 @@ impl LpVestingInfoParams {
             PoolError::InvalidVestingParameters
         );
 
-        // We not sure the damm v2 config will be in slot / time activation. Therefore, we validate both time + slot based to ensure that later during migration we won't have issue.
-        // There's 1 config is using slot activation. Thus, we need some estimation conversion here.
+        // Currently, all damm v2 config use time based activation. Creation of config in damm v2 is permissioned.
         // https://solscan.io/account/A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
         let vesting_duration_in_seconds = u64::from(self.cliff_duration_from_migration_time)
             .safe_add(self.frequency.safe_mul(self.number_of_periods.into())?)?;
 
         require!(
             vesting_duration_in_seconds <= MAX_LOCK_DURATION_IN_SECONDS,
-            PoolError::InvalidVestingParameters
-        );
-
-        let cliff_duration_from_migration_in_slots = time_to_slot(vesting_duration_in_seconds)?;
-        let frequency_in_slots = time_to_slot(self.frequency)?;
-        let vesting_duration_in_slots = cliff_duration_from_migration_in_slots
-            .safe_add(frequency_in_slots.safe_mul(self.number_of_periods.into())?)?;
-
-        require!(
-            vesting_duration_in_slots <= MAX_LOCK_DURATION_IN_SLOTS,
             PoolError::InvalidVestingParameters
         );
 
