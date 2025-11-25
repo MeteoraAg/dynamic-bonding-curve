@@ -190,6 +190,6 @@ pub struct EvtPartnerWithdrawMigrationFee {
 #[event]
 pub struct EvtClaimPoolCreationFee {
     pub pool: Pubkey,
-    pub treasury: Pubkey,
+    pub receiver: Pubkey,
     pub creation_fee: u64,
 }

@@ -61,24 +61,7 @@ describe("Rent fee farm", () => {
   let program: VirtualCurveProgram;
   let operator: Keypair;
 
-  let totalTokenSupply = 1_000_000_000; // 1 billion
-  let initialMarketcap = 30; // 30 SOL;
-  let migrationMarketcap = 300; // 300 SOL;
-  let tokenBaseDecimal = 6;
   let tokenQuoteDecimal = 9;
-  let kFactor = 1.2;
-  let lockedVesting = {
-    amountPerPeriod: new BN(0),
-    cliffDurationFromMigrationTime: new BN(0),
-    frequency: new BN(0),
-    numberOfPeriod: new BN(0),
-    cliffUnlockAmount: new BN(0),
-  };
-  let leftOver = 10_000;
-
-  // let migrateDammV1Config: PublicKey;
-  // let migrateDammV2Config: PublicKey;
-  // let migrateDammV1ConfigToken2022: PublicKey;
   let quoteMint: PublicKey;
 
   beforeEach(async () => {

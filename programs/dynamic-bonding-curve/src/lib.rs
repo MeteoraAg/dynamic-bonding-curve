@@ -78,6 +78,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    pub fn partner_claim_pool_creation_fee(ctx: Context<ClaimPartnerCreationFeeCtx>) -> Result<()> {
+        instructions::handle_partner_claim_pool_creation_fee(ctx)
+    }
+
     // withdraw surplus on quote token
     pub fn partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_partner_withdraw_surplus(ctx)

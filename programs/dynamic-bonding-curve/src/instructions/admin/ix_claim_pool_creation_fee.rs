@@ -27,7 +27,7 @@ pub struct ClaimCreationFeeCtx<'info> {
 pub fn handle_claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
 
-    if pool.has_creation_fee() && !pool.creation_fee_claimed() {
+    if pool.has_creation_fee() && !pool.protocol_pool_creation_fee_claimed() {
         let protocol_pool_creation_fee = pool.get_protocol_pool_creation_fee()?;
         drop(pool);
 
@@ -38,11 +38,11 @@ pub fn handle_claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Resu
             .add_lamports(protocol_pool_creation_fee)?;
 
         let mut pool = ctx.accounts.pool.load_mut()?;
-        pool.update_creation_fee_claimed();
+        pool.update_protocol_pool_creation_fee_claimed();
 
         emit_cpi!(EvtClaimPoolCreationFee {
             pool: ctx.accounts.pool.key(),
-            treasury: ctx.accounts.treasury.key(),
+            receiver: ctx.accounts.treasury.key(),
             creation_fee: protocol_pool_creation_fee,
         });
     }

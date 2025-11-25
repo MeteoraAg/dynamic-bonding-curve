@@ -13,6 +13,7 @@ import {
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
+  createVirtualCurveProgram,
   derivePartnerMetadata,
   derivePoolAuthority,
   getOrCreateAssociatedTokenAccount,
@@ -412,4 +413,27 @@ export async function partnerWithdrawMigrationFee(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [partner]);
+}
+
+export async function partnerClaimPoolCreationFee(
+  banksClient: BanksClient,
+  feeClaimer: Keypair,
+  config: PublicKey,
+  virtualPool: PublicKey,
+  feeReceiver: PublicKey
+) {
+  const program = createVirtualCurveProgram();
+  const transaction = await program.methods
+    .partnerClaimPoolCreationFee()
+    .accountsPartial({
+      pool: virtualPool,
+      config,
+      feeClaimer: feeClaimer.publicKey,
+      feeReceiver,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(feeClaimer);
+  await processTransactionMaybeThrow(banksClient, transaction);
 }

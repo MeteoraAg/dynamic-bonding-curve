@@ -1,6 +1,6 @@
 use crate::{state::*, *};
 
-/// Accounts for withdraw creation fees
+/// Accounts for partner withdraw creation fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimPartnerCreationFeeCtx<'info> {
@@ -24,7 +24,7 @@ pub fn handle_partner_claim_pool_creation_fee(
 ) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
 
-    if pool.has_creation_fee() && !pool.partner_fee_claimed() {
+    if pool.has_creation_fee() && !pool.partner_pool_creation_fee_claimed() {
         let partner_pool_creation_fee = pool.get_partner_pool_creation_fee()?;
         drop(pool);
 
@@ -35,9 +35,13 @@ pub fn handle_partner_claim_pool_creation_fee(
             .add_lamports(partner_pool_creation_fee)?;
 
         let mut pool = ctx.accounts.pool.load_mut()?;
-        pool.update_partner_fee_claimed();
+        pool.update_partner_pool_creation_fee_claimed();
 
-        // TODO: emit event
+        emit_cpi!(EvtClaimPoolCreationFee {
+            pool: ctx.accounts.pool.key(),
+            receiver: ctx.accounts.fee_receiver.key(),
+            creation_fee: partner_pool_creation_fee,
+        });
     }
 
     Ok(())
