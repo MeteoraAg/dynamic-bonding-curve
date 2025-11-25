@@ -9,7 +9,7 @@ import {
   unpackAccount,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
-import { BN } from "bn.js";
+import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
@@ -76,9 +76,9 @@ describe("Rent fee farm", () => {
   };
   let leftOver = 10_000;
 
-  let migrateDammV1Config: PublicKey;
-  let migrateDammV2Config: PublicKey;
-  let migrateDammV1ConfigToken2022: PublicKey;
+  // let migrateDammV1Config: PublicKey;
+  // let migrateDammV2Config: PublicKey;
+  // let migrateDammV1ConfigToken2022: PublicKey;
   let quoteMint: PublicKey;
 
   beforeEach(async () => {
@@ -101,62 +101,7 @@ describe("Rent fee farm", () => {
       BigInt(U64_MAX.toString())
     );
 
-    let instructionParams = designGraphCurve(
-      totalTokenSupply,
-      initialMarketcap,
-      migrationMarketcap,
-      0,
-      tokenBaseDecimal,
-      tokenQuoteDecimal,
-      0,
-      0,
-      lockedVesting,
-      leftOver,
-      kFactor,
-      {
-        cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 0, // 10 bps
-        secondFactor: new BN(0),
-        thirdFactor: new BN(0),
-        baseFeeMode: 0, // rate limiter mode
-      }
-    );
-
-    instructionParams.partnerLpPercentage = 10;
-    instructionParams.creatorLpPercentage = 90;
-    instructionParams.creatorLockedLpPercentage = 0;
-    instructionParams.partnerLockedLpPercentage = 0;
-    instructionParams.collectFeeMode = 1; // Output only
-
-    migrateDammV1Config = await createConfig(svm, program, {
-      payer: exploiterPartner,
-      leftoverReceiver: exploiterPartner.publicKey,
-      feeClaimer: exploiterPartner.publicKey,
-      quoteMint,
-      instructionParams,
-    });
-
-    instructionParams.migrationOption = 1;
-
-    migrateDammV2Config = await createConfig(svm, program, {
-      payer: exploiterPartner,
-      leftoverReceiver: exploiterPartner.publicKey,
-      feeClaimer: exploiterPartner.publicKey,
-      quoteMint,
-      instructionParams,
-    });
-
-    instructionParams.tokenType = 1;
-
-    migrateDammV1ConfigToken2022 = await createConfig(svm, program, {
-      payer: exploiterPartner,
-      leftoverReceiver: exploiterPartner.publicKey,
-      feeClaimer: exploiterPartner.publicKey,
-      quoteMint,
-      instructionParams,
-    });
-
-    await createClaimFeeOperator(svm, program, {
+    await createClaimFeeOperator(context.banksClient, program, {
       admin,
       operator: operator.publicKey,
     });
@@ -319,6 +264,12 @@ describe("Rent fee farm", () => {
     }
 
     it("spl-token", async () => {
+      const { migrateDammV1Config } = await createConfigAccount(
+        context.banksClient,
+        exploiterPartner,
+        quoteMint,
+        new BN(0)
+      );
       await dammV1FarmSolFailure(async () => {
         return createPoolWithSplToken(svm, program, {
           poolCreator: exploiterCreator,
@@ -347,6 +298,8 @@ describe("Rent fee farm", () => {
       const virtualPool = await createPoolFn();
 
       let virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+      console.log({ assertCreationFeeCharged });
 
       if (assertCreationFeeCharged) {
         expect(virtualPoolState.creationFeeBits).to.be.equal(1);
@@ -441,6 +394,12 @@ describe("Rent fee farm", () => {
     }
 
     it("spl-token", async () => {
+      const { migrateDammV2Config } = await createConfigAccount(
+        context.banksClient,
+        exploiterPartner,
+        quoteMint,
+        new BN(0)
+      );
       await dammV2FarmSolFailure(async () => {
         return createPoolWithSplToken(svm, program, {
           poolCreator: exploiterCreator,
@@ -457,6 +416,12 @@ describe("Rent fee farm", () => {
     });
 
     it("token-2022", async () => {
+      const { migrateDammV1ConfigToken2022 } = await createConfigAccount(
+        context.banksClient,
+        exploiterPartner,
+        quoteMint,
+        new BN(0.1 * 10e9)
+      );
       await dammV2FarmSolFailure(async () => {
         return createPoolWithToken2022(svm, program, {
           poolCreator: exploiterCreator,
@@ -475,7 +440,13 @@ describe("Rent fee farm", () => {
 
   describe("Claim creation fee", async () => {
     it("non farmable pool", async () => {
-      const pool = await createPoolWithSplToken(svm, program, {
+      const { migrateDammV1Config } = await createConfigAccount(
+        context.banksClient,
+        exploiterPartner,
+        quoteMint,
+        new BN(0)
+      );
+      const pool = await createPoolWithSplToken(context.banksClient, program, {
         poolCreator: admin,
         payer: admin,
         quoteMint,
@@ -500,7 +471,13 @@ describe("Rent fee farm", () => {
     });
 
     it("farmable pool", async () => {
-      const pool = await createPoolWithToken2022(svm, program, {
+      const { migrateDammV1ConfigToken2022 } = await createConfigAccount(
+        context.banksClient,
+        exploiterPartner,
+        quoteMint,
+        new BN(0.1 * 10e9)
+      );
+      const pool = await createPoolWithToken2022(context.banksClient, program, {
         poolCreator: exploiterCreator,
         payer: exploiterCreator,
         quoteMint,
@@ -642,4 +619,92 @@ async function withdrawAndClosePosition(
   const afterBalance = svm.getBalance(signer.publicKey);
 
   return afterBalance - beforeBalance;
+}
+
+async function createConfigAccount(
+  banksClient: BanksClient,
+  creator: Keypair,
+  quoteMint: PublicKey,
+  poolCreationFee: BN
+) {
+  let totalTokenSupply = 1_000_000_000; // 1 billion
+  let initialMarketcap = 30; // 30 SOL;
+  let migrationMarketcap = 300; // 300 SOL;
+  let tokenBaseDecimal = 6;
+  let tokenQuoteDecimal = 9;
+  let kFactor = 1.2;
+  let lockedVesting = {
+    amountPerPeriod: new BN(0),
+    cliffDurationFromMigrationTime: new BN(0),
+    frequency: new BN(0),
+    numberOfPeriod: new BN(0),
+    cliffUnlockAmount: new BN(0),
+  };
+  let leftOver = 10_000;
+  const program = createVirtualCurveProgram();
+
+  let instructionParams = designGraphCurve(
+    totalTokenSupply,
+    initialMarketcap,
+    migrationMarketcap,
+    0,
+    tokenBaseDecimal,
+    tokenQuoteDecimal,
+    0,
+    0,
+    lockedVesting,
+    leftOver,
+    kFactor,
+    {
+      cliffFeeNumerator: new BN(10_000_000), // 100bps
+      firstFactor: 0, // 10 bps
+      secondFactor: new BN(0),
+      thirdFactor: new BN(0),
+      baseFeeMode: 0, // rate limiter mode
+    }
+  );
+
+  instructionParams.partnerLpPercentage = 10;
+  instructionParams.creatorLpPercentage = 90;
+  instructionParams.creatorLockedLpPercentage = 0;
+  instructionParams.partnerLockedLpPercentage = 0;
+  instructionParams.collectFeeMode = 1; // Output only
+  instructionParams.poolCreationFee = poolCreationFee;
+
+  const migrateDammV1Config = await createConfig(banksClient, program, {
+    payer: creator,
+    leftoverReceiver: creator.publicKey,
+    feeClaimer: creator.publicKey,
+    quoteMint,
+    instructionParams,
+  });
+
+  instructionParams.migrationOption = 1;
+
+  const migrateDammV2Config = await createConfig(banksClient, program, {
+    payer: creator,
+    leftoverReceiver: creator.publicKey,
+    feeClaimer: creator.publicKey,
+    quoteMint,
+    instructionParams,
+  });
+
+  instructionParams.tokenType = 1;
+
+  const migrateDammV1ConfigToken2022 = await createConfig(
+    banksClient,
+    program,
+    {
+      payer: creator,
+      leftoverReceiver: creator.publicKey,
+      feeClaimer: creator.publicKey,
+      quoteMint,
+      instructionParams,
+    }
+  );
+  return {
+    migrateDammV1Config,
+    migrateDammV2Config,
+    migrateDammV1ConfigToken2022,
+  };
 }

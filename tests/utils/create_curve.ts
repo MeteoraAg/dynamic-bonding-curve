@@ -1,4 +1,3 @@
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import BN from "bn.js";
 import { assert, expect } from "chai";
 import Decimal from "decimal.js";
@@ -510,7 +509,7 @@ export function designCurve(
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    poolCreationFee: opts.poolCreationFee ?? new BN(0.1 * LAMPORTS_PER_SOL), // default 0.1 SOL
+    poolCreationFee: new BN(0),
     padding: [],
     curve,
   };
@@ -529,8 +528,7 @@ export function designGraphCurve(
   lockedVesting: LockedVestingParams,
   leftOver: number,
   kFactor: number,
-  baseFee: BaseFee,
-  poolCreationFee?: BN
+  baseFee: BaseFee
 ): ConfigParameters {
   // 1. finding Pmax and Pmin
   let pMin = getSqrtPriceFromMarketCap(
@@ -663,7 +661,7 @@ export function designGraphCurve(
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    poolCreationFee: poolCreationFee ?? new BN(0.1 * LAMPORTS_PER_SOL), // default 0.1 SOL
+    poolCreationFee: new BN(0),
     padding: [],
     curve,
   };
