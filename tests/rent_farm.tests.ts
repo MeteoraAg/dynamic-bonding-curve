@@ -282,10 +282,8 @@ describe("Rent fee farm", () => {
 
       let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-      console.log({ assertCreationFeeCharged });
-
       if (assertCreationFeeCharged) {
-        expect(virtualPoolState.creationFeeBits).to.be.equal(1);
+        expect(virtualPoolState.creationFeeBits & 0b00000001).to.be.equal(1);
       } else {
         expect(virtualPoolState.creationFeeBits).to.be.equal(0);
       }

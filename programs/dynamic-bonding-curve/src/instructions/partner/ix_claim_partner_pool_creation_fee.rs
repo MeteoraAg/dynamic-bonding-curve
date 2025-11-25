@@ -24,7 +24,10 @@ pub fn handle_partner_claim_pool_creation_fee(
 ) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
 
-    if pool.has_creation_fee() && !pool.partner_pool_creation_fee_claimed() {
+    if pool.has_creation_fee()
+        && pool.has_partner_pool_creation_fee()
+        && !pool.partner_pool_creation_fee_claimed()
+    {
         let partner_pool_creation_fee = pool.get_partner_pool_creation_fee()?;
         drop(pool);
 
