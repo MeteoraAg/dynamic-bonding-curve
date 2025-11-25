@@ -1,7 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
-use crate::constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE;
-use crate::state::CollectFeeMode;
+use crate::token::transfer_lamports;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -12,8 +11,6 @@ use crate::{
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke;
-use anchor_lang::solana_program::system_instruction;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::{
@@ -150,23 +147,13 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     );
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
 
-    let collect_fee_mode = CollectFeeMode::try_from(config.collect_fee_mode)
-        .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-
-    let should_charge_creation_fee = collect_fee_mode == CollectFeeMode::OutputToken;
-
-    if should_charge_creation_fee {
-        invoke(
-            &system_instruction::transfer(
-                &ctx.accounts.payer.key(),
-                &ctx.accounts.pool.key(),
-                TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
-            ),
-            &[
-                ctx.accounts.payer.to_account_info(),
-                ctx.accounts.pool.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
+    // charge pool creation fee
+    if config.pool_creation_fee > 0 {
+        transfer_lamports(
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.pool.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            config.pool_creation_fee,
         )?;
     }
 
@@ -267,7 +254,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
-        should_charge_creation_fee,
+        config.pool_creation_fee,
     );
 
     emit_cpi!(EvtInitializePool {

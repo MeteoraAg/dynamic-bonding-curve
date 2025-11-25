@@ -15,6 +15,7 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
+    token::transfer_lamports,
     EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -175,6 +176,16 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         ctx.accounts.pool_authority.to_account_info(),
     )?;
 
+    // charge pool creation fee
+    if config.pool_creation_fee > 0 {
+        transfer_lamports(
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.pool.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            config.pool_creation_fee,
+        )?;
+    }
+
     // mint token
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     anchor_spl::token::mint_to(
@@ -223,7 +234,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
-        false,
+        config.pool_creation_fee,
     );
 
     emit_cpi!(EvtInitializePool {

@@ -1,7 +1,4 @@
-use crate::{
-    constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE, state::*,
-    EvtClaimPoolCreationFee, *,
-};
+use crate::{state::*, EvtClaimPoolCreationFee, *};
 
 /// Accounts for withdraw creation fees
 #[event_cpi]
@@ -31,15 +28,14 @@ pub fn handle_claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Resu
     let pool = ctx.accounts.pool.load()?;
 
     if pool.has_creation_fee() && !pool.creation_fee_claimed() {
+        let protocol_pool_creation_fee = pool.get_protocol_pool_creation_fee()?;
         drop(pool);
 
         // Transfer the creation fee to the treasury
-        ctx.accounts
-            .pool
-            .sub_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+        ctx.accounts.pool.sub_lamports(protocol_pool_creation_fee)?;
         ctx.accounts
             .treasury
-            .add_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+            .add_lamports(protocol_pool_creation_fee)?;
 
         let mut pool = ctx.accounts.pool.load_mut()?;
         pool.update_creation_fee_claimed();
@@ -47,7 +43,7 @@ pub fn handle_claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Resu
         emit_cpi!(EvtClaimPoolCreationFee {
             pool: ctx.accounts.pool.key(),
             treasury: ctx.accounts.treasury.key(),
-            creation_fee: TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
+            creation_fee: protocol_pool_creation_fee,
         });
     }
 

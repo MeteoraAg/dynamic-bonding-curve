@@ -143,3 +143,17 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
 
     Ok(())
 }
+
+pub fn transfer_lamports<'info>(
+    from: AccountInfo<'info>,
+    to: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    lamports: u64,
+) -> Result<()> {
+    invoke(
+        &transfer(from.key, to.key, lamports),
+        &[from, to, system_program],
+    )?;
+
+    Ok(())
+}

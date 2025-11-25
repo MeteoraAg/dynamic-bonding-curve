@@ -9,7 +9,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::PARTNER_AND_CREATOR_SURPLUS_SHARE,
+    constants::{fee::PARTNER_POOL_CREATION_FEE_PERCENT, PARTNER_AND_CREATOR_SURPLUS_SHARE},
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
@@ -145,7 +145,8 @@ pub struct VirtualPool {
     pub creation_fee_bits: u8,
     pub _padding_0: [u8; 7],
     /// Padding for further use
-    pub _padding_1: [u64; 6],
+    pub creation_fee: u64,
+    pub _padding_1: [u64; 5],
 }
 
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
@@ -153,8 +154,9 @@ const_assert_eq!(VirtualPool::INIT_SPACE, 416);
 pub const PARTNER_MASK: u8 = 0b100;
 pub const CREATOR_MASK: u8 = 0b010;
 
-const CREATION_FEE_CHARGED_MASK: u8 = 0b01;
-const CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const CREATION_FEE_CHARGED_MASK: u8 = 0b001;
+const CREATION_FEE_CLAIMED_MASK: u8 = 0b010;
+const PARTNER_FEE_CLAIMED_MASK: u8 = 0b100;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -199,7 +201,7 @@ impl VirtualPool {
         pool_type: u8,
         activation_point: u64,
         base_reserve: u64,
-        has_creation_fee: bool,
+        creation_fee: u64,
     ) {
         self.volatility_tracker = volatility_tracker;
         self.config = config;
@@ -211,8 +213,9 @@ impl VirtualPool {
         self.pool_type = pool_type;
         self.activation_point = activation_point;
         self.base_reserve = base_reserve;
+        self.creation_fee = creation_fee;
 
-        if has_creation_fee {
+        if creation_fee > 0 {
             self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CHARGED_MASK);
         }
     }
@@ -1057,8 +1060,32 @@ impl VirtualPool {
         self.creation_fee_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
     }
 
+    pub fn partner_fee_claimed(&self) -> bool {
+        self.creation_fee_bits.bitand(PARTNER_FEE_CLAIMED_MASK) != 0
+    }
+
     pub fn update_creation_fee_claimed(&mut self) {
         self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
+    }
+
+    pub fn update_partner_fee_claimed(&mut self) {
+        self.creation_fee_bits = self.creation_fee_bits.bitxor(PARTNER_FEE_CLAIMED_MASK);
+    }
+
+    pub fn get_partner_pool_creation_fee(&self) -> Result<u64> {
+        let fee = safe_mul_div_cast_u64(
+            self.creation_fee,
+            PARTNER_POOL_CREATION_FEE_PERCENT.into(),
+            100,
+            Rounding::Down,
+        )?;
+        Ok(fee)
+    }
+
+    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
+        let partner_fee = self.get_partner_pool_creation_fee()?;
+
+        Ok(self.creation_fee.safe_sub(partner_fee)?)
     }
 }
 

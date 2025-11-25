@@ -96,6 +96,7 @@ export type ConfigParameters = {
     collectFeeMode: number;
     dynamicFee: number;
   };
+  poolCreationFee: BN;
   padding: BN[];
   curve: Array<LiquidityDistributionParameters>;
 };

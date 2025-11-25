@@ -46,8 +46,9 @@ pub struct ConfigParameters {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
+    pub pool_creation_fee: u64,
     /// padding for future use
-    pub padding: [u64; 7],
+    pub padding: [u64; 6],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -363,6 +364,7 @@ pub fn handle_create_config(
         token_update_authority,
         migration_fee,
         migrated_pool_fee,
+        pool_creation_fee,
         ..
     } = config_parameters.clone();
 
@@ -471,6 +473,7 @@ pub fn handle_create_config(
         migrated_pool_fee_bps,
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
+        pool_creation_fee,
         &curve,
     );
 

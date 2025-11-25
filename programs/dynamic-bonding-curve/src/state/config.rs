@@ -550,7 +550,9 @@ pub struct PoolConfig {
     /// migrated pool fee in bps
     pub migrated_pool_fee_bps: u16,
     /// padding 1
-    pub _padding_1: [u8; 12],
+    pub _padding_1: [u8; 4],
+    /// pool creation fee
+    pub pool_creation_fee: u64,
     /// padding 2
     pub _padding_2: u128,
     /// minimum price
@@ -612,6 +614,7 @@ impl PoolConfig {
         migrated_pool_fee_bps: u16,
         migrated_collect_fee_mode: u8,
         migrated_dynamic_fee: u8,
+        pool_creation_fee: u64,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
         self.version = 0;
@@ -649,6 +652,7 @@ impl PoolConfig {
         self.migrated_pool_fee_bps = migrated_pool_fee_bps;
         self.migrated_collect_fee_mode = migrated_collect_fee_mode;
         self.migrated_dynamic_fee = migrated_dynamic_fee;
+        self.pool_creation_fee = pool_creation_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
