@@ -63,7 +63,7 @@ export async function createPoolWithSplToken(
     programId: program.programId,
     keys: [
       { pubkey: config, isSigner: false, isWritable: false },
-      { pubkey: poolAuthority, isSigner: false, isWritable: false },
+      { pubkey: poolAuthority, isSigner: false, isWritable: true },
       { pubkey: poolCreator.publicKey, isSigner: true, isWritable: false },
       { pubkey: baseMintKP.publicKey, isSigner: true, isWritable: true },
       { pubkey: quoteMint, isSigner: false, isWritable: false },
@@ -110,7 +110,7 @@ export async function createPoolWithToken2022(
     programId: program.programId,
     keys: [
       { pubkey: config, isSigner: false, isWritable: false },
-      { pubkey: poolAuthority, isSigner: false, isWritable: false },
+      { pubkey: poolAuthority, isSigner: false, isWritable: true },
       { pubkey: poolCreator.publicKey, isSigner: true, isWritable: false },
       { pubkey: baseMintKP.publicKey, isSigner: true, isWritable: true },
       { pubkey: quoteMint, isSigner: false, isWritable: false },
