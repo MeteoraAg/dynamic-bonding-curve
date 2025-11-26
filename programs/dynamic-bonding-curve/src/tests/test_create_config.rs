@@ -1,12 +1,10 @@
-use std::ops::{BitAnd, BitXor};
-
 use crate::{
     constants::MAX_SQRT_PRICE,
     params::liquidity_distribution::{
         get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
         LiquidityDistributionParameters,
     },
-    state::{MigrationOption, PoolConfig, VirtualPool},
+    state::{MigrationOption, PoolConfig},
 };
 
 use super::price_math::get_price_from_id;
@@ -65,22 +63,4 @@ fn test_get_swap_buffer() {
             .unwrap();
 
     println!("{} {}", swap_base_amount, minimum_base_supply_with_buffer);
-}
-
-#[test]
-fn test() {
-    let mut pool = VirtualPool::default();
-    pool.creation_fee_bits = pool.creation_fee_bits.bitxor(0b01);
-    let has_creation_fee = pool.has_creation_fee();
-    println!("has_creation_fee: {}", has_creation_fee);
-
-    // pool.creation_fee_bits = pool.creation_fee_bits.bitxor(0b10);
-
-    let partner_claimed = pool.partner_pool_creation_fee_claimed();
-    println!("partner_claimed: {}", partner_claimed);
-
-    // pool.update_protocol_pool_creation_fee_claimed();
-
-    // let admin_claimed = pool.partner_pool_creation_fee_claimed();
-    // println!("admin_claimed: {}", admin_claimed);
 }
