@@ -30,6 +30,7 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
 
     /// CHECK: pool authority
     #[account(
+        mut,
         address = const_pda::pool_authority::ID
     )]
     pub pool_authority: AccountInfo<'info>,
@@ -147,16 +148,6 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     );
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
 
-    // charge pool creation fee
-    if config.pool_creation_fee > 0 {
-        transfer_lamports(
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.pool.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            config.pool_creation_fee,
-        )?;
-    }
-
     // transfer minimum rent to mint account
     update_account_lamports_to_minimum_balance(
         ctx.accounts.base_mint.to_account_info(),
@@ -237,6 +228,16 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         AuthorityType::MintTokens,
         token_mint_authority,
     )?;
+
+    // charge pool creation fee
+    if config.pool_creation_fee > 0 {
+        transfer_lamports(
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.pool_authority.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            config.pool_creation_fee,
+        )?;
+    }
 
     // init pool
     let mut pool = ctx.accounts.pool.load_init()?;

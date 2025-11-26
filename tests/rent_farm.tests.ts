@@ -13,7 +13,7 @@ import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
-  claimPoolCreationFee,
+  claimProtocolPoolCreationFee,
   createClaimFeeOperator,
   createConfig,
   createMeteoraDammV2Metadata,

@@ -76,7 +76,7 @@ export async function closeClaimFeeOperator(
   sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
-export type ClaimPoolCreationFeeParams = {
+export type ClaimProtocolPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
 };
@@ -84,15 +84,16 @@ export type ClaimPoolCreationFeeParams = {
 export async function claimPoolCreationFee(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: ClaimPoolCreationFeeParams
+  params: ClaimProtocolPoolCreationFeeParams
 ) {
   const { operator, pool } = params;
 
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
   const transaction = await program.methods
-    .claimPoolCreationFee()
+    .claimProtocolPoolCreationFee()
     .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
       pool,
       treasury: TREASURY,
       operator: operator.publicKey,

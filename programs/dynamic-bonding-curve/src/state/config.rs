@@ -551,7 +551,7 @@ pub struct PoolConfig {
     pub migrated_pool_fee_bps: u16,
     /// padding 1
     pub _padding_1: [u8; 4],
-    /// pool creation fee
+    /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
     /// padding 2
     pub _padding_2: u128,

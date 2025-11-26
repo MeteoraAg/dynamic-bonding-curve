@@ -415,7 +415,7 @@ export async function partnerWithdrawMigrationFee(
   sendTransactionMaybeThrow(svm, transaction, [partner]);
 }
 
-export async function partnerClaimPoolCreationFee(
+export async function claimPartnerPoolCreationFee(
   banksClient: BanksClient,
   feeClaimer: Keypair,
   config: PublicKey,
@@ -424,8 +424,9 @@ export async function partnerClaimPoolCreationFee(
 ) {
   const program = createVirtualCurveProgram();
   const transaction = await program.methods
-    .partnerClaimPoolCreationFee()
+    .claimPartnerPoolCreationFee()
     .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
       pool: virtualPool,
       config,
       feeClaimer: feeClaimer.publicKey,

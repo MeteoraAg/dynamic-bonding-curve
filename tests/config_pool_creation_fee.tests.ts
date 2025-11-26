@@ -3,12 +3,12 @@ import BN from "bn.js";
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
-  claimPoolCreationFee,
+  claimPartnerPoolCreationFee,
+  claimProtocolPoolCreationFee,
   createClaimFeeOperator,
   createConfig,
   createPoolWithSplToken,
   createPoolWithToken2022,
-  partnerClaimPoolCreationFee,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -134,7 +134,7 @@ describe("Config pool creation fee", () => {
     ).lamports;
 
     // partner claim pool creation fee
-    await partnerClaimPoolCreationFee(
+    await claimPartnerPoolCreationFee(
       context.banksClient,
       partner,
       configAccount,
@@ -152,7 +152,7 @@ describe("Config pool creation fee", () => {
     );
 
     // admin claim pool creation fee
-    await claimPoolCreationFee(context.banksClient, program, {
+    await claimProtocolPoolCreationFee(context.banksClient, program, {
       operator,
       pool,
     });
@@ -195,7 +195,7 @@ describe("Config pool creation fee", () => {
     ).lamports;
 
     // partner claim pool creation fee
-    await partnerClaimPoolCreationFee(
+    await claimPartnerPoolCreationFee(
       context.banksClient,
       partner,
       configAccount,
@@ -213,7 +213,7 @@ describe("Config pool creation fee", () => {
     );
 
     // admin claim pool creation fee
-    await claimPoolCreationFee(context.banksClient, program, {
+    await claimProtocolPoolCreationFee(context.banksClient, program, {
       operator,
       pool,
     });

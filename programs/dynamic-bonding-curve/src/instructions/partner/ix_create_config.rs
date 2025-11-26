@@ -46,6 +46,7 @@ pub struct ConfigParameters {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
+    /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
     /// padding for future use
     pub padding: [u64; 6],

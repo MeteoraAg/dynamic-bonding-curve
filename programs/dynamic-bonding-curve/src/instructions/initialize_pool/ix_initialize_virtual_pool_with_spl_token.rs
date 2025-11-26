@@ -44,6 +44,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
 
     /// CHECK: pool authority
     #[account(
+        mut,
         address = const_pda::pool_authority::ID
     )]
     pub pool_authority: AccountInfo<'info>,
@@ -176,16 +177,6 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         ctx.accounts.pool_authority.to_account_info(),
     )?;
 
-    // charge pool creation fee
-    if config.pool_creation_fee > 0 {
-        transfer_lamports(
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.pool.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            config.pool_creation_fee,
-        )?;
-    }
-
     // mint token
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     anchor_spl::token::mint_to(
@@ -217,6 +208,16 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         AuthorityType::MintTokens,
         token_mint_authority,
     )?;
+
+    // charge pool creation fee
+    if config.pool_creation_fee > 0 {
+        transfer_lamports(
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.pool_authority.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            config.pool_creation_fee,
+        )?;
+    }
 
     // init pool
     let mut pool = ctx.accounts.pool.load_init()?;

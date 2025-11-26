@@ -53,8 +53,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_withdraw_lamports_from_pool_authority(ctx)
     }
 
-    pub fn claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
-        instructions::handle_claim_pool_creation_fee(ctx)
+    pub fn claim_protocol_pool_creation_fee(
+        ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
     /// PARTNER FUNCTIONS ///
@@ -78,8 +80,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b)
     }
 
-    pub fn partner_claim_pool_creation_fee(ctx: Context<ClaimPartnerCreationFeeCtx>) -> Result<()> {
-        instructions::handle_partner_claim_pool_creation_fee(ctx)
+    pub fn claim_partner_pool_creation_fee(
+        ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
+    ) -> Result<()> {
+        instructions::handle_claim_partner_pool_creation_fee(ctx)
     }
 
     // withdraw surplus on quote token

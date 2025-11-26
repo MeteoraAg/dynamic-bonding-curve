@@ -9,7 +9,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{fee::PARTNER_POOL_CREATION_FEE_PERCENT, PARTNER_AND_CREATOR_SURPLUS_SHARE},
+    constants::{fee::PROTOCOL_POOL_CREATION_FEE_PERCENT, PARTNER_AND_CREATOR_SURPLUS_SHARE},
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
@@ -143,8 +143,9 @@ pub struct VirtualPool {
     /// creator quote fee
     pub creator_quote_fee: u64,
     pub creation_fee_bits: u8,
-    pub _padding_0: [u8; 7],
     /// Padding for further use
+    pub _padding_0: [u8; 7],
+    /// pool creation fee in lamports value
     pub creation_fee: u64,
     pub _padding_1: [u64; 5],
 }
@@ -156,12 +157,10 @@ pub const CREATOR_MASK: u8 = 0b010;
 
 // bit 0: pool creation fee charged
 // bit 1: protocol claimed pool creation fee
-// bit 2: flag for new pool creation fee version.
-// bit 3: partner claimed pool creation fee
-const CREATION_FEE_CHARGED_MASK: u8 = 0b0001;
-const PROTOCOL_POOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b0010;
-const CREATION_FEE_CHARGED_VERSION_MASK: u8 = 0b0100;
-const PARTNER_POOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b1000;
+// bit 2: partner claimed pool creation fee
+const CREATION_FEE_CHARGED_MASK: u8 = 0b001;
+const PROTOCOL_POOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b010;
+const PARTNER_POOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b100;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -221,10 +220,7 @@ impl VirtualPool {
         self.creation_fee = creation_fee;
 
         if creation_fee > 0 {
-            self.creation_fee_bits = self
-                .creation_fee_bits
-                .bitxor(CREATION_FEE_CHARGED_MASK) // set bit 0
-                .bitxor(CREATION_FEE_CHARGED_VERSION_MASK); // set bit 2
+            self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CHARGED_MASK)
         }
     }
 
@@ -1064,12 +1060,6 @@ impl VirtualPool {
         self.creation_fee_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
     }
 
-    pub fn has_partner_pool_creation_fee(&self) -> bool {
-        self.creation_fee_bits
-            .bitand(CREATION_FEE_CHARGED_VERSION_MASK)
-            != 0
-    }
-
     pub fn protocol_pool_creation_fee_claimed(&self) -> bool {
         self.creation_fee_bits
             .bitand(PROTOCOL_POOL_CREATION_FEE_CLAIMED_MASK)
@@ -1094,20 +1084,26 @@ impl VirtualPool {
             .bitxor(PARTNER_POOL_CREATION_FEE_CLAIMED_MASK);
     }
 
-    pub fn get_partner_pool_creation_fee(&self) -> Result<u64> {
+    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
         let fee = safe_mul_div_cast_u64(
             self.creation_fee,
-            PARTNER_POOL_CREATION_FEE_PERCENT.into(),
+            PROTOCOL_POOL_CREATION_FEE_PERCENT.into(),
             100,
             Rounding::Down,
         )?;
         Ok(fee)
     }
 
-    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
-        let partner_fee = self.get_partner_pool_creation_fee()?;
+    pub fn get_partner_pool_creation_fee(&self) -> Result<u64> {
+        if self.has_creation_fee()
+            && !self.partner_pool_creation_fee_claimed()
+            && self.creation_fee > 0
+        {
+            let protocol_pool_creation_fee = self.get_protocol_pool_creation_fee()?;
+            return Ok(self.creation_fee.safe_sub(protocol_pool_creation_fee)?);
+        }
 
-        Ok(self.creation_fee.safe_sub(partner_fee)?)
+        Ok(0)
     }
 }
 
