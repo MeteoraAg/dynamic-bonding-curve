@@ -7,7 +7,7 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
-        MIN_LOCKED_LP_PERCENTAGE, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
+        MIN_LOCKED_LP_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -244,8 +244,10 @@ impl ConfigParameters {
             .partner_locked_lp_percentage
             .safe_add(self.creator_locked_lp_percentage)?;
 
+        let sum_lp_locked_bps = u16::from(sum_lp_locked_percentage).safe_mul(100)?;
+
         require!(
-            sum_lp_locked_percentage >= MIN_LOCKED_LP_PERCENTAGE,
+            sum_lp_locked_bps >= MIN_LOCKED_LP_BPS,
             PoolError::InvalidVestingParameters
         );
 

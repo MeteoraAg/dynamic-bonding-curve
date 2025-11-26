@@ -2,7 +2,7 @@ use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 
 use crate::{
-    constants::{MAX_LOCK_DURATION_IN_SECONDS, MIN_LOCKED_LP_PERCENTAGE},
+    constants::{MAX_LOCK_DURATION_IN_SECONDS, MIN_LOCKED_LP_BPS},
     params::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
@@ -164,14 +164,19 @@ impl DammV2ConfigParameters {
         let creator_lp_vesting_info: LpVestingInfo = creator_lp_vesting_info.to_lp_vesting_info();
         let partner_lp_vesting_info: LpVestingInfo = partner_lp_vesting_info.to_lp_vesting_info();
 
-        let locked_percentage_at_day_one = creator_lp_vesting_info
-            .get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)?
-            .safe_add(partner_lp_vesting_info.get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)?)?
-            .safe_add(creator_permanent_lock_percentage)?
-            .safe_add(partner_permanent_lock_percentage)?;
+        let creator_permanent_lock_bps =
+            u16::from(creator_permanent_lock_percentage).safe_mul(100)?;
+        let partner_permanent_lock_bps =
+            u16::from(partner_permanent_lock_percentage).safe_mul(100)?;
+
+        let locked_bps_at_day_one = creator_lp_vesting_info
+            .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            .safe_add(partner_lp_vesting_info.get_locked_bps_at_n_seconds(SECONDS_PER_DAY)?)?
+            .safe_add(creator_permanent_lock_bps)?
+            .safe_add(partner_permanent_lock_bps)?;
 
         require!(
-            locked_percentage_at_day_one >= MIN_LOCKED_LP_PERCENTAGE,
+            locked_bps_at_day_one >= MIN_LOCKED_LP_BPS,
             PoolError::InvalidVestingParameters
         );
 

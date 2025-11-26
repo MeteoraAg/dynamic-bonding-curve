@@ -580,7 +580,7 @@ impl LpVestingInfo {
         u16::from_le_bytes(self.number_of_periods)
     }
 
-    pub fn get_locked_percentage_at_n_seconds(&self, n_seconds: u64) -> Result<u8> {
+    pub fn get_locked_bps_at_n_seconds(&self, n_seconds: u64) -> Result<u16> {
         let vest_bps_at_n_seconds = self.vest_bps_locked_at_n_second(n_seconds)?;
         let vesting_bps = u32::from(self.vesting_percentage).safe_mul(100)?;
 
@@ -588,9 +588,7 @@ impl LpVestingInfo {
             .safe_mul(vesting_bps)?
             .safe_div(10_000)?;
 
-        let locked_percentage_at_n_seconds = vest_bps_at_n_seconds.safe_div(100)?;
-
-        Ok(locked_percentage_at_n_seconds
+        Ok(vest_bps_at_n_seconds
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?)
     }
@@ -966,21 +964,23 @@ impl PoolConfig {
         })
     }
 
-    pub fn get_total_locked_lp_percentage_at_n_seconds(&self, n_seconds: u64) -> Result<u8> {
-        let partner_locked_percentage_at_n_seconds = self
+    pub fn get_total_locked_lp_bps_at_n_seconds(&self, n_seconds: u64) -> Result<u16> {
+        let partner_locked_bps_at_n_seconds = self
             .partner_lp_vesting_info
-            .get_locked_percentage_at_n_seconds(n_seconds)?;
-        let creator_locked_percentage_at_n_seconds = self
+            .get_locked_bps_at_n_seconds(n_seconds)?;
+        let creator_locked_bps_at_n_seconds = self
             .creator_lp_vesting_info
-            .get_locked_percentage_at_n_seconds(n_seconds)?;
+            .get_locked_bps_at_n_seconds(n_seconds)?;
 
-        let total_locked_lp_percentage_at_n_seconds = self
-            .partner_locked_lp_percentage
-            .safe_add(partner_locked_percentage_at_n_seconds)?
-            .safe_add(self.creator_locked_lp_percentage)?
-            .safe_add(creator_locked_percentage_at_n_seconds)?;
+        let partner_locked_lp_bps = u16::from(self.partner_locked_lp_percentage).safe_mul(100)?;
+        let creator_locked_lp_bps = u16::from(self.creator_locked_lp_percentage).safe_mul(100)?;
 
-        Ok(total_locked_lp_percentage_at_n_seconds)
+        let total_locked_lp_bps_at_n_seconds = partner_locked_lp_bps
+            .safe_add(partner_locked_bps_at_n_seconds)?
+            .safe_add(creator_locked_lp_bps)?
+            .safe_add(creator_locked_bps_at_n_seconds)?;
+
+        Ok(total_locked_lp_bps_at_n_seconds)
     }
 }
 
@@ -1035,7 +1035,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_locked_percentage_at_day_one() {
+    fn test_get_locked_bps_at_day_one() {
         let cliff_duration_from_migration_time = SECONDS_PER_DAY as u32 / 2;
         let bps_per_period: u16 = 100;
         let frequency: u64 = 3600; // 1 hour
@@ -1048,7 +1048,7 @@ mod tests {
         // Total unlock bps at day one = 5000 + (12 * 100) = 6200
         // Locked percentage at day one = 10000 - 6200 = 3800
         // Expected locked percentage at day one = 38%
-        // Creator lock 38% of 40% at day one = 15.2% -> 15%
+        // Creator lock 38% of 40% at day one = 15.2%
         let creator_lp_vesting_info = LpVestingInfo {
             vesting_percentage: 40,
             cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
@@ -1057,11 +1057,11 @@ mod tests {
             number_of_periods: number_of_periods.to_le_bytes(),
         };
 
-        let creator_lp_locked_at_day_one = creator_lp_vesting_info
-            .get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)
+        let creator_lp_locked_bps_at_day_one = creator_lp_vesting_info
+            .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
             .unwrap();
 
-        assert_eq!(creator_lp_locked_at_day_one, 15);
+        assert_eq!(creator_lp_locked_bps_at_day_one, 1520);
 
         let partner_lp_vesting_info = creator_lp_vesting_info.clone();
 
@@ -1072,19 +1072,19 @@ mod tests {
         config.partner_lp_vesting_info = partner_lp_vesting_info;
         config.creator_lp_vesting_info = creator_lp_vesting_info;
 
-        let total_locked_lp_percentage_at_day_one = config
-            .get_total_locked_lp_percentage_at_n_seconds(SECONDS_PER_DAY)
+        let total_locked_lp_bps_at_day_one = config
+            .get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)
             .unwrap();
 
-        assert_eq!(32, total_locked_lp_percentage_at_day_one);
+        assert_eq!(3240, total_locked_lp_bps_at_day_one);
         assert_eq!(
-            creator_lp_locked_at_day_one
+            creator_lp_locked_bps_at_day_one
                 + partner_lp_vesting_info
-                    .get_locked_percentage_at_n_seconds(SECONDS_PER_DAY)
+                    .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
                     .unwrap()
-                + config.partner_locked_lp_percentage
-                + config.creator_locked_lp_percentage,
-            total_locked_lp_percentage_at_day_one
+                + u16::from(config.partner_locked_lp_percentage) * 100
+                + u16::from(config.creator_locked_lp_percentage) * 100,
+            total_locked_lp_bps_at_day_one
         );
     }
 }
