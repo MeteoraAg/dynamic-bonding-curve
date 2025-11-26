@@ -31,7 +31,7 @@ pub fn handle_partner_claim_pool_creation_fee(
         let partner_pool_creation_fee = pool.get_partner_pool_creation_fee()?;
         drop(pool);
 
-        // Transfer the creation fee to the treasury
+        // Transfer the creation fee to the partner
         ctx.accounts.pool.sub_lamports(partner_pool_creation_fee)?;
         ctx.accounts
             .fee_receiver
