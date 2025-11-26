@@ -24,7 +24,7 @@ use anchor_lang::solana_program::instruction::{
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use num_enum::{FromPrimitive, IntoPrimitive};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 // only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -46,10 +46,16 @@ pub struct SwapParameters2 {
 
 #[repr(u8)]
 #[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
 )]
 pub enum SwapMode {
-    #[num_enum(default)]
     ExactIn,
     PartialFill,
     ExactOut,
