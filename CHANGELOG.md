@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `create_config_for_dammv2_migration` endpoint to allow create `PoolConfig` account for only DAMM v2 migration with LP vesting configuration.
 - `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
 
-### Removed
+### Breaking Changes
 
 - Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
 
