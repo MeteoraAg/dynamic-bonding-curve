@@ -47,12 +47,6 @@ pub mod dynamic_bonding_curve {
         instructions::handle_protocol_withdraw_surplus(ctx)
     }
 
-    pub fn withdraw_lamports_from_pool_authority(
-        ctx: Context<WithdrawLamportsFromPoolAuthority>,
-    ) -> Result<()> {
-        instructions::handle_withdraw_lamports_from_pool_authority(ctx)
-    }
-
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
     ) -> Result<()> {
