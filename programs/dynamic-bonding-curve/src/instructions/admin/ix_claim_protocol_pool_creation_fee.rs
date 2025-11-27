@@ -1,9 +1,6 @@
 use anchor_lang::system_program::{transfer, Transfer};
 
-use crate::{
-    constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE, state::*,
-    EvtClaimPoolCreationFee, *,
-};
+use crate::{state::*, EvtClaimPoolCreationFee, *};
 
 /// Accounts for withdraw creation fees
 #[event_cpi]
@@ -41,12 +38,12 @@ pub fn handle_claim_protocol_pool_creation_fee(
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
 
-    if pool.has_creation_fee() && !pool.protocol_pool_creation_fee_claimed() {
+    let protocol_pool_creation_fee = pool.get_protocol_pool_creation_fee()?;
+
+    if protocol_pool_creation_fee > 0 {
         pool.update_protocol_pool_creation_fee_claimed();
 
-        let claimed_fee;
         if pool.creation_fee > 0 {
-            let protocol_pool_creation_fee = pool.get_protocol_pool_creation_fee()?;
             let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
             // Transfer the creation fee from pool authority to the treasury
             transfer(
@@ -60,24 +57,18 @@ pub fn handle_claim_protocol_pool_creation_fee(
                 ),
                 protocol_pool_creation_fee,
             )?;
-
-            claimed_fee = protocol_pool_creation_fee
         } else {
             // Transfer the creation fee from pool to the treasury
-            ctx.accounts
-                .pool
-                .sub_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+            ctx.accounts.pool.sub_lamports(protocol_pool_creation_fee)?;
             ctx.accounts
                 .treasury
-                .add_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
-
-            claimed_fee = TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE
+                .add_lamports(protocol_pool_creation_fee)?;
         }
 
         emit_cpi!(EvtClaimPoolCreationFee {
             pool: ctx.accounts.pool.key(),
             receiver: ctx.accounts.treasury.key(),
-            creation_fee: claimed_fee,
+            creation_fee: protocol_pool_creation_fee,
         });
     }
 

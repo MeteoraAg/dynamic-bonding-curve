@@ -9,7 +9,13 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{fee::PROTOCOL_POOL_CREATION_FEE_PERCENT, PARTNER_AND_CREATOR_SURPLUS_SHARE},
+    constants::{
+        fee::{
+            PROTOCOL_POOL_CREATION_FEE_PERCENT,
+            TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
+        },
+        PARTNER_AND_CREATOR_SURPLUS_SHARE,
+    },
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
@@ -1084,7 +1090,7 @@ impl VirtualPool {
             .bitxor(PARTNER_POOL_CREATION_FEE_CLAIMED_MASK);
     }
 
-    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
+    fn calculate_protocol_pool_creation_fee(&self) -> Result<u64> {
         let fee = safe_mul_div_cast_u64(
             self.creation_fee,
             PROTOCOL_POOL_CREATION_FEE_PERCENT.into(),
@@ -1094,12 +1100,26 @@ impl VirtualPool {
         Ok(fee)
     }
 
+    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
+        if self.has_creation_fee() && !self.protocol_pool_creation_fee_claimed() {
+            let protocol_pool_creation_fee = if self.creation_fee > 0 {
+                self.calculate_protocol_pool_creation_fee()?
+            } else {
+                TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE
+            };
+
+            return Ok(protocol_pool_creation_fee);
+        }
+
+        return Ok(0);
+    }
+
     pub fn get_partner_pool_creation_fee(&self) -> Result<u64> {
         if self.has_creation_fee()
             && !self.partner_pool_creation_fee_claimed()
             && self.creation_fee > 0
         {
-            let protocol_pool_creation_fee = self.get_protocol_pool_creation_fee()?;
+            let protocol_pool_creation_fee = self.calculate_protocol_pool_creation_fee()?;
             return Ok(self.creation_fee.safe_sub(protocol_pool_creation_fee)?);
         }
 
