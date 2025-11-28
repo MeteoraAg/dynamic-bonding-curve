@@ -22,7 +22,9 @@ pub struct EvtVirtualPoolMetadata {
     pub virtual_pool_metadata: Pubkey,
     pub virtual_pool: Pubkey,
 }
+
 /// Create config
+#[deprecated]
 #[event]
 pub struct EvtCreateConfig {
     pub config: Pubkey,

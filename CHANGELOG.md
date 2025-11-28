@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 
 - Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
+- Endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` will only allow config that has minimum 10% of locked liquidity in at least 1 day
+- `migration_damm_v2` endpoint accept only `config` account (damm v2) with timestamp activation type
 
 ### Changed
 
