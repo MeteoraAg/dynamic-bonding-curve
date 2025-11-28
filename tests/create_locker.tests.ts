@@ -185,7 +185,12 @@ describe("Create locker", () => {
 
     it("Migrate to Meteora Damm V2 Pool", async () => {
       const poolAuthority = derivePoolAuthority();
-      dammConfig = await createDammV2Config(svm, admin, poolAuthority);
+      dammConfig = await createDammV2Config(
+        svm,
+        admin,
+        poolAuthority,
+        1 // Timestamp
+      );
       const migrationParams: MigrateMeteoraDammV2Params = {
         payer: admin,
         virtualPool,
@@ -339,7 +344,12 @@ describe("Create locker", () => {
 
     it("Migrate to Meteora Damm V2 Pool", async () => {
       const poolAuthority = derivePoolAuthority();
-      dammConfig = await createDammV2Config(svm, admin, poolAuthority);
+      dammConfig = await createDammV2Config(
+        svm,
+        admin,
+        poolAuthority,
+        1 // Timestamp
+      );
       const migrationParams: MigrateMeteoraDammV2Params = {
         payer: admin,
         virtualPool,
