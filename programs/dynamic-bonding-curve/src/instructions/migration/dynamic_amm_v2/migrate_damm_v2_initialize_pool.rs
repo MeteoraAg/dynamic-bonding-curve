@@ -11,9 +11,10 @@ use damm_v2::types::{
 use ruint::aliases::U512;
 
 use crate::{
+    activation_handler::ActivationType,
     const_pda,
     constants::{
-        fee::FEE_DENOMINATOR,
+        fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
         seeds::{CREATOR_VESTING_PREFIX, PARTNER_VESTING_PREFIX},
         MAX_SQRT_PRICE, MIN_SQRT_PRICE,
     },
@@ -276,13 +277,15 @@ impl<'info> MigrateDammV2Ctx<'info> {
     fn vest_liquidity<'a>(
         &self,
         vested_liquidity: u128,
-        lp_vesting_info: LpVestingInfo,
+        lp_vesting_info: &LpVestingInfo,
         pool_authority_bump: u8,
         position_account: &AccountInfo<'info>,
         position_nft_account: &AccountInfo<'info>,
         vesting_account_and_seeds: VestingAccountAndSignerSeeds<'a, 'info>,
+        current_timestamp: u64,
     ) -> Result<()> {
-        let vesting_params = get_damm_v2_vesting_parameters(vested_liquidity, &lp_vesting_info)?;
+        let vesting_params =
+            get_damm_v2_vesting_parameters(vested_liquidity, lp_vesting_info, current_timestamp)?;
         let pool_authority_seeds = pool_authority_seeds!(pool_authority_bump);
 
         let vesting_account = vesting_account_and_seeds.get_vesting_account()?;
@@ -548,6 +551,14 @@ fn validate_config_key(
                 damm_config.vault_config_key == Pubkey::default(),
                 PoolError::InvalidConfigAccount
             );
+
+            let activation_type = ActivationType::try_from(damm_config.activation_type)
+                .map_err(|_| PoolError::TypeCastFailed)?;
+
+            require!(
+                activation_type == ActivationType::Timestamp,
+                PoolError::InvalidConfigAccount
+            );
         }
     }
 
@@ -676,6 +687,8 @@ impl<'a, 'info> VestingAccountAndSignerSeeds<'a, 'info> {
 pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, MigrateDammV2Ctx<'info>>,
 ) -> Result<()> {
+    let clock = Clock::get()?;
+
     let config = ctx.accounts.config.load()?;
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
@@ -798,11 +811,12 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
         ctx.accounts.vest_liquidity(
             first_position_liquidity_distribution.vested_liquidity,
-            first_position_liquidity_distribution.lp_vesting_info,
+            &first_position_liquidity_distribution.lp_vesting_info,
             const_pda::pool_authority::BUMP,
             &ctx.accounts.first_position,
             &ctx.accounts.first_position_nft_account,
             first_position_vesting_account_and_seeds,
+            clock.unix_timestamp as u64,
         )?;
     }
 
@@ -880,11 +894,12 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
             ctx.accounts.vest_liquidity(
                 vested_lp,
-                second_position_liquidity_distribution.lp_vesting_info,
+                &second_position_liquidity_distribution.lp_vesting_info,
                 const_pda::pool_authority::BUMP,
                 &second_position,
                 &second_position_nft_account,
                 second_position_vesting_account_and_seeds,
+                clock.unix_timestamp as u64,
             )?;
         }
 
@@ -954,18 +969,23 @@ fn get_liquidity_for_adding_liquidity(
 fn get_damm_v2_vesting_parameters(
     vested_liquidity: u128,
     lp_vesting_info: &LpVestingInfo,
+    current_timestamp: u64,
 ) -> Result<damm_v2::types::VestingParameters> {
-    let clock = Clock::get()?;
-    let current_timestamp = clock.unix_timestamp as u64;
-
     let frequency = lp_vesting_info.get_frequency();
     let number_of_period = lp_vesting_info.get_number_of_periods();
 
     let cliff_duration_from_migration_time =
         lp_vesting_info.get_cliff_duration_from_migration_time();
 
+    let bps_per_period = lp_vesting_info.get_bps_per_period();
+    let total_bps_after_cliff = bps_per_period.safe_mul(number_of_period)?;
+
+    let total_vesting_liquidity = vested_liquidity
+        .safe_mul(total_bps_after_cliff.into())?
+        .safe_div(MAX_BASIS_POINT.into())?;
+
     let liquidity_per_period: u128 = if number_of_period > 0 {
-        vested_liquidity.safe_div(number_of_period.into())?
+        total_vesting_liquidity.safe_div(number_of_period.into())?
     } else {
         0
     };
@@ -982,4 +1002,115 @@ fn get_damm_v2_vesting_parameters(
         period_frequency: frequency,
         number_of_period,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_damm_v2_vesting_parameters() {
+        // Cliff release all
+        // Cliff release 50%, then linear release 50%
+        // No cliff, linear release 100%
+
+        let vesting_liquidity: u128 = 1_000_000_000;
+        let current_timestamp: u64 = 0;
+
+        let vesting_percentage = 100;
+        let cliff_duration_from_migration_time: u32 = 10;
+        let frequency: u64 = 0;
+        let number_of_periods: u16 = 0;
+        let bps_per_period: u16 = 0;
+
+        let lp_vesting_info = LpVestingInfo {
+            vesting_percentage,
+            cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
+            frequency: frequency.to_le_bytes(),
+            number_of_periods: number_of_periods.to_le_bytes(),
+            bps_per_period: bps_per_period.to_le_bytes(),
+        };
+
+        let params =
+            get_damm_v2_vesting_parameters(vesting_liquidity, &lp_vesting_info, current_timestamp);
+        assert!(params.is_ok());
+
+        let params = params.unwrap();
+        assert_eq!(
+            params.cliff_point.unwrap(),
+            current_timestamp + u64::from(cliff_duration_from_migration_time)
+        );
+        assert_eq!(params.cliff_unlock_liquidity, vesting_liquidity);
+        assert_eq!(params.liquidity_per_period, 0);
+        assert_eq!(params.period_frequency, frequency);
+        assert_eq!(params.number_of_period, number_of_periods);
+
+        let cliff_release_bps = 5000;
+        let vest_duration = 60;
+        let vest_bps = 10_000 - cliff_release_bps;
+        let number_of_periods = 10;
+        let bps_per_period: u16 = vest_bps / number_of_periods;
+        let frequency = vest_duration as u64 / number_of_periods as u64;
+
+        let lp_vesting_info = LpVestingInfo {
+            vesting_percentage,
+            cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
+            frequency: frequency.to_le_bytes(),
+            number_of_periods: number_of_periods.to_le_bytes(),
+            bps_per_period: bps_per_period.to_le_bytes(),
+        };
+
+        let params =
+            get_damm_v2_vesting_parameters(vesting_liquidity, &lp_vesting_info, current_timestamp);
+        assert!(params.is_ok());
+
+        let params = params.unwrap();
+        assert_eq!(
+            params.cliff_point.unwrap(),
+            current_timestamp + u64::from(cliff_duration_from_migration_time)
+        );
+
+        let liquidity_per_period =
+            vesting_liquidity * vest_bps as u128 / 10_000 / number_of_periods as u128;
+
+        assert_eq!(liquidity_per_period, params.liquidity_per_period);
+
+        let cliff_unlock_liquidity =
+            vesting_liquidity - liquidity_per_period * number_of_periods as u128;
+
+        assert_eq!(params.cliff_unlock_liquidity, cliff_unlock_liquidity);
+        assert_eq!(params.period_frequency, frequency);
+        assert_eq!(params.number_of_period, number_of_periods);
+
+        let bps_per_period = MAX_BASIS_POINT as u16 / number_of_periods;
+
+        let lp_vesting_info = LpVestingInfo {
+            vesting_percentage,
+            cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
+            frequency: frequency.to_le_bytes(),
+            number_of_periods: number_of_periods.to_le_bytes(),
+            bps_per_period: bps_per_period.to_le_bytes(),
+        };
+
+        let params =
+            get_damm_v2_vesting_parameters(vesting_liquidity, &lp_vesting_info, current_timestamp);
+        assert!(params.is_ok());
+
+        let params = params.unwrap();
+
+        let liquidity_per_period = vesting_liquidity / number_of_periods as u128;
+        let cliff_unlock_liquidity =
+            vesting_liquidity - liquidity_per_period * number_of_periods as u128;
+
+        // Precision loss will be in cliff unlock if there's any
+
+        assert_eq!(params.cliff_unlock_liquidity, cliff_unlock_liquidity);
+        assert_eq!(params.liquidity_per_period, liquidity_per_period);
+        assert_eq!(params.period_frequency, frequency);
+        assert_eq!(params.number_of_period, number_of_periods);
+        assert_eq!(
+            cliff_unlock_liquidity + liquidity_per_period * number_of_periods as u128,
+            vesting_liquidity
+        );
+    }
 }

@@ -597,7 +597,7 @@ impl LpVestingInfo {
             .map_err(|_| PoolError::TypeCastFailed)?)
     }
 
-    fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
+    pub fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
         let total_bps_after_cliff =
             u64::from(self.get_bps_per_period()).safe_mul(self.get_number_of_periods().into())?;
 
