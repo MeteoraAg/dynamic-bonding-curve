@@ -10,16 +10,16 @@ import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createCloseAccountInstruction,
-  createTransferInstruction,
   getAssociatedTokenAddressSync,
   MintLayout,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { FailedTransactionMetadata, LiteSVM } from "litesvm";
 
-import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
 import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
+import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
 
 import VaultIDL from "../../idls/dynamic_vault.json";
 import { DynamicVault as Vault } from "./idl/dynamic_vault";
@@ -32,12 +32,10 @@ import { DynamicAmm as Damm } from "./idl/dynamic_amm";
 
 import { CpAmm as DammV2 } from "./idl/damm_v2";
 
-import { VirtualCurveProgram } from "./types";
 import {
   clusterApiUrl,
   Connection,
   Keypair,
-  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
@@ -50,8 +48,7 @@ import {
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
 } from "./constants";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import { ADMIN_USDC_ATA, LOCAL_ADMIN_KEYPAIR, USDC } from "./bankrun";
+import { VirtualCurveProgram } from "./types";
 
 export type DynamicVault = IdlAccounts<Vault>["vault"];
 const BASE_ADDRESS = new PublicKey(
@@ -107,14 +104,18 @@ export function createDammV2Program() {
   return program;
 }
 
-export async function processTransactionMaybeThrow(
-  banksClient: BanksClient,
+export function sendTransactionMaybeThrow(
+  svm: LiteSVM,
   transaction: Transaction
 ) {
-  const transactionMeta = await banksClient.tryProcessTransaction(transaction);
-  if (transactionMeta.result && transactionMeta.result.length > 0) {
-    throw Error(transactionMeta.result);
+  const transactionMeta = svm.sendTransaction(transaction);
+
+  if (transactionMeta instanceof FailedTransactionMetadata) {
+    console.log(transactionMeta.meta().logs());
+    console.log("error: ", transactionMeta.err());
+    throw Error(transactionMeta.meta().logs().toString());
   }
+  svm.expireBlockhash();
 }
 
 export async function expectThrowsAsync(
@@ -201,16 +202,16 @@ export const unwrapSOLInstruction = (
   return null;
 };
 
-export async function getOrCreateAssociatedTokenAccount(
-  banksClient: BanksClient,
+export function getOrCreateAssociatedTokenAccount(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   owner: PublicKey,
   program: PublicKey
-): Promise<{ ata: PublicKey; ix?: TransactionInstruction }> {
+): { ata: PublicKey; ix?: TransactionInstruction } {
   const ataKey = getAssociatedTokenAddressSync(mint, owner, true, program);
 
-  const account = await banksClient.getAccount(ataKey);
+  const account = svm.getAccount(ataKey);
   if (account === null) {
     const createAtaIx = createAssociatedTokenAccountInstruction(
       payer.publicKey,
@@ -225,11 +226,8 @@ export async function getOrCreateAssociatedTokenAccount(
   return { ata: ataKey, ix: undefined };
 }
 
-export async function getTokenAccount(
-  banksClient: BanksClient,
-  key: PublicKey
-) {
-  const account = await banksClient.getAccount(key);
+export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
+  const account = svm.getAccount(key);
   if (!account) {
     return null;
   }
@@ -237,13 +235,13 @@ export async function getTokenAccount(
   return tokenAccountState;
 }
 
-export async function getBalance(banksClient: BanksClient, wallet: PublicKey) {
-  const account = await banksClient.getAccount(wallet);
+export function getBalance(svm: LiteSVM, wallet: PublicKey) {
+  const account = svm.getAccount(wallet);
   return account.lamports;
 }
 
-export async function getMint(banksClient: BanksClient, mint: PublicKey) {
-  const account = await banksClient.getAccount(mint);
+export function getMint(svm: LiteSVM, mint: PublicKey) {
+  const account = svm.getAccount(mint);
   const mintState = MintLayout.decode(account.data);
   return mintState;
 }
@@ -252,14 +250,13 @@ export async function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-export const getCurrentSlot = async (banksClient: BanksClient): Promise<BN> => {
-  let slot = await banksClient.getSlot();
+export function getCurrentSlot(svm: LiteSVM): BN {
+  const slot = svm.getClock().slot;
   return new BN(slot.toString());
-};
+}
 
-export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
-  const clock = await context.banksClient.getClock();
-  await context.warpToSlot(clock.slot + BigInt(slots.toString()));
+export function warpSlotBy(svm: LiteSVM, slots: BN) {
+  svm.warpToSlot(BigInt(slots.toString()));
 }
 
 export const SET_COMPUTE_UNIT_LIMIT_IX =
@@ -315,8 +312,8 @@ export async function createInitializePermissionlessDynamicVaultIx(
 }
 
 export async function createVaultIfNotExists(
+  svm: LiteSVM,
   mint: PublicKey,
-  banksClient: BanksClient,
   payer: Keypair
 ): Promise<{
   vaultPda: PublicKey;
@@ -328,14 +325,13 @@ export async function createVaultIfNotExists(
     payer.publicKey
   );
 
-  const vaultAccount = await banksClient.getAccount(vaultIx.vaultKey);
+  const vaultAccount = svm.getAccount(vaultIx.vaultKey);
   if (!vaultAccount) {
     let tx = new Transaction();
-    const [recentBlockhash] = await banksClient.getLatestBlockhash();
-    tx.recentBlockhash = recentBlockhash;
+    tx.recentBlockhash = svm.latestBlockhash();
     tx.add(vaultIx.instruction);
     tx.sign(payer);
-    await banksClient.processTransaction(tx);
+    svm.sendTransaction(tx);
   }
 
   return {
@@ -345,17 +341,14 @@ export async function createVaultIfNotExists(
   };
 }
 
-export async function getDynamicVault(
-  banksClient: BanksClient,
-  vault: PublicKey
-): Promise<DynamicVault> {
+export function getDynamicVault(svm: LiteSVM, vault: PublicKey): DynamicVault {
   const program = createVaultProgram();
-  const account = await banksClient.getAccount(vault);
+  const account = svm.getAccount(vault);
   return program.coder.accounts.decode("Vault", Buffer.from(account.data));
 }
 
 export async function createDammConfig(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   payer: Keypair,
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
@@ -375,7 +368,7 @@ export async function createDammConfig(
     DAMM_PROGRAM_ID
   );
 
-  const account = await banksClient.getAccount(config);
+  const account = svm.getAccount(config);
   if (account) {
     return config;
   }
@@ -388,16 +381,15 @@ export async function createDammConfig(
     })
     .transaction();
 
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 
   return config;
 }
 
 export async function createDammV2Config(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   payer: Keypair,
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
@@ -436,16 +428,15 @@ export async function createDammV2Config(
     })
     .transaction();
 
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 
   return config;
 }
 
 export async function createDammV2DynamicConfig(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   payer: Keypair,
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
@@ -463,16 +454,15 @@ export async function createDammV2DynamicConfig(
     })
     .transaction();
 
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 
   return config;
 }
 
 export async function createLockEscrowIx(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   payer: Keypair,
   pool: PublicKey,
   lpMint: PublicKey,
@@ -493,48 +483,22 @@ export async function createLockEscrowIx(
     })
     .transaction();
 
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 
   return lockEscrowKey;
 }
 
-export async function fundSol(
-  banksClient: BanksClient,
-  from: Keypair,
-  receivers: PublicKey[]
-) {
-  const instructions: TransactionInstruction[] = [];
-  for (const receiver of receivers) {
-    instructions.push(
-      SystemProgram.transfer({
-        fromPubkey: from.publicKey,
-        toPubkey: receiver,
-        lamports: BigInt(10 * LAMPORTS_PER_SOL),
-      })
-    );
-  }
-
-  let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
-  transaction.add(...instructions);
-  transaction.sign(from);
-
-  await banksClient.processTransaction(transaction);
-}
-
-export async function getOrCreateAta(
-  banksClient: BanksClient,
+export function getOrCreateAta(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   owner: PublicKey
 ) {
   const ataKey = getAssociatedTokenAddressSync(mint, owner, true);
 
-  const account = await banksClient.getAccount(ataKey);
+  const account = svm.getAccount(ataKey);
   if (account === null) {
     const createAtaIx = createAssociatedTokenAccountInstruction(
       payer.publicKey,
@@ -543,42 +507,13 @@ export async function getOrCreateAta(
       mint
     );
     let transaction = new Transaction();
-    const [recentBlockhash] = await banksClient.getLatestBlockhash();
-    transaction.recentBlockhash = recentBlockhash;
+    transaction.recentBlockhash = svm.latestBlockhash();
     transaction.add(createAtaIx);
     transaction.sign(payer);
-    await banksClient.processTransaction(transaction);
+    svm.sendTransaction(transaction);
   }
 
   return ataKey;
-}
-
-export async function fundUsdc(
-  banksClient: BanksClient,
-  receivers: PublicKey[]
-) {
-  const getOrCreatePromise = receivers.map((acc: PublicKey) =>
-    getOrCreateAta(banksClient, LOCAL_ADMIN_KEYPAIR, USDC, acc)
-  );
-
-  const atas = await Promise.all(getOrCreatePromise);
-
-  const instructions: TransactionInstruction[] = atas.map((ata: PublicKey) =>
-    createTransferInstruction(
-      ADMIN_USDC_ATA,
-      ata,
-      LOCAL_ADMIN_KEYPAIR.publicKey,
-      BigInt(100_00 * 10 ** 6)
-    )
-  );
-
-  let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
-  transaction.add(...instructions);
-  transaction.sign(LOCAL_ADMIN_KEYPAIR);
-
-  await banksClient.processTransaction(transaction);
 }
 
 export function getTokenProgram(flag: number): PublicKey {

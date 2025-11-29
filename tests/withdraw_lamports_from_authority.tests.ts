@@ -1,24 +1,32 @@
-import { ProgramTestContext } from "solana-bankrun";
-import { VirtualCurveProgram } from "./utils/types";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
 import {
-  FLASH_RENT_FUND,
-  fundSol,
-  processTransactionMaybeThrow,
-  startTest,
-} from "./utils";
-import { createVirtualCurveProgram, derivePoolAuthority } from "./utils";
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+} from "@solana/web3.js";
 import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import {
+  createVirtualCurveProgram,
+  derivePoolAuthority,
+  FLASH_RENT_FUND,
+  generateAndFund,
+  sendTransactionMaybeThrow,
+  startSvm,
+} from "./utils";
+import { VirtualCurveProgram } from "./utils/types";
 
 describe("Withdraw lamports from authority", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
+  let admin: Keypair;
   let program: VirtualCurveProgram;
   let treasury = new PublicKey("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv");
 
   before(async () => {
-    context = await startTest();
+    svm = startSvm();
     program = createVirtualCurveProgram();
-    context.setAccount(treasury, {
+    admin = generateAndFund(svm);
+    svm.setAccount(treasury, {
       data: new Uint8Array(),
       executable: false,
       lamports: 1200626308,
@@ -29,14 +37,11 @@ describe("Withdraw lamports from authority", () => {
   it("test withdraw", async () => {
     let poolAuthority = derivePoolAuthority();
 
-    await fundSol(context.banksClient, context.payer, [poolAuthority]);
+    svm.airdrop(poolAuthority, BigInt(LAMPORTS_PER_SOL));
 
-    let prePoolAuthorityBalance = (
-      await context.banksClient.getAccount(poolAuthority)
-    ).lamports;
+    let prePoolAuthorityBalance = svm.getBalance(poolAuthority);
 
-    let preTreasuryBalance = (await context.banksClient.getAccount(treasury))
-      .lamports;
+    let preTreasuryBalance = svm.getBalance(treasury);
 
     const withdrawTx = await program.methods
       .withdrawLamportsFromPoolAuthority()
@@ -46,18 +51,14 @@ describe("Withdraw lamports from authority", () => {
       })
       .transaction();
 
-    withdrawTx.recentBlockhash = (
-      await context.banksClient.getLatestBlockhash()
-    )[0];
-    withdrawTx.sign(context.payer);
+    withdrawTx.recentBlockhash = svm.latestBlockhash();
+    withdrawTx.sign(admin);
+    sendTransactionMaybeThrow(svm, withdrawTx);
 
-    await processTransactionMaybeThrow(context.banksClient, withdrawTx);
+    let postTreasuryBalance = svm.getBalance(treasury);
 
-    let postTreasuryBalance = (await context.banksClient.getAccount(treasury))
-      .lamports;
-
-    expect(postTreasuryBalance - preTreasuryBalance).eq(
-      prePoolAuthorityBalance - FLASH_RENT_FUND
+    expect(Number(postTreasuryBalance) - Number(preTreasuryBalance)).eq(
+      Number(prePoolAuthorityBalance) - Number(FLASH_RENT_FUND)
     );
   });
 });

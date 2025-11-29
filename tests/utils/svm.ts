@@ -1,0 +1,65 @@
+import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+import path from "path";
+import {
+  DAMM_PROGRAM_ID,
+  DAMM_V2_PROGRAM_ID,
+  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  LOCKER_PROGRAM_ID,
+  METAPLEX_PROGRAM_ID,
+  VAULT_PROGRAM_ID,
+} from "./constants";
+
+export function startSvm() {
+  const svm = new LiteSVM();
+
+  const sourceFileDbcPath = path.resolve(
+    "./target/deploy/dynamic_bonding_curve.so"
+  );
+  const sourceFileDammV2Path = path.resolve("./tests/fixtures/damm_v2.so");
+  const sourceFileDammV1Path = path.resolve("./tests/fixtures/amm.so");
+  const sourceFileAlphaVaultPath = path.resolve("./tests/fixtures/vault.so");
+  const sourceFileLockerPath = path.resolve("./tests/fixtures/locker.so");
+  const sourceFileMetaplexPath = path.resolve("./tests/fixtures/metaplex.so");
+  svm.addProgramFromFile(DYNAMIC_BONDING_CURVE_PROGRAM_ID, sourceFileDbcPath);
+  svm.addProgramFromFile(DAMM_V2_PROGRAM_ID, sourceFileDammV2Path);
+  svm.addProgramFromFile(DAMM_PROGRAM_ID, sourceFileDammV1Path);
+  svm.addProgramFromFile(VAULT_PROGRAM_ID, sourceFileAlphaVaultPath);
+  svm.addProgramFromFile(LOCKER_PROGRAM_ID, sourceFileLockerPath);
+  svm.addProgramFromFile(METAPLEX_PROGRAM_ID, sourceFileMetaplexPath);
+
+  // set wrap sol mint account
+  svm.setAccount(NATIVE_MINT, {
+    data: new Uint8Array([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0,
+    ]),
+    executable: false,
+    lamports: 1390379946687,
+    owner: TOKEN_PROGRAM_ID,
+  });
+  return svm;
+}
+
+export function generateAndFund(svm: LiteSVM): Keypair {
+  const kp = Keypair.generate();
+  svm.airdrop(kp.publicKey, BigInt(10000 * LAMPORTS_PER_SOL));
+  return kp;
+}
+
+export function setNativeMint(svm: LiteSVM) {
+  svm.setAccount(NATIVE_MINT, {
+    data: new Uint8Array([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0,
+    ]),
+    executable: false,
+    lamports: 1390379946687,
+    owner: TOKEN_PROGRAM_ID,
+  });
+}

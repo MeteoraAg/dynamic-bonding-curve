@@ -1,55 +1,41 @@
+import { BN } from "@coral-xyz/anchor";
+import {
+  NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SystemProgram,
   SYSVAR_INSTRUCTIONS_PUBKEY,
-  SYSVAR_RENT_PUBKEY,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import {
+  deriveVirtualPoolMetadata,
+  getOrCreateAssociatedTokenAccount,
+  getTokenAccount,
+  METAPLEX_PROGRAM_ID,
+  sendTransactionMaybeThrow,
+  unwrapSOLInstruction,
+  wrapSOLInstruction,
+} from "../utils";
 import {
   deriveMetadataAccount,
   derivePoolAddress,
   derivePoolAuthority,
   deriveTokenVaultAddress,
 } from "../utils/accounts";
-import { VirtualCurveProgram } from "../utils/types";
-import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import { BN, Instruction } from "@coral-xyz/anchor";
-import { BanksClient } from "solana-bankrun";
-import {
-  createVaultIfNotExists,
-  createVaultProgram,
-  DAMM_PROGRAM_ID,
-  deriveDammPoolAddress,
-  deriveLpMintAddress,
-  deriveProtocolFeeAddress,
-  deriveVaultLPAddress,
-  deriveVirtualPoolMetadata,
-  getVaultPdas,
-  METAPLEX_PROGRAM_ID,
-  processTransactionMaybeThrow,
-  VAULT_PROGRAM_ID,
-} from "../utils";
 import {
   getConfig,
   getVirtualPool,
   getVirtualPoolMetadata,
 } from "../utils/fetcher";
-import {
-  getOrCreateAssociatedTokenAccount,
-  getTokenAccount,
-  unwrapSOLInstruction,
-  wrapSOLInstruction,
-} from "../utils";
-import { expect } from "chai";
+import { VirtualCurveProgram } from "../utils/types";
 
 export type InitializePoolParameters = {
   name: string;
@@ -67,12 +53,12 @@ export type CreatePoolSplTokenParams = {
 export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
 
 export async function createPoolWithSplToken(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreatePoolSplTokenParams
 ): Promise<PublicKey> {
   const { payer, quoteMint, poolCreator, config, instructionParams } = params;
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const poolAuthority = derivePoolAuthority();
   const baseMintKP = Keypair.generate();
@@ -107,16 +93,15 @@ export async function createPoolWithSplToken(
       units: 400_000,
     })
   );
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer, baseMintKP, poolCreator);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction);
 
   return pool;
 }
 
 export async function createPoolWithToken2022(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreatePoolToken2022Params
 ): Promise<PublicKey> {
@@ -150,10 +135,9 @@ export async function createPoolWithToken2022(
     })
   );
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer, baseMintKP, poolCreator);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction);
 
   return pool;
 }
@@ -189,7 +173,7 @@ export type SwapParams2 = {
 };
 
 export async function swapPartialFill(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
 ): Promise<{
@@ -211,9 +195,9 @@ export async function swapPartialFill(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -229,28 +213,26 @@ export async function swapPartialFill(
   const postInstructions: TransactionInstruction[] = [];
 
   const preUserQuoteTokenBalance = 0;
-  const preBaseVaultBalance = (
-    await getTokenAccount(banksClient, poolState.baseVault)
-  ).amount;
+  const preBaseVaultBalance = getTokenAccount(svm, poolState.baseVault).amount;
   const [
     { ata: inputTokenAccount, ix: createInputTokenXIx },
     { ata: outputTokenAccount, ix: createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
   createInputTokenXIx && preInstructions.push(createInputTokenXIx);
   createOutputTokenYIx && preInstructions.push(createOutputTokenYIx);
 
@@ -305,20 +287,19 @@ export async function swapPartialFill(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 
-  let simu = await banksClient.simulateTransaction(transaction);
-  const consumedCUSwap = Number(simu.meta.computeUnitsConsumed);
+  let simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  poolState = await getVirtualPool(banksClient, program, pool);
-  const configs = await getConfig(banksClient, program, config);
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
   return {
     pool,
     computeUnitsConsumed: consumedCUSwap,
-    message: simu.meta.logMessages,
+    message: simu.meta().logs[0],
     numInstructions: transaction.instructions.length,
     completed:
       Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
@@ -326,7 +307,7 @@ export async function swapPartialFill(
 }
 
 export async function swap(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
 ): Promise<{
@@ -349,9 +330,9 @@ export async function swap(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -366,29 +347,25 @@ export async function swap(
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
 
-  const preUserQuoteTokenBalance = 0;
-  const preBaseVaultBalance = (
-    await getTokenAccount(banksClient, poolState.baseVault)
-  ).amount;
   const [
     { ata: inputTokenAccount, ix: createInputTokenXIx },
     { ata: outputTokenAccount, ix: createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
   createInputTokenXIx && preInstructions.push(createInputTokenXIx);
   createOutputTokenYIx && preInstructions.push(createOutputTokenYIx);
 
@@ -407,6 +384,8 @@ export async function swap(
 
     unrapSOLIx && postInstructions.push(unrapSOLIx);
   }
+
+  console.log("base vault balance: ", svm.getAccount(poolState.quoteVault));
 
   const transaction = await program.methods
     .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: swapMode })
@@ -445,20 +424,19 @@ export async function swap(
     })
   );
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 
-  let simu = await banksClient.simulateTransaction(transaction);
-  const consumedCUSwap = Number(simu.meta.computeUnitsConsumed);
+  let simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  poolState = await getVirtualPool(banksClient, program, pool);
-  const configs = await getConfig(banksClient, program, config);
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
   return {
     pool,
     computeUnitsConsumed: consumedCUSwap,
-    message: simu.meta.logMessages,
+    message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
     completed:
       Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
@@ -466,7 +444,7 @@ export async function swap(
 }
 
 export async function getSwap2Instruction(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
 ): Promise<TransactionInstruction> {
@@ -482,9 +460,9 @@ export async function getSwap2Instruction(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -499,22 +477,22 @@ export async function getSwap2Instruction(
   const [
     { ata: inputTokenAccount, ix: _createInputTokenXIx },
     { ata: outputTokenAccount, ix: _createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
 
   const instruction = await program.methods
     .swap2({
@@ -550,7 +528,7 @@ export async function getSwap2Instruction(
 }
 
 export async function getSwapInstruction(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
 ): Promise<TransactionInstruction> {
@@ -566,9 +544,9 @@ export async function getSwapInstruction(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -583,22 +561,22 @@ export async function getSwapInstruction(
   const [
     { ata: inputTokenAccount, ix: _createInputTokenXIx },
     { ata: outputTokenAccount, ix: _createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
 
   const instruction = await program.methods
     .swap({
@@ -633,7 +611,7 @@ export async function getSwapInstruction(
 }
 
 export async function swap2(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams2
 ): Promise<{
@@ -656,9 +634,9 @@ export async function swap2(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -673,29 +651,25 @@ export async function swap2(
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
 
-  const preUserQuoteTokenBalance = 0;
-  const preBaseVaultBalance = (
-    await getTokenAccount(banksClient, poolState.baseVault)
-  ).amount;
   const [
     { ata: inputTokenAccount, ix: createInputTokenXIx },
     { ata: outputTokenAccount, ix: createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
   createInputTokenXIx && preInstructions.push(createInputTokenXIx);
   createOutputTokenYIx && preInstructions.push(createOutputTokenYIx);
 
@@ -747,20 +721,19 @@ export async function swap2(
     ])
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 
-  let simu = await banksClient.simulateTransaction(transaction);
-  const consumedCUSwap = Number(simu.meta.computeUnitsConsumed);
+  let simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  poolState = await getVirtualPool(banksClient, program, pool);
-  const configs = await getConfig(banksClient, program, config);
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
   return {
     pool,
     computeUnitsConsumed: consumedCUSwap,
-    message: simu.meta.logMessages,
+    message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
     completed:
       Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
@@ -768,7 +741,7 @@ export async function swap2(
 }
 
 export async function swapSimulate(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
 ): Promise<{
@@ -790,9 +763,9 @@ export async function swapSimulate(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = await getVirtualPool(banksClient, program, pool);
+  let poolState = getVirtualPool(svm, program, pool);
 
-  const configState = await getConfig(banksClient, program, config);
+  const configState = getConfig(svm, program, config);
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -807,22 +780,22 @@ export async function swapSimulate(
   const [
     { ata: inputTokenAccount, ix: createInputTokenXIx },
     { ata: outputTokenAccount, ix: createOutputTokenYIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       inputTokenMint,
       payer.publicKey,
       inputTokenProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       payer,
       outputTokenMint,
       payer.publicKey,
       outputTokenProgram
     ),
-  ]);
+  ];
   const wrapSOLIx = wrapSOLInstruction(
     payer.publicKey,
     inputTokenAccount,
@@ -833,10 +806,10 @@ export async function swapSimulate(
   createOutputTokenYIx && instructions.push(createOutputTokenYIx);
   instructions.push(...wrapSOLIx);
   const wrapSolTx = new Transaction().add(...instructions);
-  wrapSolTx.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  wrapSolTx.recentBlockhash = svm.latestBlockhash();
   wrapSolTx.sign(payer);
 
-  await processTransactionMaybeThrow(banksClient, wrapSolTx);
+  sendTransactionMaybeThrow(svm, wrapSolTx);
 
   const transaction = await program.methods
     .swap2({
@@ -861,20 +834,19 @@ export async function swapSimulate(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 
-  let simu = await banksClient.simulateTransaction(transaction);
-  const consumedCUSwap = Number(simu.meta.computeUnitsConsumed);
+  let simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  poolState = await getVirtualPool(banksClient, program, pool);
-  const configs = await getConfig(banksClient, program, config);
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
   return {
     pool,
     computeUnitsConsumed: consumedCUSwap,
-    message: simu.meta.logMessages,
+    message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
     completed:
       Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
@@ -882,7 +854,7 @@ export async function swapSimulate(
 }
 
 export async function createVirtualPoolMetadata(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: {
     virtualPool: PublicKey;
@@ -911,13 +883,12 @@ export async function createVirtualPoolMetadata(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer, creator);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction);
   //
-  const metadataState = await getVirtualPoolMetadata(
-    banksClient,
+  const metadataState = getVirtualPoolMetadata(
+    svm,
     program,
     virtualPoolMetadata
   );
