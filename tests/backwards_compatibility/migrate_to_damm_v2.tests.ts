@@ -94,7 +94,12 @@ describe("Backwards compatibility - DAMMv2 migration", () => {
 
   it("migrationDammV2", async () => {
     const poolAuthority = derivePoolAuthority();
-    dammConfig = await createDammV2Config(svm, admin, poolAuthority);
+    dammConfig = await createDammV2Config(
+      svm,
+      admin,
+      poolAuthority,
+      1 // Timestamp
+    );
     const migrationParams: MigrateMeteoraDammV2Params = {
       payer: admin,
       virtualPool,
