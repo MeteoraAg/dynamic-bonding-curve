@@ -30,7 +30,7 @@ declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 pub mod dynamic_bonding_curve {
     use super::*;
 
-    /// ADMIN FUNCTIONS_ ///
+    /// ADMIN FUNCTIONS ///
     pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
         instructions::handle_create_claim_fee_operator(ctx)
     }
