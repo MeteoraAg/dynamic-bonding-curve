@@ -53,9 +53,7 @@ export async function createMeteoraMetadata(
       payer: payer.publicKey,
     })
     .transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return deriveMigrationMetadataAddress(virtualPool);
 }
@@ -157,9 +155,7 @@ export async function migrateToMeteoraDamm(
       units: 400_000,
     })
   );
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return dammPool;
 }
@@ -263,9 +259,7 @@ export async function lockLpForCreatorDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return lockEscrowKey;
 }
@@ -370,9 +364,7 @@ export async function lockLpForPartnerDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return lockEscrowKey;
 }
@@ -428,9 +420,7 @@ export async function partnerClaimLpDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export async function creatorClaimLpDamm(
@@ -484,7 +474,5 @@ export async function creatorClaimLpDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }

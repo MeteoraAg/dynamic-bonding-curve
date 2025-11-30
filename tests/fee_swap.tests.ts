@@ -259,10 +259,9 @@ describe("Fee Swap test", () => {
         virtualPoolState.baseMint,
         user.publicKey
       );
-      const preUserBaseBaseBalance = getTokenAccount(
-        svm,
-        userBaseTokenAccount
-      ).amount;
+      const preUserBaseBaseBalance = getTokenAccount(svm, userBaseTokenAccount)
+        ? getTokenAccount(svm, userBaseTokenAccount).amount
+        : 0;
 
       const inAmount = preUserBaseBaseBalance;
       const params: SwapParams = {
@@ -279,7 +278,7 @@ describe("Fee Swap test", () => {
       await swap(svm, program, params);
 
       // reload new virtualPoolState
-      getVirtualPool(svm, program, virtualPool);
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;

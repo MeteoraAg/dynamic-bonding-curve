@@ -39,10 +39,7 @@ export async function createClaimFeeOperator(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(admin);
-
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [admin]);
 
   const claimFeeOperatorState = getClaimFeeOperator(
     svm,
@@ -69,9 +66,6 @@ export async function closeClaimFeeOperator(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(admin);
-
   const claimFeeOperatorState = getClaimFeeOperator(
     svm,
     program,
@@ -79,7 +73,7 @@ export async function closeClaimFeeOperator(
   );
   expect(claimFeeOperatorState).to.be.null;
 
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
 export type ClaimPoolCreationFeeParams = {
@@ -114,11 +108,7 @@ export async function claimPoolCreationFee(
       },
     ])
     .transaction();
-
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(operator);
-
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
 export type ClaimProtocolFeeParams = {
@@ -194,9 +184,7 @@ export async function claimProtocolFee(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(operator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 
   //
   const quoteTokenBalance = getTokenAccount(svm, tokenQuoteAccount).amount;
@@ -248,7 +236,5 @@ export async function protocolWithdrawSurplus(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(operator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }

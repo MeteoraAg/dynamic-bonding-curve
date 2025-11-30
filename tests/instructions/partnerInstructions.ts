@@ -128,9 +128,7 @@ export async function createConfig(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, config);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
   //
   const configState = getConfig(svm, program, config.publicKey);
   // TODO add assertion data fields
@@ -179,9 +177,7 @@ export async function createPartnerMetadata(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, feeClaimer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, feeClaimer]);
   //
   const metadataState = getPartnerMetadata(svm, program, partnerMetadata);
   expect(metadataState.feeClaimer.toString()).equal(
@@ -264,9 +260,7 @@ export async function claimTradingFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(feeClaimer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }
 
 export type PartnerWithdrawSurplusParams = {
@@ -318,9 +312,7 @@ export async function partnerWithdrawSurplus(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(feeClaimer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }
 
 export async function withdrawLeftover(
@@ -367,9 +359,7 @@ export async function withdrawLeftover(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export type PartnerWithdrawMigrationFeeParams = {
@@ -420,7 +410,5 @@ export async function partnerWithdrawMigrationFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(partner);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [partner]);
 }

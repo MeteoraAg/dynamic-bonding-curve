@@ -67,9 +67,8 @@ export async function createLocker(
     })
     .preInstructions(preInstructions)
     .transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export const deriveLockerEscrow = (base: PublicKey) => {

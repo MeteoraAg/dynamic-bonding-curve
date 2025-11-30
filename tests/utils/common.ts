@@ -37,6 +37,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  Signer,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
   Transaction,
@@ -106,16 +107,17 @@ export function createDammV2Program() {
 
 export function sendTransactionMaybeThrow(
   svm: LiteSVM,
-  transaction: Transaction
+  transaction: Transaction,
+  signers: Signer[]
 ) {
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(...signers);
   const transactionMeta = svm.sendTransaction(transaction);
+  svm.expireBlockhash();
 
   if (transactionMeta instanceof FailedTransactionMetadata) {
-    console.log(transactionMeta.meta().logs());
-    console.log("error: ", transactionMeta.err());
     throw Error(transactionMeta.meta().logs().toString());
   }
-  svm.expireBlockhash();
 }
 
 export async function expectThrowsAsync(

@@ -1,11 +1,13 @@
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import { LiteSVM } from "litesvm";
 import path from "path";
+import { derivePoolAuthority } from "./accounts";
 import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  FLASH_RENT_FUND,
   LOCKER_PROGRAM_ID,
   METAPLEX_PROGRAM_ID,
   VAULT_PROGRAM_ID,
@@ -40,6 +42,12 @@ export function startSvm() {
     executable: false,
     lamports: 1390379946687,
     owner: TOKEN_PROGRAM_ID,
+  });
+  svm.setAccount(derivePoolAuthority(), {
+    lamports: FLASH_RENT_FUND,
+    data: new Uint8Array(),
+    owner: SystemProgram.programId,
+    executable: false,
   });
   return svm;
 }

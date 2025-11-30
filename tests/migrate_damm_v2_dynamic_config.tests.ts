@@ -33,7 +33,7 @@ import {
   migrateToDammV2,
 } from "./instructions/dammV2Migration";
 
-describe.only("Migrate to damm v2 with dynamic config pool", () => {
+describe("Migrate to damm v2 with dynamic config pool", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
@@ -45,10 +45,10 @@ describe.only("Migrate to damm v2 with dynamic config pool", () => {
   before(async () => {
     svm = startSvm();
     admin = generateAndFund(svm);
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -61,7 +61,7 @@ describe.only("Migrate to damm v2 with dynamic config pool", () => {
 
     const poolAuthority = derivePoolAuthority();
 
-    const beforePoolAuthorityLamport = svm.getAccount(poolAuthority).lamports;
+    const beforePoolAuthorityLamport = svm.getBalance(poolAuthority);
 
     expect(beforePoolAuthorityLamport.toString()).eq(
       FLASH_RENT_FUND.toString()
@@ -226,6 +226,7 @@ async function fullFlow(
     config,
   });
 
+  console.log("Create meteora damm v2 dynamic config");
   const poolAuthority = derivePoolAuthority();
   const dammConfig = await createDammV2DynamicConfig(svm, admin, poolAuthority);
   const migrationParams: MigrateMeteoraDammV2Params = {
@@ -234,6 +235,7 @@ async function fullFlow(
     dammConfig,
   };
 
+  console.log("migrate to damm v2");
   const { dammPool: pool } = await migrateToDammV2(
     svm,
     program,

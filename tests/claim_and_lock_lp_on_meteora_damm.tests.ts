@@ -193,6 +193,7 @@ async function setupPrerequisite(
 
 function startTestSvm(): {
   svm: LiteSVM;
+  admin: Keypair;
   operator: Keypair;
   partner: Keypair;
   user: Keypair;
@@ -204,11 +205,13 @@ function startTestSvm(): {
   const partner = generateAndFund(svm);
   const user = generateAndFund(svm);
   const poolCreator = generateAndFund(svm);
+  const admin = generateAndFund(svm);
 
   const program = createVirtualCurveProgram();
 
   return {
     svm,
+    admin,
     operator,
     partner,
     user,
@@ -233,13 +236,17 @@ describe("Claim and lock lp on meteora dammm", () => {
   describe("Self partnered creator", () => {
     before(async () => {
       const {
+        admin: innerAdmin,
         operator: innerOperator,
         user: innerUser,
         poolCreator: innerPoolCreator,
         partner: innerPartner,
         program: innerProgram,
+        svm: innerSvm,
       } = startTestSvm();
 
+      svm = innerSvm;
+      admin = innerAdmin;
       operator = innerOperator;
       partner = innerPartner;
       user = innerUser;
@@ -374,6 +381,8 @@ describe("Claim and lock lp on meteora dammm", () => {
   describe("Separated partner and creator", () => {
     before(async () => {
       const {
+        svm: innerSvm,
+        admin: innerAdmin,
         operator: innerOperator,
         user: innerUser,
         poolCreator: innerPoolCreator,
@@ -386,6 +395,8 @@ describe("Claim and lock lp on meteora dammm", () => {
       user = innerUser;
       poolCreator = innerPoolCreator;
       program = innerProgram;
+      svm = innerSvm;
+      admin = innerAdmin;
 
       config = await createPartnerConfig(
         admin,

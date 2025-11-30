@@ -90,9 +90,7 @@ export async function claimCreatorTradingFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(creator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [creator]);
 }
 
 export type CreatorWithdrawSurplusParams = {
@@ -144,9 +142,7 @@ export async function creatorWithdrawSurplus(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(creator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [creator]);
 }
 
 export async function transferCreator(
@@ -174,9 +170,7 @@ export async function transferCreator(
       },
     ])
     .transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(creator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [creator]);
 }
 
 export type CreatorWithdrawMigrationFeeParams = {
@@ -227,7 +221,5 @@ export async function creatorWithdrawMigrationFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(creator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [creator]);
 }

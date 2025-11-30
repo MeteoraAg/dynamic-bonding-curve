@@ -39,6 +39,7 @@ describe("Build graph curve", () => {
 
   before(async () => {
     svm = startSvm();
+    admin = generateAndFund(svm);
     operator = generateAndFund(svm);
     partner = generateAndFund(svm);
     user = generateAndFund(svm);

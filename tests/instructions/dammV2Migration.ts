@@ -40,9 +40,8 @@ export async function createMeteoraDammV2Metadata(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
-  sendTransactionMaybeThrow(svm, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export type MigrateMeteoraDammV2Params = {
@@ -142,9 +141,11 @@ export async function migrateToDammV2(
       units: 500_000,
     })
   );
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, firstPositionNftKP, secondPositionNftKP);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [
+    payer,
+    firstPositionNftKP,
+    secondPositionNftKP,
+  ]);
 
   return {
     dammPool,

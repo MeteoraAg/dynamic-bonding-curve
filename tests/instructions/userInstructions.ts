@@ -93,9 +93,8 @@ export async function createPoolWithSplToken(
       units: 400_000,
     })
   );
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, baseMintKP, poolCreator);
-  sendTransactionMaybeThrow(svm, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
 
   return pool;
 }
@@ -135,9 +134,7 @@ export async function createPoolWithToken2022(
     })
   );
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, baseMintKP, poolCreator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
 
   return pool;
 }
@@ -288,11 +285,13 @@ export async function swapPartialFill(
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = payer.publicKey;
   transaction.sign(payer);
 
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -385,8 +384,6 @@ export async function swap(
     unrapSOLIx && postInstructions.push(unrapSOLIx);
   }
 
-  console.log("base vault balance: ", svm.getAccount(poolState.quoteVault));
-
   const transaction = await program.methods
     .swap2({ amount0: amountIn, amount1: minimumAmountOut, swapMode: swapMode })
     .accountsPartial({
@@ -429,7 +426,7 @@ export async function swap(
 
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -722,11 +719,12 @@ export async function swap2(
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = payer.publicKey;
   transaction.sign(payer);
 
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -806,10 +804,8 @@ export async function swapSimulate(
   createOutputTokenYIx && instructions.push(createOutputTokenYIx);
   instructions.push(...wrapSOLIx);
   const wrapSolTx = new Transaction().add(...instructions);
-  wrapSolTx.recentBlockhash = svm.latestBlockhash();
-  wrapSolTx.sign(payer);
 
-  sendTransactionMaybeThrow(svm, wrapSolTx);
+  sendTransactionMaybeThrow(svm, wrapSolTx, [payer]);
 
   const transaction = await program.methods
     .swap2({
@@ -835,11 +831,12 @@ export async function swapSimulate(
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = payer.publicKey;
   transaction.sign(payer);
 
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -883,9 +880,7 @@ export async function createVirtualPoolMetadata(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, creator);
-  sendTransactionMaybeThrow(svm, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, creator]);
   //
   const metadataState = getVirtualPoolMetadata(
     svm,

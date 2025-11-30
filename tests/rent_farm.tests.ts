@@ -52,7 +52,7 @@ import { createToken, mintSplTokenTo } from "./utils/token";
 type Position = IdlAccounts<CpAmm>["position"];
 type Pool = IdlAccounts<CpAmm>["pool"];
 
-describe.skip("Rent fee farm", () => {
+describe("Rent fee farm", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let exploiterPartner: Keypair;
@@ -280,22 +280,14 @@ describe.skip("Rent fee farm", () => {
       const beforePartnerBalance = svm.getBalance(exploiterPartner.publicKey);
 
       const beforeCreatorBalance = svm.getBalance(exploiterCreator.publicKey);
-
-      const [lastestBlockhash, lastestLastValidBlockHeight] =
-        await context.banksClient.getLatestBlockhash();
-      const tx = new Transaction({
-        blockhash: lastestBlockhash,
-        lastValidBlockHeight: Number(lastestLastValidBlockHeight.toString()),
-      }).add(
+      const tx = new Transaction().add(
         burnCreatorLpAccountIx,
         burnPartnerLpAccountIx,
         closeCreatorLpAccountIx,
         closePartnerLpAccountIx
       );
 
-      tx.sign(exploiterCreator, exploiterPartner);
-
-      sendTransactionMaybeThrow(svm, tx);
+      sendTransactionMaybeThrow(svm, tx, [exploiterCreator, exploiterPartner]);
 
       const afterPartnerBalance = svm.getBalance(exploiterPartner.publicKey);
 
@@ -328,7 +320,7 @@ describe.skip("Rent fee farm", () => {
 
     it("spl-token", async () => {
       await dammV1FarmSolFailure(async () => {
-        return createPoolWithSplToken(context.banksClient, program, {
+        return createPoolWithSplToken(svm, program, {
           poolCreator: exploiterCreator,
           payer: exploiterCreator,
           quoteMint,
@@ -350,17 +342,11 @@ describe.skip("Rent fee farm", () => {
     ) {
       let totalCreationRent = BigInt(0);
 
-      const beforeBalance = await context.banksClient.getBalance(
-        exploiterCreator.publicKey
-      );
+      const beforeBalance = svm.getBalance(exploiterCreator.publicKey);
 
       const virtualPool = await createPoolFn();
 
-      let virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       if (assertCreationFeeCharged) {
         expect(virtualPoolState.creationFeeBits).to.be.equal(1);
@@ -368,21 +354,15 @@ describe.skip("Rent fee farm", () => {
         expect(virtualPoolState.creationFeeBits).to.be.equal(0);
       }
 
-      const configState = await getConfig(
-        context.banksClient,
-        program,
-        virtualPoolState.config
-      );
+      const configState = getConfig(svm, program, virtualPoolState.config);
 
-      const afterBalance = await context.banksClient.getBalance(
-        exploiterCreator.publicKey
-      );
+      const afterBalance = svm.getBalance(exploiterCreator.publicKey);
 
       // Include tx fee
       const lamportUsed = beforeBalance - afterBalance;
       totalCreationRent += lamportUsed;
 
-      await swap2(context.banksClient, program, {
+      await swap2(svm, program, {
         inputTokenMint: quoteMint,
         outputTokenMint: virtualPoolState.baseMint,
         config: virtualPoolState.config,
@@ -396,18 +376,14 @@ describe.skip("Rent fee farm", () => {
         referralTokenAccount: null,
       });
 
-      await createMeteoraDammV2Metadata(context.banksClient, program, {
+      await createMeteoraDammV2Metadata(svm, program, {
         payer: migrator,
         virtualPool,
         config: virtualPoolState.config,
       });
 
       const poolAuthority = derivePoolAuthority();
-      const dammV2Config = await createDammV2Config(
-        context.banksClient,
-        admin,
-        poolAuthority
-      );
+      const dammV2Config = await createDammV2Config(svm, admin, poolAuthority);
       const migrationParams: MigrateMeteoraDammV2Params = {
         payer: migrator,
         virtualPool,
@@ -415,20 +391,20 @@ describe.skip("Rent fee farm", () => {
       };
 
       const { dammPool, firstPosition, secondPosition } = await migrateToDammV2(
-        context.banksClient,
+        svm,
         program,
         migrationParams
       );
 
       const lamportRecovered = await withdrawAndClosePosition(
-        context.banksClient,
+        svm,
         firstPosition,
         dammPool,
         exploiterCreator
       );
 
       const lamportRecovered2 = await withdrawAndClosePosition(
-        context.banksClient,
+        svm,
         secondPosition,
         dammPool,
         exploiterPartner
@@ -466,7 +442,7 @@ describe.skip("Rent fee farm", () => {
 
     it("spl-token", async () => {
       await dammV2FarmSolFailure(async () => {
-        return createPoolWithSplToken(context.banksClient, program, {
+        return createPoolWithSplToken(svm, program, {
           poolCreator: exploiterCreator,
           payer: exploiterCreator,
           quoteMint,
@@ -482,7 +458,7 @@ describe.skip("Rent fee farm", () => {
 
     it("token-2022", async () => {
       await dammV2FarmSolFailure(async () => {
-        return createPoolWithToken2022(context.banksClient, program, {
+        return createPoolWithToken2022(svm, program, {
           poolCreator: exploiterCreator,
           payer: exploiterCreator,
           quoteMint,
@@ -499,7 +475,7 @@ describe.skip("Rent fee farm", () => {
 
   describe("Claim creation fee", async () => {
     it("non farmable pool", async () => {
-      const pool = await createPoolWithSplToken(context.banksClient, program, {
+      const pool = await createPoolWithSplToken(svm, program, {
         poolCreator: admin,
         payer: admin,
         quoteMint,
@@ -511,24 +487,20 @@ describe.skip("Rent fee farm", () => {
         },
       });
 
-      const beforeTreasuryLamport = await context.banksClient.getBalance(
-        TREASURY
-      );
+      const beforeTreasuryLamport = svm.getBalance(TREASURY) ?? 0;
 
-      await claimPoolCreationFee(context.banksClient, program, {
+      await claimPoolCreationFee(svm, program, {
         operator,
         pool,
       });
 
-      const afterTreasuryLamport = await context.banksClient.getBalance(
-        TREASURY
-      );
+      const afterTreasuryLamport = svm.getBalance(TREASURY) ?? 0;
 
       expect(afterTreasuryLamport == beforeTreasuryLamport).to.be.true;
     });
 
     it("farmable pool", async () => {
-      const pool = await createPoolWithToken2022(context.banksClient, program, {
+      const pool = await createPoolWithToken2022(svm, program, {
         poolCreator: exploiterCreator,
         payer: exploiterCreator,
         quoteMint,
@@ -540,46 +512,44 @@ describe.skip("Rent fee farm", () => {
         },
       });
 
-      let beforeTreasuryLamport = await context.banksClient.getBalance(
-        TREASURY
-      );
+      let beforeTreasuryLamport = svm.getBalance(TREASURY);
 
-      await claimPoolCreationFee(context.banksClient, program, {
+      await claimPoolCreationFee(svm, program, {
         operator,
         pool,
       });
 
-      let afterTreasuryLamport = await context.banksClient.getBalance(TREASURY);
+      let afterTreasuryLamport = svm.getBalance(TREASURY);
       expect(afterTreasuryLamport > beforeTreasuryLamport).to.be.true;
 
       // Claim again yield nothing
       beforeTreasuryLamport = afterTreasuryLamport;
 
-      await claimPoolCreationFee(context.banksClient, program, {
+      await claimPoolCreationFee(svm, program, {
         operator,
         pool,
       });
 
-      afterTreasuryLamport = await context.banksClient.getBalance(TREASURY);
+      afterTreasuryLamport = svm.getBalance(TREASURY);
       expect(afterTreasuryLamport == beforeTreasuryLamport).to.be.true;
     });
   });
 });
 
 async function withdrawAndClosePosition(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   position: PublicKey,
   pool: PublicKey,
   signer: Keypair
 ): Promise<bigint> {
   const dammV2Program = createDammV2Program();
-  const poolAccount = await banksClient.getAccount(pool);
+  const poolAccount = svm.getAccount(pool);
   const poolState: Pool = dammV2Program.coder.accounts.decode(
     "pool",
     Buffer.from(poolAccount.data)
   );
 
-  const positionAccount = await banksClient.getAccount(position);
+  const positionAccount = svm.getAccount(position);
   const positionState: Position = dammV2Program.coder.accounts.decode(
     "position",
     Buffer.from(positionAccount.data)
@@ -623,16 +593,13 @@ async function withdrawAndClosePosition(
       tokenBProgram
     );
 
-  const [lastestBlockhash, lastestLastValidBlockHeight] =
-    await banksClient.getLatestBlockhash();
-
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
-  const createTx = new Transaction({
-    blockhash: lastestBlockhash,
-    lastValidBlockHeight: Number(lastestLastValidBlockHeight.toString()),
-  }).add(createTokenAAccountIx, createTokenBAccountIx);
-  createTx.sign(signer);
-  await banksClient.processTransaction(createTx);
+
+  const createTx = new Transaction().add(
+    createTokenAAccountIx,
+    createTokenBAccountIx
+  );
+  sendTransactionMaybeThrow(svm, createTx, [signer]);
 
   const withdrawIx = await dammV2Program.methods
     .removeAllLiquidity(new BN(0), new BN(0))
@@ -667,17 +634,12 @@ async function withdrawAndClosePosition(
     })
     .instruction();
 
-  const beforeBalance = await banksClient.getBalance(signer.publicKey);
+  const beforeBalance = svm.getBalance(signer.publicKey);
+  const closeTx = new Transaction().add(withdrawIx, closePositionIx);
 
-  const closeTx = new Transaction({
-    blockhash: lastestBlockhash,
-    lastValidBlockHeight: Number(lastestLastValidBlockHeight.toString()),
-  }).add(withdrawIx, closePositionIx);
+  sendTransactionMaybeThrow(svm, closeTx, [signer]);
 
-  closeTx.sign(signer);
-  await banksClient.processTransaction(closeTx);
-
-  const afterBalance = await banksClient.getBalance(signer.publicKey);
+  const afterBalance = svm.getBalance(signer.publicKey);
 
   return afterBalance - beforeBalance;
 }

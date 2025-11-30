@@ -50,10 +50,7 @@ describe("Withdraw lamports from authority", () => {
         receiver: treasury,
       })
       .transaction();
-
-    withdrawTx.recentBlockhash = svm.latestBlockhash();
-    withdrawTx.sign(admin);
-    sendTransactionMaybeThrow(svm, withdrawTx);
+    sendTransactionMaybeThrow(svm, withdrawTx, [admin]);
 
     let postTreasuryBalance = svm.getBalance(treasury);
 
