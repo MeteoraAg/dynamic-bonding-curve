@@ -1,6 +1,5 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   BaseFee,
   CreateConfigParams,
@@ -15,10 +14,9 @@ import {
   createDammV2Program,
   createVirtualCurveProgram,
   derivePoolAuthority,
-  fundSol,
+  generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  startTest,
   U64_MAX,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
@@ -32,12 +30,13 @@ import {
 import { CpAmm, CpAmm as DammV2 } from "./utils/idl/damm_v2";
 import { expect } from "chai";
 import Decimal from "decimal.js";
+import { LiteSVM } from "litesvm";
 
 type DammV2Pool = IdlAccounts<CpAmm>["pool"];
 type DammV2Position = IdlAccounts<CpAmm>["position"];
 
 describe("Migrate to damm v2 with vesting", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -46,19 +45,13 @@ describe("Migrate to damm v2 with vesting", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = new LiteSVM();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
+
     program = createVirtualCurveProgram();
   });
 
@@ -70,7 +63,7 @@ describe("Migrate to damm v2 with vesting", () => {
     };
 
     const { pool, firstPosition, secondPosition, poolConfig } = await fullFlow(
-      context.banksClient,
+      svm,
       program,
       admin,
       partner,
@@ -80,20 +73,16 @@ describe("Migrate to damm v2 with vesting", () => {
       migratedPoolFee
     );
 
-    const poolConfigAccount = await context.banksClient.getAccount(poolConfig);
+    const poolConfigAccount = await svm.getAccount(poolConfig);
     const poolConfigState: PoolConfig = program.coder.accounts.decode(
       "poolConfig",
       Buffer.from(poolConfigAccount!.data)
     );
 
     const dammV2Program = createDammV2Program();
-    const poolAccount = await context.banksClient.getAccount(pool);
-    const firstPositionAccount = await context.banksClient.getAccount(
-      firstPosition
-    );
-    const secondPositionAccount = await context.banksClient.getAccount(
-      secondPosition
-    );
+    const poolAccount = await svm.getAccount(pool);
+    const firstPositionAccount = await svm.getAccount(firstPosition);
+    const secondPositionAccount = await svm.getAccount(secondPosition);
 
     const poolState: DammV2Pool = dammV2Program.coder.accounts.decode(
       "pool",
@@ -157,7 +146,7 @@ describe("Migrate to damm v2 with vesting", () => {
 });
 
 async function fullFlow(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   admin: Keypair,
   partner: Keypair,
@@ -265,10 +254,10 @@ async function fullFlow(
     quoteMint: NATIVE_MINT,
     instructionParams,
   };
-  const config = await createDammV2OnlyConfig(banksClient, program, params);
+  const config = await createDammV2OnlyConfig(svm, program, params);
 
   console.log("create pool");
-  const virtualPool = await createPoolWithSplToken(banksClient, program, {
+  const virtualPool = await createPoolWithSplToken(svm, program, {
     poolCreator,
     payer: operator,
     quoteMint: NATIVE_MINT,
@@ -279,14 +268,10 @@ async function fullFlow(
       uri: "abc.com",
     },
   });
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  const virtualPoolState = await getVirtualPool(svm, program, virtualPool);
 
   console.log("swap full curve");
-  await swap(banksClient, program, {
+  await swap(svm, program, {
     config,
     payer: user,
     pool: virtualPool,
@@ -299,11 +284,7 @@ async function fullFlow(
   });
 
   const poolAuthority = derivePoolAuthority();
-  const dammConfig = await createDammV2DynamicConfig(
-    banksClient,
-    admin,
-    poolAuthority
-  );
+  const dammConfig = await createDammV2DynamicConfig(svm, admin, poolAuthority);
   const migrationParams: MigrateMeteoraDammV2Params = {
     payer: admin,
     virtualPool,
@@ -314,7 +295,7 @@ async function fullFlow(
     dammPool: pool,
     firstPosition,
     secondPosition,
-  } = await migrateToDammV2(banksClient, program, migrationParams);
+  } = await migrateToDammV2(svm, program, migrationParams);
 
   return {
     pool,

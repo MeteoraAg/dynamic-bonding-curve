@@ -198,7 +198,7 @@ export async function createConfig(
 }
 
 export async function createDammV2OnlyConfig(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreateConfigParams<DammV2ConfigParameters>
 ): Promise<PublicKey> {
@@ -220,11 +220,11 @@ export async function createDammV2OnlyConfig(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer, config);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
-  const configState = await getConfig(banksClient, program, config.publicKey);
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+  const configState = getConfig(svm, program, config.publicKey);
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
 
   expect(configState.partnerLpPercentage).equal(

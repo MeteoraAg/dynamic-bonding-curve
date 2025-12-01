@@ -102,14 +102,6 @@ describe("Create virtual pool metadata", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
-      creatorImpermanentLockedLpInfo: {
-        lockDuration: 0,
-        lockPercentage: 0,
-      },
-      partnerImpermanentLockedLpInfo: {
-        lockDuration: 0,
-        lockPercentage: 0,
-      },
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {
