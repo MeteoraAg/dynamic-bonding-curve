@@ -1,7 +1,6 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
-  BaseFee,
   CreateConfigParams,
   createDammV2OnlyConfig,
   createPoolWithSplToken,
@@ -14,23 +13,22 @@ import {
   createDammV2Program,
   createVirtualCurveProgram,
   derivePoolAuthority,
+  designGraphCurve,
   generateAndFund,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  U64_MAX,
+  startSvm,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
 import { PoolConfig, VirtualCurveProgram } from "./utils/types";
 
 import { BN, IdlAccounts } from "@coral-xyz/anchor";
+import { expect } from "chai";
+import Decimal from "decimal.js";
+import { LiteSVM } from "litesvm";
 import {
   MigrateMeteoraDammV2Params,
   migrateToDammV2,
 } from "./instructions/dammV2Migration";
-import { CpAmm, CpAmm as DammV2 } from "./utils/idl/damm_v2";
-import { expect } from "chai";
-import Decimal from "decimal.js";
-import { LiteSVM } from "litesvm";
+import { CpAmm } from "./utils/idl/damm_v2";
 
 type DammV2Pool = IdlAccounts<CpAmm>["pool"];
 type DammV2Position = IdlAccounts<CpAmm>["position"];
@@ -44,8 +42,17 @@ describe("Migrate to damm v2 with vesting", () => {
   let poolCreator: Keypair;
   let program: VirtualCurveProgram;
 
+  let totalTokenSupply = 1_000_000_000; // 1 billion
+  let initialMarketcap = 30; // 30 SOL;
+  let migrationMarketcap = 300; // 300 SOL;
+  let tokenBaseDecimal = 6;
+  let tokenQuoteDecimal = 9;
+  let kFactor = 1.2;
+
+  let leftOver = 10_000;
+
   before(async () => {
-    svm = new LiteSVM();
+    svm = startSvm();
     admin = generateAndFund(svm);
     operator = generateAndFund(svm);
     partner = generateAndFund(svm);
@@ -70,7 +77,14 @@ describe("Migrate to damm v2 with vesting", () => {
       poolCreator,
       operator,
       user,
-      migratedPoolFee
+      migratedPoolFee,
+      totalTokenSupply,
+      initialMarketcap,
+      migrationMarketcap,
+      tokenBaseDecimal,
+      tokenQuoteDecimal,
+      kFactor,
+      leftOver
     );
 
     const poolConfigAccount = await svm.getAccount(poolConfig);
@@ -157,7 +171,14 @@ async function fullFlow(
     poolFeeBps: number;
     collectFeeMode: number;
     dynamicFee: number;
-  }
+  },
+  totalTokenSupply: number,
+  initialMarketcap: number,
+  migrationMarketcap: number,
+  tokenBaseDecimal: number,
+  tokenQuoteDecimal: number,
+  kFactor: number,
+  leftOver: number
 ): Promise<{
   pool: PublicKey;
   poolConfig: PublicKey;
@@ -165,94 +186,99 @@ async function fullFlow(
   firstPosition: PublicKey;
   secondPosition: PublicKey;
 }> {
-  // partner create config
-  const baseFee: BaseFee = {
-    cliffFeeNumerator: new BN(2_500_000),
-    firstFactor: 0,
-    secondFactor: new BN(0),
-    thirdFactor: new BN(0),
-    baseFeeMode: 0,
-  };
-
-  const curves = [];
-
-  for (let i = 1; i <= 16; i++) {
-    if (i == 16) {
-      curves.push({
-        sqrtPrice: MAX_SQRT_PRICE,
-        liquidity: U64_MAX.shln(30 + i),
-      });
-    } else {
-      curves.push({
-        sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
-        liquidity: U64_MAX.shln(30 + i),
-      });
-    }
-  }
-
-  const instructionParams: DammV2ConfigParameters = {
-    poolFees: {
-      baseFee,
-      dynamicFee: null,
-    },
-    creatorLpInfo: {
-      // 5% liquid
-      lpPercentage: 5,
-      // 5% permanent lock
-      lpPermanentLockPercentage: 5,
-      lpVestingInfo: {
-        cliffDurationFromMigrationTime: 86400 / 2,
-        vestingPercentage: 40,
-        bpsPerPeriod: 100,
-        frequency: new BN(3600),
-        // 20% cliff unlock
-        numberOfPeriods: (10_000 - 2_000) / 100,
-      },
-    },
-    partnerLpInfo: {
-      // 5% liquid
-      lpPercentage: 5,
-      // 5% permanent lock
-      lpPermanentLockPercentage: 5,
-      lpVestingInfo: {
-        cliffDurationFromMigrationTime: 86400 / 2,
-        vestingPercentage: 40,
-        bpsPerPeriod: 100,
-        frequency: new BN(3600),
-        // 20% cliff unlock
-        numberOfPeriods: (10_000 - 2_000) / 100,
-      },
-    },
-    activationType: 0,
-    collectFeeMode: 0,
-    tokenType: 0, // spl_token
-    tokenDecimal: 6,
-    migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-    sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
-    lockedVesting: {
+  let instructionParams = designGraphCurve(
+    totalTokenSupply,
+    initialMarketcap,
+    migrationMarketcap,
+    0,
+    tokenBaseDecimal,
+    tokenQuoteDecimal,
+    0,
+    0,
+    {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
       frequency: new BN(0),
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     },
-    migrationFeeOption: 6, // customizable
-    tokenSupply: null,
-    creatorTradingFeePercentage: 0,
-    tokenUpdateAuthority: 0,
-    migrationFee: {
-      feePercentage: 0,
-      creatorFeePercentage: 0,
+    leftOver,
+    kFactor,
+    {
+      cliffFeeNumerator: new BN(2_500_000),
+      firstFactor: 0,
+      secondFactor: new BN(0),
+      thirdFactor: new BN(0),
+      baseFeeMode: 0,
+    }
+  );
+
+  const dammV2ConfigsParams: DammV2ConfigParameters = {
+    virtualPoolConfiguration: {
+      sqrtStartPrice: instructionParams.sqrtStartPrice,
+      migrationQuoteThreshold: instructionParams.migrationQuoteThreshold,
+      activationType: instructionParams.activationType,
     },
-    migratedPoolFee,
-    curve: curves,
+    virtualPoolFeesConfiguration: {
+      baseFee: instructionParams.poolFees.baseFee,
+      dynamicFee: instructionParams.poolFees.dynamicFee,
+      collectFeeMode: instructionParams.collectFeeMode,
+      creatorTradingFeePercentage:
+        instructionParams.creatorTradingFeePercentage,
+    },
+    mintConfiguration: {
+      tokenDecimal: instructionParams.tokenDecimal,
+      tokenSupply: instructionParams.tokenSupply,
+      tokenUpdateAuthority: instructionParams.tokenUpdateAuthority,
+      tokenType: instructionParams.tokenType,
+      lockedVesting: instructionParams.lockedVesting,
+    },
+    liquidityDistributionConfiguration: {
+      creatorLpInfo: {
+        // 5% liquid
+        lpPercentage: 5,
+        // 5% permanent lock
+        lpPermanentLockPercentage: 5,
+        lpVestingInfo: {
+          cliffDurationFromMigrationTime: 86400 / 2,
+          vestingPercentage: 40,
+          bpsPerPeriod: 100,
+          frequency: new BN(3600),
+          // 20% cliff unlock
+          numberOfPeriods: (10_000 - 2_000) / 100,
+        },
+      },
+      partnerLpInfo: {
+        // 5% liquid
+        lpPercentage: 5,
+        // 5% permanent lock
+        lpPermanentLockPercentage: 5,
+        lpVestingInfo: {
+          cliffDurationFromMigrationTime: 86400 / 2,
+          vestingPercentage: 40,
+          bpsPerPeriod: 100,
+          frequency: new BN(3600),
+          // 20% cliff unlock
+          numberOfPeriods: (10_000 - 2_000) / 100,
+        },
+      },
+    },
+    dammV2MigrationConfiguration: {
+      migrationFee: {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+      },
+      migratedPoolFee,
+    },
+    curve: instructionParams.curve,
   };
+
   const params: CreateConfigParams<DammV2ConfigParameters> = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
     feeClaimer: partner.publicKey,
     quoteMint: NATIVE_MINT,
-    instructionParams,
+    instructionParams: dammV2ConfigsParams,
   };
   const config = await createDammV2OnlyConfig(svm, program, params);
 
@@ -277,7 +303,9 @@ async function fullFlow(
     pool: virtualPool,
     inputTokenMint: NATIVE_MINT,
     outputTokenMint: virtualPoolState.baseMint,
-    amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
+    amountIn: instructionParams.migrationQuoteThreshold
+      .mul(new BN(120))
+      .div(new BN(100)),
     minimumAmountOut: new BN(0),
     swapMode: SwapMode.PartialFill,
     referralTokenAccount: null,

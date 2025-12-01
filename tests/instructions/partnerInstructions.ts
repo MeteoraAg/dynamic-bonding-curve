@@ -119,30 +119,37 @@ export type LpDistributionInfo = {
 };
 
 export type DammV2ConfigParameters = {
-  poolFees: {
+  virtualPoolFeesConfiguration: {
     baseFee: BaseFee;
     dynamicFee: DynamicFee | null;
-  };
-  collectFeeMode: number;
-  activationType: number;
-  tokenType: number;
-  tokenDecimal: number;
-  migrationQuoteThreshold: BN;
-  sqrtStartPrice: BN;
-  lockedVesting: LockedVestingParams;
-  migrationFeeOption: number;
-  tokenSupply: TokenSupplyParams | null;
-  creatorTradingFeePercentage: number;
-  tokenUpdateAuthority: number;
-  migrationFee: MigrationFeeParams;
-  migratedPoolFee: {
-    poolFeeBps: number;
     collectFeeMode: number;
-    dynamicFee: number;
+    creatorTradingFeePercentage: number;
+  };
+  virtualPoolConfiguration: {
+    activationType: number;
+    migrationQuoteThreshold: BN;
+    sqrtStartPrice: BN;
+  };
+  dammV2MigrationConfiguration: {
+    migrationFee: MigrationFeeParams;
+    migratedPoolFee: {
+      poolFeeBps: number;
+      collectFeeMode: number;
+      dynamicFee: number;
+    };
+  };
+  liquidityDistributionConfiguration: {
+    partnerLpInfo: LpDistributionInfo;
+    creatorLpInfo: LpDistributionInfo;
+  };
+  mintConfiguration: {
+    tokenType: number;
+    tokenDecimal: number;
+    tokenUpdateAuthority: number;
+    tokenSupply: TokenSupplyParams;
+    lockedVesting: LockedVestingParams;
   };
   curve: Array<LiquidityDistributionParameters>;
-  partnerLpInfo: LpDistributionInfo;
-  creatorLpInfo: LpDistributionInfo;
 };
 
 export type CreateConfigParams<T> = {
@@ -228,11 +235,14 @@ export async function createDammV2OnlyConfig(
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
 
   expect(configState.partnerLpPercentage).equal(
-    instructionParams.partnerLpInfo.lpPercentage
+    instructionParams.liquidityDistributionConfiguration.partnerLpInfo
+      .lpPercentage
   );
 
   let vestingLpInfo = configState.partnerLpVestingInfo;
-  let ixVestingLpInfo = instructionParams.partnerLpInfo.lpVestingInfo;
+  let ixVestingLpInfo =
+    instructionParams.liquidityDistributionConfiguration.partnerLpInfo
+      .lpVestingInfo;
 
   expect(vestingLpInfo.vestingPercentage).equal(
     ixVestingLpInfo.vestingPercentage
@@ -251,7 +261,9 @@ export async function createDammV2OnlyConfig(
   );
 
   vestingLpInfo = configState.creatorLpVestingInfo;
-  ixVestingLpInfo = instructionParams.creatorLpInfo.lpVestingInfo;
+  ixVestingLpInfo =
+    instructionParams.liquidityDistributionConfiguration.creatorLpInfo
+      .lpVestingInfo;
 
   expect(vestingLpInfo.vestingPercentage).equal(
     ixVestingLpInfo.vestingPercentage
