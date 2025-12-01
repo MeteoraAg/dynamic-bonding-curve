@@ -129,9 +129,9 @@ describe("Config pool creation fee", () => {
 
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
-    expect(
-      poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK
-    ).not.equal(0);
+    expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
+      0
+    );
 
     // error if partner reclaim
     const errorCode = getDbcProgramErrorCodeHexString(
@@ -205,9 +205,9 @@ describe("Config pool creation fee", () => {
 
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
-    expect(
-      poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK
-    ).not.equal(0);
+    expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
+      0
+    );
 
     // error if partner reclaim
     const errorCode = getDbcProgramErrorCodeHexString(

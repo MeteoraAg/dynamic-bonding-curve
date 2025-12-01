@@ -130,12 +130,10 @@ export async function claimProtocolPoolCreationFee(
   const transaction = await program.methods
     .claimProtocolPoolCreationFee()
     .accountsPartial({
-      poolAuthority: derivePoolAuthority(),
       pool,
       config: poolState.config,
       treasury: TREASURY,
       signer: operator.publicKey,
-      systemProgram: SYSTEM_PROGRAM_ID,
       claimFeeOperator,
     })
     // Trick to bypass bankrun transaction has been processed if we wish to execute same tx again
@@ -180,21 +178,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        poolState.baseMint,
-        TREASURY,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        quoteMintInfo.mint,
-        TREASURY,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      poolState.baseMint,
+      TREASURY,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      quoteMintInfo.mint,
+      TREASURY,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
