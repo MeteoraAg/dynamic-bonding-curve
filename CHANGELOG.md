@@ -21,6 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
+
+### Added
+- Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
+
+### Changed
+- Add new field `creation_fee` in config account state and pool account state
+- Allowed partners to configure the `creation_fee` when creating a config.
+- Rename the endpoint `claim_pool_creation_fee` to `claim_protocol_pool_creation_fee`
+
+### Removed
+- Remove endpoint `withdraw_lamports_from_pool_authority`
+
 ## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
 
 ### Changed
