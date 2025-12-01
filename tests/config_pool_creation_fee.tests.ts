@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 import {
   claimPartnerPoolCreationFee,
   claimProtocolPoolCreationFee,
@@ -13,9 +13,9 @@ import {
 import {
   createVirtualCurveProgram,
   designGraphCurve,
-  fundSol,
+  generateAndFund,
   getVirtualPool,
-  startTest,
+  startSvm,
   U64_MAX,
   VirtualCurveProgram,
 } from "./utils";
@@ -26,7 +26,7 @@ const PROTOCOL_POOL_FEE_CLAIMED_MASK = 0b00000010;
 const PARTNER_POOL_FEE_CLAIMED_MASK = 0b00000100;
 
 describe("Config pool creation fee", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let partner: Keypair;
   let poolCreator: Keypair;
@@ -37,31 +37,18 @@ describe("Config pool creation fee", () => {
   let quoteMint: PublicKey;
 
   beforeEach(async () => {
-    context = await startTest();
-    admin = context.payer;
-    partner = Keypair.generate();
-    migrator = Keypair.generate();
-    poolCreator = Keypair.generate();
-    operator = Keypair.generate();
-
-    const receivers = [
-      partner.publicKey,
-      migrator.publicKey,
-      poolCreator.publicKey,
-      operator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    migrator = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
+    operator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       admin,
       quoteMint,
       admin,
@@ -69,7 +56,7 @@ describe("Config pool creation fee", () => {
       BigInt(U64_MAX.toString())
     );
 
-    await createClaimFeeOperator(context.banksClient, program, {
+    await createClaimFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });
@@ -79,14 +66,14 @@ describe("Config pool creation fee", () => {
     const feeCreation = 0;
     const tokenType = 0;
     const configAccount = await createConfigAccount(
-      context.banksClient,
+      svm,
       partner,
       quoteMint,
       new BN(feeCreation),
       tokenType
     );
 
-    const pool = await createPoolWithSplToken(context.banksClient, program, {
+    const pool = await createPoolWithSplToken(svm, program, {
       poolCreator: poolCreator,
       payer: poolCreator,
       quoteMint,
@@ -98,7 +85,7 @@ describe("Config pool creation fee", () => {
       },
     });
 
-    let poolState = await getVirtualPool(context.banksClient, program, pool);
+    let poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits).equal(0);
   });
 
@@ -106,14 +93,14 @@ describe("Config pool creation fee", () => {
     const feeCreation = 1e9;
     const tokenType = 0;
     const configAccount = await createConfigAccount(
-      context.banksClient,
+      svm,
       partner,
       quoteMint,
       new BN(feeCreation),
       tokenType
     );
 
-    const pool = await createPoolWithSplToken(context.banksClient, program, {
+    const pool = await createPoolWithSplToken(svm, program, {
       poolCreator: poolCreator,
       payer: poolCreator,
       quoteMint,
@@ -125,39 +112,35 @@ describe("Config pool creation fee", () => {
       },
     });
 
-    let poolState = await getVirtualPool(context.banksClient, program, pool);
+    let poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & CREATION_FEE_CHARGED_MASK).equal(1);
     expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
-    const beforeLamport = (
-      await context.banksClient.getAccount(partner.publicKey)
-    ).lamports;
+    const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
     // partner claim pool creation fee
     await claimPartnerPoolCreationFee(
-      context.banksClient,
+      svm,
       partner,
       configAccount,
       pool,
       partner.publicKey
     );
-    const afterLamports = (
-      await context.banksClient.getAccount(partner.publicKey)
-    ).lamports;
+    const afterLamports = svm.getAccount(partner.publicKey).lamports;
 
     expect(afterLamports > beforeLamport).to.be.true;
-    poolState = await getVirtualPool(context.banksClient, program, pool);
+    poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
       0
     );
 
     // admin claim pool creation fee
-    await claimProtocolPoolCreationFee(context.banksClient, program, {
+    await claimProtocolPoolCreationFee(svm, program, {
       operator,
       pool,
     });
 
-    poolState = await getVirtualPool(context.banksClient, program, pool);
+    poolState = getVirtualPool(svm, program, pool);
     expect(
       poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
@@ -167,14 +150,14 @@ describe("Config pool creation fee", () => {
     const feeCreation = 1e9;
     const tokenType = 1;
     const configAccount = await createConfigAccount(
-      context.banksClient,
+      svm,
       partner,
       quoteMint,
       new BN(feeCreation),
       tokenType
     );
 
-    const pool = await createPoolWithToken2022(context.banksClient, program, {
+    const pool = await createPoolWithToken2022(svm, program, {
       poolCreator: poolCreator,
       payer: poolCreator,
       quoteMint,
@@ -186,39 +169,35 @@ describe("Config pool creation fee", () => {
       },
     });
 
-    let poolState = await getVirtualPool(context.banksClient, program, pool);
+    let poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & CREATION_FEE_CHARGED_MASK).equal(1);
     expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
-    const beforeLamport = (
-      await context.banksClient.getAccount(partner.publicKey)
-    ).lamports;
+    const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
     // partner claim pool creation fee
     await claimPartnerPoolCreationFee(
-      context.banksClient,
+      svm,
       partner,
       configAccount,
       pool,
       partner.publicKey
     );
-    const afterLamports = (
-      await context.banksClient.getAccount(partner.publicKey)
-    ).lamports;
+    const afterLamports = svm.getAccount(partner.publicKey).lamports;
 
     expect(afterLamports > beforeLamport).to.be.true;
-    poolState = await getVirtualPool(context.banksClient, program, pool);
+    poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
       0
     );
 
     // admin claim pool creation fee
-    await claimProtocolPoolCreationFee(context.banksClient, program, {
+    await claimProtocolPoolCreationFee(svm, program, {
       operator,
       pool,
     });
 
-    poolState = await getVirtualPool(context.banksClient, program, pool);
+    poolState = getVirtualPool(svm, program, pool);
     expect(
       poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
@@ -226,7 +205,7 @@ describe("Config pool creation fee", () => {
 });
 
 async function createConfigAccount(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   creator: Keypair,
   quoteMint: PublicKey,
   poolCreationFee: BN,
@@ -278,7 +257,7 @@ async function createConfigAccount(
   instructionParams.tokenType = tokenType;
   instructionParams.migrationOption = 1;
 
-  const configAccount = await createConfig(banksClient, program, {
+  const configAccount = await createConfig(svm, program, {
     payer: creator,
     leftoverReceiver: creator.publicKey,
     feeClaimer: creator.publicKey,

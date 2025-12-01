@@ -93,6 +93,7 @@ describe("Create config", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
+      poolCreationFee: new BN(0),
       padding: [],
       curve: curves,
     };

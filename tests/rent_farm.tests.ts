@@ -84,7 +84,7 @@ describe("Rent fee farm", () => {
       BigInt(U64_MAX.toString())
     );
 
-    await createClaimFeeOperator(context.banksClient, program, {
+    await createClaimFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });
@@ -248,7 +248,7 @@ describe("Rent fee farm", () => {
 
     it("spl-token", async () => {
       const { migrateDammV1Config } = await createConfigAccount(
-        context.banksClient,
+        svm,
         exploiterPartner,
         quoteMint,
         new BN(0)
@@ -376,7 +376,7 @@ describe("Rent fee farm", () => {
 
     it("spl-token", async () => {
       const { migrateDammV2Config } = await createConfigAccount(
-        context.banksClient,
+        svm,
         exploiterPartner,
         quoteMint,
         new BN(0)
@@ -398,7 +398,7 @@ describe("Rent fee farm", () => {
 
     it("token-2022", async () => {
       const { migrateDammV1ConfigToken2022 } = await createConfigAccount(
-        context.banksClient,
+        svm,
         exploiterPartner,
         quoteMint,
         new BN(0.1 * 10e9)
@@ -422,12 +422,12 @@ describe("Rent fee farm", () => {
   describe("Claim creation fee", async () => {
     it("non farmable pool", async () => {
       const { migrateDammV1Config } = await createConfigAccount(
-        context.banksClient,
+        svm,
         exploiterPartner,
         quoteMint,
         new BN(0)
       );
-      const pool = await createPoolWithSplToken(context.banksClient, program, {
+      const pool = await createPoolWithSplToken(svm, program, {
         poolCreator: admin,
         payer: admin,
         quoteMint,
@@ -441,7 +441,7 @@ describe("Rent fee farm", () => {
 
       const beforeTreasuryLamport = svm.getBalance(TREASURY) ?? 0;
 
-      await claimPoolCreationFee(svm, program, {
+      await claimProtocolPoolCreationFee(svm, program, {
         operator,
         pool,
       });
@@ -453,12 +453,12 @@ describe("Rent fee farm", () => {
 
     it("farmable pool", async () => {
       const { migrateDammV1ConfigToken2022 } = await createConfigAccount(
-        context.banksClient,
+        svm,
         exploiterPartner,
         quoteMint,
         new BN(0.1 * 10e9)
       );
-      const pool = await createPoolWithToken2022(context.banksClient, program, {
+      const pool = await createPoolWithToken2022(svm, program, {
         poolCreator: exploiterCreator,
         payer: exploiterCreator,
         quoteMint,
@@ -472,7 +472,7 @@ describe("Rent fee farm", () => {
 
       let beforeTreasuryLamport = svm.getBalance(TREASURY);
 
-      await claimPoolCreationFee(svm, program, {
+      await claimProtocolPoolCreationFee(svm, program, {
         operator,
         pool,
       });
@@ -483,7 +483,7 @@ describe("Rent fee farm", () => {
       // Claim again yield nothing
       beforeTreasuryLamport = afterTreasuryLamport;
 
-      await claimPoolCreationFee(svm, program, {
+      await claimProtocolPoolCreationFee(svm, program, {
         operator,
         pool,
       });
@@ -603,7 +603,7 @@ async function withdrawAndClosePosition(
 }
 
 async function createConfigAccount(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   creator: Keypair,
   quoteMint: PublicKey,
   poolCreationFee: BN
@@ -652,7 +652,7 @@ async function createConfigAccount(
   instructionParams.collectFeeMode = 1; // Output only
   instructionParams.poolCreationFee = poolCreationFee;
 
-  const migrateDammV1Config = await createConfig(banksClient, program, {
+  const migrateDammV1Config = await createConfig(svm, program, {
     payer: creator,
     leftoverReceiver: creator.publicKey,
     feeClaimer: creator.publicKey,
@@ -662,7 +662,7 @@ async function createConfigAccount(
 
   instructionParams.migrationOption = 1;
 
-  const migrateDammV2Config = await createConfig(banksClient, program, {
+  const migrateDammV2Config = await createConfig(svm, program, {
     payer: creator,
     leftoverReceiver: creator.publicKey,
     feeClaimer: creator.publicKey,
@@ -672,17 +672,13 @@ async function createConfigAccount(
 
   instructionParams.tokenType = 1;
 
-  const migrateDammV1ConfigToken2022 = await createConfig(
-    banksClient,
-    program,
-    {
-      payer: creator,
-      leftoverReceiver: creator.publicKey,
-      feeClaimer: creator.publicKey,
-      quoteMint,
-      instructionParams,
-    }
-  );
+  const migrateDammV1ConfigToken2022 = await createConfig(svm, program, {
+    payer: creator,
+    leftoverReceiver: creator.publicKey,
+    feeClaimer: creator.publicKey,
+    quoteMint,
+    instructionParams,
+  });
   return {
     migrateDammV1Config,
     migrateDammV2Config,

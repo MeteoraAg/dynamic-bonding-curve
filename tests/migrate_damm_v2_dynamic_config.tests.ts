@@ -179,6 +179,7 @@ async function fullFlow(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
+    poolCreationFee: new BN(0),
     migratedPoolFee,
     padding: [],
     curve: curves,

@@ -416,7 +416,7 @@ export async function partnerWithdrawMigrationFee(
 }
 
 export async function claimPartnerPoolCreationFee(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   feeClaimer: Keypair,
   config: PublicKey,
   virtualPool: PublicKey,
@@ -433,8 +433,5 @@ export async function claimPartnerPoolCreationFee(
       feeReceiver,
     })
     .transaction();
-
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(feeClaimer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }

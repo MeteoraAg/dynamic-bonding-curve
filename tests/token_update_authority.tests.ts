@@ -117,6 +117,7 @@ describe("Create pool with token2022", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
+      poolCreationFee: new BN(0),
       padding: [],
       curve: curves,
     };

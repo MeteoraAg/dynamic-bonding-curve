@@ -81,7 +81,7 @@ export type ClaimProtocolPoolCreationFeeParams = {
   pool: PublicKey;
 };
 
-export async function claimPoolCreationFee(
+export async function claimProtocolPoolCreationFee(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   params: ClaimProtocolPoolCreationFeeParams
