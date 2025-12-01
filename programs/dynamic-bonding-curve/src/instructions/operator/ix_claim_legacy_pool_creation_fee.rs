@@ -37,7 +37,6 @@ pub fn handle_claim_legacy_pool_creation_fee(
     );
 
     pool.update_legacy_creation_fee_claimed();
-    drop(pool);
 
     // Transfer the creation fee to the treasury
     transfer_lamports_from_pool_account(

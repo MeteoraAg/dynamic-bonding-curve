@@ -160,11 +160,11 @@ pub fn transfer_lamports_from_user<'info>(
 }
 
 pub fn transfer_lamports_from_pool_account<'info>(
-    from: AccountInfo<'info>,
+    pool: AccountInfo<'info>,
     to: AccountInfo<'info>,
     lamports: u64,
 ) -> Result<()> {
-    from.sub_lamports(lamports)?;
+    pool.sub_lamports(lamports)?;
     to.add_lamports(lamports)?;
 
     Ok(())
