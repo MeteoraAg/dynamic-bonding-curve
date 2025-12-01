@@ -11,7 +11,9 @@ use crate::{
         MIN_LOCKED_LP_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
-        fee_parameters::PoolFeeParameters,
+        fee_parameters::{
+            validate_pool_fees, BaseFeeParameters, DynamicFeeParameters, PoolFeeParameters,
+        },
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
             LiquidityDistributionParameters,
@@ -26,7 +28,7 @@ use crate::{
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
 pub struct ConfigParameters {
     pub pool_fees: PoolFeeParameters,
     pub collect_fee_mode: u8,
@@ -189,7 +191,8 @@ impl ConfigParameters {
     pub fn validate<'info>(&self, quote_mint: &InterfaceAccount<'info, Mint>) -> Result<()> {
         validate_common_config_parameters(ValidateCommonConfigParametersArgs {
             quote_mint,
-            pool_fees: &self.pool_fees,
+            base_fee: &self.pool_fees.base_fee,
+            dynamic_fee: self.pool_fees.dynamic_fee.as_ref(),
             migration_fee: &self.migration_fee,
             activation_type: self.activation_type,
             collect_fee_mode: self.collect_fee_mode,
@@ -586,7 +589,8 @@ pub fn process_create_config<'a, 'info>(
 
 pub struct ValidateCommonConfigParametersArgs<'a, 'b, 'info> {
     pub quote_mint: &'a InterfaceAccount<'info, Mint>,
-    pub pool_fees: &'b PoolFeeParameters,
+    pub base_fee: &'b BaseFeeParameters,
+    pub dynamic_fee: Option<&'b DynamicFeeParameters>,
     pub migration_fee: &'b MigrationFee,
     pub activation_type: u8,
     pub collect_fee_mode: u8,
@@ -605,7 +609,8 @@ pub fn validate_common_config_parameters<'a, 'b, 'info>(
 ) -> Result<()> {
     let ValidateCommonConfigParametersArgs {
         quote_mint,
-        pool_fees,
+        base_fee,
+        dynamic_fee,
         migration_fee,
         activation_type,
         collect_fee_mode,
@@ -629,7 +634,7 @@ pub fn validate_common_config_parameters<'a, 'b, 'info>(
         ActivationType::try_from(activation_type).map_err(|_| PoolError::TypeCastFailed)?;
 
     // validate fee
-    pool_fees.validate(collect_fee_mode, activation_type)?;
+    validate_pool_fees(base_fee, dynamic_fee, collect_fee_mode, activation_type)?;
 
     // validate creator trading fee percentage
     require!(

@@ -33,7 +33,7 @@ import {
 } from "./instructions";
 import {
   createDammConfig,
-  createDammV2Config,
+  createDammV2DynamicConfig,
   createDammV2Program,
   createVirtualCurveProgram,
   deriveLpMintAddress,
@@ -138,32 +138,59 @@ describe("Rent fee farm", () => {
       instructionParams,
     });
 
-    instructionParams.migrationOption = 1;
-
     let dammV2ConfigParameters: DammV2ConfigParameters = {
-      ...instructionParams,
-      creatorLpInfo: {
-        lpPercentage: 65,
-        lpPermanentLockPercentage: 0,
-        lpVestingInfo: {
-          vestingPercentage: 5,
-          frequency: new BN(0),
-          cliffDurationFromMigrationTime: 86400 * 7,
-          numberOfPeriods: 0,
-          bpsPerPeriod: 0,
+      virtualPoolConfiguration: {
+        sqrtStartPrice: instructionParams.sqrtStartPrice,
+        migrationQuoteThreshold: instructionParams.migrationQuoteThreshold,
+        activationType: instructionParams.activationType,
+      },
+      virtualPoolFeesConfiguration: {
+        baseFee: instructionParams.poolFees.baseFee,
+        dynamicFee: instructionParams.poolFees.dynamicFee,
+        collectFeeMode: instructionParams.collectFeeMode,
+        creatorTradingFeePercentage:
+          instructionParams.creatorTradingFeePercentage,
+      },
+      mintConfiguration: {
+        tokenDecimal: instructionParams.tokenDecimal,
+        tokenSupply: instructionParams.tokenSupply,
+        tokenUpdateAuthority: instructionParams.tokenUpdateAuthority,
+        tokenType: instructionParams.tokenType,
+        lockedVesting: instructionParams.lockedVesting,
+      },
+      liquidityDistributionConfiguration: {
+        creatorLpInfo: {
+          lpPercentage: 65,
+          lpPermanentLockPercentage: 0,
+          lpVestingInfo: {
+            vestingPercentage: 5,
+            frequency: new BN(0),
+            cliffDurationFromMigrationTime: 86400 * 7,
+            numberOfPeriods: 0,
+            bpsPerPeriod: 0,
+          },
+        },
+        partnerLpInfo: {
+          lpPermanentLockPercentage: 0,
+          lpPercentage: 25,
+          lpVestingInfo: {
+            vestingPercentage: 5,
+            frequency: new BN(0),
+            cliffDurationFromMigrationTime: 86400 * 7,
+            numberOfPeriods: 0,
+            bpsPerPeriod: 0,
+          },
         },
       },
-      partnerLpInfo: {
-        lpPermanentLockPercentage: 0,
-        lpPercentage: 25,
-        lpVestingInfo: {
-          vestingPercentage: 5,
-          frequency: new BN(0),
-          cliffDurationFromMigrationTime: 86400 * 7,
-          numberOfPeriods: 0,
-          bpsPerPeriod: 0,
+      dammV2MigrationConfiguration: {
+        migratedPoolFee: {
+          poolFeeBps: 100,
+          dynamicFee: 1,
+          collectFeeMode: 0,
         },
+        migrationFee: instructionParams.migrationFee,
       },
+      curve: instructionParams.curve,
     };
 
     migrateDammV2Config = await createDammV2OnlyConfig(svm, program, {
@@ -174,7 +201,7 @@ describe("Rent fee farm", () => {
       instructionParams: dammV2ConfigParameters,
     });
 
-    dammV2ConfigParameters.tokenType = 1;
+    dammV2ConfigParameters.mintConfiguration.tokenType = 1;
 
     migrateDammV2ConfigToken2022 = await createDammV2OnlyConfig(svm, program, {
       payer: exploiterPartner,
@@ -411,11 +438,10 @@ describe("Rent fee farm", () => {
       });
 
       const poolAuthority = derivePoolAuthority();
-      const dammV2Config = await createDammV2Config(
+      const dammV2Config = await createDammV2DynamicConfig(
         svm,
         admin,
-        poolAuthority,
-        1 // Time-based activation
+        poolAuthority
       );
       const migrationParams: MigrateMeteoraDammV2Params = {
         payer: migrator,
