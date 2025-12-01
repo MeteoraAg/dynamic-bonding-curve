@@ -47,7 +47,7 @@ pub struct ConfigParameters {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
-    /// pool creation fee in lamports value
+    /// pool creation fee in SOL lamports value
     pub pool_creation_fee: u64,
     /// padding for future use
     pub padding: [u64; 6],
@@ -280,6 +280,15 @@ impl ConfigParameters {
         // validate vesting params
         self.locked_vesting.validate()?;
 
+        // validate pool creation fee
+        if self.pool_creation_fee > 0 {
+            require!(
+                self.pool_creation_fee >= MIN_POOL_CREATION_FEE
+                    && self.pool_creation_fee <= MAX_POOL_CREATION_FEE,
+                PoolError::InvalidPoolCreationFee
+            )
+        }
+
         // validate price and liquidity
         require!(
             self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,
@@ -310,15 +319,6 @@ impl ConfigParameters {
             self.curve[curve_length - 1].sqrt_price <= MAX_SQRT_PRICE,
             PoolError::InvalidCurve
         );
-
-        // validate pool creation fee
-        if self.pool_creation_fee > 0 {
-            require!(
-                self.pool_creation_fee >= MIN_POOL_CREATION_FEE
-                    && self.pool_creation_fee <= MAX_POOL_CREATION_FEE,
-                PoolError::InvalidPoolCreationFee
-            )
-        }
 
         Ok(())
     }

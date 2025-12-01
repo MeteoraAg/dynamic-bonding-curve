@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, PROTOCOL_POOL_CREATION_FEE_PERCENT},
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
@@ -864,6 +864,17 @@ impl PoolConfig {
             partner_fee,
             creator_fee,
         })
+    }
+
+    pub fn split_pool_creation_fee(&self) -> Result<(u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            self.pool_creation_fee,
+            PROTOCOL_POOL_CREATION_FEE_PERCENT.into(),
+            100,
+            Rounding::Down,
+        )?;
+        let partner_fee = self.pool_creation_fee.safe_sub(protocol_fee)?;
+        Ok((protocol_fee, partner_fee))
     }
 }
 

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{assert_eq_admin, state::ClaimFeeOperator, EvtCloseClaimFeeOperator, PoolError};
+use crate::{state::ClaimFeeOperator, EvtCloseClaimFeeOperator};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -15,10 +15,7 @@ pub struct CloseClaimFeeOperatorCtx<'info> {
     #[account(mut)]
     pub rent_receiver: UncheckedAccount<'info>,
 
-    #[account(
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
-    )]
-    pub admin: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 pub fn handle_close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {

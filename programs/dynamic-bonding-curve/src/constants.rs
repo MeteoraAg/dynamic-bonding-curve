@@ -90,9 +90,6 @@ pub mod fee {
     /// Protocol's share percentage of the pool creation fee. The remainder goes to the partner.
     pub const PROTOCOL_POOL_CREATION_FEE_PERCENT: u8 = 10; // 10%
 
-    // 0.01
-    pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
-
     // min pool creation fee: 0.001 SOL
     pub const MIN_POOL_CREATION_FEE: u64 = 1_000_000;
     // max pool creation fee: 100 SOL

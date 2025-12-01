@@ -23,8 +23,8 @@ import {
 } from "./utils";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
-const PROTOCOL_POOL_FEE_CLAIMED_MASK = 0b010;
-const PARTNER_POOL_FEE_CLAIMED_MASK = 0b100;
+const PARTNER_POOL_FEE_CLAIMED_MASK = 0b10;
+const PROTOCOL_POOL_FEE_CLAIMED_MASK = 0b01;
 
 describe("Config pool creation fee", () => {
   let svm: LiteSVM;
@@ -114,7 +114,6 @@ describe("Config pool creation fee", () => {
     });
 
     let poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
@@ -131,7 +130,7 @@ describe("Config pool creation fee", () => {
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.poolCreationFeeClaimStatus & PARTNER_POOL_FEE_CLAIMED_MASK
+      poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
 
     // error if partner reclaim
@@ -156,7 +155,7 @@ describe("Config pool creation fee", () => {
 
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.poolCreationFeeClaimStatus & PROTOCOL_POOL_FEE_CLAIMED_MASK
+      poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
 
     expectThrowsAsync(async () => {
@@ -191,7 +190,6 @@ describe("Config pool creation fee", () => {
     });
 
     let poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
@@ -208,7 +206,7 @@ describe("Config pool creation fee", () => {
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.poolCreationFeeClaimStatus & PARTNER_POOL_FEE_CLAIMED_MASK
+      poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
 
     // error if partner reclaim
@@ -233,7 +231,7 @@ describe("Config pool creation fee", () => {
 
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.poolCreationFeeClaimStatus & PROTOCOL_POOL_FEE_CLAIMED_MASK
+      poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
 
     // error if protocol reclaim

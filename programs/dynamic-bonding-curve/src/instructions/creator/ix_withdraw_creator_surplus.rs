@@ -25,7 +25,6 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
         mut,
         has_one = quote_vault,
         has_one = config,
-        has_one = creator,
     )]
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
 

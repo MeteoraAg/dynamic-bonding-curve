@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{PoolConfig, VirtualPool},
+    state::{ClaimFeeOperator, PoolConfig, VirtualPool},
     token::transfer_from_pool,
     treasury, EvtProtocolWithdrawSurplus, PoolError,
 };
@@ -43,6 +43,12 @@ pub struct ProtocolWithdrawSurplusCtx<'info> {
 
     /// The mint of token
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// Claim fee operator
+    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token b program
     pub token_quote_program: Interface<'info, TokenInterface>,

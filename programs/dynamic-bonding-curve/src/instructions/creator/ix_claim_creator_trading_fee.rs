@@ -18,7 +18,6 @@ pub struct ClaimCreatorTradingFeesCtx<'info> {
         has_one = base_vault,
         has_one = quote_vault,
         has_one = base_mint,
-        has_one = creator,
     )]
     pub pool: AccountLoader<'info, VirtualPool>,
 

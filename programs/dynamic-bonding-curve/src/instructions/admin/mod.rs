@@ -1,14 +1,6 @@
 pub mod auth;
 pub use auth::*;
-pub mod ix_claim_protocol_fee;
-pub use ix_claim_protocol_fee::*;
 pub mod ix_create_claim_protocol_fee_operator;
 pub use ix_create_claim_protocol_fee_operator::*;
 pub mod ix_close_claim_protocol_fee_operator;
 pub use ix_close_claim_protocol_fee_operator::*;
-pub mod ix_withdraw_protocol_surplus;
-pub use ix_withdraw_protocol_surplus::*;
-pub mod ix_claim_protocol_pool_creation_fee;
-pub use ix_claim_protocol_pool_creation_fee::*;
-pub mod ix_claim_pool_creation_fee;
-pub use ix_claim_pool_creation_fee::*;

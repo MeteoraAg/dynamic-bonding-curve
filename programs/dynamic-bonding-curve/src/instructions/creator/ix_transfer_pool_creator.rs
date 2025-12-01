@@ -11,7 +11,6 @@ use crate::{
 pub struct TransferPoolCreatorCtx<'info> {
     #[account(
         mut,
-        has_one = creator,
         has_one = config,
     )]
     pub virtual_pool: AccountLoader<'info, VirtualPool>,

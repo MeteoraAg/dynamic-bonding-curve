@@ -255,7 +255,6 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
-        config.pool_creation_fee,
     );
 
     emit_cpi!(EvtInitializePool {

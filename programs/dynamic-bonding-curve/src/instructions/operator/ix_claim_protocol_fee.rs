@@ -57,11 +57,10 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_quote_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Claim fee operator
-    #[account(has_one = operator)]
     pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
 
-    /// Operator
-    pub operator: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_base_program: Interface<'info, TokenInterface>,
