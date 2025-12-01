@@ -11,7 +11,7 @@ import {
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { Clock, LiteSVM } from "litesvm";
 import {
   claimPoolCreationFee,
   createClaimFeeOperator,
@@ -166,31 +166,23 @@ describe("Rent fee farm", () => {
       },
     };
 
-    migrateDammV2Config = await createDammV2OnlyConfig(
-      svm,
-      program,
-      {
-        payer: exploiterPartner,
-        leftoverReceiver: exploiterPartner.publicKey,
-        feeClaimer: exploiterPartner.publicKey,
-        quoteMint,
-        instructionParams: dammV2ConfigParameters,
-      }
-    );
+    migrateDammV2Config = await createDammV2OnlyConfig(svm, program, {
+      payer: exploiterPartner,
+      leftoverReceiver: exploiterPartner.publicKey,
+      feeClaimer: exploiterPartner.publicKey,
+      quoteMint,
+      instructionParams: dammV2ConfigParameters,
+    });
 
     dammV2ConfigParameters.tokenType = 1;
 
-    migrateDammV2ConfigToken2022 = await createDammV2OnlyConfig(
-      svm,
-      program,
-      {
-        payer: exploiterPartner,
-        leftoverReceiver: exploiterPartner.publicKey,
-        feeClaimer: exploiterPartner.publicKey,
-        quoteMint,
-        instructionParams: dammV2ConfigParameters,
-      }
-    );
+    migrateDammV2ConfigToken2022 = await createDammV2OnlyConfig(svm, program, {
+      payer: exploiterPartner,
+      leftoverReceiver: exploiterPartner.publicKey,
+      feeClaimer: exploiterPartner.publicKey,
+      quoteMint,
+      instructionParams: dammV2ConfigParameters,
+    });
 
     await createClaimFeeOperator(svm, program, {
       admin,
@@ -439,7 +431,7 @@ describe("Rent fee farm", () => {
         creatorVestingAddress,
       } = await migrateToDammV2(svm, program, migrationParams);
 
-      const clock = await context.banksClient.getClock();
+      const clock = await svm.getClock();
       // Wrap around 8 days later for position fully withdraw
       const slotMs = 400;
       const secondsDuration = 86400 * 8;
@@ -452,7 +444,7 @@ describe("Rent fee farm", () => {
         clock.leaderScheduleEpoch,
         clock.unixTimestamp + BigInt(secondsDuration)
       );
-      context.setClock(newClock);
+      svm.setClock(newClock);
 
       const lamportRecovered = await withdrawAndClosePosition(
         svm,
@@ -700,7 +692,7 @@ async function withdrawAndClosePosition(
   const instructions = [withdrawIx, closePositionIx];
 
   const vestingAccount = await svm.getAccount(vestingPositionAddress);
-    
+
   if (vestingAccount) {
     const refreshVestingIx = await dammV2Program.methods
       .refreshVesting()

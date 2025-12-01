@@ -6,6 +6,7 @@ import {
   ClaimCreatorTradeFeeParams,
   claimCreatorTradingFee,
   claimTradingFee,
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
