@@ -92,6 +92,11 @@ pub mod fee {
 
     // 0.01
     pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
+
+    // min pool creation fee: 0.001 SOL
+    pub const MIN_POOL_CREATION_FEE: u64 = 1_000_000;
+    // max pool creation fee: 100 SOL
+    pub const MAX_POOL_CREATION_FEE: u64 = 100_000_000_000;
 }
 
 pub mod seeds {

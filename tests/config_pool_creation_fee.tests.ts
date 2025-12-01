@@ -13,7 +13,9 @@ import {
 import {
   createVirtualCurveProgram,
   designGraphCurve,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getVirtualPool,
   startSvm,
   U64_MAX,
@@ -21,9 +23,8 @@ import {
 } from "./utils";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
-const CREATION_FEE_CHARGED_MASK = 0b00000001;
-const PROTOCOL_POOL_FEE_CLAIMED_MASK = 0b00000010;
-const PARTNER_POOL_FEE_CLAIMED_MASK = 0b00000100;
+const PROTOCOL_POOL_FEE_CLAIMED_MASK = 0b010;
+const PARTNER_POOL_FEE_CLAIMED_MASK = 0b100;
 
 describe("Config pool creation fee", () => {
   let svm: LiteSVM;
@@ -113,7 +114,6 @@ describe("Config pool creation fee", () => {
     });
 
     let poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFeeBits & CREATION_FEE_CHARGED_MASK).equal(1);
     expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
@@ -130,9 +130,23 @@ describe("Config pool creation fee", () => {
 
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
-      0
+    expect(
+      poolState.poolCreationFeeClaimStatus & PARTNER_POOL_FEE_CLAIMED_MASK
+    ).not.equal(0);
+
+    // error if partner reclaim
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "PoolCreationFeeHasBeenClaimed"
     );
+    expectThrowsAsync(async () => {
+      await claimPartnerPoolCreationFee(
+        svm,
+        partner,
+        configAccount,
+        pool,
+        partner.publicKey
+      );
+    }, errorCode);
 
     // admin claim pool creation fee
     await claimProtocolPoolCreationFee(svm, program, {
@@ -142,8 +156,15 @@ describe("Config pool creation fee", () => {
 
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
+      poolState.poolCreationFeeClaimStatus & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
+
+    expectThrowsAsync(async () => {
+      await claimProtocolPoolCreationFee(svm, program, {
+        operator,
+        pool,
+      });
+    }, errorCode);
   });
 
   it("create token2022 pool", async () => {
@@ -170,7 +191,6 @@ describe("Config pool creation fee", () => {
     });
 
     let poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFeeBits & CREATION_FEE_CHARGED_MASK).equal(1);
     expect(poolState.creationFee.toString()).eq(feeCreation.toString());
 
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
@@ -187,9 +207,23 @@ describe("Config pool creation fee", () => {
 
     expect(afterLamports > beforeLamport).to.be.true;
     poolState = getVirtualPool(svm, program, pool);
-    expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
-      0
+    expect(
+      poolState.poolCreationFeeClaimStatus & PARTNER_POOL_FEE_CLAIMED_MASK
+    ).not.equal(0);
+
+    // error if partner reclaim
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "PoolCreationFeeHasBeenClaimed"
     );
+    expectThrowsAsync(async () => {
+      await claimPartnerPoolCreationFee(
+        svm,
+        partner,
+        configAccount,
+        pool,
+        partner.publicKey
+      );
+    }, errorCode);
 
     // admin claim pool creation fee
     await claimProtocolPoolCreationFee(svm, program, {
@@ -199,8 +233,16 @@ describe("Config pool creation fee", () => {
 
     poolState = getVirtualPool(svm, program, pool);
     expect(
-      poolState.creationFeeBits & PROTOCOL_POOL_FEE_CLAIMED_MASK
+      poolState.poolCreationFeeClaimStatus & PROTOCOL_POOL_FEE_CLAIMED_MASK
     ).not.equal(0);
+
+    // error if protocol reclaim
+    expectThrowsAsync(async () => {
+      await claimProtocolPoolCreationFee(svm, program, {
+        operator,
+        pool,
+      });
+    }, errorCode);
   });
 });
 

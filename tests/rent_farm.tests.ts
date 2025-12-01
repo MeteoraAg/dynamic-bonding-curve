@@ -37,8 +37,10 @@ import {
   deriveLpMintAddress,
   derivePoolAuthority,
   designGraphCurve,
+  expectThrowsAsync,
   generateAndFund,
   getConfig,
+  getDbcProgramErrorCodeHexString,
   getVirtualPool,
   sendTransactionMaybeThrow,
   startSvm,
@@ -282,12 +284,6 @@ describe("Rent fee farm", () => {
 
       let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-      if (assertCreationFeeCharged) {
-        expect(virtualPoolState.creationFeeBits & 0b00000001).to.be.equal(1);
-      } else {
-        expect(virtualPoolState.creationFeeBits).to.be.equal(0);
-      }
-
       const configState = getConfig(svm, program, virtualPoolState.config);
 
       const afterBalance = svm.getBalance(exploiterCreator.publicKey);
@@ -470,7 +466,7 @@ describe("Rent fee farm", () => {
         },
       });
 
-      let beforeTreasuryLamport = svm.getBalance(TREASURY);
+      let beforeTreasuryLamport = svm.getBalance(TREASURY) ?? 0;
 
       await claimProtocolPoolCreationFee(svm, program, {
         operator,
@@ -479,17 +475,15 @@ describe("Rent fee farm", () => {
 
       let afterTreasuryLamport = svm.getBalance(TREASURY);
       expect(afterTreasuryLamport > beforeTreasuryLamport).to.be.true;
-
-      // Claim again yield nothing
-      beforeTreasuryLamport = afterTreasuryLamport;
-
-      await claimProtocolPoolCreationFee(svm, program, {
-        operator,
-        pool,
-      });
-
-      afterTreasuryLamport = svm.getBalance(TREASURY);
-      expect(afterTreasuryLamport == beforeTreasuryLamport).to.be.true;
+      const errorCode = getDbcProgramErrorCodeHexString(
+        "PoolCreationFeeHasBeenClaimed"
+      );
+      expectThrowsAsync(async () => {
+        await claimProtocolPoolCreationFee(svm, program, {
+          operator,
+          pool,
+        });
+      }, errorCode);
     });
   });
 });

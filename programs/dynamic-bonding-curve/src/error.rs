@@ -157,4 +157,10 @@ pub enum PoolError {
 
     #[msg("Account invariant violation")]
     AccountInvariantViolation,
+
+    #[msg("Invalid pool creation fee")]
+    InvalidPoolCreationFee,
+
+    #[msg("Pool creation fee has been claimed")]
+    PoolCreationFeeHasBeenClaimed,
 }

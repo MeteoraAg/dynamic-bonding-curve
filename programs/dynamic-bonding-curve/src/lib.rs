@@ -47,6 +47,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_protocol_withdraw_surplus(ctx)
     }
 
+    pub fn claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
+        instructions::handle_claim_pool_creation_fee(ctx)
+    }
+
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
     ) -> Result<()> {

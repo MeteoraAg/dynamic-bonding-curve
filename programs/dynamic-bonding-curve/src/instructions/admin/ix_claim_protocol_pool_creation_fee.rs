@@ -43,28 +43,19 @@ pub fn handle_claim_protocol_pool_creation_fee(
     if protocol_pool_creation_fee > 0 {
         pool.update_protocol_pool_creation_fee_claimed();
 
-        if pool.creation_fee > 0 {
-            let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
-            // Transfer the creation fee from pool authority to the treasury
-            transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.system_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.pool_authority.to_account_info(),
-                        to: ctx.accounts.treasury.to_account_info(),
-                    },
-                    &[&seeds[..]],
-                ),
-                protocol_pool_creation_fee,
-            )?;
-        } else {
-            // Transfer the creation fee from pool to the treasury
-            ctx.accounts.pool.sub_lamports(protocol_pool_creation_fee)?;
-            ctx.accounts
-                .treasury
-                .add_lamports(protocol_pool_creation_fee)?;
-        }
-
+        let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
+        // Transfer the creation fee from pool authority to the treasury
+        transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.pool_authority.to_account_info(),
+                    to: ctx.accounts.treasury.to_account_info(),
+                },
+                &[&seeds[..]],
+            ),
+            protocol_pool_creation_fee,
+        )?;
         emit_cpi!(EvtClaimPoolCreationFee {
             pool: ctx.accounts.pool.key(),
             receiver: ctx.accounts.treasury.key(),

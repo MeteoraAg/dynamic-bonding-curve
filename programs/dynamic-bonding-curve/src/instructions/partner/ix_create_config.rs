@@ -6,6 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
+        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
         MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
@@ -309,6 +310,15 @@ impl ConfigParameters {
             self.curve[curve_length - 1].sqrt_price <= MAX_SQRT_PRICE,
             PoolError::InvalidCurve
         );
+
+        // validate pool creation fee
+        if self.pool_creation_fee > 0 {
+            require!(
+                self.pool_creation_fee >= MIN_POOL_CREATION_FEE
+                    && self.pool_creation_fee <= MAX_POOL_CREATION_FEE,
+                PoolError::InvalidPoolCreationFee
+            )
+        }
 
         Ok(())
     }
