@@ -18,7 +18,7 @@ pub struct ClaimTradingFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one=quote_mint, has_one=fee_claimer)]
+    #[account(has_one=quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
 
     #[account(

@@ -193,3 +193,10 @@ pub struct EvtClaimPoolCreationFee {
     pub receiver: Pubkey,
     pub creation_fee: u64,
 }
+
+#[event]
+pub struct EvtPartnerClaimPoolCreationFee {
+    pub pool: Pubkey,
+    pub partner: Pubkey,
+    pub creation_fee: u64,
+}

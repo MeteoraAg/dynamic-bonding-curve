@@ -28,6 +28,7 @@ import {
   getVirtualPool,
 } from "../utils/fetcher";
 import { VirtualCurveProgram } from "../utils/types";
+import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 
 export type BaseFee = {
   cliffFeeNumerator: BN;
@@ -220,21 +221,21 @@ export async function claimTradingFee(
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      poolState.baseMint,
-      feeClaimer.publicKey,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      quoteMintInfo.mint,
-      feeClaimer.publicKey,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        poolState.baseMint,
+        feeClaimer.publicKey,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        quoteMintInfo.mint,
+        feeClaimer.publicKey,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -427,10 +428,11 @@ export async function claimPartnerPoolCreationFee(
     .claimPartnerPoolCreationFee()
     .accountsPartial({
       poolAuthority: derivePoolAuthority(),
-      pool: virtualPool,
       config,
+      pool: virtualPool,
       feeClaimer: feeClaimer.publicKey,
       feeReceiver,
+      systemProgram: SYSTEM_PROGRAM_ID,
     })
     .transaction();
   sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);

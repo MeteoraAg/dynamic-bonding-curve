@@ -1,10 +1,11 @@
-use crate::{state::*, *};
 use anchor_lang::system_program::{transfer, Transfer};
 
-/// Accounts for partner withdraw creation fees
+use crate::{state::*, EvtClaimPoolCreationFee, *};
+
+/// Accounts for withdraw creation fees
 #[event_cpi]
 #[derive(Accounts)]
-pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
+pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
     /// CHECK: pool authority
     #[account(
         mut,
@@ -17,52 +18,58 @@ pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
     #[account(mut, has_one = config)]
     pub pool: AccountLoader<'info, VirtualPool>,
 
-    pub fee_claimer: Signer<'info>,
+    /// Claim fee operator
+    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
 
-    /// CHECK: fee receiver
-    #[account(mut)]
-    pub fee_receiver: UncheckedAccount<'info>,
+    /// Operator
+    pub signer: Signer<'info>,
+
+    /// CHECK: treasury
+    #[account(
+        mut,
+        address = treasury::ID
+    )]
+    pub treasury: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_claim_partner_pool_creation_fee(
-    ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
+pub fn handle_claim_protocol_pool_creation_fee(
+    ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
-    let (_, partner_fee) = config.split_pool_creation_fee()?;
+    let (protocol_fee, _) = config.split_pool_creation_fee()?;
 
-    require!(partner_fee > 0, PoolError::ZeroPoolCreationFee);
+    require!(protocol_fee > 0, PoolError::ZeroPoolCreationFee);
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     require!(
-        pool.eligible_to_claim_partner_pool_creation_fee(),
+        pool.eligible_to_claim_protocol_pool_creation_fee(),
         PoolError::PoolCreationFeeHasBeenClaimed
     );
 
     // update flag status
-    pool.update_partner_pool_creation_fee_claimed();
+    pool.update_protocol_pool_creation_fee_claimed();
 
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
-    // Transfer the creation fee from pool authority to the fee receiver
+    // Transfer the creation fee from pool authority to the treasury
     transfer(
         CpiContext::new_with_signer(
             ctx.accounts.system_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.pool_authority.to_account_info(),
-                to: ctx.accounts.fee_receiver.to_account_info(),
+                to: ctx.accounts.treasury.to_account_info(),
             },
             &[&seeds[..]],
         ),
-        partner_fee,
+        protocol_fee,
     )?;
-
-    emit_cpi!(EvtPartnerClaimPoolCreationFee {
+    emit_cpi!(EvtClaimPoolCreationFee {
         pool: ctx.accounts.pool.key(),
-        partner: ctx.accounts.fee_claimer.key(),
-        creation_fee: partner_fee,
+        receiver: ctx.accounts.treasury.key(),
+        creation_fee: protocol_fee,
     });
 
     Ok(())

@@ -5,12 +5,11 @@ use std::{
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use num_traits::ConstOne;
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    constants::{fee::PROTOCOL_POOL_CREATION_FEE_PERCENT, PARTNER_AND_CREATOR_SURPLUS_SHARE},
+    constants::PARTNER_AND_CREATOR_SURPLUS_SHARE,
     curve::{
         get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
         get_delta_amount_quote_unsigned, get_delta_amount_quote_unsigned_256,
@@ -143,27 +142,26 @@ pub struct VirtualPool {
     pub creator_base_fee: u64,
     /// creator quote fee
     pub creator_quote_fee: u64,
-    /// creation fee bits
-    pub creation_fee_bits: u8,
+    /// legacy creation fee bits, we dont use this now
+    pub legacy_creation_fee_bits: u8,
     /// pool creation fee claim status
-    pub pool_creation_fee_claim_status: u8,
+    pub creation_fee_bits: u8,
     /// Padding for further use
     pub _padding_0: [u8; 6],
-    /// pool creation fee in lamports value
-    pub creation_fee: u64,
-    pub _padding_1: [u64; 5],
+    /// Padding for further use
+    pub _padding_1: [u64; 6],
 }
 
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
 
-pub const PARTNER_MASK: u8 = 0b100;
-pub const CREATOR_MASK: u8 = 0b010;
+pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
+pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
 
-const CREATION_FEE_CHARGED_MASK: u8 = 0b01;
-const CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const LEGACY_CREATION_FEE_CHARGED_MASK: u8 = 0b01;
+const LEGACY_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
 
-const PARTNER_CREATION_FEE_CLAIMED_MASK: u8 = 0b100;
-const PROTOCOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b010;
+const PARTNER_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const PROTOCOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b01;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -208,7 +206,6 @@ impl VirtualPool {
         pool_type: u8,
         activation_point: u64,
         base_reserve: u64,
-        creation_fee: u64,
     ) {
         self.volatility_tracker = volatility_tracker;
         self.config = config;
@@ -220,7 +217,6 @@ impl VirtualPool {
         self.pool_type = pool_type;
         self.activation_point = activation_point;
         self.base_reserve = base_reserve;
-        self.creation_fee = creation_fee;
     }
 
     pub fn get_swap_result_from_exact_output(
@@ -1055,73 +1051,46 @@ impl VirtualPool {
         self.migration_progress = progress;
     }
 
-    pub fn has_creation_fee(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
+    pub fn has_legacy_creation_fee(&self) -> bool {
+        self.legacy_creation_fee_bits
+            .bitand(LEGACY_CREATION_FEE_CHARGED_MASK)
+            != 0
     }
 
-    pub fn creation_fee_claimed(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
+    pub fn eligible_to_claim_legacy_creation_fee(&self) -> bool {
+        self.legacy_creation_fee_bits
+            .bitand(LEGACY_CREATION_FEE_CLAIMED_MASK)
+            == 0
     }
 
-    pub fn update_creation_fee_claimed(&mut self) {
-        self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
+    pub fn update_legacy_creation_fee_claimed(&mut self) {
+        self.legacy_creation_fee_bits = self
+            .legacy_creation_fee_bits
+            .bitxor(LEGACY_CREATION_FEE_CLAIMED_MASK);
     }
 
-    pub fn eligible_to_claim_pool_creation_fee(&self, mask: u8) -> bool {
-        self.pool_creation_fee_claim_status.bitand(mask) == 0
+    pub fn eligible_to_claim_partner_pool_creation_fee(&self) -> bool {
+        self.creation_fee_bits
+            .bitand(PARTNER_CREATION_FEE_CLAIMED_MASK)
+            == 0
     }
 
     pub fn update_partner_pool_creation_fee_claimed(&mut self) {
-        self.pool_creation_fee_claim_status = self
-            .pool_creation_fee_claim_status
+        self.creation_fee_bits = self
+            .creation_fee_bits
             .bitxor(PARTNER_CREATION_FEE_CLAIMED_MASK)
     }
 
+    pub fn eligible_to_claim_protocol_pool_creation_fee(&self) -> bool {
+        self.creation_fee_bits
+            .bitand(PROTOCOL_CREATION_FEE_CLAIMED_MASK)
+            == 0
+    }
+
     pub fn update_protocol_pool_creation_fee_claimed(&mut self) {
-        self.pool_creation_fee_claim_status = self
-            .pool_creation_fee_claim_status
+        self.creation_fee_bits = self
+            .creation_fee_bits
             .bitxor(PROTOCOL_CREATION_FEE_CLAIMED_MASK)
-    }
-
-    fn calculate_protocol_pool_creation_fee(&self) -> Result<u64> {
-        let fee = safe_mul_div_cast_u64(
-            self.creation_fee,
-            PROTOCOL_POOL_CREATION_FEE_PERCENT.into(),
-            100,
-            Rounding::Down,
-        )?;
-        Ok(fee)
-    }
-
-    pub fn get_protocol_pool_creation_fee(&self) -> Result<u64> {
-        let protocol_pool_creation_fee = if self.creation_fee > 0 {
-            require!(
-                self.eligible_to_claim_pool_creation_fee(PROTOCOL_CREATION_FEE_CLAIMED_MASK),
-                PoolError::PoolCreationFeeHasBeenClaimed
-            );
-            self.calculate_protocol_pool_creation_fee()?
-        } else {
-            0
-        };
-
-        return Ok(protocol_pool_creation_fee);
-    }
-
-    pub fn get_partner_pool_creation_fee(&self) -> Result<u64> {
-        let partner_pool_creation_fee = if self.creation_fee > 0 {
-            require!(
-                self.eligible_to_claim_pool_creation_fee(PARTNER_CREATION_FEE_CLAIMED_MASK),
-                PoolError::PoolCreationFeeHasBeenClaimed
-            );
-
-            let protocol_pool_creation_fee = self.calculate_protocol_pool_creation_fee()?;
-
-            self.creation_fee.safe_sub(protocol_pool_creation_fee)?
-        } else {
-            0
-        };
-
-        Ok(partner_pool_creation_fee)
     }
 }
 

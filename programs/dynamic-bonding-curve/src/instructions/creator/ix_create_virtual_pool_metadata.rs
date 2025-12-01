@@ -16,10 +16,7 @@ pub struct CreateVirtualPoolMetadataParameters {
 #[derive(Accounts)]
 #[instruction(metadata: CreateVirtualPoolMetadataParameters)]
 pub struct CreateVirtualPoolMetadataCtx<'info> {
-    #[account(
-        mut,
-        has_one = creator,
-    )]
+    #[account(mut)]
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
     /// Virtual pool metadata
     #[account(

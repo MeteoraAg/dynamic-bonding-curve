@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    assert_eq_admin, constants::seeds::CLAIM_FEE_OPERATOR_PREFIX, state::ClaimFeeOperator,
-    EvtCreateClaimFeeOperator, PoolError,
+    constants::seeds::CLAIM_FEE_OPERATOR_PREFIX, state::ClaimFeeOperator, EvtCreateClaimFeeOperator,
 };
 
 #[event_cpi]
@@ -10,7 +9,7 @@ use crate::{
 pub struct CreateClaimFeeOperatorCtx<'info> {
     #[account(
         init,
-        payer = admin,
+        payer = payer,
         seeds = [
             CLAIM_FEE_OPERATOR_PREFIX.as_ref(),
             operator.key().as_ref(),
@@ -23,11 +22,10 @@ pub struct CreateClaimFeeOperatorCtx<'info> {
     /// CHECK: operator
     pub operator: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
-    )]
-    pub admin: Signer<'info>,
+    pub signer: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

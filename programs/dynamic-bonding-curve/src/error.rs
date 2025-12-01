@@ -163,4 +163,10 @@ pub enum PoolError {
 
     #[msg("Pool creation fee has been claimed")]
     PoolCreationFeeHasBeenClaimed,
+
+    #[msg("Not permit to do this action")]
+    Unauthorized,
+
+    #[msg("Pool creation fee is zero")]
+    ZeroPoolCreationFee,
 }

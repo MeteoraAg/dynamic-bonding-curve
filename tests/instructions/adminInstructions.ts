@@ -35,7 +35,8 @@ export async function createClaimFeeOperator(
     .accountsPartial({
       claimFeeOperator,
       operator,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
+      payer: admin.publicKey,
     })
     .transaction();
 
@@ -62,7 +63,7 @@ export async function closeClaimFeeOperator(
     .accounts({
       claimFeeOperator,
       rentReceiver: admin.publicKey,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
     })
     .transaction();
 
@@ -76,26 +77,26 @@ export async function closeClaimFeeOperator(
   sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
-export type ClaimPoolCreationFeeParams = {
+export type ClaimLegacyPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
 };
 
-export async function claimPoolCreationFee(
+export async function claimLegacyPoolCreationFee(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: ClaimProtocolPoolCreationFeeParams
+  params: ClaimLegacyPoolCreationFeeParams
 ) {
   const { operator, pool } = params;
 
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
   const transaction = await program.methods
-    .claimPoolCreationFee()
+    .claimLegacyPoolCreationFee()
     .accountsPartial({
       pool,
       treasury: TREASURY,
-      operator: operator.publicKey,
+      signer: operator.publicKey,
       systemProgram: SYSTEM_PROGRAM_ID,
       claimFeeOperator,
     })
@@ -122,6 +123,8 @@ export async function claimProtocolPoolCreationFee(
 ) {
   const { operator, pool } = params;
 
+  const poolState = getVirtualPool(svm, program, pool);
+
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
   const transaction = await program.methods
@@ -129,8 +132,9 @@ export async function claimProtocolPoolCreationFee(
     .accountsPartial({
       poolAuthority: derivePoolAuthority(),
       pool,
+      config: poolState.config,
       treasury: TREASURY,
-      operator: operator.publicKey,
+      signer: operator.publicKey,
       systemProgram: SYSTEM_PROGRAM_ID,
       claimFeeOperator,
     })
@@ -176,21 +180,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      poolState.baseMint,
-      TREASURY,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        poolState.baseMint,
+        TREASURY,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        quoteMintInfo.mint,
+        TREASURY,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -212,7 +216,7 @@ export async function claimProtocolFee(
       tokenBaseAccount,
       tokenQuoteAccount,
       claimFeeOperator,
-      operator: operator.publicKey,
+      signer: operator.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
     })
@@ -242,6 +246,8 @@ export async function protocolWithdrawSurplus(
   params: ProtocolWithdrawSurplusParams
 ): Promise<any> {
   const { operator, virtualPool } = params;
+
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
   const poolState = getVirtualPool(svm, program, virtualPool);
   const poolAuthority = derivePoolAuthority();
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
@@ -266,6 +272,8 @@ export async function protocolWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       tokenQuoteAccount,
+      claimFeeOperator,
+      signer: operator.publicKey,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
     })
     .preInstructions(preInstructions)
