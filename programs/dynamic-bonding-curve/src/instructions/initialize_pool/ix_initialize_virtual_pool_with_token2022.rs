@@ -30,7 +30,6 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
 
     /// CHECK: pool authority
     #[account(
-        mut,
         address = const_pda::pool_authority::ID
     )]
     pub pool_authority: AccountInfo<'info>,
@@ -233,7 +232,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     if config.pool_creation_fee > 0 {
         transfer_lamports_from_user(
             ctx.accounts.payer.to_account_info(),
-            ctx.accounts.pool_authority.to_account_info(),
+            ctx.accounts.pool.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
             config.pool_creation_fee,
         )?;

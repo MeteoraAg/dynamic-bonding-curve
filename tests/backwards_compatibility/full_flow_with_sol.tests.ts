@@ -7,7 +7,9 @@ import {
   createDammConfig,
   createVirtualCurveProgram,
   derivePoolAuthority,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getMint,
   startSvm,
 } from "../utils";
@@ -179,6 +181,17 @@ describe("Backwards compatibility - DAMM full flow", () => {
       dammConfig,
       virtualPool,
     });
+  });
+
+  it("unauthorize transfer pool creator", async () => {
+    const errorCodeUnauthorized =
+      getDbcProgramErrorCodeHexString("Unauthorized");
+    const newCreator = Keypair.generate().publicKey;
+
+    // unauthorized pool creator claim trading fee
+    expectThrowsAsync(async () => {
+      await transferCreator(svm, program, virtualPool, partner, newCreator);
+    }, errorCodeUnauthorized);
   });
 
   it("transferPoolCreator", async () => {

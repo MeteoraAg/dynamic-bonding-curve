@@ -1,4 +1,4 @@
-use crate::{state::*, EvtClaimPoolCreationFee, *};
+use crate::{state::*, token::transfer_lamports_from_pool_account, EvtClaimPoolCreationFee, *};
 
 // Move the constant here, because the fixed fee logic is removed
 const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
@@ -37,15 +37,13 @@ pub fn handle_claim_legacy_pool_creation_fee(
     );
 
     pool.update_legacy_creation_fee_claimed();
-    drop(pool);
 
     // Transfer the creation fee to the treasury
-    ctx.accounts
-        .pool
-        .sub_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
-    ctx.accounts
-        .treasury
-        .add_lamports(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+    transfer_lamports_from_pool_account(
+        ctx.accounts.pool.to_account_info(),
+        ctx.accounts.treasury.to_account_info(),
+        TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
+    )?;
 
     emit_cpi!(EvtClaimPoolCreationFee {
         pool: ctx.accounts.pool.key(),

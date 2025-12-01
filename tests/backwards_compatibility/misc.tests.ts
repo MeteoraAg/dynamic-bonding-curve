@@ -1,7 +1,13 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { LiteSVM } from "litesvm";
-import { createVirtualCurveProgram, generateAndFund, startSvm } from "../utils";
+import {
+  createVirtualCurveProgram,
+  expectThrowsAsync,
+  generateAndFund,
+  getDbcProgramErrorCodeHexString,
+  startSvm,
+} from "../utils";
 import { VirtualCurveProgram } from "../utils/types";
 import { claimCreatorTradingFee } from "./instructions/creatorInstructions";
 import {
@@ -26,10 +32,12 @@ describe("Backwards compatibility - misc", () => {
   let poolToken2022: PublicKey;
   let configSplToken: PublicKey;
   let poolSplToken: PublicKey;
+  let user2: Keypair;
 
   before(async () => {
     svm = startSvm();
     user = generateAndFund(svm);
+    user2 = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -83,7 +91,20 @@ describe("Backwards compatibility - misc", () => {
     );
   });
 
-  it("createPartnerMetadata", async () => {
+  it("Unauthorized createVirtualPoolMetadata", async () => {
+    const metadataParams: CreateVirtualPoolMetadataParams = {
+      virtualPool: poolToken2022,
+      creator: user2,
+      payer: user2,
+    };
+    const errorCodeUnauthorized =
+      getDbcProgramErrorCodeHexString("Unauthorized");
+    expectThrowsAsync(async () => {
+      await createVirtualPoolMetadata(svm, program, metadataParams);
+    }, errorCodeUnauthorized);
+  });
+
+  it("createVirtualPoolMetadata", async () => {
     const metadataParams: CreateVirtualPoolMetadataParams = {
       virtualPool: poolToken2022,
       creator: user,
@@ -92,7 +113,7 @@ describe("Backwards compatibility - misc", () => {
     await createVirtualPoolMetadata(svm, program, metadataParams);
   });
 
-  it("createVirtualPoolMetadata", async () => {
+  it("createPartnerMetadata", async () => {
     const partnerMetadataParams = {
       payer: user,
       feeClaimer: user,

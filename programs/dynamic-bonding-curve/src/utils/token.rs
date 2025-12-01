@@ -159,17 +159,13 @@ pub fn transfer_lamports_from_user<'info>(
     Ok(())
 }
 
-pub fn transfer_lamports_from_pool_authority<'info>(
-    pool_authority: AccountInfo<'info>,
-    destination_account: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
+pub fn transfer_lamports_from_pool_account<'info>(
+    pool: AccountInfo<'info>,
+    to: AccountInfo<'info>,
     lamports: u64,
 ) -> Result<()> {
-    let signer_seeds = pool_authority_seeds!(BUMP);
-    invoke_signed(
-        &transfer(pool_authority.key, destination_account.key, lamports),
-        &[pool_authority, destination_account, system_program],
-        &[&signer_seeds[..]],
-    )?;
+    pool.sub_lamports(lamports)?;
+    to.add_lamports(lamports)?;
+
     Ok(())
 }

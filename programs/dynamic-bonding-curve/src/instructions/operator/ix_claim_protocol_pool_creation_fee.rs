@@ -1,16 +1,9 @@
-use crate::{state::*, token::transfer_lamports_from_pool_authority, EvtClaimPoolCreationFee, *};
+use crate::{state::*, token::transfer_lamports_from_pool_account, EvtClaimPoolCreationFee, *};
 
 /// Accounts for withdraw creation fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
-    /// CHECK: pool authority
-    #[account(
-        mut,
-        address = const_pda::pool_authority::ID
-    )]
-    pub pool_authority: UncheckedAccount<'info>,
-
     pub config: AccountLoader<'info, PoolConfig>,
 
     #[account(mut, has_one = config)]
@@ -28,8 +21,6 @@ pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
         address = treasury::ID
     )]
     pub treasury: UncheckedAccount<'info>,
-
-    pub system_program: Program<'info, System>,
 }
 
 pub fn handle_claim_protocol_pool_creation_fee(
@@ -51,10 +42,9 @@ pub fn handle_claim_protocol_pool_creation_fee(
     // update flag status
     pool.update_protocol_pool_creation_fee_claimed();
 
-    transfer_lamports_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
+    transfer_lamports_from_pool_account(
+        ctx.accounts.pool.to_account_info(),
         ctx.accounts.treasury.to_account_info(),
-        ctx.accounts.system_program.to_account_info(),
         protocol_fee,
     )?;
 
