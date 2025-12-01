@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     state::{PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     EvtClaimTradingFee,
 };
 
@@ -71,24 +71,22 @@ pub fn handle_claim_trading_fee(
     let (token_base_amount, token_quote_amount) =
         pool.claim_partner_trading_fee(max_base_amount, max_quote_amount)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
         &ctx.accounts.base_vault,
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_base_program,
         token_base_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_quote_program,
         token_quote_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtClaimTradingFee {

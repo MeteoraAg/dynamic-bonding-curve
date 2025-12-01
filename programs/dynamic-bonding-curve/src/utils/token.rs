@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+// use anchor_lang::system_program::transfer;
 use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
@@ -14,6 +15,7 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
 use crate::PoolError;
 
@@ -38,7 +40,7 @@ pub fn get_token_program_flags<'a, 'info>(
     }
 }
 
-pub fn transfer_from_user<'a, 'c: 'info, 'info>(
+pub fn transfer_token_from_user<'a, 'c: 'info, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,
     token_owner_account: &'a InterfaceAccount<'info, TokenAccount>,
@@ -71,16 +73,15 @@ pub fn transfer_from_user<'a, 'c: 'info, 'info>(
     Ok(())
 }
 
-pub fn transfer_from_pool<'c: 'info, 'info>(
+pub fn transfer_token_from_pool_authority<'c: 'info, 'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_owner_account: &InterfaceAccount<'info, TokenAccount>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
-    bump: u8,
 ) -> Result<()> {
-    let signer_seeds = pool_authority_seeds!(bump);
+    let signer_seeds = pool_authority_seeds!(BUMP);
 
     let instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,
@@ -144,7 +145,7 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
     Ok(())
 }
 
-pub fn transfer_lamports<'info>(
+pub fn transfer_lamports_from_user<'info>(
     from: AccountInfo<'info>,
     to: AccountInfo<'info>,
     system_program: AccountInfo<'info>,
@@ -155,5 +156,20 @@ pub fn transfer_lamports<'info>(
         &[from, to, system_program],
     )?;
 
+    Ok(())
+}
+
+pub fn transfer_lamports_from_pool_authority<'info>(
+    pool_authority: AccountInfo<'info>,
+    destination_account: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    lamports: u64,
+) -> Result<()> {
+    let signer_seeds = pool_authority_seeds!(BUMP);
+    invoke_signed(
+        &transfer(pool_authority.key, destination_account.key, lamports),
+        &[pool_authority, destination_account, system_program],
+        &[&signer_seeds[..]],
+    )?;
     Ok(())
 }

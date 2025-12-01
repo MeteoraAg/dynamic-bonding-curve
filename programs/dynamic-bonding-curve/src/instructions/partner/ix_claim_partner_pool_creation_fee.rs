@@ -1,5 +1,4 @@
-use crate::{state::*, *};
-use anchor_lang::system_program::{transfer, Transfer};
+use crate::{state::*, token::transfer_lamports_from_pool_authority, *};
 
 /// Accounts for partner withdraw creation fees
 #[event_cpi]
@@ -45,17 +44,10 @@ pub fn handle_claim_partner_pool_creation_fee(
     // update flag status
     pool.update_partner_pool_creation_fee_claimed();
 
-    let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
-    // Transfer the creation fee from pool authority to the fee receiver
-    transfer(
-        CpiContext::new_with_signer(
-            ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.pool_authority.to_account_info(),
-                to: ctx.accounts.fee_receiver.to_account_info(),
-            },
-            &[&seeds[..]],
-        ),
+    transfer_lamports_from_pool_authority(
+        ctx.accounts.pool_authority.to_account_info(),
+        ctx.accounts.fee_receiver.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
         partner_fee,
     )?;
 

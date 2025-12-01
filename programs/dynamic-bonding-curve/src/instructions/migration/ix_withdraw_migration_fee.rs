@@ -8,7 +8,7 @@ use crate::{
         MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK,
         PARTNER_MIGRATION_FEE_MASK,
     },
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     EvtWithdrawMigrationFee, PoolError,
 };
 
@@ -115,14 +115,13 @@ pub fn handle_withdraw_migration_fee(
         creator_migration_fee
     };
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         fee,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtWithdrawMigrationFee {

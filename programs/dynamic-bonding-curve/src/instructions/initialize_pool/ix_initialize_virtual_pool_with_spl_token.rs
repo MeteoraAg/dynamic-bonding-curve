@@ -15,7 +15,7 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
-    token::transfer_lamports,
+    token::transfer_lamports_from_user,
     EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -211,7 +211,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
 
     // charge pool creation fee
     if config.pool_creation_fee > 0 {
-        transfer_lamports(
+        transfer_lamports_from_user(
             ctx.accounts.payer.to_account_info(),
             ctx.accounts.pool_authority.to_account_info(),
             ctx.accounts.system_program.to_account_info(),

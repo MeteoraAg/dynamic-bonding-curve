@@ -1,6 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
-use crate::token::transfer_lamports;
+use crate::token::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -231,7 +231,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     // charge pool creation fee
     if config.pool_creation_fee > 0 {
-        transfer_lamports(
+        transfer_lamports_from_user(
             ctx.accounts.payer.to_account_info(),
             ctx.accounts.pool_authority.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
