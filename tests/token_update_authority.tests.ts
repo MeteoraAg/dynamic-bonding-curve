@@ -1,24 +1,4 @@
-import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
 import { deserializeMetadata } from "@metaplex-foundation/mpl-token-metadata";
-import {
-  BaseFee,
-  ConfigParameters,
-  createConfig,
-  CreateConfigParams,
-  createPoolWithSplToken,
-  createPoolWithToken2022,
-} from "./instructions";
-import { Pool, VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { deriveMetadataAccount, fundSol, getMint, startTest } from "./utils";
-import {
-  createVirtualCurveProgram,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  U64_MAX,
-} from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
 import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
@@ -27,10 +7,32 @@ import {
   MetadataPointerLayout,
   NATIVE_MINT,
 } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { BN } from "bn.js";
 import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import {
+  BaseFee,
+  ConfigParameters,
+  createConfig,
+  CreateConfigParams,
+  createPoolWithSplToken,
+  createPoolWithToken2022,
+} from "./instructions";
+import {
+  createVirtualCurveProgram,
+  deriveMetadataAccount,
+  generateAndFund,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
+  startSvm,
+  U64_MAX,
+} from "./utils";
+import { getVirtualPool } from "./utils/fetcher";
+import { Pool, VirtualCurveProgram } from "./utils/types";
 
 describe("Create pool with token2022", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -45,19 +47,12 @@ describe("Create pool with token2022", () => {
   let virtualPoolState: Pool;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -132,23 +127,15 @@ describe("Create pool with token2022", () => {
       quoteMint: NATIVE_MINT,
       instructionParams,
     };
-    mutConfig = await createConfig(context.banksClient, program, params);
+    mutConfig = await createConfig(svm, program, params);
     params.instructionParams.tokenType = 0;
-    mutConfigSplToken = await createConfig(
-      context.banksClient,
-      program,
-      params
-    );
+    mutConfigSplToken = await createConfig(svm, program, params);
 
     params.instructionParams.tokenUpdateAuthority = 1; // Immutable
     params.instructionParams.tokenType = 1;
-    immutConfig = await createConfig(context.banksClient, program, params);
+    immutConfig = await createConfig(svm, program, params);
     params.instructionParams.tokenType = 0;
-    immutConfigSplToken = await createConfig(
-      context.banksClient,
-      program,
-      params
-    );
+    immutConfigSplToken = await createConfig(svm, program, params);
   });
 
   it("Create token2022 pool from mutable config", async () => {
@@ -156,7 +143,7 @@ describe("Create pool with token2022", () => {
     const symbol = "TOKEN2022";
     const uri = "token2022.com";
 
-    virtualPool = await createPoolWithToken2022(context.banksClient, program, {
+    virtualPool = await createPoolWithToken2022(svm, program, {
       payer: operator,
       poolCreator,
       quoteMint: NATIVE_MINT,
@@ -167,15 +154,11 @@ describe("Create pool with token2022", () => {
         uri,
       },
     });
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const metadataPointer = MetadataPointerLayout.decode(
       getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
     );
@@ -189,7 +172,7 @@ describe("Create pool with token2022", () => {
     const symbol = "TOKEN2022";
     const uri = "token2022.com";
 
-    virtualPool = await createPoolWithToken2022(context.banksClient, program, {
+    virtualPool = await createPoolWithToken2022(svm, program, {
       payer: operator,
       poolCreator,
       quoteMint: NATIVE_MINT,
@@ -200,15 +183,11 @@ describe("Create pool with token2022", () => {
         uri,
       },
     });
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const metadataPointer = MetadataPointerLayout.decode(
       getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
     );
@@ -219,7 +198,7 @@ describe("Create pool with token2022", () => {
   });
 
   it("Create spl token pool from mutable config", async () => {
-    virtualPool = await createPoolWithSplToken(context.banksClient, program, {
+    virtualPool = await createPoolWithSplToken(svm, program, {
       poolCreator,
       payer: operator,
       quoteMint: NATIVE_MINT,
@@ -230,15 +209,11 @@ describe("Create pool with token2022", () => {
         uri: "abc.com",
       },
     });
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const data = {
       executable: metadataAccount.executable,
@@ -254,7 +229,7 @@ describe("Create pool with token2022", () => {
   });
 
   it("Create spl pool from immutable config", async () => {
-    virtualPool = await createPoolWithSplToken(context.banksClient, program, {
+    virtualPool = await createPoolWithSplToken(svm, program, {
       poolCreator,
       payer: operator,
       quoteMint: NATIVE_MINT,
@@ -265,15 +240,11 @@ describe("Create pool with token2022", () => {
         uri: "abc.com",
       },
     });
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const data = {
       executable: metadataAccount.executable,

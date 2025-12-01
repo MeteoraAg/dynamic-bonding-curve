@@ -1,5 +1,7 @@
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
@@ -10,33 +12,31 @@ import {
   SwapParams,
   swapSimulate,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { startTest } from "./utils";
 import {
   createVirtualCurveProgram,
+  generateAndFund,
+  getVirtualPool,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  startSvm,
   U64_MAX,
 } from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { VirtualCurveProgram } from "./utils/types";
 
 describe("Simulate CU swap", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let user: Keypair;
   let program: VirtualCurveProgram;
 
   beforeEach(async () => {
-    context = await startTest();
-    user = context.payer;
+    svm = startSvm();
+    user = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
   it("Simulate CU Swap", async () => {
     const result = [];
     for (let curve_size = 1; curve_size <= 16; curve_size++) {
-      console.log("curve size: ", curve_size);
       let curves = [];
       for (let i = 1; i <= curve_size; i++) {
         curves.push({
@@ -101,13 +101,9 @@ describe("Simulate CU swap", () => {
         quoteMint: NATIVE_MINT,
         instructionParams,
       };
-      const config = await createConfig(
-        context.banksClient,
-        program,
-        createConfigParams
-      );
+      const config = await createConfig(svm, program, createConfigParams);
 
-      const pool = await createPoolWithSplToken(context.banksClient, program, {
+      const pool = await createPoolWithSplToken(svm, program, {
         poolCreator: user,
         payer: user,
         quoteMint: NATIVE_MINT,
@@ -119,11 +115,7 @@ describe("Simulate CU swap", () => {
         },
       });
 
-      const poolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        pool
-      );
+      const poolState = getVirtualPool(svm, program, pool);
       const params: SwapParams = {
         config,
         payer: user,
@@ -137,7 +129,7 @@ describe("Simulate CU swap", () => {
       };
 
       const { computeUnitsConsumed, numInstructions, completed, message } =
-        await swapSimulate(context.banksClient, program, params);
+        await swapSimulate(svm, program, params);
       result.push({
         curveSize: curves.length,
         completed,

@@ -1,11 +1,18 @@
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import {
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SYSVAR_RENT_PUBKEY,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
 import {
+  createLockEscrowIx,
   createVaultIfNotExists,
   DAMM_PROGRAM_ID,
   deriveDammPoolAddress,
@@ -15,23 +22,16 @@ import {
   derivePoolAuthority,
   deriveProtocolFeeAddress,
   deriveVaultLPAddress,
-  getVirtualPool,
+  getConfig,
+  getMeteoraDammMigrationMetadata,
+  getOrCreateAssociatedTokenAccount,
   getTokenAccount,
+  getVirtualPool,
   METAPLEX_PROGRAM_ID,
-  processTransactionMaybeThrow,
+  sendTransactionMaybeThrow,
   VAULT_PROGRAM_ID,
   VirtualCurveProgram,
-  createLockEscrowIx,
-  getOrCreateAssociatedTokenAccount,
-  getMeteoraDammMigrationMetadata,
-  getConfig,
 } from "../utils";
-import { BanksClient } from "solana-bankrun";
-import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
 
 export type CreateMeteoraMetadata = {
   payer: Keypair;
@@ -40,7 +40,7 @@ export type CreateMeteoraMetadata = {
 };
 
 export async function createMeteoraMetadata(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreateMeteoraMetadata
 ): Promise<PublicKey> {
@@ -53,9 +53,7 @@ export async function createMeteoraMetadata(
       payer: payer.publicKey,
     })
     .transaction();
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return deriveMigrationMetadataAddress(virtualPool);
 }
@@ -67,20 +65,13 @@ export type MigrateMeteoraParams = {
 };
 
 export async function migrateToMeteoraDamm(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: MigrateMeteoraParams
 ): Promise<any> {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    virtualPoolState.quoteVault
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
   const poolAuthority = derivePoolAuthority();
   const migrationMetadata = deriveMigrationMetadataAddress(virtualPool);
 
@@ -103,17 +94,13 @@ export async function migrateToMeteoraDamm(
     vaultPda: aVault,
     tokenVaultPda: aTokenVault,
     lpMintPda: aVaultLpMint,
-  } = await createVaultIfNotExists(
-    virtualPoolState.baseMint,
-    banksClient,
-    payer
-  );
+  } = await createVaultIfNotExists(svm, virtualPoolState.baseMint, payer);
 
   const {
     vaultPda: bVault,
     tokenVaultPda: bTokenVault,
     lpMintPda: bVaultLpMint,
-  } = await createVaultIfNotExists(quoteMintInfo.mint, banksClient, payer);
+  } = await createVaultIfNotExists(svm, quoteMintInfo.mint, payer);
 
   const [aVaultLp, bVaultLp] = [
     deriveVaultLPAddress(aVault, dammPool),
@@ -168,9 +155,7 @@ export async function migrateToMeteoraDamm(
       units: 400_000,
     })
   );
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return dammPool;
 }
@@ -182,20 +167,13 @@ export type LockLPDammForCreatorParams = {
 };
 
 export async function lockLpForCreatorDamm(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: LockLPDammForCreatorParams
 ): Promise<PublicKey> {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    virtualPoolState.quoteVault
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,
@@ -208,8 +186,8 @@ export async function lockLpForCreatorDamm(
     { vaultPda: aVault, tokenVaultPda: aTokenVault, lpMintPda: aVaultLpMint },
     { vaultPda: bVault, tokenVaultPda: bTokenVault, lpMintPda: bVaultLpMint },
   ] = await Promise.all([
-    createVaultIfNotExists(virtualPoolState.baseMint, banksClient, payer),
-    createVaultIfNotExists(quoteMintInfo.mint, banksClient, payer),
+    createVaultIfNotExists(svm, virtualPoolState.baseMint, payer),
+    createVaultIfNotExists(svm, quoteMintInfo.mint, payer),
   ]);
 
   const [aVaultLp, bVaultLp] = [
@@ -228,10 +206,10 @@ export async function lockLpForCreatorDamm(
     DAMM_PROGRAM_ID
   )[0];
 
-  const lockEscrowData = await banksClient.getAccount(lockEscrowKey);
+  const lockEscrowData = svm.getAccount(lockEscrowKey);
   if (!lockEscrowData) {
     await createLockEscrowIx(
-      banksClient,
+      svm,
       payer,
       dammPool,
       lpMint,
@@ -242,8 +220,8 @@ export async function lockLpForCreatorDamm(
 
   const preInstructions: TransactionInstruction[] = [];
   const { ata: escrowVault, ix: createEscrowVaultIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       payer,
       lpMint,
       lockEscrowKey,
@@ -281,9 +259,7 @@ export async function lockLpForCreatorDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return lockEscrowKey;
 }
@@ -291,20 +267,13 @@ export async function lockLpForCreatorDamm(
 export type LockLPDammForPartnerParams = LockLPDammForCreatorParams;
 
 export async function lockLpForPartnerDamm(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: LockLPDammForPartnerParams
 ): Promise<PublicKey> {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    virtualPoolState.quoteVault
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,
@@ -312,19 +281,18 @@ export async function lockLpForPartnerDamm(
   );
   const poolAuthority = derivePoolAuthority();
   const migrationMetadata = deriveMigrationMetadataAddress(virtualPool);
-  const meteoraMigrationDammMetadataState =
-    await getMeteoraDammMigrationMetadata(
-      banksClient,
-      program,
-      migrationMetadata
-    );
+  const meteoraMigrationDammMetadataState = getMeteoraDammMigrationMetadata(
+    svm,
+    program,
+    migrationMetadata
+  );
 
   const [
     { vaultPda: aVault, tokenVaultPda: aTokenVault, lpMintPda: aVaultLpMint },
     { vaultPda: bVault, tokenVaultPda: bTokenVault, lpMintPda: bVaultLpMint },
   ] = await Promise.all([
-    createVaultIfNotExists(virtualPoolState.baseMint, banksClient, payer),
-    createVaultIfNotExists(quoteMintInfo.mint, banksClient, payer),
+    createVaultIfNotExists(svm, virtualPoolState.baseMint, payer),
+    createVaultIfNotExists(svm, quoteMintInfo.mint, payer),
   ]);
 
   const [aVaultLp, bVaultLp] = [
@@ -343,10 +311,10 @@ export async function lockLpForPartnerDamm(
     DAMM_PROGRAM_ID
   )[0];
 
-  const lockEscrowData = await banksClient.getAccount(lockEscrowKey);
+  const lockEscrowData = svm.getAccount(lockEscrowKey);
   if (!lockEscrowData) {
     await createLockEscrowIx(
-      banksClient,
+      svm,
       payer,
       dammPool,
       lpMint,
@@ -357,8 +325,8 @@ export async function lockLpForPartnerDamm(
 
   const preInstructions: TransactionInstruction[] = [];
   const { ata: escrowVault, ix: createEscrowVaultIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       payer,
       lpMint,
       lockEscrowKey,
@@ -396,29 +364,19 @@ export async function lockLpForPartnerDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   return lockEscrowKey;
 }
 
 export async function partnerClaimLpDamm(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: LockLPDammForPartnerParams
 ) {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
-  const configState = await getConfig(
-    banksClient,
-    program,
-    virtualPoolState.config
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, virtualPoolState.config);
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,
@@ -431,8 +389,8 @@ export async function partnerClaimLpDamm(
 
   const preInstructions: TransactionInstruction[] = [];
   const { ata: destinationToken, ix: createDestinationTokenIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       payer,
       lpMint,
       configState.feeClaimer,
@@ -462,27 +420,17 @@ export async function partnerClaimLpDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export async function creatorClaimLpDamm(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: LockLPDammForPartnerParams
 ) {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
-  const configState = await getConfig(
-    banksClient,
-    program,
-    virtualPoolState.config
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, virtualPoolState.config);
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,
@@ -495,8 +443,8 @@ export async function creatorClaimLpDamm(
 
   const preInstructions: TransactionInstruction[] = [];
   const { ata: destinationToken, ix: createDestinationTokenIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       payer,
       lpMint,
       virtualPoolState.creator,
@@ -526,7 +474,5 @@ export async function creatorClaimLpDamm(
     .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }

@@ -1,21 +1,21 @@
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
 import {
-  getVirtualPool,
-  processTransactionMaybeThrow,
-  VirtualCurveProgram,
-  getConfig,
-  deriveDammV2PoolAddress,
   DAMM_V2_PROGRAM_ID,
+  deriveDammV2PoolAddress,
   deriveMigrationDammV2MetadataAddress,
   derivePoolAuthority,
+  getConfig,
+  getVirtualPool,
+  sendTransactionMaybeThrow,
+  VirtualCurveProgram,
 } from "../utils";
-import { BanksClient } from "solana-bankrun";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export type CreateMeteoraDammV2Metadata = {
   payer: Keypair;
@@ -24,7 +24,7 @@ export type CreateMeteoraDammV2Metadata = {
 };
 
 export async function createMeteoraDammV2Metadata(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreateMeteoraDammV2Metadata
 ): Promise<any> {
@@ -40,9 +40,8 @@ export async function createMeteoraDammV2Metadata(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export type MigrateMeteoraDammV2Params = {
@@ -52,7 +51,7 @@ export type MigrateMeteoraDammV2Params = {
 };
 
 export async function migrateToDammV2(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: MigrateMeteoraDammV2Params
 ): Promise<{
@@ -61,17 +60,9 @@ export async function migrateToDammV2(
   secondPosition: PublicKey;
 }> {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-  const configState = await getConfig(
-    banksClient,
-    program,
-    virtualPoolState.config
-  );
+  const configState = getConfig(svm, program, virtualPoolState.config);
 
   const poolAuthority = derivePoolAuthority();
   const migrationMetadata = deriveMigrationDammV2MetadataAddress(virtualPool);
@@ -150,9 +141,11 @@ export async function migrateToDammV2(
       units: 500_000,
     })
   );
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, firstPositionNftKP, secondPositionNftKP);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [
+    payer,
+    firstPositionNftKP,
+    secondPositionNftKP,
+  ]);
 
   return {
     dammPool,

@@ -2,16 +2,12 @@ import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
-  createInitializeMintInstruction,
   createMintToInstruction,
   createSyncNativeInstruction,
-  ExtensionType,
   getAssociatedTokenAddressSync,
-  getMintLen,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
@@ -21,12 +17,11 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
-import { BanksClient } from "solana-bankrun";
-// import { DECIMALS } from "./constants";
-// const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 
-export async function getOrCreateAssociatedTokenAccount(
-  banksClient: BanksClient,
+export function getOrCreateAssociatedTokenAccount(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   owner: PublicKey,
@@ -34,7 +29,7 @@ export async function getOrCreateAssociatedTokenAccount(
 ) {
   const ataKey = getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 
-  const account = await banksClient.getAccount(ataKey);
+  const account = svm.getAccount(ataKey);
   if (account === null) {
     const createAtaIx = createAssociatedTokenAccountInstruction(
       payer.publicKey,
@@ -44,24 +39,23 @@ export async function getOrCreateAssociatedTokenAccount(
       tokenProgram
     );
     let transaction = new Transaction();
-    const [recentBlockhash] = await banksClient.getLatestBlockhash();
-    transaction.recentBlockhash = recentBlockhash;
+    transaction.recentBlockhash = svm.latestBlockhash();
     transaction.add(createAtaIx);
     transaction.sign(payer);
-    await banksClient.processTransaction(transaction);
+    svm.sendTransaction(transaction);
   }
 
   return ataKey;
 }
 
-export async function createToken(
-  banksClient: BanksClient,
+export function createToken(
+  svm: LiteSVM,
   payer: Keypair,
   mintAuthority: PublicKey,
   decimal: number
-): Promise<PublicKey> {
+): PublicKey {
   const mintKeypair = Keypair.generate();
-  const rent = await banksClient.getRent();
+  const rent = svm.getRent();
   const lamports = rent.minimumBalance(BigInt(MINT_SIZE));
 
   const createAccountIx = SystemProgram.createAccount({
@@ -80,23 +74,19 @@ export async function createToken(
   );
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(createAccountIx, initializeMintIx);
   transaction.sign(payer, mintKeypair);
 
-  await banksClient.processTransaction(transaction);
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
 
   return mintKeypair.publicKey;
 }
 
-export async function wrapSOL(
-  banksClient: BanksClient,
-  payer: Keypair,
-  amount: BN
-) {
-  const solAta = await getOrCreateAssociatedTokenAccount(
-    banksClient,
+export function wrapSOL(svm: LiteSVM, payer: Keypair, amount: BN) {
+  const solAta = getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     NATIVE_MINT,
     payer.publicKey
@@ -111,24 +101,23 @@ export async function wrapSOL(
   const syncNativeIx = createSyncNativeInstruction(solAta);
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(solTransferIx, syncNativeIx);
   transaction.sign(payer);
 
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 }
 
-export async function mintSplTokenTo(
-  banksClient: BanksClient,
+export function mintSplTokenTo(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   mintAuthority: Keypair,
   toWallet: PublicKey,
   rawAmount: bigint | number
 ) {
-  const destination = await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  const destination = getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     mint,
     toWallet
@@ -142,25 +131,20 @@ export async function mintSplTokenTo(
   );
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(mintIx);
   transaction.sign(payer, mintAuthority);
-
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 }
 
-export async function getMint(banksClient: BanksClient, mint: PublicKey) {
-  const account = await banksClient.getAccount(mint);
+export function getMint(svm: LiteSVM, mint: PublicKey) {
+  const account = svm.getAccount(mint);
   const mintState = MintLayout.decode(account.data);
   return mintState;
 }
 
-export async function getTokenAccount(
-  banksClient: BanksClient,
-  key: PublicKey
-) {
-  const account = await banksClient.getAccount(key);
+export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
+  const account = svm.getAccount(key);
   const tokenAccountState = AccountLayout.decode(account.data);
   return tokenAccountState;
 }
