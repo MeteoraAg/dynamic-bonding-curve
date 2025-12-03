@@ -16,7 +16,11 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { FailedTransactionMetadata, LiteSVM } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 
 import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
@@ -108,7 +112,8 @@ export function createDammV2Program() {
 export function sendTransactionMaybeThrow(
   svm: LiteSVM,
   transaction: Transaction,
-  signers: Signer[]
+  signers: Signer[],
+  logs = false
 ) {
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(...signers);
@@ -117,6 +122,10 @@ export function sendTransactionMaybeThrow(
 
   if (transactionMeta instanceof FailedTransactionMetadata) {
     throw Error(transactionMeta.meta().logs().toString());
+  }
+
+  if (logs) {
+    console.log((transactionMeta as TransactionMetadata).logs());
   }
 }
 

@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     state::{PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     EvtCreatorWithdrawSurplus, PoolError,
 };
 
@@ -25,7 +25,6 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
         mut,
         has_one = quote_vault,
         has_one = config,
-        has_one = creator,
     )]
     pub virtual_pool: AccountLoader<'info, VirtualPool>,
 
@@ -64,14 +63,13 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         creator_surplus_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     // update creator withdraw surplus

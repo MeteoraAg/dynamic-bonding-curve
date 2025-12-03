@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     state::{PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     EvtPartnerWithdrawSurplus, PoolError,
 };
 
@@ -18,7 +18,7 @@ pub struct PartnerWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint, has_one=fee_claimer)]
+    #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
 
     #[account(
@@ -63,14 +63,13 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let partner_surplus_amount = pool.get_partner_surplus(&config, total_surplus)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         partner_surplus_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     // update partner withdraw surplus

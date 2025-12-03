@@ -26,7 +26,9 @@ import {
   createVirtualCurveProgram,
   derivePoolAuthority,
   designCurve,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   startSvm,
   U64_MAX,
 } from "./utils";
@@ -412,6 +414,18 @@ async function fullFlow(
   }
   await migrateToMeteoraDamm(svm, program, migrationParams);
 
+  const errorCodeUnauthorized = getDbcProgramErrorCodeHexString("Unauthorized");
+
+  // unauthorized pool creator claim trading fee
+  expectThrowsAsync(async () => {
+    await claimCreatorTradingFee(svm, program, {
+      creator: partner,
+      pool: virtualPool,
+      maxBaseAmount: new BN(U64_MAX),
+      maxQuoteAmount: new BN(U64_MAX),
+    });
+  }, errorCodeUnauthorized);
+
   // creator claim trading fee
   const claimTradingFeeParams: ClaimCreatorTradeFeeParams = {
     creator: poolCreator,
@@ -421,6 +435,15 @@ async function fullFlow(
   };
   await claimCreatorTradingFee(svm, program, claimTradingFeeParams);
 
+  // unauthorized partner claim trading fee
+  expectThrowsAsync(async () => {
+    await claimTradingFee(svm, program, {
+      feeClaimer: poolCreator,
+      pool: virtualPool,
+      maxBaseAmount: new BN(U64_MAX),
+      maxQuoteAmount: new BN(U64_MAX),
+    });
+  }, errorCodeUnauthorized);
   // partner claim trading fee
   await claimTradingFee(svm, program, {
     feeClaimer: partner,
@@ -428,12 +451,27 @@ async function fullFlow(
     maxBaseAmount: new BN(U64_MAX),
     maxQuoteAmount: new BN(U64_MAX),
   });
+
+  // unauthorized creator
+  expectThrowsAsync(async () => {
+    await creatorWithdrawSurplus(svm, program, {
+      creator: partner,
+      virtualPool,
+    });
+  }, errorCodeUnauthorized);
   // creator withdraw surplus
   await creatorWithdrawSurplus(svm, program, {
     creator: poolCreator,
     virtualPool,
   });
 
+  // unauthorized partner
+  expectThrowsAsync(async () => {
+    await partnerWithdrawSurplus(svm, program, {
+      feeClaimer: poolCreator,
+      virtualPool,
+    });
+  }, errorCodeUnauthorized);
   // partner withdraw surplus
   await partnerWithdrawSurplus(svm, program, {
     feeClaimer: partner,

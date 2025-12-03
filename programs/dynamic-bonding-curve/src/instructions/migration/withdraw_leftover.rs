@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     safe_math::SafeMath,
     state::{MigrationProgress, PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     EvtWithdrawLeftover, PoolError,
 };
 
@@ -78,14 +78,13 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         .amount
         .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
         &ctx.accounts.base_vault,
         &ctx.accounts.token_base_account,
         &ctx.accounts.token_base_program,
         leftover_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     // update partner withdraw leftover

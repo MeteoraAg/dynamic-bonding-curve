@@ -4,8 +4,11 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
-    state::{MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MASK, PARTNER_MASK},
-    token::transfer_from_pool,
+    state::{
+        MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK,
+        PARTNER_MIGRATION_FEE_MASK,
+    },
+    token::transfer_token_from_pool_authority,
     EvtWithdrawMigrationFee, PoolError,
 };
 
@@ -87,7 +90,7 @@ pub fn handle_withdraw_migration_fee(
             ctx.accounts.sender.key() == config.fee_claimer,
             PoolError::NotPermitToDoThisAction
         );
-        let mask = PARTNER_MASK;
+        let mask = PARTNER_MIGRATION_FEE_MASK;
         // Ensure the partner has never been withdrawn
         require!(
             pool.eligible_to_withdraw_migration_fee(mask),
@@ -101,7 +104,7 @@ pub fn handle_withdraw_migration_fee(
             ctx.accounts.sender.key() == pool.creator,
             PoolError::NotPermitToDoThisAction
         );
-        let mask = CREATOR_MASK;
+        let mask = CREATOR_MIGRATION_FEE_MASK;
         // Ensure the creator has never been withdrawn
         require!(
             pool.eligible_to_withdraw_migration_fee(mask),
@@ -112,14 +115,13 @@ pub fn handle_withdraw_migration_fee(
         creator_migration_fee
     };
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         fee,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtWithdrawMigrationFee {

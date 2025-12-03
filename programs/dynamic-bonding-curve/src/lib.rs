@@ -18,6 +18,8 @@ pub mod utils;
 pub use utils::*;
 pub mod math;
 pub use math::*;
+pub mod access_control;
+pub use access_control::*;
 pub mod base_fee;
 pub mod curve;
 pub mod tests;
@@ -30,31 +32,38 @@ declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 pub mod dynamic_bonding_curve {
     use super::*;
 
-    /// ADMIN FUNCTIONS ///
+    #[access_control(is_admin(ctx.accounts.signer.key))]
     pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
         instructions::handle_create_claim_fee_operator(ctx)
     }
 
-    pub fn close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_close_claim_fee_operator(ctx)
+    #[access_control(is_admin(ctx.accounts.signer.key))]
+    pub fn close_claim_protocol_fee_operator(
+        ctx: Context<CloseClaimProtocolFeeOperatorCtx>,
+    ) -> Result<()> {
+        instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
+    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
     pub fn claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<()> {
         instructions::handle_claim_protocol_fee(ctx)
     }
 
+    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
     pub fn protocol_withdraw_surplus(ctx: Context<ProtocolWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_protocol_withdraw_surplus(ctx)
     }
 
-    pub fn withdraw_lamports_from_pool_authority(
-        ctx: Context<WithdrawLamportsFromPoolAuthority>,
-    ) -> Result<()> {
-        instructions::handle_withdraw_lamports_from_pool_authority(ctx)
+    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
+    pub fn claim_legacy_pool_creation_fee(ctx: Context<ClaimLegacyCreationFeeCtx>) -> Result<()> {
+        instructions::handle_claim_legacy_pool_creation_fee(ctx)
     }
 
-    pub fn claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
-        instructions::handle_claim_pool_creation_fee(ctx)
+    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
+    pub fn claim_protocol_pool_creation_fee(
+        ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
     /// PARTNER FUNCTIONS ///
@@ -70,6 +79,8 @@ pub mod dynamic_bonding_curve {
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
+
+    #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee(
         ctx: Context<ClaimTradingFeesCtx>,
         max_amount_a: u64,
@@ -78,7 +89,15 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
+    pub fn claim_partner_pool_creation_fee(
+        ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
+    ) -> Result<()> {
+        instructions::handle_claim_partner_pool_creation_fee(ctx)
+    }
+
     // withdraw surplus on quote token
+    #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_partner_withdraw_surplus(ctx)
     }
@@ -98,6 +117,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
     }
 
+    #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn create_virtual_pool_metadata(
         ctx: Context<CreateVirtualPoolMetadataCtx>,
         metadata: CreateVirtualPoolMetadataParameters,
@@ -105,6 +125,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_virtual_pool_metadata(ctx, metadata)
     }
 
+    #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
     pub fn claim_creator_trading_fee(
         ctx: Context<ClaimCreatorTradingFeesCtx>,
         max_base_amount: u64,
@@ -114,10 +135,12 @@ pub mod dynamic_bonding_curve {
     }
 
     // withdraw surplus on quote token
+    #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_creator_withdraw_surplus(ctx)
     }
 
+    #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn transfer_pool_creator<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, TransferPoolCreatorCtx>,
     ) -> Result<()> {

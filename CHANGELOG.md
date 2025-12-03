@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
+
+### Added
+- Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
+- Add new endpoint `claim_protocol_pool_creation_fee` to allow protocol to withdraw the pool creation fee.
+
+### Changed
+- Allowed partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
+- Update field `creation_fee_bits` to field `legacy_creation_fee_bits` in pool account state
+- Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
+
+### Breaking Changes 
+All breaking changes are related to admin/operator functions
+- Remove endpoint `withdraw_lamports_from_pool_authority`
+- Change endpoint `claim_pool_creation_fee` to new endpoint `claim_legacy_pool_creation_fee`
+- Add new `payer` account in admin endpoint `create_claim_fee_operator`, that allow to payer to pay rent fee, instead of admin
+- Add new accounts `signer` and `claim_fee_operator` in endpoint `protocol_withdraw_surplus`, move the endpoint to permissioned
+
+
 ## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
 
 ### Changed

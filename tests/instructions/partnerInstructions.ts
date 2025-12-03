@@ -13,6 +13,7 @@ import {
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
+  createVirtualCurveProgram,
   derivePartnerMetadata,
   derivePoolAuthority,
   getOrCreateAssociatedTokenAccount,
@@ -96,6 +97,7 @@ export type ConfigParameters = {
     collectFeeMode: number;
     dynamicFee: number;
   };
+  poolCreationFee: BN;
   padding: BN[];
   curve: Array<LiquidityDistributionParameters>;
 };
@@ -411,4 +413,24 @@ export async function partnerWithdrawMigrationFee(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [partner]);
+}
+
+export async function claimPartnerPoolCreationFee(
+  svm: LiteSVM,
+  feeClaimer: Keypair,
+  config: PublicKey,
+  virtualPool: PublicKey,
+  feeReceiver: PublicKey
+) {
+  const program = createVirtualCurveProgram();
+  const transaction = await program.methods
+    .claimPartnerPoolCreationFee()
+    .accountsPartial({
+      config,
+      pool: virtualPool,
+      feeClaimer: feeClaimer.publicKey,
+      feeReceiver,
+    })
+    .transaction();
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }

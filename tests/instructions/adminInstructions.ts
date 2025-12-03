@@ -35,7 +35,8 @@ export async function createClaimFeeOperator(
     .accountsPartial({
       claimFeeOperator,
       operator,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
+      payer: admin.publicKey,
     })
     .transaction();
 
@@ -62,7 +63,7 @@ export async function closeClaimFeeOperator(
     .accounts({
       claimFeeOperator,
       rentReceiver: admin.publicKey,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
     })
     .transaction();
 
@@ -76,27 +77,62 @@ export async function closeClaimFeeOperator(
   sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
-export type ClaimPoolCreationFeeParams = {
+export type ClaimLegacyPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
 };
 
-export async function claimPoolCreationFee(
+export async function claimLegacyPoolCreationFee(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: ClaimPoolCreationFeeParams
+  params: ClaimLegacyPoolCreationFeeParams
 ) {
   const { operator, pool } = params;
 
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
   const transaction = await program.methods
-    .claimPoolCreationFee()
+    .claimLegacyPoolCreationFee()
     .accountsPartial({
       pool,
       treasury: TREASURY,
-      operator: operator.publicKey,
+      signer: operator.publicKey,
       systemProgram: SYSTEM_PROGRAM_ID,
+      claimFeeOperator,
+    })
+    .remainingAccounts([
+      {
+        pubkey: PublicKey.unique(),
+        isSigner: false,
+        isWritable: false,
+      },
+    ])
+    .transaction();
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export type ClaimProtocolPoolCreationFeeParams = {
+  operator: Keypair;
+  pool: PublicKey;
+  claimFeeOperator: PublicKey;
+};
+
+export async function claimProtocolPoolCreationFee(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimProtocolPoolCreationFeeParams
+) {
+  const { operator, pool, claimFeeOperator } = params;
+
+  const poolState = getVirtualPool(svm, program, pool);
+
+  const transaction = await program.methods
+    .claimProtocolPoolCreationFee()
+    .accountsPartial({
+      pool,
+      config: poolState.config,
+      treasury: TREASURY,
+      signer: operator.publicKey,
       claimFeeOperator,
     })
     // Trick to bypass bankrun transaction has been processed if we wish to execute same tx again
@@ -177,7 +213,7 @@ export async function claimProtocolFee(
       tokenBaseAccount,
       tokenQuoteAccount,
       claimFeeOperator,
-      operator: operator.publicKey,
+      signer: operator.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
     })
@@ -207,6 +243,8 @@ export async function protocolWithdrawSurplus(
   params: ProtocolWithdrawSurplusParams
 ): Promise<any> {
   const { operator, virtualPool } = params;
+
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
   const poolState = getVirtualPool(svm, program, virtualPool);
   const poolAuthority = derivePoolAuthority();
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
@@ -231,6 +269,8 @@ export async function protocolWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       tokenQuoteAccount,
+      claimFeeOperator,
+      signer: operator.publicKey,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
     })
     .preInstructions(preInstructions)

@@ -6,6 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
+        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
         MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
@@ -46,8 +47,10 @@ pub struct ConfigParameters {
     pub token_update_authority: u8,
     pub migration_fee: MigrationFee,
     pub migrated_pool_fee: MigratedPoolFee,
+    /// pool creation fee in SOL lamports value
+    pub pool_creation_fee: u64,
     /// padding for future use
-    pub padding: [u64; 7],
+    pub padding: [u64; 6],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -277,6 +280,15 @@ impl ConfigParameters {
         // validate vesting params
         self.locked_vesting.validate()?;
 
+        // validate pool creation fee
+        if self.pool_creation_fee > 0 {
+            require!(
+                self.pool_creation_fee >= MIN_POOL_CREATION_FEE
+                    && self.pool_creation_fee <= MAX_POOL_CREATION_FEE,
+                PoolError::InvalidPoolCreationFee
+            )
+        }
+
         // validate price and liquidity
         require!(
             self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,
@@ -363,6 +375,7 @@ pub fn handle_create_config(
         token_update_authority,
         migration_fee,
         migrated_pool_fee,
+        pool_creation_fee,
         ..
     } = config_parameters.clone();
 
@@ -471,6 +484,7 @@ pub fn handle_create_config(
         migrated_pool_fee_bps,
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
+        pool_creation_fee,
         &curve,
     );
 
