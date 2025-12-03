@@ -126,6 +126,7 @@ export type DammV2ConfigParameters = {
     dynamicFee: DynamicFee | null;
     collectFeeMode: number;
     creatorTradingFeePercentage: number;
+    poolCreationFee: BN;
   };
   virtualPoolConfiguration: {
     activationType: number;

@@ -4,7 +4,7 @@ import { BN } from "bn.js";
 import {
   BaseFee,
   ConfigParameters,
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
@@ -57,7 +57,7 @@ describe("Migrate to damm v2", () => {
   });
 
   it("Admin create claim fee operator", async () => {
-    claimFeeOperator = await createClaimFeeOperator(svm, program, {
+    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });

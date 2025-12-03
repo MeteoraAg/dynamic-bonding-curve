@@ -6,7 +6,10 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, PROTOCOL_POOL_CREATION_FEE_PERCENT},
+        fee::{
+            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT,
+            PROTOCOL_POOL_CREATION_FEE_PERCENT,
+        },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
@@ -537,8 +540,8 @@ pub struct PoolConfig {
     pub migrated_dynamic_fee: u8,
     /// migrated pool fee in bps
     pub migrated_pool_fee_bps: u16,
-    pub partner_lp_impermanent_lock_info: LpImpermanentLockInfo,
-    pub creator_lp_impermanent_lock_info: LpImpermanentLockInfo,
+    /// padding 1
+    pub _padding_1: [u8; 4],
     /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
     /// padding 2
@@ -694,6 +697,8 @@ impl PoolConfig {
         migrated_collect_fee_mode: u8,
         migrated_dynamic_fee: u8,
         pool_creation_fee: u64,
+        partner_lp_vesting_info: LpVestingInfo,
+        creator_lp_vesting_info: LpVestingInfo,
         curve: &[LiquidityDistributionParameters],
     ) {
         self.version = 0;

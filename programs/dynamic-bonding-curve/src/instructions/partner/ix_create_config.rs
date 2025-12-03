@@ -203,6 +203,7 @@ impl ConfigParameters {
             migration_quote_threshold: self.migration_quote_threshold,
             locked_vesting: &self.locked_vesting,
             sqrt_start_price: self.sqrt_start_price,
+            pool_creation_fee: self.pool_creation_fee,
             curve: &self.curve,
         })?;
 
@@ -267,15 +268,6 @@ impl ConfigParameters {
             self.migration_quote_threshold > 0,
             PoolError::InvalidQuoteThreshold
         );
-
-        // validate pool creation fee
-        if self.pool_creation_fee > 0 {
-            require!(
-                self.pool_creation_fee >= MIN_POOL_CREATION_FEE
-                    && self.pool_creation_fee <= MAX_POOL_CREATION_FEE,
-                PoolError::InvalidPoolCreationFee
-            )
-        }
 
         Ok(())
     }
@@ -358,6 +350,7 @@ pub fn handle_create_config(
             token_update_authority,
             migration_fee,
             migrated_pool_fee,
+            pool_creation_fee,
             partner_lp_vesting_info: LpVestingInfo::default(),
             creator_lp_vesting_info: LpVestingInfo::default(),
         },
@@ -405,6 +398,7 @@ pub struct ProcessCreateConfigArgs {
     pub migrated_pool_fee: MigratedPoolFee,
     pub partner_lp_vesting_info: LpVestingInfo,
     pub creator_lp_vesting_info: LpVestingInfo,
+    pub pool_creation_fee: u64,
 }
 
 pub struct ProcessCreateConfigAccounts<'a, 'info> {
@@ -441,6 +435,7 @@ pub fn process_create_config<'a, 'info>(
         migrated_pool_fee,
         creator_lp_vesting_info,
         partner_lp_vesting_info,
+        pool_creation_fee,
     } = args;
 
     let ProcessCreateConfigAccounts {
@@ -556,6 +551,8 @@ pub fn process_create_config<'a, 'info>(
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
         pool_creation_fee,
+        creator_lp_vesting_info,
+        partner_lp_vesting_info,
         &curve,
     );
 
@@ -601,6 +598,7 @@ pub struct ValidateCommonConfigParametersArgs<'a, 'b, 'info> {
     pub migration_quote_threshold: u64,
     pub locked_vesting: &'b LockedVestingParams,
     pub sqrt_start_price: u128,
+    pub pool_creation_fee: u64,
     pub curve: &'b [LiquidityDistributionParameters],
 }
 
@@ -622,6 +620,7 @@ pub fn validate_common_config_parameters<'a, 'b, 'info>(
         locked_vesting,
         sqrt_start_price,
         curve,
+        pool_creation_fee,
     } = args;
 
     // validate quote mint
@@ -701,6 +700,15 @@ pub fn validate_common_config_parameters<'a, 'b, 'info>(
         curve[curve_length - 1].sqrt_price <= MAX_SQRT_PRICE,
         PoolError::InvalidCurve
     );
+
+    // validate pool creation fee
+    if pool_creation_fee > 0 {
+        require!(
+            pool_creation_fee >= MIN_POOL_CREATION_FEE
+                && pool_creation_fee <= MAX_POOL_CREATION_FEE,
+            PoolError::InvalidPoolCreationFee
+        )
+    }
 
     Ok(())
 }

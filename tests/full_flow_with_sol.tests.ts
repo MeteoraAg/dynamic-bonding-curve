@@ -9,7 +9,7 @@ import {
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
@@ -66,7 +66,7 @@ describe("Full flow with spl-token", () => {
   });
 
   it("Admin create claim fee operator", async () => {
-    claimFeeOperator = await createClaimFeeOperator(svm, program, {
+    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });

@@ -225,6 +225,7 @@ async function fullFlow(
       collectFeeMode: instructionParams.collectFeeMode,
       creatorTradingFeePercentage:
         instructionParams.creatorTradingFeePercentage,
+      poolCreationFee: new BN(0),
     },
     mintConfiguration: {
       tokenDecimal: instructionParams.tokenDecimal,

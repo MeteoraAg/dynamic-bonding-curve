@@ -5,7 +5,7 @@ import { LiteSVM } from "litesvm";
 import {
   claimPartnerPoolCreationFee,
   claimProtocolPoolCreationFee,
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
   createConfig,
   createPoolWithSplToken,
   createPoolWithToken2022,
@@ -58,7 +58,7 @@ describe("Config pool creation fee", () => {
       BigInt(U64_MAX.toString())
     );
 
-    await createClaimFeeOperator(svm, program, {
+    await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });
@@ -317,9 +317,9 @@ async function createConfigAccount(
   );
 
   instructionParams.partnerLpPercentage = 10;
-  instructionParams.creatorLpPercentage = 90;
-  instructionParams.creatorLockedLpPercentage = 0;
-  instructionParams.partnerLockedLpPercentage = 0;
+  instructionParams.creatorLpPercentage = 80;
+  instructionParams.creatorLockedLpPercentage = 5;
+  instructionParams.partnerLockedLpPercentage = 5;
   instructionParams.collectFeeMode = 1; // Output only
   instructionParams.poolCreationFee = poolCreationFee;
   instructionParams.tokenType = tokenType;

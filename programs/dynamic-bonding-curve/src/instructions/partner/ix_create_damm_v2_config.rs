@@ -89,6 +89,8 @@ pub struct VirtualPoolFeesConfiguration {
     pub dynamic_fee: Option<DynamicFeeParameters>,
     pub collect_fee_mode: u8,
     pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
+    /// pool creation fee in SOL lamports value
+    pub pool_creation_fee: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -148,6 +150,7 @@ impl DammV2ConfigParameters {
             dynamic_fee,
             collect_fee_mode,
             creator_trading_fee_percentage,
+            pool_creation_fee,
         } = virtual_pool_fees_configuration;
 
         let VirtualPoolConfiguration {
@@ -183,6 +186,7 @@ impl DammV2ConfigParameters {
             migration_quote_threshold: *migration_quote_threshold,
             locked_vesting,
             sqrt_start_price: *sqrt_start_price,
+            pool_creation_fee: *pool_creation_fee,
             curve,
         })?;
 
@@ -261,6 +265,7 @@ impl From<DammV2ConfigParameters> for ConfigParameters {
             dynamic_fee,
             collect_fee_mode,
             creator_trading_fee_percentage,
+            pool_creation_fee,
         } = virtual_pool_fees_configuration;
 
         let VirtualPoolConfiguration {
@@ -311,6 +316,7 @@ impl From<DammV2ConfigParameters> for ConfigParameters {
             token_update_authority,
             migrated_pool_fee,
             migration_fee,
+            pool_creation_fee,
             ..Default::default()
         }
     }
@@ -337,6 +343,7 @@ pub fn handle_create_config_for_dammv2_migration(
         dynamic_fee,
         collect_fee_mode,
         creator_trading_fee_percentage,
+        pool_creation_fee,
     } = virtual_pool_fees_configuration;
 
     let VirtualPoolConfiguration {
@@ -387,6 +394,7 @@ pub fn handle_create_config_for_dammv2_migration(
             creator_lp_percentage: creator_lp_info.lp_percentage,
             partner_locked_lp_percentage: partner_lp_info.lp_permanent_lock_percentage,
             partner_lp_percentage: partner_lp_info.lp_percentage,
+            pool_creation_fee,
             partner_lp_vesting_info: partner_lp_info.lp_vesting_info.to_lp_vesting_info(),
             creator_lp_vesting_info: creator_lp_info.lp_vesting_info.to_lp_vesting_info(),
             curve,

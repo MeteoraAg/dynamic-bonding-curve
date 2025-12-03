@@ -1,6 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import {
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
   ConfigParameters,
   createConfig,
   CreateConfigParams,
@@ -51,7 +51,7 @@ describe("Swap Over the Curve", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createClaimFeeOperator(svm, program, {
+    await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });

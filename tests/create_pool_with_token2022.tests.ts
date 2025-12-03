@@ -16,7 +16,7 @@ import {
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
   createPoolWithToken2022,
@@ -59,7 +59,7 @@ describe("Create pool with token2022", () => {
     program = createVirtualCurveProgram();
 
     // admin create claimFeeOperator
-    claimFeeOperator = await createClaimFeeOperator(svm, program, {
+    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });

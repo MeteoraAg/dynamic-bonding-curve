@@ -1,7 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
 use crate::constants::MIN_LOCKED_LP_BPS;
-use crate::state::CollectFeeMode;
 use crate::token::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
@@ -14,8 +13,6 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
-use anchor_lang::solana_program::program::invoke;
-use anchor_lang::solana_program::system_instruction;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::{
