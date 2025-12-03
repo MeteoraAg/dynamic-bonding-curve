@@ -25,16 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
 - Add new endpoint `claim_protocol_pool_creation_fee` to allow protocol to withdraw the pool creation fee.
+- Add new endpoint `create_config_for_dammv2_migration` to allow create `PoolConfig` account for only DAMM v2 migration with LP vesting configuration.
+- `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
 
 ### Changed
 
 - Allowed partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
 - Update field `creation_fee_bits` to field `legacy_creation_fee_bits` in pool account state
 - Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
+- `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
+- Removed pool creation fee of 0.01 SOL if the pool `collect_fee_mode` is `CollectFeeMode::OutputToken` and `base_mint` is `token_2022` (endpoint: `initialize_virtual_pool_with_token2022`)
 
 ### Breaking Changes
 
-All breaking changes are related to admin/operator functions
+- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
+- Endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` will only allow config that has minimum 10% of locked liquidity in at least 1 day
+- `migration_damm_v2` endpoint accept only `config` account (damm v2) with timestamp activation type
+
+All breaking belows are related to admin/operator functions
 
 - Remove endpoint `withdraw_lamports_from_pool_authority`
 - Change endpoint `claim_pool_creation_fee` to new endpoint `claim_legacy_pool_creation_fee`
