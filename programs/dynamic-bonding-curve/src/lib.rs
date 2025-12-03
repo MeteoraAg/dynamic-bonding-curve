@@ -38,8 +38,10 @@ pub mod dynamic_bonding_curve {
     }
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
-    pub fn close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_close_claim_fee_operator(ctx)
+    pub fn close_claim_protocol_fee_operator(
+        ctx: Context<CloseClaimProtocolFeeOperatorCtx>,
+    ) -> Result<()> {
+        instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
     #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]

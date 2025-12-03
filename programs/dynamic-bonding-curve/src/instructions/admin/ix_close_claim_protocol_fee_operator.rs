@@ -4,7 +4,7 @@ use crate::{state::ClaimFeeOperator, EvtCloseClaimFeeOperator};
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CloseClaimFeeOperatorCtx<'info> {
+pub struct CloseClaimProtocolFeeOperatorCtx<'info> {
     #[account(
         mut,
         close = rent_receiver,
@@ -18,7 +18,9 @@ pub struct CloseClaimFeeOperatorCtx<'info> {
     pub signer: Signer<'info>,
 }
 
-pub fn handle_close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
+pub fn handle_close_claim_protocol_fee_operator(
+    ctx: Context<CloseClaimProtocolFeeOperatorCtx>,
+) -> Result<()> {
     let claim_fee_operator = ctx.accounts.claim_fee_operator.load()?;
     emit_cpi!(EvtCloseClaimFeeOperator {
         claim_fee_operator: ctx.accounts.claim_fee_operator.key(),
