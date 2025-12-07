@@ -83,13 +83,6 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    pub fn create_config2(
-        ctx: Context<CreateConfigCtx>,
-        config_parameters: ConfigParameters2,
-    ) -> Result<()> {
-        instructions::handle_create_config2(ctx, config_parameters)
-    }
-
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee(
         ctx: Context<ClaimTradingFeesCtx>,

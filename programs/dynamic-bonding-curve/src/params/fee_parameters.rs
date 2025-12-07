@@ -52,6 +52,17 @@ impl BaseFeeParameters {
 }
 
 impl PoolFeeParameters {
+    /// Validate that the fees are reasonable
+    pub fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+        self.base_fee.validate(collect_fee_mode, activation_type)?;
+
+        if let Some(dynamic_fee) = self.dynamic_fee {
+            dynamic_fee.validate()?;
+        }
+
+        Ok(())
+    }
+
     pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
@@ -175,20 +186,4 @@ pub fn to_numerator(bps: u128, denominator: u128) -> Result<u64> {
         .safe_mul(denominator)?
         .safe_div(MAX_BASIS_POINT.into())?;
     Ok(u64::try_from(numerator).map_err(|_| PoolError::TypeCastFailed)?)
-}
-
-/// Validate that the fees are reasonable
-pub fn validate_pool_fees(
-    base_fee: &BaseFeeParameters,
-    dynamic_fee: Option<&DynamicFeeParameters>,
-    collect_fee_mode: u8,
-    activation_type: ActivationType,
-) -> Result<()> {
-    base_fee.validate(collect_fee_mode, activation_type)?;
-
-    if let Some(dynamic_fee) = dynamic_fee {
-        dynamic_fee.validate()?;
-    }
-
-    Ok(())
 }

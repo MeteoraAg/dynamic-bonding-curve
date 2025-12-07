@@ -25,13 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
 - Add new endpoint `claim_protocol_pool_creation_fee` to allow protocol to withdraw the pool creation fee.
-- Add new endpoint `create_config_for_dammv2_migration` to allow create `PoolConfig` account for only DAMM v2 migration with LP vesting configuration.
 - `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
 
 ### Changed
-
-- Allowed partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
-- Update field `creation_fee_bits` to field `legacy_creation_fee_bits` in pool account state
+- Allow partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
+- Allow partners to config `partner_lp_vesting_info` and `creator_lp_vesting_info` when creating config key that includes liquidity vesting information if pool is migrated to damm v2 later
 
 ### Removed
 - Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
