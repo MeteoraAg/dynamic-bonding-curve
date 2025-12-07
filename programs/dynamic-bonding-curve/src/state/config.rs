@@ -478,11 +478,12 @@ pub struct PoolConfig {
     pub leftover_receiver: Pubkey,
     /// Pool fee
     pub pool_fees: PoolFeesConfig,
-    // Only available for DAMM v2 migration
-    pub creator_liquidity_vesting_info: LpVestingInfo,
-    // Only available for DAMM v2 migration
+    // Partner liquidity vesting info, only available for DAMM v2 migration
     pub partner_liquidity_vesting_info: LpVestingInfo,
-    pub padding_0: [u8; 12],
+    // Creator liquidity vesting info, only available for DAMM v2 migration
+    pub creator_liquidity_vesting_info: LpVestingInfo,
+    /// Padding for future use
+    pub padding_0: [u8; 14],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -559,34 +560,18 @@ const_assert_eq!(PoolConfig::INIT_SPACE, 1040);
 #[zero_copy]
 #[derive(Debug, Default, InitSpace)]
 pub struct LpVestingInfo {
+    pub is_initialized: u8,
     pub vesting_percentage: u8,
-    pub cliff_duration_from_migration_time: [u8; 4], // Use [u8; N] ensure no padding
-    pub bps_per_period: [u8; 2],
-    pub frequency: [u8; 8],
-    pub number_of_periods: [u8; 2],
+    pub _padding: [u8; 2],
+    pub bps_per_period: u16,
+    pub number_of_periods: u16,
+    pub frequency: u32,
+    pub cliff_duration_from_migration_time: u32,
 }
 
+const_assert_eq!(LpVestingInfo::INIT_SPACE, 16);
+
 impl LpVestingInfo {
-    #[inline(always)]
-    pub fn get_cliff_duration_from_migration_time(&self) -> u32 {
-        u32::from_le_bytes(self.cliff_duration_from_migration_time)
-    }
-
-    #[inline(always)]
-    pub fn get_bps_per_period(&self) -> u16 {
-        u16::from_le_bytes(self.bps_per_period)
-    }
-
-    #[inline(always)]
-    pub fn get_frequency(&self) -> u64 {
-        u64::from_le_bytes(self.frequency)
-    }
-
-    #[inline(always)]
-    pub fn get_number_of_periods(&self) -> u16 {
-        u16::from_le_bytes(self.number_of_periods)
-    }
-
     pub fn get_locked_bps_at_n_seconds(&self, n_seconds: u64) -> Result<u16> {
         let vest_bps_at_n_seconds = self.vest_bps_locked_at_n_second(n_seconds)?;
         let vesting_bps = u32::from(self.vesting_percentage).safe_mul(100)?;
@@ -602,7 +587,7 @@ impl LpVestingInfo {
 
     pub fn calculate_cliff_unlock_bps(&self) -> Result<u16> {
         let total_bps_after_cliff =
-            u64::from(self.get_bps_per_period()).safe_mul(self.get_number_of_periods().into())?;
+            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
 
         let cliff_unlock_bps = 10_000u64.safe_sub(total_bps_after_cliff)?;
         Ok(cliff_unlock_bps
@@ -611,39 +596,31 @@ impl LpVestingInfo {
     }
 
     fn vest_bps_locked_at_n_second(&self, n_seconds: u64) -> Result<u16> {
-        if self.is_none() {
+        if self.is_initialized == 0 {
             return Ok(0);
         }
 
         // Everything released after N seconds. All liquidities are locked before N seconds.
-        if u64::from(self.get_cliff_duration_from_migration_time()) > n_seconds {
+        if u64::from(self.cliff_duration_from_migration_time) > n_seconds {
             return Ok(10_000);
         }
 
         let period = n_seconds
-            .safe_sub(self.get_cliff_duration_from_migration_time().into())?
-            .safe_div(self.get_frequency())?;
+            .safe_sub(self.cliff_duration_from_migration_time.into())?
+            .safe_div(self.frequency.into())?;
 
-        let period = period.min(self.get_number_of_periods().into());
+        let period = period.min(self.number_of_periods.into());
 
         let cliff_unlock_bps = self.calculate_cliff_unlock_bps()?;
 
         let bps_unlocked_at_n_seconds = u64::from(cliff_unlock_bps)
-            .safe_add(u64::from(self.get_bps_per_period()).safe_mul(period)?)?;
+            .safe_add(u64::from(self.bps_per_period).safe_mul(period)?)?;
 
         let bps_locked_at_n_seconds = 10_000u64.safe_sub(bps_unlocked_at_n_seconds)?;
 
         Ok(bps_locked_at_n_seconds
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?)
-    }
-
-    pub fn is_none(&self) -> bool {
-        self.vesting_percentage == 0
-            && self.get_cliff_duration_from_migration_time() == 0
-            && self.get_bps_per_period() == 0
-            && self.get_frequency() == 0
-            && self.get_number_of_periods() == 0
     }
 }
 
@@ -1056,18 +1033,20 @@ impl LiquidityDistributionItem {
             .safe_add(self.vested_liquidity)?)
     }
 
+    // TODO validate
     pub fn get_damm_v2_vesting_parameters(
         &self,
         current_timestamp: u64,
-    ) -> Result<(damm_v2::types::VestingParameters)> {
-        let frequency = self.liquidity_vesting_info.get_frequency();
-        let number_of_period = self.liquidity_vesting_info.get_number_of_periods();
+    ) -> Result<damm_v2::types::VestingParameters> {
+        let frequency = self.liquidity_vesting_info.frequency;
+        let number_of_period = self.liquidity_vesting_info.number_of_periods;
 
         let cliff_duration_from_migration_time = self
             .liquidity_vesting_info
-            .get_cliff_duration_from_migration_time();
+            .cliff_duration_from_migration_time;
 
-        let bps_per_period = self.liquidity_vesting_info.get_bps_per_period();
+        let bps_per_period = self.liquidity_vesting_info.bps_per_period;
+
         let total_bps_after_cliff = bps_per_period.safe_mul(number_of_period)?;
 
         let total_vesting_liquidity = self
@@ -1091,7 +1070,7 @@ impl LiquidityDistributionItem {
             cliff_point: Some(cliff_point),
             liquidity_per_period,
             cliff_unlock_liquidity,
-            period_frequency: frequency,
+            period_frequency: frequency.into(),
             number_of_period,
         })
     }

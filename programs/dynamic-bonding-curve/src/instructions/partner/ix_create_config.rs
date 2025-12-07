@@ -244,14 +244,15 @@ impl LpVestingInfoParams {
     }
 
     fn to_lp_vesting_info(self) -> LpVestingInfo {
+        let is_initialized = if self.is_zero() { 0 } else { 1 };
         LpVestingInfo {
+            is_initialized,
             vesting_percentage: self.vesting_percentage,
-            cliff_duration_from_migration_time: self
-                .cliff_duration_from_migration_time
-                .to_le_bytes(),
-            bps_per_period: self.bps_per_period.to_le_bytes(),
-            frequency: u64::from(self.frequency).to_le_bytes(),
-            number_of_periods: self.number_of_periods.to_le_bytes(),
+            cliff_duration_from_migration_time: self.cliff_duration_from_migration_time,
+            bps_per_period: self.bps_per_period,
+            frequency: self.frequency,
+            number_of_periods: self.number_of_periods,
+            ..Default::default()
         }
     }
 }

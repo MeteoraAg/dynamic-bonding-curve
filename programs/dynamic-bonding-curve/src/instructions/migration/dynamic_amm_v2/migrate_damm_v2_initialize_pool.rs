@@ -271,68 +271,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
         )
     }
 
-    // fn vest_liquidity<'a>(
-    //     &self,
-    //     vested_liquidity: u128,
-    //     lp_vesting_info: &LpVestingInfo,
-    //     pool_authority_bump: u8,
-    //     position_account: &AccountInfo<'info>,
-    //     position_nft_account: &AccountInfo<'info>,
-    //     vesting_account_and_seeds: VestingAccountAndSignerSeeds<'a, 'info>,
-    //     current_timestamp: u64,
-    // ) -> Result<()> {
-    //     let vesting_params =
-    //         get_damm_v2_vesting_parameters(vested_liquidity, lp_vesting_info, current_timestamp)?;
-    //     let pool_authority_seeds = pool_authority_seeds!(pool_authority_bump);
-
-    //     let vesting_account = vesting_account_and_seeds.get_vesting_account()?;
-
-    //     let pool_key = self.pool.key();
-
-    //     let vesting_seeds: &[&[u8]; 3] = &[
-    //         vesting_account_and_seeds.seed_prefix,
-    //         pool_key.as_ref(),
-    //         &[vesting_account_and_seeds.bump],
-    //     ];
-
-    //     let lock_position = || {
-    //         damm_v2::cpi::lock_position(
-    //             CpiContext::new_with_signer(
-    //                 self.amm_program.to_account_info(),
-    //                 damm_v2::cpi::accounts::LockPosition {
-    //                     pool: self.pool.to_account_info(),
-    //                     position: position_account.to_account_info(),
-    //                     position_nft_account: position_nft_account.to_account_info(),
-    //                     owner: self.pool_authority.to_account_info(),
-    //                     event_authority: self.damm_event_authority.to_account_info(),
-    //                     program: self.amm_program.to_account_info(),
-    //                     payer: self.pool_authority.to_account_info(),
-    //                     system_program: self.system_program.to_account_info(),
-    //                     vesting: vesting_account.to_account_info(),
-    //                 },
-    //                 &[&pool_authority_seeds[..], &vesting_seeds[..]],
-    //             ),
-    //             vesting_params,
-    //         )
-    //     };
-
-    //     let flash_rent_and_lock_position = || {
-    //         flash_rent(
-    //             self.pool_authority.to_account_info(),
-    //             self.payer.to_account_info(),
-    //             self.system_program.to_account_info(),
-    //             lock_position,
-    //         )
-    //     };
-
-    //     cpi_with_account_lamport_and_owner_checking(
-    //         flash_rent_and_lock_position,
-    //         self.pool_authority.to_account_info(),
-    //     )?;
-
-    //     Ok(())
-    // }
-
     fn lock_liquidity_position<'a>(
         &self,
         liquidity_distribution: &LiquidityDistributionItem,
@@ -436,35 +374,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
 
         Ok(())
     }
-
-    // fn lock_permanent_liquidity_for_first_position(
-    //     &self,
-    //     permanent_lock_liquidity: u128,
-    //     bump: u8,
-    // ) -> Result<()> {
-    //     let pool_authority_seeds = pool_authority_seeds!(bump);
-    //     cpi_with_account_lamport_and_owner_checking(
-    //         || {
-    //             damm_v2::cpi::permanent_lock_position(
-    //                 CpiContext::new_with_signer(
-    //                     self.amm_program.to_account_info(),
-    //                     damm_v2::cpi::accounts::PermanentLockPosition {
-    //                         pool: self.pool.to_account_info(),
-    //                         position: self.first_position.to_account_info(),
-    //                         position_nft_account: self.first_position_nft_account.to_account_info(),
-    //                         owner: self.pool_authority.to_account_info(),
-    //                         event_authority: self.damm_event_authority.to_account_info(),
-    //                         program: self.amm_program.to_account_info(),
-    //                     },
-    //                     &[&pool_authority_seeds[..]],
-    //                 ),
-    //                 permanent_lock_liquidity,
-    //             )
-    //         },
-    //         self.pool_authority.to_account_info(),
-    //     )?;
-    //     Ok(())
-    // }
 
     fn set_authority_for_first_position(&self, new_authority: Pubkey, bump: u8) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
@@ -570,34 +479,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
             self.pool_authority.to_account_info(),
         )?;
 
-        // if locked_liquidity > 0 {
-        //     msg!("lock liquidity");
-        //     cpi_with_account_lamport_and_owner_checking(
-        //         || {
-        //             damm_v2::cpi::permanent_lock_position(
-        //                 CpiContext::new_with_signer(
-        //                     self.amm_program.to_account_info(),
-        //                     damm_v2::cpi::accounts::PermanentLockPosition {
-        //                         pool: self.pool.to_account_info(),
-        //                         position: self.second_position.clone().unwrap().to_account_info(),
-        //                         position_nft_account: self
-        //                             .second_position_nft_account
-        //                             .clone()
-        //                             .unwrap()
-        //                             .to_account_info(),
-        //                         owner: self.pool_authority.to_account_info(),
-        //                         event_authority: self.damm_event_authority.to_account_info(),
-        //                         program: self.amm_program.to_account_info(),
-        //                     },
-        //                     &[&pool_authority_seeds[..]],
-        //                 ),
-        //                 locked_liquidity,
-        //             )
-        //         },
-        //         self.pool_authority.to_account_info(),
-        //     )?;
-        // }
-
         Ok(())
     }
 }
@@ -666,117 +547,6 @@ fn validate_config_key(
     Ok(())
 }
 
-// #[derive(Accounts)]
-// pub struct ParsedRemainingAccounts<'info> {
-//     /// CHECK: DAMM v2 pool config
-//     pub config: UncheckedAccount<'info>,
-//     #[account(mut)]
-//     pub first_position_vesting_account: Option<AccountInfo<'info>>,
-//     #[account(mut)]
-//     pub second_position_vesting_account: Option<AccountInfo<'info>>,
-// }
-
-// pub struct RemainingAccountsBumps {
-//     pub first_position_vesting_account_bump: u8,
-//     pub second_position_vesting_account_bump: u8,
-// }
-
-// impl<'info> ParsedRemainingAccounts<'info> {
-//     pub fn validate_and_parse<'c: 'info>(
-//         mut remaining_accounts: &'c [AccountInfo<'info>],
-//         migration_fee_option: MigrationFeeOption,
-//         pool_key: Pubkey,
-//     ) -> Result<(Self, RemainingAccountsBumps)> {
-//         require!(
-//             !remaining_accounts.is_empty(),
-//             ErrorCode::AccountNotEnoughKeys
-//         );
-
-//         {
-//             // Validate damm config account
-//             let account = remaining_accounts
-//                 .first()
-//                 .ok_or(ErrorCode::AccountNotEnoughKeys)?;
-
-//             let damm_config_loader: AccountLoader<'_, damm_v2::accounts::Config> =
-//                 AccountLoader::try_from(account)?;
-
-//             let damm_config = damm_config_loader.load()?;
-//             validate_config_key(&damm_config, migration_fee_option)?;
-//         };
-
-//         // Backward compatibility: if only 1 remaining accounts, it is damm config account
-//         if remaining_accounts.len() == 1 {
-//             let account = remaining_accounts
-//                 .first()
-//                 .ok_or(ErrorCode::AccountNotEnoughKeys)?;
-
-//             let config_account = UncheckedAccount::try_from(account);
-//             return Ok((
-//                 ParsedRemainingAccounts {
-//                     config: config_account,
-//                     first_position_vesting_account: None,
-//                     second_position_vesting_account: None,
-//                 },
-//                 RemainingAccountsBumps {
-//                     first_position_vesting_account_bump: 0,
-//                     second_position_vesting_account_bump: 0,
-//                 },
-//             ));
-//         }
-
-//         let mut bumps = RemainingAccountsBumps {
-//             first_position_vesting_account_bump: 0,
-//             second_position_vesting_account_bump: 0,
-//         };
-
-//         let accounts = ParsedRemainingAccounts::try_accounts(
-//             &crate::ID,
-//             &mut remaining_accounts,
-//             &[],
-//             &mut ParsedRemainingAccountsBumps {},
-//             &mut BTreeSet::new(),
-//         )?;
-
-//         if let Some(account) = accounts.first_position_vesting_account.as_ref() {
-//             let (vesting_key, bump) = Pubkey::find_program_address(
-//                 &[FIRST_POSITION_VESTING_PREFIX, pool_key.as_ref()],
-//                 &crate::ID,
-//             );
-
-//             require!(account.key.eq(&vesting_key), PoolError::InvalidAccount);
-//             bumps.first_position_vesting_account_bump = bump;
-//         }
-
-//         if let Some(account) = accounts.second_position_vesting_account.as_ref() {
-//             let (vesting_key, bump) = Pubkey::find_program_address(
-//                 &[SECOND_POSITION_VESTING_PREFIX, pool_key.as_ref()],
-//                 &crate::ID,
-//             );
-//             require!(account.key.eq(&vesting_key), PoolError::InvalidAccount);
-
-//             bumps.second_position_vesting_account_bump = bump;
-//         }
-
-//         Ok((accounts, bumps))
-//     }
-// }
-
-// struct VestingAccountAndSignerSeeds<'a, 'info> {
-//     pub vesting_account: &'a Option<AccountInfo<'info>>,
-//     pub seed_prefix: &'static [u8],
-//     pub bump: u8,
-// }
-
-// impl<'a, 'info> VestingAccountAndSignerSeeds<'a, 'info> {
-//     pub fn get_vesting_account(&self) -> Result<&'a AccountInfo<'info>> {
-//         let Some(vesting_account) = self.vesting_account.as_ref() else {
-//             return Err(ErrorCode::AccountNotEnoughKeys.into());
-//         };
-//         Ok(vesting_account)
-//     }
-// }
-
 pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, MigrateDammV2Ctx<'info>>,
 ) -> Result<()> {
@@ -797,13 +567,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
         validate_config_key(&damm_config, migration_fee_option)?;
     }
-
-    // let (parsed_remaining_accounts, remaining_accounts_bump) =
-    //     ParsedRemainingAccounts::validate_and_parse(
-    //         &ctx.remaining_accounts[..],
-    //         migration_fee_option,
-    //         ctx.accounts.pool.key(),
-    //     )?;
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
 
@@ -851,8 +614,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         mut second_position_liquidity_distribution,
         first_position_owner,
         second_position_owner,
-        // first_position_vesting_account_and_seeds,
-        // second_position_vesting_account_and_seeds,
     ) = if partner_liquidity_distribution.get_total_liquidity()?
         > creator_liquidity_distribution.get_total_liquidity()?
     {
@@ -861,16 +622,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             creator_liquidity_distribution,
             config.fee_claimer,
             virtual_pool.creator,
-            // VestingAccountAndSignerSeeds {
-            //     vesting_account: &parsed_remaining_accounts.partner_position_vesting_account,
-            //     seed_prefix: PARTNER_VESTING_PREFIX,
-            //     bump: remaining_accounts_bump.partner_position_vesting_account_bump,
-            // },
-            // VestingAccountAndSignerSeeds {
-            //     vesting_account: &parsed_remaining_accounts.creator_position_vesting_account,
-            //     seed_prefix: CREATOR_VESTING_PREFIX,
-            //     bump: remaining_accounts_bump.creator_position_vesting_account_bump,
-            // },
         )
     } else {
         (
@@ -878,16 +629,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             partner_liquidity_distribution,
             virtual_pool.creator,
             config.fee_claimer,
-            // VestingAccountAndSignerSeeds {
-            //     vesting_account: &parsed_remaining_accounts.creator_position_vesting_account,
-            //     seed_prefix: CREATOR_VESTING_PREFIX,
-            //     bump: remaining_accounts_bump.creator_position_vesting_account_bump,
-            // },
-            // VestingAccountAndSignerSeeds {
-            //     vesting_account: &parsed_remaining_accounts.partner_position_vesting_account,
-            //     seed_prefix: PARTNER_VESTING_PREFIX,
-            //     bump: remaining_accounts_bump.partner_position_vesting_account_bump,
-            // },
         )
     };
 
@@ -902,18 +643,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         &config,
     )?;
 
-    // let first_position_vesting_account_and_seeds = VestingAccountAndSignerSeeds {
-    //     vesting_account: &parsed_remaining_accounts.first_position_vesting_account,
-    //     seed_prefix: FIRST_POSITION_VESTING_PREFIX,
-    //     bump: remaining_accounts_bump.first_position_vesting_account_bump,
-    // };
-
-    // let second_position_vesting_account_and_seeds = VestingAccountAndSignerSeeds {
-    //     vesting_account: &parsed_remaining_accounts.second_position_vesting_account,
-    //     seed_prefix: SECOND_POSITION_VESTING_PREFIX,
-    //     bump: remaining_accounts_bump.second_position_vesting_account_bump,
-    // };
-
     // lock lp
     if first_position_liquidity_distribution.get_total_locked_liquidity()? > 0 {
         ctx.accounts.lock_liquidity_position(
@@ -924,29 +653,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             current_timestamp,
         )?;
     }
-
-    // // lock permanent liquidity
-    // if first_position_liquidity_distribution.locked_liquidity > 0 {
-    //     msg!("lock permanent liquidity for first position");
-    //     ctx.accounts.lock_permanent_liquidity_for_first_position(
-    //         first_position_liquidity_distribution.locked_liquidity,
-    //         const_pda::pool_authority::BUMP,
-    //     )?;
-    // }
-
-    // // lock impermanent liquidity for first position
-    // if first_position_liquidity_distribution.vested_liquidity > 0 {
-    //     msg!("lock impermanent liquidity for first position");
-    //     ctx.accounts.vest_liquidity(
-    //         first_position_liquidity_distribution.vested_liquidity,
-    //         &first_position_liquidity_distribution.lp_vesting_info,
-    //         const_pda::pool_authority::BUMP,
-    //         &ctx.accounts.first_position,
-    //         &ctx.accounts.first_position_nft_account,
-    //         first_position_vesting_account_and_seeds,
-    //         clock.unix_timestamp as u64,
-    //     )?;
-    // }
 
     msg!("transfer ownership of the first position");
     ctx.accounts
@@ -975,27 +681,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         second_position_liquidity_distribution.adjust_liquidity(liquidity_for_second_position)?;
 
         msg!("create second position");
-        // let unlocked_lp = liquidity_for_second_position
-        //     .min(second_position_liquidity_distribution.unlocked_liquidity);
-
-        // let liquidity_subject_to_lock = liquidity_for_second_position.safe_sub(unlocked_lp)?;
-
-        // let numerator = second_position_liquidity_distribution
-        //     .lp_vesting_info
-        //     .vesting_percentage;
-
-        // let denominator =
-        //     numerator.safe_add(second_position_liquidity_distribution.locked_lp_percentage)?;
-
-        // let vested_lp = safe_mul_div_cast_u128(
-        //     liquidity_subject_to_lock,
-        //     numerator.into(),
-        //     denominator.into(),
-        //     Rounding::Down,
-        // )?;
-        // let locked_lp = liquidity_subject_to_lock.safe_sub(vested_lp)?;
-
-        // let total_liquidity = unlocked_lp.safe_add(liquidity_subject_to_lock)?;
 
         ctx.accounts
             .create_second_position(liquidity_for_second_position)?;
@@ -1027,36 +712,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
                 current_timestamp,
             )?;
         }
-
-        // if vested_lp > 0 {
-        //     let Some(second_position) = ctx
-        //         .accounts
-        //         .second_position
-        //         .as_ref()
-        //         .map(|acc| acc.to_account_info())
-        //     else {
-        //         return Err(PoolError::InvalidAccount.into());
-        //     };
-
-        //     let Some(second_position_nft_account) = ctx
-        //         .accounts
-        //         .second_position_nft_account
-        //         .as_ref()
-        //         .map(|acc| acc.to_account_info())
-        //     else {
-        //         return Err(PoolError::InvalidAccount.into());
-        //     };
-
-        //     ctx.accounts.vest_liquidity(
-        //         vested_lp,
-        //         &second_position_liquidity_distribution.lp_vesting_info,
-        //         const_pda::pool_authority::BUMP,
-        //         &second_position,
-        //         &second_position_nft_account,
-        //         second_position_vesting_account_and_seeds,
-        //         clock.unix_timestamp as u64,
-        //     )?;
-        // }
 
         msg!("set authority for second position");
         ctx.accounts.set_authority_for_second_position(
