@@ -27,3 +27,6 @@ mod test_inverse_fee;
 
 #[cfg(test)]
 mod test_math_utils;
+
+#[cfg(test)]
+mod test_dammv2_vesting_params;

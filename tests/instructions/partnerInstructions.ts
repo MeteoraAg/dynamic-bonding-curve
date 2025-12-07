@@ -191,16 +191,16 @@ export async function createConfig(
   const configState = getConfig(svm, program, config.publicKey);
   // TODO add assertion data fields
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
-  expect(configState.partnerLpPercentage).equal(
+  expect(configState.partnerLiquidityPercentage).equal(
     instructionParams.partnerLpPercentage
   );
-  expect(configState.partnerLockedLpPercentage).equal(
+  expect(configState.partnerPermanentLockedLiquidityPercentage).equal(
     instructionParams.partnerLockedLpPercentage
   );
-  expect(configState.creatorLpPercentage).equal(
+  expect(configState.creatorLiquidityPercentage).equal(
     instructionParams.creatorLpPercentage
   );
-  expect(configState.creatorLockedLpPercentage).equal(
+  expect(configState.creatorPermanentLockedLiquidityPercentage).equal(
     instructionParams.creatorLockedLpPercentage
   );
 
@@ -237,12 +237,12 @@ export async function createDammV2OnlyConfig(
   const configState = getConfig(svm, program, config.publicKey);
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
 
-  expect(configState.partnerLpPercentage).equal(
+  expect(configState.partnerLiquidityPercentage).equal(
     instructionParams.liquidityDistributionConfiguration.partnerLpInfo
       .lpPercentage
   );
 
-  let vestingLpInfo = configState.partnerLpVestingInfo;
+  let vestingLpInfo = configState.partnerLiquidityVestingInfo;
   let ixVestingLpInfo =
     instructionParams.liquidityDistributionConfiguration.partnerLpInfo
       .lpVestingInfo;
@@ -263,7 +263,7 @@ export async function createDammV2OnlyConfig(
     ixVestingLpInfo.numberOfPeriods
   );
 
-  vestingLpInfo = configState.creatorLpVestingInfo;
+  vestingLpInfo = configState.creatorLiquidityVestingInfo;
   ixVestingLpInfo =
     instructionParams.liquidityDistributionConfiguration.creatorLpInfo
       .lpVestingInfo;
@@ -356,21 +356,21 @@ export async function claimTradingFee(
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      poolState.baseMint,
-      feeClaimer.publicKey,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      quoteMintInfo.mint,
-      feeClaimer.publicKey,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        poolState.baseMint,
+        feeClaimer.publicKey,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        quoteMintInfo.mint,
+        feeClaimer.publicKey,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 

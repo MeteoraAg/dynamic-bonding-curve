@@ -169,4 +169,7 @@ pub enum PoolError {
 
     #[msg("Pool creation fee is zero")]
     ZeroPoolCreationFee,
+
+    #[msg("Invalid migration locked lp")]
+    InvalidMigrationLockedLp,
 }

@@ -123,7 +123,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     require!(
         config.get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LP_BPS,
-        PoolError::InvalidVestingParameters
+        PoolError::InvalidMigrationLockedLp
     );
 
     // validate min base fee

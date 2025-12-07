@@ -83,11 +83,11 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    pub fn create_config_for_dammv2_migration(
+    pub fn create_config2(
         ctx: Context<CreateConfigCtx>,
-        config_parameters: DammV2ConfigParameters,
+        config_parameters: ConfigParameters2,
     ) -> Result<()> {
-        instructions::handle_create_config_for_dammv2_migration(ctx, config_parameters)
+        instructions::handle_create_config2(ctx, config_parameters)
     }
 
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]

@@ -272,7 +272,7 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let lp_minted_amount = anchor_spl::token::accessor::amount(&ctx.accounts.virtual_pool_lp)?;
 
-    let lp_distribution = config.get_lp_distribution(lp_minted_amount)?;
+    let lp_distribution = config.get_liquidity_distribution_u64(lp_minted_amount)?;
     migration_metadata.set_lp_minted(ctx.accounts.lp_mint.key(), &lp_distribution);
     virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 

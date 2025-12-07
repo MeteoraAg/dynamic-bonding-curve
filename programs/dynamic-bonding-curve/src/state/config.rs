@@ -7,8 +7,8 @@ use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{
-            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT,
-            PROTOCOL_POOL_CREATION_FEE_PERCENT,
+            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR,
+            PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
         },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
@@ -479,9 +479,9 @@ pub struct PoolConfig {
     /// Pool fee
     pub pool_fees: PoolFeesConfig,
     // Only available for DAMM v2 migration
-    pub creator_lp_vesting_info: LpVestingInfo,
+    pub creator_liquidity_vesting_info: LpVestingInfo,
     // Only available for DAMM v2 migration
-    pub partner_lp_vesting_info: LpVestingInfo,
+    pub partner_liquidity_vesting_info: LpVestingInfo,
     pub padding_0: [u8; 12],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
@@ -500,13 +500,13 @@ pub struct PoolConfig {
     /// quote token flag
     pub quote_token_flag: u8,
     /// partner locked lp percentage
-    pub partner_locked_lp_percentage: u8,
+    pub partner_permanent_locked_liquidity_percentage: u8,
     /// partner lp percentage
-    pub partner_lp_percentage: u8,
+    pub partner_liquidity_percentage: u8,
     /// creator post migration fee percentage
-    pub creator_locked_lp_percentage: u8,
+    pub creator_permanent_locked_liquidity_percentage: u8,
     /// creator lp percentage
-    pub creator_lp_percentage: u8,
+    pub creator_liquidity_percentage: u8,
     /// migration fee option
     pub migration_fee_option: u8,
     /// flag to indicate whether token is dynamic supply (0) or fixed supply (1)
@@ -679,10 +679,10 @@ impl PoolConfig {
         token_decimal: u8,
         token_type: u8,
         quote_token_flag: u8,
-        partner_locked_lp_percentage: u8,
-        partner_lp_percentage: u8,
-        creator_locked_lp_percentage: u8,
-        creator_lp_percentage: u8,
+        partner_permanent_locked_liquidity_percentage: u8,
+        partner_liquidity_percentage: u8,
+        creator_permanent_locked_liquidity_percentage: u8,
+        creator_liquidity_percentage: u8,
         locked_vesting_params: &LockedVestingParams,
         migration_fee_option: u8,
         swap_base_amount: u64,
@@ -697,8 +697,8 @@ impl PoolConfig {
         migrated_collect_fee_mode: u8,
         migrated_dynamic_fee: u8,
         pool_creation_fee: u64,
-        partner_lp_vesting_info: LpVestingInfo,
-        creator_lp_vesting_info: LpVestingInfo,
+        partner_liquidity_vesting_info: LpVestingInfo,
+        creator_liquidity_vesting_info: LpVestingInfo,
         curve: &[LiquidityDistributionParameters],
     ) {
         self.version = 0;
@@ -722,11 +722,13 @@ impl PoolConfig {
         self.token_type = token_type;
         self.quote_token_flag = quote_token_flag;
 
-        self.partner_lp_percentage = partner_lp_percentage;
-        self.partner_locked_lp_percentage = partner_locked_lp_percentage;
+        self.partner_liquidity_percentage = partner_liquidity_percentage;
+        self.partner_permanent_locked_liquidity_percentage =
+            partner_permanent_locked_liquidity_percentage;
 
-        self.creator_lp_percentage = creator_lp_percentage;
-        self.creator_locked_lp_percentage = creator_locked_lp_percentage;
+        self.creator_liquidity_percentage = creator_liquidity_percentage;
+        self.creator_permanent_locked_liquidity_percentage =
+            creator_permanent_locked_liquidity_percentage;
 
         self.locked_vesting_config = locked_vesting_params.to_locked_vesting_config();
         self.migration_fee_option = migration_fee_option;
@@ -742,8 +744,8 @@ impl PoolConfig {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
 
-        self.creator_lp_vesting_info = creator_lp_vesting_info;
-        self.partner_lp_vesting_info = partner_lp_vesting_info;
+        self.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
+        self.partner_liquidity_vesting_info = partner_liquidity_vesting_info;
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {
@@ -863,91 +865,100 @@ impl PoolConfig {
         self.fixed_token_supply_flag == 1
     }
 
-    pub fn get_lp_distribution(&self, lp_amount: u64) -> Result<LiquidityDistributionU64> {
-        let partner_locked_lp = safe_mul_div_cast_u64(
+    pub fn get_liquidity_distribution_u64(
+        &self,
+        lp_amount: u64,
+    ) -> Result<LiquidityDistributionU64> {
+        let partner_locked_liquidity = safe_mul_div_cast_u64(
             lp_amount,
-            self.partner_locked_lp_percentage.into(),
+            self.partner_permanent_locked_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
-        let partner_lp = safe_mul_div_cast_u64(
+        let partner_liquidity = safe_mul_div_cast_u64(
             lp_amount,
-            self.partner_lp_percentage.into(),
+            self.partner_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
-        let creator_locked_lp = safe_mul_div_cast_u64(
+        let creator_locked_liquidity = safe_mul_div_cast_u64(
             lp_amount,
-            self.creator_locked_lp_percentage.into(),
+            self.creator_permanent_locked_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
 
-        let creator_lp = lp_amount
-            .safe_sub(partner_locked_lp)?
-            .safe_sub(partner_lp)?
-            .safe_sub(creator_locked_lp)?;
+        let creator_liquidity = lp_amount
+            .safe_sub(partner_locked_liquidity)?
+            .safe_sub(partner_liquidity)?
+            .safe_sub(creator_locked_liquidity)?;
         Ok(LiquidityDistributionU64 {
-            partner_locked_lp,
-            partner_lp,
-            creator_locked_lp,
-            creator_lp,
+            partner_locked_liquidity,
+            partner_liquidity,
+            creator_locked_liquidity,
+            creator_liquidity,
         })
     }
 
     pub fn get_liquidity_distribution(&self, liquidity: u128) -> Result<LiquidityDistribution> {
-        let partner_locked_lp = safe_mul_div_cast_u128(
+        let partner_permanent_locked_lp = safe_mul_div_cast_u128(
             liquidity,
-            self.partner_locked_lp_percentage.into(),
+            self.partner_permanent_locked_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
         let partner_vested_lp = safe_mul_div_cast_u128(
             liquidity,
-            self.partner_lp_vesting_info.vesting_percentage.into(),
+            self.partner_liquidity_vesting_info
+                .vesting_percentage
+                .into(),
             100,
             Rounding::Down,
         )?;
         let partner_lp = safe_mul_div_cast_u128(
             liquidity,
-            self.partner_lp_percentage.into(),
+            self.partner_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
-        let creator_locked_lp = safe_mul_div_cast_u128(
+        let creator_permanent_locked_lp = safe_mul_div_cast_u128(
             liquidity,
-            self.creator_locked_lp_percentage.into(),
+            self.creator_permanent_locked_liquidity_percentage.into(),
             100,
             Rounding::Down,
         )?;
         let creator_vested_lp = safe_mul_div_cast_u128(
             liquidity,
-            self.creator_lp_vesting_info.vesting_percentage.into(),
+            self.creator_liquidity_vesting_info
+                .vesting_percentage
+                .into(),
             100,
             Rounding::Down,
         )?;
 
         let creator_lp = liquidity
-            .safe_sub(partner_locked_lp)?
+            .safe_sub(partner_permanent_locked_lp)?
             .safe_sub(partner_vested_lp)?
             .safe_sub(partner_lp)?
-            .safe_sub(creator_locked_lp)?
+            .safe_sub(creator_permanent_locked_lp)?
             .safe_sub(creator_vested_lp)?;
 
         Ok(LiquidityDistribution {
             partner: LiquidityDistributionItem {
                 unlocked_liquidity: partner_lp,
-                locked_liquidity: partner_locked_lp,
-                locked_lp_percentage: self.partner_locked_lp_percentage,
+                permanent_locked_liquidity: partner_permanent_locked_lp,
+                permanent_locked_liquidity_percentage: self
+                    .partner_permanent_locked_liquidity_percentage,
                 vested_liquidity: partner_vested_lp,
-                lp_vesting_info: self.partner_lp_vesting_info,
+                liquidity_vesting_info: self.partner_liquidity_vesting_info,
             },
             creator: LiquidityDistributionItem {
                 unlocked_liquidity: creator_lp,
-                locked_liquidity: creator_locked_lp,
-                locked_lp_percentage: self.creator_locked_lp_percentage,
+                permanent_locked_liquidity: creator_permanent_locked_lp,
+                permanent_locked_liquidity_percentage: self
+                    .creator_permanent_locked_liquidity_percentage,
                 vested_liquidity: creator_vested_lp,
-                lp_vesting_info: self.creator_lp_vesting_info,
+                liquidity_vesting_info: self.creator_liquidity_vesting_info,
             },
         })
     }
@@ -986,16 +997,18 @@ impl PoolConfig {
 
     pub fn get_total_locked_lp_bps_at_n_seconds(&self, n_seconds: u64) -> Result<u16> {
         let partner_locked_bps_at_n_seconds = self
-            .partner_lp_vesting_info
+            .partner_liquidity_vesting_info
             .get_locked_bps_at_n_seconds(n_seconds)?;
         let creator_locked_bps_at_n_seconds = self
-            .creator_lp_vesting_info
+            .creator_liquidity_vesting_info
             .get_locked_bps_at_n_seconds(n_seconds)?;
 
-        let partner_locked_lp_bps = u16::from(self.partner_locked_lp_percentage).safe_mul(100)?;
-        let creator_locked_lp_bps = u16::from(self.creator_locked_lp_percentage).safe_mul(100)?;
+        let partner_locked_liquidity_bps =
+            u16::from(self.partner_permanent_locked_liquidity_percentage).safe_mul(100)?;
+        let creator_locked_lp_bps =
+            u16::from(self.creator_permanent_locked_liquidity_percentage).safe_mul(100)?;
 
-        let total_locked_lp_bps_at_n_seconds = partner_locked_lp_bps
+        let total_locked_lp_bps_at_n_seconds = partner_locked_liquidity_bps
             .safe_add(partner_locked_bps_at_n_seconds)?
             .safe_add(creator_locked_lp_bps)?
             .safe_add(creator_locked_bps_at_n_seconds)?;
@@ -1010,10 +1023,10 @@ pub struct PartnerAndCreatorSplitFee {
 }
 
 pub struct LiquidityDistributionU64 {
-    pub partner_locked_lp: u64,
-    pub partner_lp: u64,
-    pub creator_locked_lp: u64,
-    pub creator_lp: u64,
+    pub partner_locked_liquidity: u64,
+    pub partner_liquidity: u64,
+    pub creator_locked_liquidity: u64,
+    pub creator_liquidity: u64,
 }
 
 pub struct LiquidityDistribution {
@@ -1023,18 +1036,90 @@ pub struct LiquidityDistribution {
 
 pub struct LiquidityDistributionItem {
     pub unlocked_liquidity: u128,
-    pub locked_liquidity: u128,
-    pub locked_lp_percentage: u8,
+    pub permanent_locked_liquidity_percentage: u8,
+    pub permanent_locked_liquidity: u128,
     pub vested_liquidity: u128,
-    pub lp_vesting_info: LpVestingInfo,
+    pub liquidity_vesting_info: LpVestingInfo,
 }
 
 impl LiquidityDistributionItem {
     pub fn get_total_liquidity(&self) -> Result<u128> {
         Ok(self
             .unlocked_liquidity
-            .safe_add(self.locked_liquidity)?
+            .safe_add(self.permanent_locked_liquidity)?
             .safe_add(self.vested_liquidity)?)
+    }
+
+    pub fn get_total_locked_liquidity(&self) -> Result<u128> {
+        Ok(self
+            .permanent_locked_liquidity
+            .safe_add(self.vested_liquidity)?)
+    }
+
+    pub fn get_damm_v2_vesting_parameters(
+        &self,
+        current_timestamp: u64,
+    ) -> Result<(damm_v2::types::VestingParameters)> {
+        let frequency = self.liquidity_vesting_info.get_frequency();
+        let number_of_period = self.liquidity_vesting_info.get_number_of_periods();
+
+        let cliff_duration_from_migration_time = self
+            .liquidity_vesting_info
+            .get_cliff_duration_from_migration_time();
+
+        let bps_per_period = self.liquidity_vesting_info.get_bps_per_period();
+        let total_bps_after_cliff = bps_per_period.safe_mul(number_of_period)?;
+
+        let total_vesting_liquidity = self
+            .vested_liquidity
+            .safe_mul(total_bps_after_cliff.into())?
+            .safe_div(MAX_BASIS_POINT.into())?;
+
+        let liquidity_per_period: u128 = if number_of_period > 0 {
+            total_vesting_liquidity.safe_div(number_of_period.into())?
+        } else {
+            0
+        };
+
+        let cliff_unlock_liquidity = self
+            .vested_liquidity
+            .safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;
+
+        let cliff_point = current_timestamp.safe_add(cliff_duration_from_migration_time.into())?;
+
+        Ok(damm_v2::types::VestingParameters {
+            cliff_point: Some(cliff_point),
+            liquidity_per_period,
+            cliff_unlock_liquidity,
+            period_frequency: frequency,
+            number_of_period,
+        })
+    }
+
+    // TODO check the code
+    pub fn adjust_liquidity(&mut self, adjusted_total_liquidity: u128) -> Result<()> {
+        let unlocked_liquidity = adjusted_total_liquidity.min(self.unlocked_liquidity);
+
+        let liquidity_subject_to_lock = adjusted_total_liquidity.safe_sub(unlocked_liquidity)?;
+
+        let numerator = self.liquidity_vesting_info.vesting_percentage;
+
+        let denominator = numerator.safe_add(self.permanent_locked_liquidity_percentage)?;
+
+        let vested_liquidity = safe_mul_div_cast_u128(
+            liquidity_subject_to_lock,
+            numerator.into(),
+            denominator.into(),
+            Rounding::Down,
+        )?;
+
+        let permanent_locked_liquidity = liquidity_subject_to_lock.safe_sub(vested_liquidity)?;
+
+        self.unlocked_liquidity = unlocked_liquidity;
+        self.permanent_locked_liquidity = permanent_locked_liquidity;
+        self.vested_liquidity = vested_liquidity;
+
+        Ok(())
     }
 }
 
@@ -1047,64 +1132,4 @@ pub struct MigrationAmount {
 pub struct MigrationFeeDistribution {
     pub partner_migration_fee: u64,
     pub creator_migration_fee: u64,
-}
-#[cfg(test)]
-mod tests {
-    use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
-
-    use super::*;
-
-    #[test]
-    fn test_get_locked_bps_at_day_one() {
-        let cliff_duration_from_migration_time = SECONDS_PER_DAY as u32 / 2;
-        let bps_per_period: u16 = 100;
-        let frequency: u64 = 3600; // 1 hour
-
-        // Total bps = 10_000
-        // We want cliff to unlock 5_000 bps (50%) at day one
-        let bps_after_cliff = 10_000 - 5_000;
-        let number_of_periods = bps_after_cliff / bps_per_period;
-
-        // Total unlock bps at day one = 5000 + (12 * 100) = 6200
-        // Locked percentage at day one = 10000 - 6200 = 3800
-        // Expected locked percentage at day one = 38%
-        // Creator lock 38% of 40% at day one = 15.2%
-        let creator_lp_vesting_info = LpVestingInfo {
-            vesting_percentage: 40,
-            cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
-            bps_per_period: bps_per_period.to_le_bytes(),
-            frequency: frequency.to_le_bytes(),
-            number_of_periods: number_of_periods.to_le_bytes(),
-        };
-
-        let creator_lp_locked_bps_at_day_one = creator_lp_vesting_info
-            .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
-            .unwrap();
-
-        assert_eq!(creator_lp_locked_bps_at_day_one, 1520);
-
-        let partner_lp_vesting_info = creator_lp_vesting_info.clone();
-
-        let mut config = PoolConfig::default();
-        config.partner_locked_lp_percentage = 1;
-        config.creator_locked_lp_percentage = 1;
-
-        config.partner_lp_vesting_info = partner_lp_vesting_info;
-        config.creator_lp_vesting_info = creator_lp_vesting_info;
-
-        let total_locked_lp_bps_at_day_one = config
-            .get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)
-            .unwrap();
-
-        assert_eq!(3240, total_locked_lp_bps_at_day_one);
-        assert_eq!(
-            creator_lp_locked_bps_at_day_one
-                + partner_lp_vesting_info
-                    .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
-                    .unwrap()
-                + u16::from(config.partner_locked_lp_percentage) * 100
-                + u16::from(config.creator_locked_lp_percentage) * 100,
-            total_locked_lp_bps_at_day_one
-        );
-    }
 }

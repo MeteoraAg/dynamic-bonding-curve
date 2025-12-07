@@ -56,23 +56,25 @@ pub fn handle_transfer_pool_creator<'c: 'info, 'info>(
                 );
 
                 require!(
-                    migration_metadata.partner_locked_lp == 0
-                        || migration_metadata.is_partner_lp_locked(),
+                    migration_metadata.partner_locked_liquidity == 0
+                        || migration_metadata.is_partner_liquidity_locked(),
                     PoolError::NotPermitToDoThisAction
                 );
 
                 require!(
-                    migration_metadata.creator_locked_lp == 0
+                    migration_metadata.creator_locked_liquidity == 0
                         || migration_metadata.is_creator_lp_locked(),
                     PoolError::NotPermitToDoThisAction
                 );
 
                 require!(
-                    migration_metadata.creator_lp == 0 || migration_metadata.is_creator_claim_lp(),
+                    migration_metadata.creator_liquidity == 0
+                        || migration_metadata.is_creator_claim_lp(),
                     PoolError::NotPermitToDoThisAction
                 );
                 require!(
-                    migration_metadata.partner_lp == 0 || migration_metadata.is_partner_claim_lp(),
+                    migration_metadata.partner_liquidity == 0
+                        || migration_metadata.is_partner_claim_lp(),
                     PoolError::NotPermitToDoThisAction
                 );
             }

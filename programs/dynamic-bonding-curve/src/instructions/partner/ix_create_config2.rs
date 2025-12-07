@@ -10,10 +10,10 @@ use crate::{
     process_create_config,
     safe_math::SafeMath,
     state::{LpVestingInfo, MigrationFeeOption, MigrationOption},
-    validate_common_config_parameters, ConfigParameters, CreateConfigCtx, EvtCreateConfigV2,
-    EvtCreateDammV2Config, LockedVestingParams, MigratedPoolFee, MigrationFee, PoolError,
-    ProcessCreateConfigAccounts, ProcessCreateConfigArgs, TokenSupplyParams,
-    ValidateCommonConfigParametersArgs,
+    validate_common_config_parameters, ConfigParameters, CreateConfigCtx,
+    EvtCreateConfigMigrateToDammv2, EvtCreateConfigV2, LockedVestingParams, MigratedPoolFee,
+    MigrationFee, PoolError, ProcessCreateConfigAccounts, ProcessCreateConfigArgs,
+    TokenSupplyParams, ValidateCommonConfigParametersArgs,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -84,7 +84,7 @@ impl LpVestingInfoParams {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct VirtualPoolFeesConfiguration {
+pub struct DBCPoolFeesConfiguration {
     pub base_fee: BaseFeeParameters,
     pub dynamic_fee: Option<DynamicFeeParameters>,
     pub collect_fee_mode: u8,
@@ -94,10 +94,11 @@ pub struct VirtualPoolFeesConfiguration {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct VirtualPoolConfiguration {
+pub struct DBCPoolConfiguration {
     pub activation_type: u8,
     pub migration_quote_threshold: u64,
     pub sqrt_start_price: u128,
+    pub curve: Vec<LiquidityDistributionParameters>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -122,42 +123,41 @@ pub struct LiquidityDistributionConfiguration {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct DammV2ConfigParameters {
-    pub virtual_pool_fees_configuration: VirtualPoolFeesConfiguration,
-    pub virtual_pool_configuration: VirtualPoolConfiguration,
+pub struct ConfigParameters2 {
+    pub dbc_pool_fees_configuration: DBCPoolFeesConfiguration,
     pub damm_v2_migration_configuration: DammV2MigrationConfiguration,
     pub liquidity_distribution_configuration: LiquidityDistributionConfiguration,
     pub mint_configuration: MintConfiguration,
     /// padding for future use
     pub padding: [u64; 7],
-    pub curve: Vec<LiquidityDistributionParameters>,
+    pub dbc_pool_configuration: DBCPoolConfiguration,
 }
 
-impl DammV2ConfigParameters {
+impl ConfigParameters2 {
     pub fn validate<'info>(&self, quote_mint: &InterfaceAccount<'info, Mint>) -> Result<()> {
-        let DammV2ConfigParameters {
-            virtual_pool_fees_configuration,
-            virtual_pool_configuration,
+        let ConfigParameters2 {
+            dbc_pool_fees_configuration,
+            dbc_pool_configuration,
             damm_v2_migration_configuration,
             liquidity_distribution_configuration,
             mint_configuration,
-            curve,
             ..
         } = self;
 
-        let VirtualPoolFeesConfiguration {
+        let DBCPoolFeesConfiguration {
             base_fee,
             dynamic_fee,
             collect_fee_mode,
             creator_trading_fee_percentage,
             pool_creation_fee,
-        } = virtual_pool_fees_configuration;
+        } = dbc_pool_fees_configuration;
 
-        let VirtualPoolConfiguration {
+        let DBCPoolConfiguration {
             activation_type,
             sqrt_start_price,
             migration_quote_threshold,
-        } = virtual_pool_configuration;
+            curve,
+        } = dbc_pool_configuration;
 
         let DammV2MigrationConfiguration {
             migration_fee,
@@ -248,31 +248,31 @@ impl DammV2ConfigParameters {
     }
 }
 
-impl From<DammV2ConfigParameters> for ConfigParameters {
-    fn from(value: DammV2ConfigParameters) -> Self {
-        let DammV2ConfigParameters {
-            virtual_pool_fees_configuration,
-            virtual_pool_configuration,
+impl From<ConfigParameters2> for ConfigParameters {
+    fn from(value: ConfigParameters2) -> Self {
+        let ConfigParameters2 {
+            dbc_pool_fees_configuration,
+            dbc_pool_configuration,
             damm_v2_migration_configuration,
             mint_configuration,
             liquidity_distribution_configuration,
-            curve,
             ..
         } = value;
 
-        let VirtualPoolFeesConfiguration {
+        let DBCPoolFeesConfiguration {
             base_fee,
             dynamic_fee,
             collect_fee_mode,
             creator_trading_fee_percentage,
             pool_creation_fee,
-        } = virtual_pool_fees_configuration;
+        } = dbc_pool_fees_configuration;
 
-        let VirtualPoolConfiguration {
+        let DBCPoolConfiguration {
             activation_type,
             migration_quote_threshold,
             sqrt_start_price,
-        } = virtual_pool_configuration;
+            curve,
+        } = dbc_pool_configuration;
 
         let DammV2MigrationConfiguration {
             migration_fee,
@@ -322,35 +322,35 @@ impl From<DammV2ConfigParameters> for ConfigParameters {
     }
 }
 
-pub fn handle_create_config_for_dammv2_migration(
+pub fn handle_create_config2(
     ctx: Context<CreateConfigCtx>,
-    config_parameters: DammV2ConfigParameters,
+    config_parameters: ConfigParameters2,
 ) -> Result<()> {
     config_parameters.validate(&ctx.accounts.quote_mint)?;
 
-    let DammV2ConfigParameters {
-        virtual_pool_fees_configuration,
-        virtual_pool_configuration,
+    let ConfigParameters2 {
+        dbc_pool_fees_configuration,
+        dbc_pool_configuration,
         damm_v2_migration_configuration,
         liquidity_distribution_configuration,
         mint_configuration,
-        curve,
         ..
     } = config_parameters.clone();
 
-    let VirtualPoolFeesConfiguration {
+    let DBCPoolFeesConfiguration {
         base_fee,
         dynamic_fee,
         collect_fee_mode,
         creator_trading_fee_percentage,
         pool_creation_fee,
-    } = virtual_pool_fees_configuration;
+    } = dbc_pool_fees_configuration;
 
-    let VirtualPoolConfiguration {
+    let DBCPoolConfiguration {
         activation_type,
         migration_quote_threshold,
         sqrt_start_price,
-    } = virtual_pool_configuration;
+        curve,
+    } = dbc_pool_configuration;
 
     let MintConfiguration {
         token_type,
@@ -416,7 +416,7 @@ pub fn handle_create_config_for_dammv2_migration(
         config_parameters: config_parameters.clone().into()
     });
 
-    emit_cpi!(EvtCreateDammV2Config {
+    emit_cpi!(EvtCreateConfigMigrateToDammv2 {
         config: ctx.accounts.config.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),

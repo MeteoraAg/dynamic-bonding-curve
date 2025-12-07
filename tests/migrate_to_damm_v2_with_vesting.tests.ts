@@ -33,7 +33,7 @@ import { CpAmm } from "./utils/idl/damm_v2";
 type DammV2Pool = IdlAccounts<CpAmm>["pool"];
 type DammV2Position = IdlAccounts<CpAmm>["position"];
 
-describe("Migrate to damm v2 with vesting", () => {
+describe.only("Migrate to damm v2 with vesting", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
@@ -134,8 +134,8 @@ describe("Migrate to damm v2 with vesting", () => {
       .round();
 
     const expectedTotalLockedLiquidityPct =
-      poolConfigState.creatorLockedLpPercentage +
-      poolConfigState.partnerLockedLpPercentage;
+      poolConfigState.creatorPermanentLockedLiquidityPercentage +
+      poolConfigState.partnerPermanentLockedLiquidityPercentage;
 
     expect(totalLockedLiquidityPct.toNumber()).equal(
       expectedTotalLockedLiquidityPct
@@ -150,8 +150,8 @@ describe("Migrate to damm v2 with vesting", () => {
       .round();
 
     const expectedTotalVestedLiquidityPct =
-      poolConfigState.creatorLpVestingInfo.vestingPercentage +
-      poolConfigState.partnerLpVestingInfo.vestingPercentage;
+      poolConfigState.creatorLiquidityVestingInfo.vestingPercentage +
+      poolConfigState.partnerLiquidityVestingInfo.vestingPercentage;
 
     expect(totalVestedLiquidityPct.toNumber()).equal(
       expectedTotalVestedLiquidityPct

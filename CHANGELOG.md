@@ -32,15 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Allowed partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
 - Update field `creation_fee_bits` to field `legacy_creation_fee_bits` in pool account state
+
+### Removed
 - Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
-- `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
-- Removed pool creation fee of 0.01 SOL if the pool `collect_fee_mode` is `CollectFeeMode::OutputToken` and `base_mint` is `token_2022` (endpoint: `initialize_virtual_pool_with_token2022`)
+- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
 
 ### Breaking Changes
-
-- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
 - Endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` will only allow config that has minimum 10% of locked liquidity in at least 1 day
-- `migration_damm_v2` endpoint accept only `config` account (damm v2) with timestamp activation type
+- `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
+
 
 All breaking belows are related to admin/operator functions
 

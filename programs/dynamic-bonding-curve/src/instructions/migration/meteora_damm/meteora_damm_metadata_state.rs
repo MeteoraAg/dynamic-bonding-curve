@@ -13,14 +13,14 @@ pub struct MeteoraDammMigrationMetadata {
     pub partner: Pubkey,
     /// lp mint
     pub lp_mint: Pubkey,
-    /// partner locked lp
-    pub partner_locked_lp: u64,
-    /// partner lp
-    pub partner_lp: u64,
-    /// creator locked lp
-    pub creator_locked_lp: u64,
-    /// creator lp
-    pub creator_lp: u64,
+    /// partner locked liquidity
+    pub partner_locked_liquidity: u64,
+    /// partner liquidity
+    pub partner_liquidity: u64,
+    /// creator locked liquidity
+    pub creator_locked_liquidity: u64,
+    /// creator liquidity
+    pub creator_liquidity: u64,
     /// padding
     pub _padding_0: u8,
     /// flag to check whether lp is locked for creator
@@ -40,15 +40,15 @@ impl MeteoraDammMigrationMetadata {
     pub fn set_lp_minted(&mut self, lp_mint: Pubkey, lp_distribution: &LiquidityDistributionU64) {
         self.lp_mint = lp_mint;
         let &LiquidityDistributionU64 {
-            partner_locked_lp,
-            partner_lp,
-            creator_locked_lp,
-            creator_lp,
+            partner_locked_liquidity,
+            partner_liquidity,
+            creator_locked_liquidity,
+            creator_liquidity,
         } = lp_distribution;
-        self.partner_locked_lp = partner_locked_lp;
-        self.partner_lp = partner_lp;
-        self.creator_locked_lp = creator_locked_lp;
-        self.creator_lp = creator_lp;
+        self.partner_locked_liquidity = partner_locked_liquidity;
+        self.partner_liquidity = partner_liquidity;
+        self.creator_locked_liquidity = creator_locked_liquidity;
+        self.creator_liquidity = creator_liquidity;
     }
 
     pub fn set_creator_lock_status(&mut self) {
@@ -61,37 +61,39 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
         require!(
-            self.creator_locked_lp != 0,
+            self.creator_locked_liquidity != 0,
             PoolError::NotPermitToDoThisAction
         );
 
         self.set_creator_lock_status();
 
-        Ok(self.creator_locked_lp)
+        Ok(self.creator_locked_liquidity)
     }
 
     pub fn lock_as_partner(&mut self) -> Result<u64> {
         require!(
-            !self.is_partner_lp_locked(),
+            !self.is_partner_liquidity_locked(),
             PoolError::NotPermitToDoThisAction
         );
         require!(
-            self.partner_locked_lp != 0,
+            self.partner_locked_liquidity != 0,
             PoolError::NotPermitToDoThisAction
         );
 
         self.set_partner_lock_status();
 
-        Ok(self.partner_locked_lp)
+        Ok(self.partner_locked_liquidity)
     }
 
     pub fn lock_as_self_partnered_creator(&mut self) -> Result<u64> {
         require!(
-            !self.is_creator_lp_locked() && !self.is_partner_lp_locked(),
+            !self.is_creator_lp_locked() && !self.is_partner_liquidity_locked(),
             PoolError::NotPermitToDoThisAction
         );
 
-        let lp_to_lock = self.partner_locked_lp.safe_add(self.creator_locked_lp)?;
+        let lp_to_lock = self
+            .partner_locked_liquidity
+            .safe_add(self.creator_locked_liquidity)?;
         require!(lp_to_lock != 0, PoolError::NotPermitToDoThisAction);
 
         self.set_creator_lock_status();
@@ -109,11 +111,14 @@ impl MeteoraDammMigrationMetadata {
             !self.is_creator_claim_lp(),
             PoolError::NotPermitToDoThisAction
         );
-        require!(self.creator_lp != 0, PoolError::NotPermitToDoThisAction);
+        require!(
+            self.creator_liquidity != 0,
+            PoolError::NotPermitToDoThisAction
+        );
 
         self.set_creator_claim_status();
 
-        Ok(self.creator_lp)
+        Ok(self.creator_liquidity)
     }
 
     pub fn claim_as_partner(&mut self) -> Result<u64> {
@@ -121,11 +126,14 @@ impl MeteoraDammMigrationMetadata {
             !self.is_partner_claim_lp(),
             PoolError::NotPermitToDoThisAction
         );
-        require!(self.partner_lp != 0, PoolError::NotPermitToDoThisAction);
+        require!(
+            self.partner_locked_liquidity != 0,
+            PoolError::NotPermitToDoThisAction
+        );
 
         self.set_partner_claim_status();
 
-        Ok(self.partner_lp)
+        Ok(self.partner_locked_liquidity)
     }
 
     pub fn claim_as_self_partnered_creator(&mut self) -> Result<u64> {
@@ -134,7 +142,9 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
-        let lp_to_claim = self.partner_lp.safe_add(self.creator_lp)?;
+        let lp_to_claim = self
+            .partner_locked_liquidity
+            .safe_add(self.creator_liquidity)?;
         require!(lp_to_claim != 0, PoolError::NotPermitToDoThisAction);
 
         self.set_creator_claim_status();
@@ -155,7 +165,7 @@ impl MeteoraDammMigrationMetadata {
         self.creator_locked_status == 1
     }
 
-    pub fn is_partner_lp_locked(&self) -> bool {
+    pub fn is_partner_liquidity_locked(&self) -> bool {
         self.partner_locked_status == 1
     }
 

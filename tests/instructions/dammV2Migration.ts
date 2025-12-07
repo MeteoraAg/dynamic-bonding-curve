@@ -12,6 +12,7 @@ import {
   deriveDammV2PoolAddress,
   deriveMigrationDammV2MetadataAddress,
   derivePoolAuthority,
+  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
   getConfig,
   getVirtualPool,
   sendTransactionMaybeThrow,
@@ -59,8 +60,6 @@ export async function migrateToDammV2(
   dammPool: PublicKey;
   firstPosition: PublicKey;
   secondPosition: PublicKey;
-  partnerVestingAddress: PublicKey;
-  creatorVestingAddress: PublicKey;
 }> {
   const { payer, virtualPool, dammConfig } = params;
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
@@ -102,51 +101,57 @@ export async function migrateToDammV2(
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
+
+
+  const firstPositionVestingAddress = derivePositionVestingAccount(firstPosition);
+
+  const secondPositionVestingAddress = derivePositionVestingAccount(secondPosition);
+
   const remainingAccounts: AccountMeta[] = [
     {
       isSigner: false,
       isWritable: false,
       pubkey: dammConfig,
     },
+    {
+      isSigner: false,
+      isWritable: true,
+      pubkey: firstPositionVestingAddress,
+    },
+    {
+      isSigner: false,
+      isWritable: true,
+      pubkey: secondPositionVestingAddress,
+    },
   ];
 
-  const partnerVestingAddress = PublicKey.findProgramAddressSync(
-    [Buffer.from("partner_vesting"), dammPool.toBytes()],
-    program.programId
-  )[0];
+  // if (configState.partnerLpVestingInfo.vestingPercentage > 0) {
+  //   remainingAccounts.push({
+  //     isSigner: false,
+  //     isWritable: true,
+  //     pubkey: firstPositionVestingAddress,
+  //   });
+  // } else {
+  //   remainingAccounts.push({
+  //     isSigner: false,
+  //     isWritable: false,
+  //     pubkey: program.programId,
+  //   });
+  // }
 
-  const creatorVestingAddress = PublicKey.findProgramAddressSync(
-    [Buffer.from("creator_vesting"), dammPool.toBytes()],
-    program.programId
-  )[0];
-
-  if (configState.partnerLpVestingInfo.vestingPercentage > 0) {
-    remainingAccounts.push({
-      isSigner: false,
-      isWritable: true,
-      pubkey: partnerVestingAddress,
-    });
-  } else {
-    remainingAccounts.push({
-      isSigner: false,
-      isWritable: false,
-      pubkey: program.programId,
-    });
-  }
-
-  if (configState.creatorLpVestingInfo.vestingPercentage > 0) {
-    remainingAccounts.push({
-      isSigner: false,
-      isWritable: true,
-      pubkey: creatorVestingAddress,
-    });
-  } else {
-    remainingAccounts.push({
-      isSigner: false,
-      isWritable: false,
-      pubkey: program.programId,
-    });
-  }
+  // if (configState.creatorLpVestingInfo.vestingPercentage > 0) {
+  //   remainingAccounts.push({
+  //     isSigner: false,
+  //     isWritable: true,
+  //     pubkey: secondPositionVestingAddress,
+  //   });
+  // } else {
+  //   remainingAccounts.push({
+  //     isSigner: false,
+  //     isWritable: false,
+  //     pubkey: program.programId,
+  //   });
+  // }
 
   const transaction = await program.methods
     .migrationDammV2()
@@ -194,8 +199,6 @@ export async function migrateToDammV2(
     dammPool,
     firstPosition,
     secondPosition,
-    partnerVestingAddress,
-    creatorVestingAddress,
   };
 }
 
@@ -218,6 +221,15 @@ export function derivePositionNftAccount(
   return PublicKey.findProgramAddressSync(
     [Buffer.from("position_nft_account"), positionNftMint.toBuffer()],
     DAMM_V2_PROGRAM_ID
+  )[0];
+}
+
+export function derivePositionVestingAccount(
+  position: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("position_vesting"), position.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
