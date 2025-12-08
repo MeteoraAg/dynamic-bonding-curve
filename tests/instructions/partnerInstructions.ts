@@ -70,11 +70,6 @@ export type MigrationFeeParams = {
   creatorFeePercentage: number;
 };
 
-export type LpImpermanentLockInfoParams = {
-  lockPercentage: number;
-  lockDuration: number;
-};
-
 export type ConfigParameters = {
   poolFees: {
     baseFee: BaseFee;
@@ -86,10 +81,10 @@ export type ConfigParameters = {
   tokenType: number;
   tokenDecimal: number;
   migrationQuoteThreshold: BN;
-  partnerLpPercentage: number;
-  partnerLockedLpPercentage: number;
-  creatorLpPercentage: number;
-  creatorLockedLpPercentage: number;
+  partnerLiquidityPercentage: number;
+  partnerPermanentLockedLiquidityPercentage: number;
+  creatorLiquidityPercentage: number;
+  creatorPermanentLockedLiquidityPercentage: number;
   sqrtStartPrice: BN;
   lockedVesting: LockedVestingParams;
   migrationFeeOption: number;
@@ -103,56 +98,17 @@ export type ConfigParameters = {
     dynamicFee: number;
   };
   poolCreationFee: BN;
+  partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
+  creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
   curve: Array<LiquidityDistributionParameters>;
 };
 
-export type LpVestingInfoParams = {
+export type LiquidityVestingInfoParams = {
   vestingPercentage: number;
   cliffDurationFromMigrationTime: number;
   bpsPerPeriod: number;
-  frequency: BN;
+  frequency: number;
   numberOfPeriods: number;
-};
-
-export type LpDistributionInfo = {
-  lpPercentage: number;
-  lpPermanentLockPercentage: number;
-  lpVestingInfo: LpVestingInfoParams;
-};
-
-export type DammV2ConfigParameters = {
-  virtualPoolFeesConfiguration: {
-    baseFee: BaseFee;
-    dynamicFee: DynamicFee | null;
-    collectFeeMode: number;
-    creatorTradingFeePercentage: number;
-    poolCreationFee: BN;
-  };
-  virtualPoolConfiguration: {
-    activationType: number;
-    migrationQuoteThreshold: BN;
-    sqrtStartPrice: BN;
-  };
-  dammV2MigrationConfiguration: {
-    migrationFee: MigrationFeeParams;
-    migratedPoolFee: {
-      poolFeeBps: number;
-      collectFeeMode: number;
-      dynamicFee: number;
-    };
-  };
-  liquidityDistributionConfiguration: {
-    partnerLpInfo: LpDistributionInfo;
-    creatorLpInfo: LpDistributionInfo;
-  };
-  mintConfiguration: {
-    tokenType: number;
-    tokenDecimal: number;
-    tokenUpdateAuthority: number;
-    tokenSupply: TokenSupplyParams;
-    lockedVesting: LockedVestingParams;
-  };
-  curve: Array<LiquidityDistributionParameters>;
 };
 
 export type CreateConfigParams<T> = {
@@ -175,7 +131,7 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
-      padding: new Array(64).fill(new BN(7)),
+      padding: new Array(22).fill(0),
     })
     .accountsPartial({
       config: config.publicKey,
@@ -192,96 +148,16 @@ export async function createConfig(
   // TODO add assertion data fields
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
   expect(configState.partnerLiquidityPercentage).equal(
-    instructionParams.partnerLpPercentage
+    instructionParams.partnerLiquidityPercentage
   );
   expect(configState.partnerPermanentLockedLiquidityPercentage).equal(
-    instructionParams.partnerLockedLpPercentage
+    instructionParams.partnerPermanentLockedLiquidityPercentage
   );
   expect(configState.creatorLiquidityPercentage).equal(
-    instructionParams.creatorLpPercentage
+    instructionParams.creatorLiquidityPercentage
   );
   expect(configState.creatorPermanentLockedLiquidityPercentage).equal(
-    instructionParams.creatorLockedLpPercentage
-  );
-
-  return config.publicKey;
-}
-
-export async function createDammV2OnlyConfig(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: CreateConfigParams<DammV2ConfigParameters>
-): Promise<PublicKey> {
-  const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
-    params;
-  const config = Keypair.generate();
-
-  const transaction = await program.methods
-    .createConfigForDammv2Migration({
-      ...instructionParams,
-      padding: new Array(64).fill(new BN(7)),
-    })
-    .accountsPartial({
-      config: config.publicKey,
-      feeClaimer,
-      leftoverReceiver,
-      quoteMint,
-      payer: payer.publicKey,
-    })
-    .transaction();
-
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer, config);
-
-  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
-  const configState = getConfig(svm, program, config.publicKey);
-  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
-
-  expect(configState.partnerLiquidityPercentage).equal(
-    instructionParams.liquidityDistributionConfiguration.partnerLpInfo
-      .lpPercentage
-  );
-
-  let vestingLpInfo = configState.partnerLiquidityVestingInfo;
-  let ixVestingLpInfo =
-    instructionParams.liquidityDistributionConfiguration.partnerLpInfo
-      .lpVestingInfo;
-
-  expect(vestingLpInfo.vestingPercentage).equal(
-    ixVestingLpInfo.vestingPercentage
-  );
-  expect(
-    new BN(vestingLpInfo.cliffDurationFromMigrationTime, "le").toNumber()
-  ).equal(ixVestingLpInfo.cliffDurationFromMigrationTime);
-  expect(new BN(vestingLpInfo.bpsPerPeriod, "le").toNumber()).equal(
-    ixVestingLpInfo.bpsPerPeriod
-  );
-  expect(new BN(vestingLpInfo.frequency, "le").toNumber()).equal(
-    ixVestingLpInfo.frequency.toNumber()
-  );
-  expect(new BN(vestingLpInfo.numberOfPeriods, "le").toNumber()).equal(
-    ixVestingLpInfo.numberOfPeriods
-  );
-
-  vestingLpInfo = configState.creatorLiquidityVestingInfo;
-  ixVestingLpInfo =
-    instructionParams.liquidityDistributionConfiguration.creatorLpInfo
-      .lpVestingInfo;
-
-  expect(vestingLpInfo.vestingPercentage).equal(
-    ixVestingLpInfo.vestingPercentage
-  );
-  expect(
-    new BN(vestingLpInfo.cliffDurationFromMigrationTime, "le").toNumber()
-  ).equal(ixVestingLpInfo.cliffDurationFromMigrationTime);
-  expect(new BN(vestingLpInfo.bpsPerPeriod, "le").toNumber()).equal(
-    ixVestingLpInfo.bpsPerPeriod
-  );
-  expect(new BN(vestingLpInfo.frequency, "le").toNumber()).equal(
-    ixVestingLpInfo.frequency.toNumber()
-  );
-  expect(new BN(vestingLpInfo.numberOfPeriods, "le").toNumber()).equal(
-    ixVestingLpInfo.numberOfPeriods
+    instructionParams.creatorPermanentLockedLiquidityPercentage
   );
 
   return config.publicKey;
@@ -356,21 +232,21 @@ export async function claimTradingFee(
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        feeClaimer,
-        poolState.baseMint,
-        feeClaimer.publicKey,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        feeClaimer,
-        quoteMintInfo.mint,
-        feeClaimer.publicKey,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      feeClaimer,
+      poolState.baseMint,
+      feeClaimer.publicKey,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      feeClaimer,
+      quoteMintInfo.mint,
+      feeClaimer.publicKey,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 

@@ -16,16 +16,18 @@ fn test_get_damm_v2_vesting_parameters() {
 
     let vesting_percentage = 100;
     let cliff_duration_from_migration_time: u32 = 10;
-    let frequency: u64 = 0;
+    let frequency: u32 = 0;
     let number_of_periods: u16 = 0;
     let bps_per_period: u16 = 0;
 
     let liquidity_vesting_info = LiquidityVestingInfo {
+        is_initialized: 1,
         vesting_percentage,
-        cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
-        frequency: frequency.to_le_bytes(),
-        number_of_periods: number_of_periods.to_le_bytes(),
-        bps_per_period: bps_per_period.to_le_bytes(),
+        cliff_duration_from_migration_time,
+        frequency,
+        number_of_periods,
+        bps_per_period,
+        ..Default::default()
     };
 
     let liquidity_distribution_item = LiquidityDistributionItem {
@@ -46,7 +48,7 @@ fn test_get_damm_v2_vesting_parameters() {
     );
     assert_eq!(params.cliff_unlock_liquidity, vested_liquidity);
     assert_eq!(params.liquidity_per_period, 0);
-    assert_eq!(params.period_frequency, frequency);
+    assert_eq!(params.period_frequency, u64::from(frequency));
     assert_eq!(params.number_of_period, number_of_periods);
 
     let cliff_release_bps = 5000;
@@ -54,14 +56,16 @@ fn test_get_damm_v2_vesting_parameters() {
     let vest_bps = 10_000 - cliff_release_bps;
     let number_of_periods = 10;
     let bps_per_period: u16 = vest_bps / number_of_periods;
-    let frequency = vest_duration as u64 / number_of_periods as u64;
+    let frequency = vest_duration as u32 / number_of_periods as u32;
 
     let liquidity_vesting_info = LiquidityVestingInfo {
+        is_initialized: 1,
         vesting_percentage,
-        cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
-        frequency: frequency.to_le_bytes(),
-        number_of_periods: number_of_periods.to_le_bytes(),
-        bps_per_period: bps_per_period.to_le_bytes(),
+        cliff_duration_from_migration_time,
+        frequency,
+        number_of_periods,
+        bps_per_period,
+        ..Default::default()
     };
 
     let liquidity_distribution_item = LiquidityDistributionItem {
@@ -90,17 +94,19 @@ fn test_get_damm_v2_vesting_parameters() {
         vested_liquidity - liquidity_per_period * number_of_periods as u128;
 
     assert_eq!(params.cliff_unlock_liquidity, cliff_unlock_liquidity);
-    assert_eq!(params.period_frequency, frequency);
+    assert_eq!(params.period_frequency, u64::from(frequency));
     assert_eq!(params.number_of_period, number_of_periods);
 
     let bps_per_period = MAX_BASIS_POINT as u16 / number_of_periods;
 
     let liquidity_vesting_info = LiquidityVestingInfo {
+        is_initialized: 1,
         vesting_percentage,
-        cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
-        frequency: frequency.to_le_bytes(),
-        number_of_periods: number_of_periods.to_le_bytes(),
-        bps_per_period: bps_per_period.to_le_bytes(),
+        cliff_duration_from_migration_time,
+        frequency,
+        number_of_periods,
+        bps_per_period,
+        ..Default::default()
     };
 
     let liquidity_distribution_item = LiquidityDistributionItem {
@@ -124,7 +130,7 @@ fn test_get_damm_v2_vesting_parameters() {
 
     assert_eq!(params.cliff_unlock_liquidity, cliff_unlock_liquidity);
     assert_eq!(params.liquidity_per_period, liquidity_per_period);
-    assert_eq!(params.period_frequency, frequency);
+    assert_eq!(params.period_frequency, u64::from(frequency));
     assert_eq!(params.number_of_period, number_of_periods);
     assert_eq!(
         cliff_unlock_liquidity + liquidity_per_period * number_of_periods as u128,
@@ -136,7 +142,7 @@ fn test_get_damm_v2_vesting_parameters() {
 fn test_get_locked_bps_at_day_one() {
     let cliff_duration_from_migration_time = SECONDS_PER_DAY as u32 / 2;
     let bps_per_period: u16 = 100;
-    let frequency: u64 = 3600; // 1 hour
+    let frequency: u32 = 3600; // 1 hour
 
     // Total bps = 10_000
     // We want cliff to unlock 5_000 bps (50%) at day one
@@ -148,18 +154,20 @@ fn test_get_locked_bps_at_day_one() {
     // Expected locked percentage at day one = 38%
     // Creator lock 38% of 40% at day one = 15.2%
     let creator_liquidity_vesting_info = LiquidityVestingInfo {
+        is_initialized: 1,
         vesting_percentage: 40,
-        cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
-        bps_per_period: bps_per_period.to_le_bytes(),
-        frequency: frequency.to_le_bytes(),
-        number_of_periods: number_of_periods.to_le_bytes(),
+        cliff_duration_from_migration_time,
+        bps_per_period,
+        frequency,
+        number_of_periods,
+        ..Default::default()
     };
 
-    let creator_lp_locked_bps_at_day_one = creator_liquidity_vesting_info
+    let creator_liquidity_locked_bps_at_day_one = creator_liquidity_vesting_info
         .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
         .unwrap();
 
-    assert_eq!(creator_lp_locked_bps_at_day_one, 1520);
+    assert_eq!(creator_liquidity_locked_bps_at_day_one, 1520);
 
     let partner_liquidity_vesting_info = creator_liquidity_vesting_info.clone();
 
@@ -170,18 +178,18 @@ fn test_get_locked_bps_at_day_one() {
     config.partner_liquidity_vesting_info = partner_liquidity_vesting_info;
     config.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
 
-    let total_locked_lp_bps_at_day_one = config
+    let total_locked_liquidity_bps_at_day_one = config
         .get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)
         .unwrap();
 
-    assert_eq!(3240, total_locked_lp_bps_at_day_one);
+    assert_eq!(3240, total_locked_liquidity_bps_at_day_one);
     assert_eq!(
-        creator_lp_locked_bps_at_day_one
+        creator_liquidity_locked_bps_at_day_one
             + partner_liquidity_vesting_info
                 .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
                 .unwrap()
             + u16::from(config.partner_permanent_locked_liquidity_percentage) * 100
             + u16::from(config.creator_permanent_locked_liquidity_percentage) * 100,
-        total_locked_lp_bps_at_day_one
+        total_locked_liquidity_bps_at_day_one
     );
 }

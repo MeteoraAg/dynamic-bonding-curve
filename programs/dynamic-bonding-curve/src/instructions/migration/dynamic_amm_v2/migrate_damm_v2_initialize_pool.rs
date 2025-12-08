@@ -124,6 +124,10 @@ pub struct MigrateDammV2Ctx<'info> {
     pub damm_event_authority: UncheckedAccount<'info>,
     /// System program.
     pub system_program: Program<'info, System>,
+    // Remaining accounts:
+    // 0. [READ-ONLY] damm v2 config account
+    // 1. [OPTIONAL, WRITE] vesting account for first position
+    // 2. [OPTIONAL, WRITE] vesting account for second position
 }
 
 impl<'info> MigrateDammV2Ctx<'info> {
@@ -276,7 +280,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
         liquidity_distribution: &LiquidityDistributionItem,
         position: &AccountInfo<'info>,
         position_nft_account: &AccountInfo<'info>,
-        // vesting_account_and_seeds: VestingAccountAndSignerSeeds<'a, 'info>,
         vesting_account: Option<&AccountInfo<'info>>,
         current_timestamp: u64,
     ) -> Result<()> {
@@ -321,8 +324,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 vesting_account.key.eq(&vesting_key),
                 PoolError::InvalidAccount
             );
-
-            // let vesting_account = vesting_account_and_seeds.get_vesting_account()?;
 
             called_functions.push(Box::new(move || {
                 let pool_authority_seeds = pool_authority_seeds!(BUMP);

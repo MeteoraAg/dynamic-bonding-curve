@@ -89,10 +89,10 @@ async function createPartnerConfig(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 20,
-    partnerLockedLpPercentage: 55,
-    creatorLockedLpPercentage: 5,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 20,
+    partnerPermanentLockedLiquidityPercentage: 55,
+    creatorPermanentLockedLiquidityPercentage: 5,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -113,6 +113,20 @@ async function createPartnerConfig(
       collectFeeMode: 0,
       dynamicFee: 0,
       poolFeeBps: 0,
+    },
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
     },
     poolCreationFee: new BN(0),
     curve: curves,
@@ -311,9 +325,10 @@ describe("Claim and lock lp on meteora dammm", () => {
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.creatorLockedLp.add(
-        beforeMigrationMetadata.partnerLockedLp
-      );
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.creatorLockedLiquidity.add(
+          beforeMigrationMetadata.partnerLockedLiquidity
+        );
 
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
@@ -368,8 +383,8 @@ describe("Claim and lock lp on meteora dammm", () => {
       expect(afterMigrationMetadata.creatorClaimStatus).equal(Number(true));
       expect(afterMigrationMetadata.partnerClaimStatus).equal(Number(true));
 
-      const expectedLpToClaim = beforeMigrationMetadata.creatorLp.add(
-        beforeMigrationMetadata.partnerLp
+      const expectedLpToClaim = beforeMigrationMetadata.creatorLiquidity.add(
+        beforeMigrationMetadata.partnerLiquidity
       );
 
       expect(expectedLpToClaim.toString()).equal(
@@ -457,7 +472,8 @@ describe("Claim and lock lp on meteora dammm", () => {
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.creatorLockedLp;
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.creatorLockedLiquidity;
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
       expect(expectedTotalLockLp.toString()).equal(totalLockLp.toString());
@@ -495,7 +511,8 @@ describe("Claim and lock lp on meteora dammm", () => {
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.partnerLockedLp;
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.partnerLockedLiquidity;
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
       expect(expectedTotalLockLp.toString()).equal(totalLockLp.toString());
@@ -550,7 +567,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.partnerClaimStatus
       );
 
-      const expectedLpToClaim = beforeMigrationMetadata.creatorLp;
+      const expectedLpToClaim = beforeMigrationMetadata.creatorLiquidity;
 
       expect(expectedLpToClaim.toString()).equal(
         creatorLpTokenState.amount.toString()
@@ -606,7 +623,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.creatorClaimStatus
       );
 
-      const expectedLpToClaim = beforeMigrationMetadata.partnerLp;
+      const expectedLpToClaim = beforeMigrationMetadata.partnerLiquidity;
 
       expect(expectedLpToClaim.toString()).equal(
         partnerLpTokenState.amount.toString()

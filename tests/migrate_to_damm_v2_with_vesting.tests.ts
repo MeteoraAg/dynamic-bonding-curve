@@ -1,10 +1,10 @@
 import { NATIVE_MINT } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
+  ConfigParameters,
+  createConfig,
   CreateConfigParams,
-  createDammV2OnlyConfig,
   createPoolWithSplToken,
-  DammV2ConfigParameters,
   swap,
   SwapMode,
 } from "./instructions";
@@ -33,7 +33,7 @@ import { CpAmm } from "./utils/idl/damm_v2";
 type DammV2Pool = IdlAccounts<CpAmm>["pool"];
 type DammV2Position = IdlAccounts<CpAmm>["position"];
 
-describe.only("Migrate to damm v2 with vesting", () => {
+describe("Migrate to damm v2 with vesting", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
@@ -213,75 +213,45 @@ async function fullFlow(
     }
   );
 
-  const dammV2ConfigsParams: DammV2ConfigParameters = {
-    virtualPoolConfiguration: {
-      sqrtStartPrice: instructionParams.sqrtStartPrice,
-      migrationQuoteThreshold: instructionParams.migrationQuoteThreshold,
-      activationType: instructionParams.activationType,
+  const configParams: ConfigParameters = {
+    ...instructionParams,
+    creatorLiquidityPercentage: 5,
+    creatorPermanentLockedLiquidityPercentage: 5,
+    creatorLiquidityVestingInfo: {
+      cliffDurationFromMigrationTime: 86400 / 2,
+      vestingPercentage: 40,
+      bpsPerPeriod: 100,
+      frequency: 3600,
+      // 20% cliff unlock
+      numberOfPeriods: (10_000 - 2_000) / 100,
     },
-    virtualPoolFeesConfiguration: {
-      baseFee: instructionParams.poolFees.baseFee,
-      dynamicFee: instructionParams.poolFees.dynamicFee,
-      collectFeeMode: instructionParams.collectFeeMode,
-      creatorTradingFeePercentage:
-        instructionParams.creatorTradingFeePercentage,
-      poolCreationFee: new BN(0),
+    partnerLiquidityPercentage: 5,
+    partnerPermanentLockedLiquidityPercentage: 5,
+    partnerLiquidityVestingInfo: {
+      cliffDurationFromMigrationTime: 86400 / 2,
+      vestingPercentage: 40,
+      bpsPerPeriod: 100,
+      frequency: 3600,
+      // 20% cliff unlock
+      numberOfPeriods: (10_000 - 2_000) / 100,
     },
-    mintConfiguration: {
-      tokenDecimal: instructionParams.tokenDecimal,
-      tokenSupply: instructionParams.tokenSupply,
-      tokenUpdateAuthority: instructionParams.tokenUpdateAuthority,
-      tokenType: instructionParams.tokenType,
-      lockedVesting: instructionParams.lockedVesting,
+    migrationOption: 1,
+    migrationFeeOption: 6, // customizable
+    migratedPoolFee: {
+      poolFeeBps: 100,
+      collectFeeMode: 0,
+      dynamicFee: 0,
     },
-    liquidityDistributionConfiguration: {
-      creatorLpInfo: {
-        // 5% liquid
-        lpPercentage: 5,
-        // 5% permanent lock
-        lpPermanentLockPercentage: 5,
-        lpVestingInfo: {
-          cliffDurationFromMigrationTime: 86400 / 2,
-          vestingPercentage: 40,
-          bpsPerPeriod: 100,
-          frequency: new BN(3600),
-          // 20% cliff unlock
-          numberOfPeriods: (10_000 - 2_000) / 100,
-        },
-      },
-      partnerLpInfo: {
-        // 5% liquid
-        lpPercentage: 5,
-        // 5% permanent lock
-        lpPermanentLockPercentage: 5,
-        lpVestingInfo: {
-          cliffDurationFromMigrationTime: 86400 / 2,
-          vestingPercentage: 40,
-          bpsPerPeriod: 100,
-          frequency: new BN(3600),
-          // 20% cliff unlock
-          numberOfPeriods: (10_000 - 2_000) / 100,
-        },
-      },
-    },
-    dammV2MigrationConfiguration: {
-      migrationFee: {
-        feePercentage: 0,
-        creatorFeePercentage: 0,
-      },
-      migratedPoolFee,
-    },
-    curve: instructionParams.curve,
   };
 
-  const params: CreateConfigParams<DammV2ConfigParameters> = {
+  const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
     feeClaimer: partner.publicKey,
     quoteMint: NATIVE_MINT,
-    instructionParams: dammV2ConfigsParams,
+    instructionParams: configParams,
   };
-  const config = await createDammV2OnlyConfig(svm, program, params);
+  const config = await createConfig(svm, program, params);
 
   console.log("create pool");
   const virtualPool = await createPoolWithSplToken(svm, program, {

@@ -7,7 +7,7 @@ use static_assertions::const_assert_eq;
 pub struct MeteoraDammMigrationMetadata {
     /// pool
     pub virtual_pool: Pubkey,
-    /// !!! BE CAREFUL to use tomestone field, previous is pool creator
+    /// !!! BE CAREFUL to use tombstone field, previous is pool creator
     pub padding_0: [u8; 32],
     /// partner
     pub partner: Pubkey,
@@ -134,13 +134,13 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
         require!(
-            self.partner_locked_liquidity != 0,
+            self.partner_liquidity != 0,
             PoolError::NotPermitToDoThisAction
         );
 
         self.set_partner_claim_status();
 
-        Ok(self.partner_locked_liquidity)
+        Ok(self.partner_liquidity)
     }
 
     pub fn claim_as_self_partnered_creator(&mut self) -> Result<u64> {
@@ -149,9 +149,7 @@ impl MeteoraDammMigrationMetadata {
             PoolError::NotPermitToDoThisAction
         );
 
-        let liquidity_token_to_claim = self
-            .partner_locked_liquidity
-            .safe_add(self.creator_liquidity)?;
+        let liquidity_token_to_claim = self.partner_liquidity.safe_add(self.creator_liquidity)?;
         require!(
             liquidity_token_to_claim != 0,
             PoolError::NotPermitToDoThisAction

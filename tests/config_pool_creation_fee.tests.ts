@@ -316,10 +316,10 @@ async function createConfigAccount(
     }
   );
 
-  instructionParams.partnerLpPercentage = 10;
-  instructionParams.creatorLpPercentage = 80;
-  instructionParams.creatorLockedLpPercentage = 5;
-  instructionParams.partnerLockedLpPercentage = 5;
+  instructionParams.partnerLiquidityPercentage = 10;
+  instructionParams.creatorLiquidityPercentage = 80;
+  instructionParams.creatorPermanentLockedLiquidityPercentage = 5;
+  instructionParams.partnerPermanentLockedLiquidityPercentage = 5;
   instructionParams.collectFeeMode = 1; // Output only
   instructionParams.poolCreationFee = poolCreationFee;
   instructionParams.tokenType = tokenType;

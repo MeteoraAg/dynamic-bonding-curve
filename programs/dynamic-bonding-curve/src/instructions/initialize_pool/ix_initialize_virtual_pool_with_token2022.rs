@@ -122,7 +122,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LIQUIDITY_BPS,
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
         PoolError::InvalidMigrationLockedLiquidity
     );
 

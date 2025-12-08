@@ -108,10 +108,10 @@ describe("Full flow with spl-token", () => {
       tokenType: 0, // spl_token
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-      partnerLpPercentage: 0,
-      creatorLpPercentage: 0,
-      partnerLockedLpPercentage: 95,
-      creatorLockedLpPercentage: 5,
+      partnerLiquidityPercentage: 0,
+      creatorLiquidityPercentage: 0,
+      partnerPermanentLockedLiquidityPercentage: 95,
+      creatorPermanentLockedLiquidityPercentage: 5,
       sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
       lockedVesting: {
         amountPerPeriod: new BN(0),
@@ -134,6 +134,20 @@ describe("Full flow with spl-token", () => {
         poolFeeBps: 0,
       },
       poolCreationFee: new BN(0),
+      creatorLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
+      partnerLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {

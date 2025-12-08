@@ -573,6 +573,10 @@ const_assert_eq!(LiquidityVestingInfo::INIT_SPACE, 16);
 
 impl LiquidityVestingInfo {
     pub fn get_locked_bps_at_n_seconds(&self, n_seconds: u64) -> Result<u16> {
+        if self.is_initialized == 0 {
+            return Ok(0);
+        }
+
         let vest_bps_at_n_seconds = self.vest_bps_locked_at_n_second(n_seconds)?;
         let vesting_bps = u32::from(self.vesting_percentage).safe_mul(100)?;
 
@@ -596,10 +600,6 @@ impl LiquidityVestingInfo {
     }
 
     fn vest_bps_locked_at_n_second(&self, n_seconds: u64) -> Result<u16> {
-        if self.is_initialized == 0 {
-            return Ok(0);
-        }
-
         // Everything released after N seconds. All liquidities are locked before N seconds.
         if u64::from(self.cliff_duration_from_migration_time) > n_seconds {
             return Ok(10_000);
