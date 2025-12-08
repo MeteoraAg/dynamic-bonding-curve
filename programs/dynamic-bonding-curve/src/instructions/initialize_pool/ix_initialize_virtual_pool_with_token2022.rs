@@ -1,6 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
-use crate::constants::MIN_LOCKED_LP_BPS;
+use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
 use crate::token::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
@@ -122,8 +122,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        config.get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LP_BPS,
-        PoolError::InvalidMigrationLockedLp
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
     );
 
     // validate min base fee

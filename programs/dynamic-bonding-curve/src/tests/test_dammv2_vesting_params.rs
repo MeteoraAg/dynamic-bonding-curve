@@ -2,7 +2,7 @@ use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
 
 use crate::{
     constants::fee::MAX_BASIS_POINT,
-    state::{LiquidityDistributionItem, LpVestingInfo, PoolConfig},
+    state::{LiquidityDistributionItem, LiquidityVestingInfo, PoolConfig},
 };
 
 #[test]
@@ -20,7 +20,7 @@ fn test_get_damm_v2_vesting_parameters() {
     let number_of_periods: u16 = 0;
     let bps_per_period: u16 = 0;
 
-    let liquidity_vesting_info = LpVestingInfo {
+    let liquidity_vesting_info = LiquidityVestingInfo {
         vesting_percentage,
         cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
         frequency: frequency.to_le_bytes(),
@@ -56,7 +56,7 @@ fn test_get_damm_v2_vesting_parameters() {
     let bps_per_period: u16 = vest_bps / number_of_periods;
     let frequency = vest_duration as u64 / number_of_periods as u64;
 
-    let liquidity_vesting_info = LpVestingInfo {
+    let liquidity_vesting_info = LiquidityVestingInfo {
         vesting_percentage,
         cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
         frequency: frequency.to_le_bytes(),
@@ -95,7 +95,7 @@ fn test_get_damm_v2_vesting_parameters() {
 
     let bps_per_period = MAX_BASIS_POINT as u16 / number_of_periods;
 
-    let liquidity_vesting_info = LpVestingInfo {
+    let liquidity_vesting_info = LiquidityVestingInfo {
         vesting_percentage,
         cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
         frequency: frequency.to_le_bytes(),
@@ -147,7 +147,7 @@ fn test_get_locked_bps_at_day_one() {
     // Locked percentage at day one = 10000 - 6200 = 3800
     // Expected locked percentage at day one = 38%
     // Creator lock 38% of 40% at day one = 15.2%
-    let creator_liquidity_vesting_info = LpVestingInfo {
+    let creator_liquidity_vesting_info = LiquidityVestingInfo {
         vesting_percentage: 40,
         cliff_duration_from_migration_time: cliff_duration_from_migration_time.to_le_bytes(),
         bps_per_period: bps_per_period.to_le_bytes(),
@@ -171,7 +171,7 @@ fn test_get_locked_bps_at_day_one() {
     config.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
 
     let total_locked_lp_bps_at_day_one = config
-        .get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)
+        .get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)
         .unwrap();
 
     assert_eq!(3240, total_locked_lp_bps_at_day_one);

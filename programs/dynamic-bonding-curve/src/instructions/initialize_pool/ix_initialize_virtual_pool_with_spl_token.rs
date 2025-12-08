@@ -13,7 +13,7 @@ use crate::{
     const_pda,
     constants::{
         seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
-        MIN_LOCKED_LP_BPS,
+        MIN_LOCKED_LIQUIDITY_BPS,
     },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
@@ -143,8 +143,9 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        config.get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LP_BPS,
-        PoolError::InvalidMigrationLockedLp
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
     );
 
     // validate min base fee

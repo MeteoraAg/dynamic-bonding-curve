@@ -8,8 +8,8 @@ use crate::{
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
         MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
-        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LP_BPS, MIN_MIGRATED_POOL_FEE_BPS,
-        MIN_SQRT_PRICE,
+        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
+        MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -20,8 +20,8 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, LockedVestingConfig, LpVestingInfo, MigrationFeeOption, MigrationOption,
-        PoolConfig, TokenAuthorityOption, TokenType,
+        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
+        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
@@ -35,10 +35,10 @@ pub struct ConfigParameters {
     pub activation_type: u8,
     pub token_type: u8,
     pub token_decimal: u8,
-    pub partner_lp_percentage: u8,
-    pub partner_permanent_locked_lp_percentage: u8,
-    pub creator_lp_percentage: u8,
-    pub creator_permanent_locked_lp_percentage: u8,
+    pub partner_liquidity_percentage: u8,
+    pub partner_permanent_locked_liquidity_percentage: u8,
+    pub creator_liquidity_percentage: u8,
+    pub creator_permanent_locked_liquidity_percentage: u8,
     pub migration_quote_threshold: u64,
     pub sqrt_start_price: u128,
     pub locked_vesting: LockedVestingParams,
@@ -50,8 +50,8 @@ pub struct ConfigParameters {
     pub migrated_pool_fee: MigratedPoolFee,
     /// pool creation fee in SOL lamports value
     pub pool_creation_fee: u64,
-    pub partner_lp_vesting_info: LpVestingInfoParams,
-    pub creator_lp_vesting_info: LpVestingInfoParams,
+    pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
+    pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
 
     /// padding for future use
     pub padding: [u8; 22],
@@ -192,7 +192,7 @@ impl LockedVestingParams {
 #[derive(
     AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy, InitSpace, Default, PartialEq, Eq,
 )]
-pub struct LpVestingInfoParams {
+pub struct LiquidityVestingInfoParams {
     pub vesting_percentage: u8,
     pub bps_per_period: u16,
     pub number_of_periods: u16,
@@ -200,11 +200,11 @@ pub struct LpVestingInfoParams {
     pub frequency: u32,
 }
 
-const_assert_eq!(LpVestingInfoParams::INIT_SPACE, 13);
+const_assert_eq!(LiquidityVestingInfoParams::INIT_SPACE, 13);
 
-impl LpVestingInfoParams {
+impl LiquidityVestingInfoParams {
     pub fn is_zero(&self) -> bool {
-        *self == LpVestingInfoParams::default()
+        *self == LiquidityVestingInfoParams::default()
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -243,9 +243,9 @@ impl LpVestingInfoParams {
         Ok(())
     }
 
-    fn to_lp_vesting_info(self) -> LpVestingInfo {
+    fn to_liquidity_vesting_info(self) -> LiquidityVestingInfo {
         let is_initialized = if self.is_zero() { 0 } else { 1 };
-        LpVestingInfo {
+        LiquidityVestingInfo {
             is_initialized,
             vesting_percentage: self.vesting_percentage,
             cliff_duration_from_migration_time: self.cliff_duration_from_migration_time,
@@ -314,11 +314,11 @@ impl ConfigParameters {
                 );
                 // validate vesting
                 require!(
-                    self.partner_lp_vesting_info.is_zero(),
+                    self.partner_liquidity_vesting_info.is_zero(),
                     PoolError::InvalidVestingParameters
                 );
                 require!(
-                    self.creator_lp_vesting_info.is_zero(),
+                    self.creator_liquidity_vesting_info.is_zero(),
                     PoolError::InvalidVestingParameters
                 );
             }
@@ -332,8 +332,8 @@ impl ConfigParameters {
                     );
                 }
                 // validate vesting
-                self.partner_lp_vesting_info.validate()?;
-                self.creator_lp_vesting_info.validate()?;
+                self.partner_liquidity_vesting_info.validate()?;
+                self.creator_liquidity_vesting_info.validate()?;
             }
         }
 
@@ -349,14 +349,17 @@ impl ConfigParameters {
             PoolError::InvalidTokenDecimals
         );
 
-        let sum_lp_percentage = self
-            .partner_lp_percentage
-            .safe_add(self.partner_permanent_locked_lp_percentage)?
-            .safe_add(self.creator_lp_percentage)?
-            .safe_add(self.creator_permanent_locked_lp_percentage)?
-            .safe_add(self.partner_lp_vesting_info.vesting_percentage)?
-            .safe_add(self.creator_lp_vesting_info.vesting_percentage)?;
-        require!(sum_lp_percentage == 100, PoolError::InvalidFeePercentage);
+        let sum_liquidity_percentage = self
+            .partner_liquidity_percentage
+            .safe_add(self.partner_permanent_locked_liquidity_percentage)?
+            .safe_add(self.creator_liquidity_percentage)?
+            .safe_add(self.creator_permanent_locked_liquidity_percentage)?
+            .safe_add(self.partner_liquidity_vesting_info.vesting_percentage)?
+            .safe_add(self.creator_liquidity_vesting_info.vesting_percentage)?;
+        require!(
+            sum_liquidity_percentage == 100,
+            PoolError::InvalidFeePercentage
+        );
 
         require!(
             self.migration_quote_threshold > 0,
@@ -375,8 +378,8 @@ impl ConfigParameters {
             )
         }
 
-        self.partner_lp_vesting_info.validate()?;
-        self.creator_lp_vesting_info.validate()?;
+        self.partner_liquidity_vesting_info.validate()?;
+        self.creator_liquidity_vesting_info.validate()?;
 
         // validate price and liquidity
         require!(
@@ -450,10 +453,10 @@ pub fn handle_create_config(
         activation_type,
         token_type,
         token_decimal,
-        partner_lp_percentage,
-        partner_permanent_locked_lp_percentage,
-        creator_lp_percentage,
-        creator_permanent_locked_lp_percentage,
+        partner_liquidity_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
         migration_quote_threshold,
         sqrt_start_price,
         locked_vesting,
@@ -465,8 +468,8 @@ pub fn handle_create_config(
         migration_fee,
         migrated_pool_fee,
         pool_creation_fee,
-        partner_lp_vesting_info,
-        creator_lp_vesting_info,
+        partner_liquidity_vesting_info,
+        creator_liquidity_vesting_info,
         ..
     } = config_parameters.clone();
 
@@ -558,10 +561,10 @@ pub fn handle_create_config(
         token_decimal,
         token_type,
         get_token_program_flags(&ctx.accounts.quote_mint).into(),
-        partner_permanent_locked_lp_percentage,
-        partner_lp_percentage,
-        creator_permanent_locked_lp_percentage,
-        creator_lp_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        partner_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
         &locked_vesting,
         migration_fee_option,
         swap_base_amount,
@@ -576,15 +579,16 @@ pub fn handle_create_config(
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
         pool_creation_fee,
-        partner_lp_vesting_info.to_lp_vesting_info(),
-        creator_lp_vesting_info.to_lp_vesting_info(),
+        partner_liquidity_vesting_info.to_liquidity_vesting_info(),
+        creator_liquidity_vesting_info.to_liquidity_vesting_info(),
         &curve,
     );
 
-    // re-validate total locked lp
+    // re-validate total locked liquidity
     require!(
-        config.get_total_locked_lp_bps_at_n_seconds(SECONDS_PER_DAY)? >= MIN_LOCKED_LP_BPS,
-        PoolError::InvalidMigrationLockedLp
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
     );
 
     emit_cpi!(EvtCreateConfig {
@@ -598,10 +602,10 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
-        partner_permanent_locked_lp_percentage,
-        partner_lp_percentage,
-        creator_permanent_locked_lp_percentage,
-        creator_lp_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        partner_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
         swap_base_amount,
         migration_quote_threshold,
         migration_base_amount,
