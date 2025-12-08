@@ -171,9 +171,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
 
                         let pool_fees = PoolFeeParameters {
                             base_fee,
-                            protocol_fee_percent: 20,
-                            partner_fee_percent: 0,
-                            referral_fee_percent: 20,
+                            padding: [0; 3],
                             dynamic_fee: dynamic_fee_params,
                         };
 
@@ -503,11 +501,17 @@ fn validate_config_key(
                 damm_config.pool_fees.base_fee.cliff_fee_numerator.into(),
                 1_000_000_000, // damm v2 using the same fee denominator with virtual curve
             )?;
-            // validate non fee scheduler
+
+            // Validate it's fee scheduler linear | exponential
             require!(
-                damm_config.pool_fees.base_fee.period_frequency == 0,
+                damm_config.pool_fees.base_fee.base_fee_mode < 2,
                 PoolError::InvalidConfigAccount
             );
+
+            let period_frequency = u64::from_le_bytes(damm_config.pool_fees.base_fee.second_factor);
+
+            // Validate no schedule
+            require!(period_frequency == 0, PoolError::InvalidConfigAccount);
             migration_fee_option.validate_base_fee(base_fee_bps)?;
 
             require!(
