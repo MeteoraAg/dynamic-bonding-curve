@@ -125,34 +125,6 @@ export async function migrateToDammV2(
     },
   ];
 
-  // if (configState.partnerLpVestingInfo.vestingPercentage > 0) {
-  //   remainingAccounts.push({
-  //     isSigner: false,
-  //     isWritable: true,
-  //     pubkey: firstPositionVestingAddress,
-  //   });
-  // } else {
-  //   remainingAccounts.push({
-  //     isSigner: false,
-  //     isWritable: false,
-  //     pubkey: program.programId,
-  //   });
-  // }
-
-  // if (configState.creatorLpVestingInfo.vestingPercentage > 0) {
-  //   remainingAccounts.push({
-  //     isSigner: false,
-  //     isWritable: true,
-  //     pubkey: secondPositionVestingAddress,
-  //   });
-  // } else {
-  //   remainingAccounts.push({
-  //     isSigner: false,
-  //     isWritable: false,
-  //     pubkey: program.programId,
-  //   });
-  // }
-
   const transaction = await program.methods
     .migrationDammV2()
     .accountsStrict({
