@@ -68,10 +68,10 @@ describe("Create config", () => {
       tokenType: 1, // token 2022
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-      partnerLpPercentage: 0,
-      creatorLpPercentage: 0,
-      partnerLockedLpPercentage: 95,
-      creatorLockedLpPercentage: 5,
+      partnerLiquidityPercentage: 0,
+      creatorLiquidityPercentage: 0,
+      partnerPermanentLockedLiquidityPercentage: 95,
+      creatorPermanentLockedLiquidityPercentage: 5,
       sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
       lockedVesting: {
         amountPerPeriod: new BN(0),
@@ -93,14 +93,27 @@ describe("Create config", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
+      creatorLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
+      partnerLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
   });
 
   it("create config", async () => {
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -121,7 +134,7 @@ describe("Create config", () => {
     };
 
     instructionParams.poolFees.baseFee = baseFee;
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

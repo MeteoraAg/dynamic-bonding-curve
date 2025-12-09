@@ -1,5 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
+use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
 use crate::token::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
@@ -11,6 +12,7 @@ use crate::{
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::{
@@ -118,6 +120,13 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
+    );
+
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;
 

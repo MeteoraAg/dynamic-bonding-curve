@@ -1,6 +1,7 @@
 import { Keypair } from "@solana/web3.js";
 import {
-  createClaimFeeOperator,
+  createClaimProtocolFeeOperator,
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -50,7 +51,7 @@ describe("Swap Over the Curve", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createClaimFeeOperator(svm, program, {
+    await createClaimProtocolFeeOperator(svm, program, {
       admin,
       operator: operator.publicKey,
     });
@@ -87,7 +88,7 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
@@ -222,7 +223,7 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

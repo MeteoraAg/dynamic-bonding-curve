@@ -6,7 +6,7 @@ use crate::{
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CreateClaimFeeOperatorCtx<'info> {
+pub struct CreateClaimProtocolFeeOperatorCtx<'info> {
     #[account(
         init,
         payer = payer,
@@ -30,7 +30,9 @@ pub struct CreateClaimFeeOperatorCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
+pub fn handle_create_claim_protocol_fee_operator(
+    ctx: Context<CreateClaimProtocolFeeOperatorCtx>,
+) -> Result<()> {
     let mut claim_fee_operator = ctx.accounts.claim_fee_operator.load_init()?;
     claim_fee_operator.initialize(ctx.accounts.operator.key())?;
 

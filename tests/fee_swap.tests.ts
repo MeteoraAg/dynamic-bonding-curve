@@ -82,10 +82,10 @@ describe("Fee Swap test", () => {
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -108,10 +108,23 @@ describe("Fee Swap test", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,
@@ -409,10 +422,10 @@ describe("Fee Swap test", () => {
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -434,11 +447,24 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,

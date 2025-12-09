@@ -1,7 +1,7 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
 use crate::base_fee::get_base_fee_handler;
-use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
+use crate::constants::fee::MAX_BASIS_POINT;
 use crate::constants::{dynamic_fee::*, BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -52,6 +52,17 @@ impl BaseFeeParameters {
 }
 
 impl PoolFeeParameters {
+    /// Validate that the fees are reasonable
+    pub fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+        self.base_fee.validate(collect_fee_mode, activation_type)?;
+
+        if let Some(dynamic_fee) = self.dynamic_fee {
+            dynamic_fee.validate()?;
+        }
+
+        Ok(())
+    }
+
     pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
@@ -60,16 +71,11 @@ impl PoolFeeParameters {
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
-                ..Default::default()
             }
         } else {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                referral_fee_percent: HOST_FEE_PERCENT,
                 ..Default::default()
             }
         }
@@ -177,20 +183,7 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Result<u64> {
 
 pub fn to_numerator(bps: u128, denominator: u128) -> Result<u64> {
     let numerator = bps
-        .safe_mul(denominator.into())?
+        .safe_mul(denominator)?
         .safe_div(MAX_BASIS_POINT.into())?;
     Ok(u64::try_from(numerator).map_err(|_| PoolError::TypeCastFailed)?)
-}
-
-impl PoolFeeParameters {
-    /// Validate that the fees are reasonable
-    pub fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
-        self.base_fee.validate(collect_fee_mode, activation_type)?;
-
-        if let Some(dynamic_fee) = self.dynamic_fee {
-            dynamic_fee.validate()?;
-        }
-
-        Ok(())
-    }
 }

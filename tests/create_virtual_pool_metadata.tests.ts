@@ -77,10 +77,10 @@ describe("Create virtual pool metadata", () => {
       tokenType: 0, // spl_token
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-      partnerLpPercentage: 20,
-      creatorLpPercentage: 20,
-      partnerLockedLpPercentage: 55,
-      creatorLockedLpPercentage: 5,
+      partnerLiquidityPercentage: 20,
+      creatorLiquidityPercentage: 20,
+      partnerPermanentLockedLiquidityPercentage: 55,
+      creatorPermanentLockedLiquidityPercentage: 5,
       sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
       lockedVesting: {
         amountPerPeriod: new BN(0),
@@ -102,11 +102,24 @@ describe("Create virtual pool metadata", () => {
         dynamicFee: 0,
         poolFeeBps: 0,
       },
+      creatorLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
+      partnerLiquidityVestingInfo: {
+        vestingPercentage: 0,
+        cliffDurationFromMigrationTime: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        frequency: 0,
+      },
       poolCreationFee: new BN(0),
-      padding: [],
       curve: curves,
     };
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,

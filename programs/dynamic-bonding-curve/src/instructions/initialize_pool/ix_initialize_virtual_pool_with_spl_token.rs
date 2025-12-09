@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::{
     token::{Mint, MintTo, Token, TokenAccount},
     token_2022::spl_token_2022::instruction::AuthorityType,
@@ -11,7 +11,10 @@ use std::cmp::{max, min};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    constants::{
+        seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+        MIN_LOCKED_LIQUIDITY_BPS,
+    },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
@@ -138,6 +141,12 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
+    );
 
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;

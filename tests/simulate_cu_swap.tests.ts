@@ -66,10 +66,10 @@ describe("Simulate CU swap", () => {
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(50_000 * 10 ** 6),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE,
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -92,10 +92,23 @@ describe("Simulate CU swap", () => {
           poolFeeBps: 0,
         },
         poolCreationFee: new BN(0),
-        padding: [],
         curve: curves,
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
       };
-      const createConfigParams: CreateConfigParams = {
+      const createConfigParams: CreateConfigParams<ConfigParameters> = {
         payer: user,
         leftoverReceiver: user.publicKey,
         feeClaimer: user.publicKey,

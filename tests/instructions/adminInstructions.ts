@@ -18,20 +18,20 @@ import {
 } from "../utils/accounts";
 import { VirtualCurveProgram } from "../utils/types";
 
-export type CreateClaimfeeOperatorParams = {
+export type CreateClaimProtocolFeeOperatorParams = {
   admin: Keypair;
   operator: PublicKey;
 };
 
-export async function createClaimFeeOperator(
+export async function createClaimProtocolFeeOperator(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateClaimfeeOperatorParams
+  params: CreateClaimProtocolFeeOperatorParams
 ): Promise<PublicKey> {
   const { operator, admin } = params;
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
   const transaction = await program.methods
-    .createClaimFeeOperator()
+    .createClaimProtocolFeeOperator()
     .accountsPartial({
       claimFeeOperator,
       operator,
@@ -52,16 +52,16 @@ export async function createClaimFeeOperator(
   return claimFeeOperator;
 }
 
-export async function closeClaimFeeOperator(
+export async function closeClaimProtocolFeeOperator(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   admin: Keypair,
-  claimFeeOperator: PublicKey
+  claimProtocolFeeOperator: PublicKey
 ): Promise<any> {
   const transaction = await program.methods
-    .closeClaimFeeOperator()
+    .closeClaimProtocolFeeOperator()
     .accounts({
-      claimFeeOperator,
+      claimFeeOperator: claimProtocolFeeOperator,
       rentReceiver: admin.publicKey,
       signer: admin.publicKey,
     })
@@ -70,7 +70,7 @@ export async function closeClaimFeeOperator(
   const claimFeeOperatorState = getClaimFeeOperator(
     svm,
     program,
-    claimFeeOperator
+    claimProtocolFeeOperator
   );
   expect(claimFeeOperatorState).to.be.null;
 

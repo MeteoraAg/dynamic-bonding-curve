@@ -41,7 +41,7 @@ pub fn handle_transfer_pool_creator<'c: 'info, 'info>(
             let migration_option = MigrationOption::try_from(config.migration_option)
                 .map_err(|_| PoolError::InvalidMigrationOption)?;
             if migration_option == MigrationOption::MeteoraDamm {
-                // Can only transfer pool creator after LP claimed + locked
+                // Can only transfer pool creator after liquidity token claimed + locked
                 let migration_metadata_account = ctx
                     .remaining_accounts
                     .get(0)
@@ -56,23 +56,25 @@ pub fn handle_transfer_pool_creator<'c: 'info, 'info>(
                 );
 
                 require!(
-                    migration_metadata.partner_locked_lp == 0
-                        || migration_metadata.is_partner_lp_locked(),
+                    migration_metadata.partner_locked_liquidity == 0
+                        || migration_metadata.is_partner_liquidity_locked(),
                     PoolError::NotPermitToDoThisAction
                 );
 
                 require!(
-                    migration_metadata.creator_locked_lp == 0
-                        || migration_metadata.is_creator_lp_locked(),
+                    migration_metadata.creator_locked_liquidity == 0
+                        || migration_metadata.is_creator_liquidity_locked(),
                     PoolError::NotPermitToDoThisAction
                 );
 
                 require!(
-                    migration_metadata.creator_lp == 0 || migration_metadata.is_creator_claim_lp(),
+                    migration_metadata.creator_liquidity == 0
+                        || migration_metadata.is_creator_claim_liquidity(),
                     PoolError::NotPermitToDoThisAction
                 );
                 require!(
-                    migration_metadata.partner_lp == 0 || migration_metadata.is_partner_claim_lp(),
+                    migration_metadata.partner_liquidity == 0
+                        || migration_metadata.is_partner_claim_liquidity(),
                     PoolError::NotPermitToDoThisAction
                 );
             }

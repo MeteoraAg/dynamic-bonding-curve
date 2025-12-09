@@ -116,6 +116,30 @@ checked_impl!(usize, u32);
 checked_impl!(U256, usize);
 checked_impl!(U512, usize);
 
+pub trait SafeCast<T>: Sized {
+    fn safe_cast(self) -> Result<T, PoolError>;
+}
+
+macro_rules! try_into_impl {
+    ($t:ty, $v:ty) => {
+        impl SafeCast<$v> for $t {
+            #[track_caller]
+            fn safe_cast(self) -> Result<$v, PoolError> {
+                match self.try_into() {
+                    Ok(result) => Ok(result),
+                    Err(_) => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(PoolError::TypeCastFailed)
+                    }
+                }
+            }
+        }
+    };
+}
+
+try_into_impl!(u128, u64);
+
 #[cfg(test)]
 mod tests {
     use super::*;

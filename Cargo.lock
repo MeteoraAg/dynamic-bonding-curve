@@ -621,18 +621,18 @@ checksum = "7575182f7272186991736b70173b0ea045398f984bf5ebbb3804736ce1330c9d"
 
 [[package]]
 name = "bytemuck"
-version = "1.23.0"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9134a6ef01ce4b366b50689c94f82c14bc72bc5d0386829828a2e2752ef7958c"
+checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
 dependencies = [
  "bytemuck_derive",
 ]
 
 [[package]]
 name = "bytemuck_derive"
-version = "1.8.1"
+version = "1.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fa76293b4f7bb636ab88fd78228235b5248b4d05cc589aed610f954af5d7c7a"
+checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -846,7 +846,7 @@ dependencies = [
 
 [[package]]
 name = "dynamic-bonding-curve"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -937,6 +937,15 @@ name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
+
+[[package]]
+name = "five8"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a75b8549488b4715defcb0d8a8a1c1c76a80661b5fa106b4ca0e7fce59d7d875"
+dependencies = [
+ "five8_core",
+]
 
 [[package]]
 name = "five8_const"
@@ -1889,10 +1898,11 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.219"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
+ "serde_core",
  "serde_derive",
 ]
 
@@ -1906,10 +1916,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_derive"
-version = "1.0.219"
+name = "serde_core"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2250,9 +2269,9 @@ dependencies = [
 
 [[package]]
 name = "solana-instruction"
-version = "2.2.1"
+version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ce496a475e5062ba5de97215ab39d9c358f9c9df4bb7f3a45a1f1a8bd9065ed"
+checksum = "bab5682934bd1f65f8d2c16f21cb532526fcc1a09f796e2cacdb091eee5774ad"
 dependencies = [
  "bincode",
  "borsh 1.5.5",
@@ -2261,6 +2280,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_derive",
+ "serde_json",
  "solana-define-syscall",
  "solana-pubkey",
  "wasm-bindgen",
@@ -2498,9 +2518,9 @@ dependencies = [
 
 [[package]]
 name = "solana-program-error"
-version = "2.2.1"
+version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8ae2c1a8d0d4ae865882d5770a7ebca92bab9c685e43f0461682c6c05a35bfa"
+checksum = "9ee2e0217d642e2ea4bee237f37bd61bb02aec60da3647c48ff88f6556ade775"
 dependencies = [
  "borsh 1.5.5",
  "num-traits",
@@ -2539,16 +2559,16 @@ dependencies = [
 
 [[package]]
 name = "solana-pubkey"
-version = "2.2.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40db1ff5a0f8aea2c158d78ab5f2cf897848964251d1df42fef78efd3c85b863"
+checksum = "9b62adb9c3261a052ca1f999398c388f1daf558a1b492f60a6d9e64857db4ff1"
 dependencies = [
  "borsh 0.10.3",
  "borsh 1.5.5",
- "bs58",
  "bytemuck",
  "bytemuck_derive",
  "curve25519-dalek",
+ "five8",
  "five8_const",
  "getrandom 0.2.10",
  "js-sys",
@@ -2682,11 +2702,11 @@ dependencies = [
 
 [[package]]
 name = "solana-signature"
-version = "2.2.1"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d251c8f3dc015f320b4161daac7f108156c837428e5a8cc61136d25beb11d6"
+checksum = "64c8ec8e657aecfc187522fc67495142c12f35e55ddeca8698edbb738b8dbd8c"
 dependencies = [
- "bs58",
+ "five8",
  "solana-sanitize",
 ]
 
@@ -2857,9 +2877,9 @@ dependencies = [
 
 [[package]]
 name = "solana-zk-sdk"
-version = "2.2.3"
+version = "2.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faf45055dc78b74fdced852f9ed3a6f46eb13754f88b75675d9ce2bc7f242ea9"
+checksum = "97b9fc6ec37d16d0dccff708ed1dd6ea9ba61796700c3bb7c3b401973f10f63b"
 dependencies = [
  "aes-gcm-siv",
  "base64 0.22.1",
@@ -2869,7 +2889,6 @@ dependencies = [
  "curve25519-dalek",
  "itertools 0.12.1",
  "js-sys",
- "lazy_static",
  "merlin",
  "num-derive 0.4.2",
  "num-traits",

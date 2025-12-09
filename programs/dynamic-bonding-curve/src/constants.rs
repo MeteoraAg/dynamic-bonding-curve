@@ -57,6 +57,13 @@ static_assertions::const_assert_eq!(
 
 pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
+pub const MIN_LOCKED_LIQUIDITY_BPS: u16 = 1000; // 10%
+
+// Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 10; // 10 years
+
+static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
+
 /// Store constants related to fees
 pub mod fee {
 
@@ -112,4 +119,5 @@ pub mod seeds {
     pub const PARTNER_METADATA_PREFIX: &[u8] = b"partner_metadata";
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
+    pub const POSITION_VESTING_PREFIX: &[u8] = b"position_vesting";
 }

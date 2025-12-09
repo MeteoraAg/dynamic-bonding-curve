@@ -81,10 +81,10 @@ export type ConfigParameters = {
   tokenType: number;
   tokenDecimal: number;
   migrationQuoteThreshold: BN;
-  partnerLpPercentage: number;
-  partnerLockedLpPercentage: number;
-  creatorLpPercentage: number;
-  creatorLockedLpPercentage: number;
+  partnerLiquidityPercentage: number;
+  partnerPermanentLockedLiquidityPercentage: number;
+  creatorLiquidityPercentage: number;
+  creatorPermanentLockedLiquidityPercentage: number;
   sqrtStartPrice: BN;
   lockedVesting: LockedVestingParams;
   migrationFeeOption: number;
@@ -98,29 +98,41 @@ export type ConfigParameters = {
     dynamicFee: number;
   };
   poolCreationFee: BN;
-  padding: BN[];
+  partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
+  creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
   curve: Array<LiquidityDistributionParameters>;
 };
 
-export type CreateConfigParams = {
+export type LiquidityVestingInfoParams = {
+  vestingPercentage: number;
+  cliffDurationFromMigrationTime: number;
+  bpsPerPeriod: number;
+  frequency: number;
+  numberOfPeriods: number;
+};
+
+export type CreateConfigParams<T> = {
   payer: Keypair;
   leftoverReceiver: PublicKey;
   feeClaimer: PublicKey;
   quoteMint: PublicKey;
-  instructionParams: ConfigParameters;
+  instructionParams: T;
 };
 
 export async function createConfig(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateConfigParams
+  params: CreateConfigParams<ConfigParameters>
 ): Promise<PublicKey> {
   const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
     params;
   const config = Keypair.generate();
 
   const transaction = await program.methods
-    .createConfig(instructionParams)
+    .createConfig({
+      ...instructionParams,
+      padding: new Array(22).fill(0),
+    })
     .accountsPartial({
       config: config.publicKey,
       feeClaimer,
@@ -135,17 +147,17 @@ export async function createConfig(
   const configState = getConfig(svm, program, config.publicKey);
   // TODO add assertion data fields
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
-  expect(configState.partnerLpPercentage).equal(
-    instructionParams.partnerLpPercentage
+  expect(configState.partnerLiquidityPercentage).equal(
+    instructionParams.partnerLiquidityPercentage
   );
-  expect(configState.partnerLockedLpPercentage).equal(
-    instructionParams.partnerLockedLpPercentage
+  expect(configState.partnerPermanentLockedLiquidityPercentage).equal(
+    instructionParams.partnerPermanentLockedLiquidityPercentage
   );
-  expect(configState.creatorLpPercentage).equal(
-    instructionParams.creatorLpPercentage
+  expect(configState.creatorLiquidityPercentage).equal(
+    instructionParams.creatorLiquidityPercentage
   );
-  expect(configState.creatorLockedLpPercentage).equal(
-    instructionParams.creatorLockedLpPercentage
+  expect(configState.creatorPermanentLockedLiquidityPercentage).equal(
+    instructionParams.creatorPermanentLockedLiquidityPercentage
   );
 
   return config.publicKey;

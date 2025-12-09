@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
@@ -7,7 +7,8 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
-        MAX_CURVE_POINT, MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
+        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
+        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     params::{
@@ -19,8 +20,8 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{
-        CollectFeeMode, LockedVestingConfig, MigrationFeeOption, MigrationOption, PoolConfig,
-        TokenAuthorityOption, TokenType,
+        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
+        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
     DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
@@ -34,10 +35,10 @@ pub struct ConfigParameters {
     pub activation_type: u8,
     pub token_type: u8,
     pub token_decimal: u8,
-    pub partner_lp_percentage: u8,
-    pub partner_locked_lp_percentage: u8,
-    pub creator_lp_percentage: u8,
-    pub creator_locked_lp_percentage: u8,
+    pub partner_liquidity_percentage: u8,
+    pub partner_permanent_locked_liquidity_percentage: u8,
+    pub creator_liquidity_percentage: u8,
+    pub creator_permanent_locked_liquidity_percentage: u8,
     pub migration_quote_threshold: u64,
     pub sqrt_start_price: u128,
     pub locked_vesting: LockedVestingParams,
@@ -49,8 +50,11 @@ pub struct ConfigParameters {
     pub migrated_pool_fee: MigratedPoolFee,
     /// pool creation fee in SOL lamports value
     pub pool_creation_fee: u64,
+    pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
+    pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
+
     /// padding for future use
-    pub padding: [u64; 6],
+    pub padding: [u8; 22],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -185,6 +189,79 @@ impl LockedVestingParams {
     }
 }
 
+#[derive(
+    AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy, InitSpace, Default, PartialEq, Eq,
+)]
+pub struct LiquidityVestingInfoParams {
+    pub vesting_percentage: u8,
+    pub bps_per_period: u16,
+    pub number_of_periods: u16,
+    pub cliff_duration_from_migration_time: u32,
+    pub frequency: u32,
+}
+
+const_assert_eq!(LiquidityVestingInfoParams::INIT_SPACE, 13);
+
+impl LiquidityVestingInfoParams {
+    pub fn is_zero(&self) -> bool {
+        *self == LiquidityVestingInfoParams::default()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.is_zero() {
+            return Ok(());
+        }
+        require!(
+            self.vesting_percentage > 0 && self.vesting_percentage <= 100,
+            PoolError::InvalidVestingParameters
+        );
+
+        if self.number_of_periods > 0 {
+            require!(
+                self.frequency > 0 && self.bps_per_period > 0,
+                PoolError::InvalidVestingParameters
+            );
+        } else {
+            require!(
+                self.frequency == 0 && self.bps_per_period == 0,
+                PoolError::InvalidVestingParameters
+            );
+        }
+
+        let total_bps_after_cliff =
+            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
+
+        require!(
+            total_bps_after_cliff <= 10_000,
+            PoolError::InvalidVestingParameters
+        );
+
+        // Currently, all damm v2 config use time based activation. Creation of config in damm v2 is permissioned.
+        let vesting_duration_in_seconds = u64::from(self.cliff_duration_from_migration_time)
+            .safe_add(u64::from(self.frequency).safe_mul(self.number_of_periods.into())?)?;
+
+        require!(
+            vesting_duration_in_seconds <= MAX_LOCK_DURATION_IN_SECONDS,
+            PoolError::InvalidVestingParameters
+        );
+
+        Ok(())
+    }
+
+    fn to_liquidity_vesting_info(self) -> LiquidityVestingInfo {
+        let is_initialized = if self.is_zero() { 0 } else { 1 };
+        LiquidityVestingInfo {
+            is_initialized,
+            vesting_percentage: self.vesting_percentage,
+            cliff_duration_from_migration_time: self.cliff_duration_from_migration_time,
+            bps_per_period: self.bps_per_period,
+            frequency: self.frequency,
+            number_of_periods: self.number_of_periods,
+            ..Default::default()
+        }
+    }
+}
+
 impl ConfigParameters {
     pub fn validate<'info>(&self, quote_mint: &InterfaceAccount<'info, Mint>) -> Result<()> {
         // validate quote mint
@@ -240,6 +317,15 @@ impl ConfigParameters {
                         && self.migrated_pool_fee.is_none(),
                     PoolError::InvalidMigrationFeeOption
                 );
+                // validate vesting
+                require!(
+                    self.partner_liquidity_vesting_info.is_zero(),
+                    PoolError::InvalidVestingParameters
+                );
+                require!(
+                    self.creator_liquidity_vesting_info.is_zero(),
+                    PoolError::InvalidVestingParameters
+                );
             }
             MigrationOption::DammV2 => {
                 if migration_fee_option == MigrationFeeOption::Customizable {
@@ -250,6 +336,9 @@ impl ConfigParameters {
                         PoolError::InvalidMigratedPoolFee
                     );
                 }
+                // validate vesting
+                self.partner_liquidity_vesting_info.validate()?;
+                self.creator_liquidity_vesting_info.validate()?;
             }
         }
 
@@ -265,12 +354,17 @@ impl ConfigParameters {
             PoolError::InvalidTokenDecimals
         );
 
-        let sum_lp_percentage = self
-            .partner_lp_percentage
-            .safe_add(self.partner_locked_lp_percentage)?
-            .safe_add(self.creator_lp_percentage)?
-            .safe_add(self.creator_locked_lp_percentage)?;
-        require!(sum_lp_percentage == 100, PoolError::InvalidFeePercentage);
+        let sum_liquidity_percentage = self
+            .partner_liquidity_percentage
+            .safe_add(self.partner_permanent_locked_liquidity_percentage)?
+            .safe_add(self.creator_liquidity_percentage)?
+            .safe_add(self.creator_permanent_locked_liquidity_percentage)?
+            .safe_add(self.partner_liquidity_vesting_info.vesting_percentage)?
+            .safe_add(self.creator_liquidity_vesting_info.vesting_percentage)?;
+        require!(
+            sum_liquidity_percentage == 100,
+            PoolError::InvalidFeePercentage
+        );
 
         require!(
             self.migration_quote_threshold > 0,
@@ -288,6 +382,9 @@ impl ConfigParameters {
                 PoolError::InvalidPoolCreationFee
             )
         }
+
+        self.partner_liquidity_vesting_info.validate()?;
+        self.creator_liquidity_vesting_info.validate()?;
 
         // validate price and liquidity
         require!(
@@ -361,10 +458,10 @@ pub fn handle_create_config(
         activation_type,
         token_type,
         token_decimal,
-        partner_lp_percentage,
-        partner_locked_lp_percentage,
-        creator_lp_percentage,
-        creator_locked_lp_percentage,
+        partner_liquidity_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
         migration_quote_threshold,
         sqrt_start_price,
         locked_vesting,
@@ -376,6 +473,8 @@ pub fn handle_create_config(
         migration_fee,
         migrated_pool_fee,
         pool_creation_fee,
+        partner_liquidity_vesting_info,
+        creator_liquidity_vesting_info,
         ..
     } = config_parameters.clone();
 
@@ -467,10 +566,10 @@ pub fn handle_create_config(
         token_decimal,
         token_type,
         get_token_program_flags(&ctx.accounts.quote_mint).into(),
-        partner_locked_lp_percentage,
-        partner_lp_percentage,
-        creator_locked_lp_percentage,
-        creator_lp_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        partner_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
         &locked_vesting,
         migration_fee_option,
         swap_base_amount,
@@ -485,7 +584,16 @@ pub fn handle_create_config(
         migrated_collect_fee_mode,
         migrated_dynamic_fee,
         pool_creation_fee,
+        partner_liquidity_vesting_info.to_liquidity_vesting_info(),
+        creator_liquidity_vesting_info.to_liquidity_vesting_info(),
         &curve,
+    );
+
+    // re-validate total locked liquidity
+    require!(
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
     );
 
     emit_cpi!(EvtCreateConfig {
@@ -499,10 +607,10 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
-        partner_locked_lp_percentage,
-        partner_lp_percentage,
-        creator_locked_lp_percentage,
-        creator_lp_percentage,
+        partner_permanent_locked_liquidity_percentage,
+        partner_liquidity_percentage,
+        creator_permanent_locked_liquidity_percentage,
+        creator_liquidity_percentage,
         swap_base_amount,
         migration_quote_threshold,
         migration_base_amount,

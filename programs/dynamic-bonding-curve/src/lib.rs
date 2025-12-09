@@ -33,8 +33,10 @@ pub mod dynamic_bonding_curve {
     use super::*;
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
-    pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_create_claim_fee_operator(ctx)
+    pub fn create_claim_protocol_fee_operator(
+        ctx: Context<CreateClaimProtocolFeeOperatorCtx>,
+    ) -> Result<()> {
+        instructions::handle_create_claim_protocol_fee_operator(ctx)
     }
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
@@ -73,6 +75,7 @@ pub mod dynamic_bonding_curve {
     ) -> Result<()> {
         instructions::handle_create_partner_metadata(ctx, metadata)
     }
+
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
         config_parameters: ConfigParameters,
