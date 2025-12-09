@@ -221,6 +221,11 @@ impl LiquidityVestingInfoParams {
                 self.frequency > 0 && self.bps_per_period > 0,
                 PoolError::InvalidVestingParameters
             );
+        } else {
+            require!(
+                self.frequency == 0 && self.bps_per_period == 0,
+                PoolError::InvalidVestingParameters
+            );
         }
 
         let total_bps_after_cliff =

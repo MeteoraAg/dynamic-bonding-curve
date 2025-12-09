@@ -164,10 +164,10 @@ fn test_get_locked_bps_at_day_one() {
     };
 
     let creator_liquidity_locked_bps_at_day_one = creator_liquidity_vesting_info
-        .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
+        .get_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)
         .unwrap();
 
-    assert_eq!(creator_liquidity_locked_bps_at_day_one, 1520);
+    assert_eq!(creator_liquidity_locked_bps_at_day_one, 1519);
 
     let partner_liquidity_vesting_info = creator_liquidity_vesting_info.clone();
 
@@ -182,11 +182,11 @@ fn test_get_locked_bps_at_day_one() {
         .get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)
         .unwrap();
 
-    assert_eq!(3240, total_locked_liquidity_bps_at_day_one);
+    assert_eq!(3238, total_locked_liquidity_bps_at_day_one);
     assert_eq!(
         creator_liquidity_locked_bps_at_day_one
             + partner_liquidity_vesting_info
-                .get_locked_bps_at_n_seconds(SECONDS_PER_DAY)
+                .get_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)
                 .unwrap()
             + u16::from(config.partner_permanent_locked_liquidity_percentage) * 100
             + u16::from(config.creator_permanent_locked_liquidity_percentage) * 100,

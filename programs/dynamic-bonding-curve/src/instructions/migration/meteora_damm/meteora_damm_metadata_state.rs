@@ -1,4 +1,4 @@
-use crate::{safe_math::SafeMath, state::LiquidityDistributionU64, PoolError};
+use crate::{safe_math::SafeMath, state::LiquidityDistributionDammv1, PoolError};
 use anchor_lang::prelude::*;
 use static_assertions::const_assert_eq;
 
@@ -40,10 +40,10 @@ impl MeteoraDammMigrationMetadata {
     pub fn set_liquidity_token_minted(
         &mut self,
         lp_mint: Pubkey,
-        liquidity_distribution: &LiquidityDistributionU64,
+        liquidity_distribution: &LiquidityDistributionDammv1,
     ) {
         self.lp_mint = lp_mint;
-        let &LiquidityDistributionU64 {
+        let &LiquidityDistributionDammv1 {
             partner_locked_liquidity,
             partner_liquidity,
             creator_locked_liquidity,

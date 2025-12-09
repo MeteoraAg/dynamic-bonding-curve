@@ -68,7 +68,7 @@ pub struct MigrateDammV2Ctx<'info> {
 
     /// CHECK: position nft mint for owner
     #[account(mut, constraint = first_position_nft_mint.key().ne(&second_position_nft_mint.key()))]
-    pub second_position_nft_mint: Option<UncheckedAccount<'info>>,
+    pub second_position_nft_mint: Option<Signer<'info>>,
 
     /// CHECK: position nft account for owner
     #[account(mut)]
@@ -374,35 +374,19 @@ impl<'info> MigrateDammV2Ctx<'info> {
         Ok(())
     }
 
-    fn set_authority_for_first_position(&self, new_authority: Pubkey, bump: u8) -> Result<()> {
+    fn set_authority_for_position(
+        &self,
+        position_nft_account: &AccountInfo<'info>,
+        new_authority: Pubkey,
+        bump: u8,
+    ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
         set_authority(
             CpiContext::new_with_signer(
                 self.token_2022_program.to_account_info(),
                 SetAuthority {
                     current_authority: self.pool_authority.to_account_info(),
-                    account_or_mint: self.first_position_nft_account.to_account_info(),
-                },
-                &[&pool_authority_seeds[..]],
-            ),
-            AuthorityType::AccountOwner,
-            Some(new_authority),
-        )?;
-        Ok(())
-    }
-
-    fn set_authority_for_second_position(&self, new_authority: Pubkey, bump: u8) -> Result<()> {
-        let pool_authority_seeds = pool_authority_seeds!(bump);
-        let second_position_nft_account = self
-            .second_position_nft_account
-            .as_ref()
-            .ok_or(PoolError::InvalidAccount)?;
-        set_authority(
-            CpiContext::new_with_signer(
-                self.token_2022_program.to_account_info(),
-                SetAuthority {
-                    current_authority: self.pool_authority.to_account_info(),
-                    account_or_mint: second_position_nft_account.to_account_info(),
+                    account_or_mint: position_nft_account.clone(),
                 },
                 &[&pool_authority_seeds[..]],
             ),
@@ -660,8 +644,11 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     }
 
     msg!("transfer ownership of the first position");
-    ctx.accounts
-        .set_authority_for_first_position(first_position_owner, const_pda::pool_authority::BUMP)?;
+    ctx.accounts.set_authority_for_position(
+        &ctx.accounts.first_position_nft_account.to_account_info(),
+        first_position_owner,
+        const_pda::pool_authority::BUMP,
+    )?;
 
     // reload quote reserve and base reserve
     ctx.accounts.quote_vault.reload()?;
@@ -690,25 +677,25 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         ctx.accounts
             .create_second_position(liquidity_for_second_position)?;
 
+        let Some(second_position) = ctx
+            .accounts
+            .second_position
+            .as_ref()
+            .map(|acc| acc.to_account_info())
+        else {
+            return Err(PoolError::InvalidAccount.into());
+        };
+
+        let Some(second_position_nft_account) = ctx
+            .accounts
+            .second_position_nft_account
+            .as_ref()
+            .map(|acc| acc.to_account_info())
+        else {
+            return Err(PoolError::InvalidAccount.into());
+        };
+
         if second_position_liquidity_distribution.get_total_locked_liquidity()? > 0 {
-            let Some(second_position) = ctx
-                .accounts
-                .second_position
-                .as_ref()
-                .map(|acc| acc.to_account_info())
-            else {
-                return Err(PoolError::InvalidAccount.into());
-            };
-
-            let Some(second_position_nft_account) = ctx
-                .accounts
-                .second_position_nft_account
-                .as_ref()
-                .map(|acc| acc.to_account_info())
-            else {
-                return Err(PoolError::InvalidAccount.into());
-            };
-
             ctx.accounts.lock_liquidity_position(
                 &second_position_liquidity_distribution,
                 &second_position,
@@ -719,7 +706,8 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         }
 
         msg!("set authority for second position");
-        ctx.accounts.set_authority_for_second_position(
+        ctx.accounts.set_authority_for_position(
+            &second_position_nft_account,
             second_position_owner,
             const_pda::pool_authority::BUMP,
         )?;
