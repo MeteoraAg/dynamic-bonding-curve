@@ -17,5 +17,5 @@ test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 ixdata = "yarn run tsx --tsconfig ./tsconfig.json ./scripts/generate_ix_data_for_tests.ts"
 
 [toolchain]
-anchor_version = "0.31.0"
-solana_version = "2.1.0"
+anchor_version = "0.32.1"
+solana_version = "2.3.0"
