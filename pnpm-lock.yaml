@@ -9,15 +9,15 @@ importers:
   .:
     dependencies:
       '@coral-xyz/anchor':
-        specifier: ^0.31.0
-        version: 0.31.0(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)
+        specifier: ^0.32.1
+        version: 0.32.1(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)
       '@metaplex-foundation/mpl-token-metadata':
         specifier: ^3.4.0
         version: 3.4.0(@metaplex-foundation/umi@1.2.0)
     devDependencies:
       '@coral-xyz/anchor-errors':
-        specifier: ^0.31.0
-        version: 0.31.0
+        specifier: ^0.32.1
+        version: 0.32.1
       '@solana/spl-token':
         specifier: ^0.4.8
         version: 0.4.13(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@4.9.5)(utf-8-validate@5.0.10)
@@ -67,16 +67,20 @@ packages:
     resolution: {integrity: sha512-aA63XwOkcl4xxQa3HjPMqOP6LiK0ZDv3mUPYEFXkpHbaFjtGggE1A61FjFzJnB+p7/oy2gA8E+rcBNl/zC1tMg==}
     engines: {node: '>=6.9.0'}
 
-  '@coral-xyz/anchor-errors@0.31.0':
-    resolution: {integrity: sha512-SUERksFSQ+4F11hkROIwHq4mcoSMXJxwVWLoklefi4dU679zVWFVcTq6O7otvjY8wlUaRXeE+iYcQWZTw2ll6w==}
+  '@coral-xyz/anchor-errors@0.31.1':
+    resolution: {integrity: sha512-NhNEku4F3zzUSBtrYz84FzYWm48+9OvmT1Hhnwr6GnPQry2dsEqH/ti/7ASjjpoFTWRnPXrjAIT1qM6Isop+LQ==}
     engines: {node: '>=10'}
 
-  '@coral-xyz/anchor@0.31.0':
-    resolution: {integrity: sha512-Yb1NwP1s4cWhAw7wL7vOLHSWWw3cD5D9pRCVSeJpdqPaI+w7sfRLScnVJL6ViYMZynB7nAG/5HcUPKUnY0L9rw==}
+  '@coral-xyz/anchor-errors@0.32.1':
+    resolution: {integrity: sha512-t4mkrdeYLsE4RKa/+Nlb7gN7Yks492Uosk6rPhRrZudIVQHmde/7BzWXpGUsk9JqtnOCR+qBbBV+AVZcioaZhg==}
+    engines: {node: '>=10'}
+
+  '@coral-xyz/anchor@0.32.1':
+    resolution: {integrity: sha512-zAyxFtfeje2FbMA1wzgcdVs7Hng/MijPKpRijoySPCicnvcTQs/+dnPZ/cR+LcXM9v9UYSyW81uRNYZtN5G4yg==}
     engines: {node: '>=17'}
 
-  '@coral-xyz/borsh@0.31.0':
-    resolution: {integrity: sha512-DwdQ5fuj+rGQCTKRnxnW1W2lvcpBaFc9m9M1TcGGlm+bwCcggmDgbLKLgF+LjIrKnc7Nd+bCACx5RA9YTK2I4Q==}
+  '@coral-xyz/borsh@0.31.1':
+    resolution: {integrity: sha512-9N8AU9F0ubriKfNE3g1WF0/4dtlGXoBN/hd1PvbNBamBNwRgHxH4P+o3Zt7rSEloW1HUs6LfZEchlx9fW7POYw==}
     engines: {node: '>=10'}
     peerDependencies:
       '@solana/web3.js': ^1.69.0
@@ -1055,12 +1059,14 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@coral-xyz/anchor-errors@0.31.0': {}
+  '@coral-xyz/anchor-errors@0.31.1': {}
 
-  '@coral-xyz/anchor@0.31.0(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)':
+  '@coral-xyz/anchor-errors@0.32.1': {}
+
+  '@coral-xyz/anchor@0.32.1(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)':
     dependencies:
-      '@coral-xyz/anchor-errors': 0.31.0
-      '@coral-xyz/borsh': 0.31.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10))
+      '@coral-xyz/anchor-errors': 0.31.1
+      '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10))
       '@noble/hashes': 1.7.1
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.1
@@ -1078,7 +1084,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@coral-xyz/borsh@0.31.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10))':
+  '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10))':
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@4.9.5)(utf-8-validate@5.0.10)
       bn.js: 5.2.1
