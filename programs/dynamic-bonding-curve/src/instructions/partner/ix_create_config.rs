@@ -377,11 +377,6 @@ impl ConfigParameters {
             )
         }
 
-        self.partner_liquidity_vesting_info
-            .validate(current_timestamp)?;
-        self.creator_liquidity_vesting_info
-            .validate(current_timestamp)?;
-
         // validate price and liquidity
         require!(
             self.sqrt_start_price >= MIN_SQRT_PRICE && self.sqrt_start_price < MAX_SQRT_PRICE,

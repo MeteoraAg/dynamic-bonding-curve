@@ -33,7 +33,7 @@ pub fn handle_claim_legacy_pool_creation_fee(
 
     require!(
         pool.has_legacy_creation_fee() && pool.eligible_to_claim_legacy_creation_fee(),
-        PoolError::Unauthorized
+        PoolError::NotPermitToDoThisAction
     );
 
     pool.update_legacy_creation_fee_claimed();
