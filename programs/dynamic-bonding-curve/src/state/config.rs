@@ -1056,27 +1056,35 @@ impl LiquidityDistributionItem {
     }
 
     pub fn adjust_liquidity(&mut self, adjusted_total_liquidity: u128) -> Result<()> {
-        let unlocked_liquidity = adjusted_total_liquidity.min(self.unlocked_liquidity);
+        let vesting_percentage = self.liquidity_vesting_info.vesting_percentage;
+        let total_locked_percentage =
+            vesting_percentage.safe_add(self.permanent_locked_liquidity_percentage)?;
 
-        let liquidity_subject_to_lock = adjusted_total_liquidity.safe_sub(unlocked_liquidity)?;
+        if total_locked_percentage == 0 {
+            // both vesting_percentage and permanent_locked_liquidity_percentage are equal zero
+            self.unlocked_liquidity = adjusted_total_liquidity;
+            self.permanent_locked_liquidity = 0;
+            self.vested_liquidity = 0;
+        } else {
+            let unlocked_liquidity = adjusted_total_liquidity.min(self.unlocked_liquidity);
+            let liquidity_subject_to_lock =
+                adjusted_total_liquidity.safe_sub(unlocked_liquidity)?;
 
-        let numerator = self.liquidity_vesting_info.vesting_percentage;
+            let vested_liquidity = safe_mul_div_cast_u128(
+                liquidity_subject_to_lock,
+                vesting_percentage.into(),
+                total_locked_percentage.into(),
+                Rounding::Down,
+            )?;
 
-        let denominator = numerator.safe_add(self.permanent_locked_liquidity_percentage)?;
+            let permanent_locked_liquidity =
+                liquidity_subject_to_lock.safe_sub(vested_liquidity)?;
 
-        let vested_liquidity = safe_mul_div_cast_u128(
-            liquidity_subject_to_lock,
-            numerator.into(),
-            denominator.into(),
-            Rounding::Down,
-        )?;
-
-        let permanent_locked_liquidity = liquidity_subject_to_lock.safe_sub(vested_liquidity)?;
-
-        self.unlocked_liquidity = unlocked_liquidity;
-        self.permanent_locked_liquidity = permanent_locked_liquidity;
-        self.vested_liquidity = vested_liquidity;
-        // is this fine to dont re-calculate permanent_locked_liquidity_percentage and vesting_percentage?
+            self.unlocked_liquidity = unlocked_liquidity;
+            self.permanent_locked_liquidity = permanent_locked_liquidity;
+            self.vested_liquidity = vested_liquidity;
+            // is this fine to dont re-calculate permanent_locked_liquidity_percentage and vesting_percentage?
+        }
 
         Ok(())
     }
