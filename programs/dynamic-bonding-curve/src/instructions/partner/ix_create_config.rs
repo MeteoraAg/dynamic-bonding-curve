@@ -1,3 +1,5 @@
+use std::u128;
+
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 use locker::types::CreateVestingEscrowParameters;
@@ -24,7 +26,9 @@ use crate::{
         MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
     token::{get_token_program_flags, is_supported_quote_mint},
-    DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
+    u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u128,
+    validate_vesting_parameters, DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -207,43 +211,27 @@ impl LiquidityVestingInfoParams {
         *self == LiquidityVestingInfoParams::default()
     }
 
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, current_timestamp: u64) -> Result<()> {
         if self.is_zero() {
             return Ok(());
         }
-        require!(
-            self.vesting_percentage > 0 && self.vesting_percentage <= 100,
-            PoolError::InvalidVestingParameters
-        );
 
-        if self.number_of_periods > 0 {
-            require!(
-                self.frequency > 0 && self.bps_per_period > 0,
-                PoolError::InvalidVestingParameters
-            );
-        } else {
-            require!(
-                self.frequency == 0 && self.bps_per_period == 0,
-                PoolError::InvalidVestingParameters
-            );
-        }
+        let liquidity_vesting_info = self.to_liquidity_vesting_info();
 
-        let total_bps_after_cliff =
-            u64::from(self.bps_per_period).safe_mul(self.number_of_periods.into())?;
+        let total_vested_liquidity = safe_mul_div_cast_u128(
+            u128::MAX, // just assume total liquidity is u128::MAX
+            self.vesting_percentage.into(),
+            100,
+            Rounding::Down,
+        )?;
+        let vesting_parameters = liquidity_vesting_info
+            .get_damm_v2_vesting_parameters(total_vested_liquidity, current_timestamp)?;
 
-        require!(
-            total_bps_after_cliff <= 10_000,
-            PoolError::InvalidVestingParameters
-        );
-
-        // Currently, all damm v2 config use time based activation. Creation of config in damm v2 is permissioned.
-        let vesting_duration_in_seconds = u64::from(self.cliff_duration_from_migration_time)
-            .safe_add(u64::from(self.frequency).safe_mul(self.number_of_periods.into())?)?;
-
-        require!(
-            vesting_duration_in_seconds <= MAX_LOCK_DURATION_IN_SECONDS,
-            PoolError::InvalidVestingParameters
-        );
+        validate_vesting_parameters(
+            &vesting_parameters,
+            current_timestamp,
+            MAX_LOCK_DURATION_IN_SECONDS,
+        )?;
 
         Ok(())
     }
@@ -263,7 +251,11 @@ impl LiquidityVestingInfoParams {
 }
 
 impl ConfigParameters {
-    pub fn validate<'info>(&self, quote_mint: &InterfaceAccount<'info, Mint>) -> Result<()> {
+    pub fn validate<'info>(
+        &self,
+        quote_mint: &InterfaceAccount<'info, Mint>,
+        current_timestamp: u64,
+    ) -> Result<()> {
         // validate quote mint
         require!(
             is_supported_quote_mint(quote_mint)?,
@@ -337,8 +329,10 @@ impl ConfigParameters {
                     );
                 }
                 // validate vesting
-                self.partner_liquidity_vesting_info.validate()?;
-                self.creator_liquidity_vesting_info.validate()?;
+                self.partner_liquidity_vesting_info
+                    .validate(current_timestamp)?;
+                self.creator_liquidity_vesting_info
+                    .validate(current_timestamp)?;
             }
         }
 
@@ -382,9 +376,6 @@ impl ConfigParameters {
                 PoolError::InvalidPoolCreationFee
             )
         }
-
-        self.partner_liquidity_vesting_info.validate()?;
-        self.creator_liquidity_vesting_info.validate()?;
 
         // validate price and liquidity
         require!(
@@ -449,7 +440,10 @@ pub fn handle_create_config(
     ctx: Context<CreateConfigCtx>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    config_parameters.validate(&ctx.accounts.quote_mint)?;
+    config_parameters.validate(
+        &ctx.accounts.quote_mint,
+        Clock::get()?.unix_timestamp as u64,
+    )?;
 
     let ConfigParameters {
         pool_fees,

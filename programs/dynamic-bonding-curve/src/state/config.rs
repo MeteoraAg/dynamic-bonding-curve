@@ -609,15 +609,14 @@ impl LiquidityVestingInfo {
         Ok(liquidity_locked_bps)
     }
 
-    fn get_damm_v2_vesting_parameters(
+    pub fn get_damm_v2_vesting_parameters(
         &self,
         total_vested_liquidity: u128,
         current_timestamp: u64,
     ) -> Result<damm_v2::types::VestingParameters> {
-        let frequency = self.frequency;
-        let number_of_period = self.number_of_periods;
-
-        let cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
+        let mut frequency = self.frequency;
+        let mut number_of_period = self.number_of_periods;
+        let mut cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
 
         let bps_per_period = self.bps_per_period;
 
@@ -635,6 +634,15 @@ impl LiquidityVestingInfo {
         } else {
             0
         };
+        // if liquidity_per_period == 0 (due to precision loss), we would need to adjust number_of_period and frequency to zero
+        // so the vesting is cliff-only lock
+        if liquidity_per_period == 0 {
+            number_of_period = 0;
+            frequency = 0;
+            // because of the validation so we need to avoid cliff_point == current_timestamp
+            // https://github.com/MeteoraAg/damm-v2/blob/7ad310c90c8d64851aa02524e2127658af9cab8a/programs/cp-amm/src/instructions/ix_lock_position.rs#L42
+            cliff_duration_from_migration_time = cliff_duration_from_migration_time.max(1);
+        }
 
         let cliff_unlock_liquidity = total_vested_liquidity
             .safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;
@@ -1050,27 +1058,35 @@ impl LiquidityDistributionItem {
     }
 
     pub fn adjust_liquidity(&mut self, adjusted_total_liquidity: u128) -> Result<()> {
-        let unlocked_liquidity = adjusted_total_liquidity.min(self.unlocked_liquidity);
+        let vesting_percentage = self.liquidity_vesting_info.vesting_percentage;
+        let total_locked_percentage =
+            vesting_percentage.safe_add(self.permanent_locked_liquidity_percentage)?;
 
-        let liquidity_subject_to_lock = adjusted_total_liquidity.safe_sub(unlocked_liquidity)?;
+        if total_locked_percentage == 0 {
+            // both vesting_percentage and permanent_locked_liquidity_percentage are equal zero
+            self.unlocked_liquidity = adjusted_total_liquidity;
+            self.permanent_locked_liquidity = 0;
+            self.vested_liquidity = 0;
+        } else {
+            let unlocked_liquidity = adjusted_total_liquidity.min(self.unlocked_liquidity);
+            let liquidity_subject_to_lock =
+                adjusted_total_liquidity.safe_sub(unlocked_liquidity)?;
 
-        let numerator = self.liquidity_vesting_info.vesting_percentage;
+            let vested_liquidity = safe_mul_div_cast_u128(
+                liquidity_subject_to_lock,
+                vesting_percentage.into(),
+                total_locked_percentage.into(),
+                Rounding::Down,
+            )?;
 
-        let denominator = numerator.safe_add(self.permanent_locked_liquidity_percentage)?;
+            let permanent_locked_liquidity =
+                liquidity_subject_to_lock.safe_sub(vested_liquidity)?;
 
-        let vested_liquidity = safe_mul_div_cast_u128(
-            liquidity_subject_to_lock,
-            numerator.into(),
-            denominator.into(),
-            Rounding::Down,
-        )?;
-
-        let permanent_locked_liquidity = liquidity_subject_to_lock.safe_sub(vested_liquidity)?;
-
-        self.unlocked_liquidity = unlocked_liquidity;
-        self.permanent_locked_liquidity = permanent_locked_liquidity;
-        self.vested_liquidity = vested_liquidity;
-        // is this fine to dont re-calculate permanent_locked_liquidity_percentage and vesting_percentage?
+            self.unlocked_liquidity = unlocked_liquidity;
+            self.permanent_locked_liquidity = permanent_locked_liquidity;
+            self.vested_liquidity = vested_liquidity;
+            // is this fine to dont re-calculate permanent_locked_liquidity_percentage and vesting_percentage?
+        }
 
         Ok(())
     }

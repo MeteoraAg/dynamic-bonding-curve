@@ -62,8 +62,7 @@ pub fn get_max_unlocked_liquidity_at_current_point(
     vesting_parameters: &VestingParameters,
     current_point: u64,
 ) -> Result<u128> {
-    // cliff point must not be nonce
-    let cliff_point = vesting_parameters.cliff_point.unwrap();
+    let cliff_point = get_vesting_cliff_point(vesting_parameters, current_point);
     if current_point < cliff_point {
         return Ok(0);
     }
@@ -85,4 +84,65 @@ pub fn get_max_unlocked_liquidity_at_current_point(
         .safe_add(period.safe_mul(vesting_parameters.liquidity_per_period)?)?;
 
     Ok(unlocked_liquidity)
+}
+
+fn get_vesting_cliff_point(vesting_parameters: &VestingParameters, current_point: u64) -> u64 {
+    vesting_parameters.cliff_point.unwrap_or(current_point)
+}
+
+fn get_vesting_total_lock_amount(vesting_parameters: &VestingParameters) -> Result<u128> {
+    let total_amount = vesting_parameters.cliff_unlock_liquidity.safe_add(
+        vesting_parameters
+            .liquidity_per_period
+            .safe_mul(vesting_parameters.number_of_period.into())?,
+    )?;
+
+    Ok(total_amount)
+}
+
+// refer dammv2 code
+// https://github.com/MeteoraAg/damm-v2/blob/main/programs/cp-amm/src/instructions/ix_lock_position.rs#L36
+pub fn validate_vesting_parameters(
+    vesting_parameters: &VestingParameters,
+    current_point: u64,
+    max_vesting_duration: u64,
+) -> Result<()> {
+    let cliff_point = get_vesting_cliff_point(vesting_parameters, current_point);
+
+    require!(
+        cliff_point >= current_point,
+        PoolError::InvalidVestingParameters
+    );
+
+    if cliff_point == current_point {
+        require!(
+            vesting_parameters.number_of_period > 0,
+            PoolError::InvalidVestingParameters
+        );
+    }
+
+    if vesting_parameters.number_of_period > 0 {
+        require!(
+            vesting_parameters.period_frequency > 0 && vesting_parameters.liquidity_per_period > 0,
+            PoolError::InvalidVestingParameters
+        );
+    }
+
+    let vesting_duration = cliff_point.safe_sub(current_point)?.safe_add(
+        vesting_parameters
+            .period_frequency
+            .safe_mul(vesting_parameters.number_of_period.into())?,
+    )?;
+
+    require!(
+        vesting_duration <= max_vesting_duration,
+        PoolError::InvalidVestingParameters
+    );
+
+    require!(
+        get_vesting_total_lock_amount(vesting_parameters)? > 0,
+        PoolError::InvalidVestingParameters
+    );
+
+    Ok(())
 }
