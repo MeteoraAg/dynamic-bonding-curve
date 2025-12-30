@@ -616,8 +616,7 @@ impl LiquidityVestingInfo {
     ) -> Result<damm_v2::types::VestingParameters> {
         let mut frequency = self.frequency;
         let mut number_of_period = self.number_of_periods;
-
-        let cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
+        let mut cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
 
         let bps_per_period = self.bps_per_period;
 
@@ -640,6 +639,9 @@ impl LiquidityVestingInfo {
         if liquidity_per_period == 0 {
             number_of_period = 0;
             frequency = 0;
+            // because of the validation so we need to avoid cliff_point == current_timestamp
+            // https://github.com/MeteoraAg/damm-v2/blob/7ad310c90c8d64851aa02524e2127658af9cab8a/programs/cp-amm/src/instructions/ix_lock_position.rs#L42
+            cliff_duration_from_migration_time = cliff_duration_from_migration_time.max(1);
         }
 
         let cliff_unlock_liquidity = total_vested_liquidity
