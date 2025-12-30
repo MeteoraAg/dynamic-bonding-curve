@@ -609,13 +609,13 @@ impl LiquidityVestingInfo {
         Ok(liquidity_locked_bps)
     }
 
-    fn get_damm_v2_vesting_parameters(
+    pub fn get_damm_v2_vesting_parameters(
         &self,
         total_vested_liquidity: u128,
         current_timestamp: u64,
     ) -> Result<damm_v2::types::VestingParameters> {
-        let frequency = self.frequency;
-        let number_of_period = self.number_of_periods;
+        let mut frequency = self.frequency;
+        let mut number_of_period = self.number_of_periods;
 
         let cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
 
@@ -635,6 +635,12 @@ impl LiquidityVestingInfo {
         } else {
             0
         };
+        // if liquidity_per_period == 0 (due to precision loss), we would need to adjust number_of_period and frequency to zero
+        // so the vesting is cliff-only lock
+        if liquidity_per_period == 0 {
+            number_of_period = 0;
+            frequency = 0;
+        }
 
         let cliff_unlock_liquidity = total_vested_liquidity
             .safe_sub(liquidity_per_period.safe_mul(number_of_period.into())?)?;

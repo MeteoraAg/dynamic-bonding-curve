@@ -60,7 +60,8 @@ pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 pub const MIN_LOCKED_LIQUIDITY_BPS: u16 = 1000; // 10%
 
 // Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
-pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 10; // 10 years
+// We reduce to 2 years because cliff_point is relative and depend on time when token is migrated
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 2; // 2 years
 
 static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
 
