@@ -6,11 +6,11 @@
     "ctest": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/backwards_compatibility/*.tests.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.0",
+    "@coral-xyz/anchor": "^0.32.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0"
   },
   "devDependencies": {
-    "@coral-xyz/anchor-errors": "^0.31.0",
+    "@coral-xyz/anchor-errors": "^0.32.1",
     "@solana/spl-token": "^0.4.8",
     "@solana/spl-token-metadata": "^0.1.6",
     "@solana/web3.js": "^1.98.2",
