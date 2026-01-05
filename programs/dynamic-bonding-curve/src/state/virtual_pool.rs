@@ -1078,7 +1078,7 @@ impl VirtualPool {
         self.migration_fee_withdraw_status.bitand(mask) == 0
     }
     pub fn update_withdraw_migration_fee(&mut self, mask: u8) {
-        self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask)
+        self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask);
     }
 
     pub fn eligible_to_withdraw_protocol_migration_fee(&self) -> bool {
@@ -1090,7 +1090,7 @@ impl VirtualPool {
     pub fn update_protocol_withdraw_migration_fee(&mut self) {
         self.migration_fee_withdraw_status = self
             .migration_fee_withdraw_status
-            .bitxor(PROTOCOL_CLAIM_MIGRATION_FEE_MASK)
+            .bitxor(PROTOCOL_CLAIM_MIGRATION_FEE_MASK);
     }
 
     pub fn get_migration_progress(&self) -> Result<MigrationProgress> {

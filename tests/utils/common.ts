@@ -34,17 +34,20 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { deriveClaimFeeOperatorAddress, derivePoolAuthority } from "./accounts";
 import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  TREASURY,
 } from "./constants";
 import {
   BorshFeeTimeScheduler,
   DynamicVault,
   VirtualCurveProgram,
 } from "./types";
+import { getConfig, getVirtualPool } from "./fetcher";
 
 const BASE_ADDRESS = new PublicKey(
   "HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv"
@@ -551,6 +554,74 @@ export async function createDammV2DynamicConfig(
   svm.sendTransaction(transaction);
 
   return config;
+}
+
+export async function claimProtocolLiquidityMigrationFee(
+  svm: LiteSVM,
+  operator: Keypair,
+  config: PublicKey,
+  virtualPoolAddress: PublicKey
+) {
+  const program = createVirtualCurveProgram();
+  const poolAuthority = derivePoolAuthority();
+
+  const virtualPoolState = getVirtualPool(svm, program, virtualPoolAddress);
+  const configState = getConfig(svm, program, config);
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+
+  const baseMintAccount = svm.getAccount(virtualPoolState.baseMint);
+  const quoteMintAccount = svm.getAccount(configState.quoteMint);
+
+  const { ix: createTreasuryBaseAtaIx, ata: tokenBaseAccount } =
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      virtualPoolState.baseMint,
+      TREASURY,
+      baseMintAccount.owner
+    );
+
+  const preInstructions: TransactionInstruction[] = [];
+  if (createTreasuryBaseAtaIx) {
+    preInstructions.push(createTreasuryBaseAtaIx);
+  }
+
+  const { ix: createTreasuryQuoteAtaIx, ata: tokenQuoteAccount } =
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      configState.quoteMint,
+      TREASURY,
+      quoteMintAccount.owner
+    );
+
+  if (createTreasuryQuoteAtaIx) {
+    preInstructions.push(createTreasuryQuoteAtaIx);
+  }
+
+  let transaction = await program.methods
+    .claimProtocolLiquidityMigrationFee()
+    .accountsPartial({
+      config,
+      pool: virtualPoolAddress,
+      poolAuthority,
+      baseVault: virtualPoolState.baseVault,
+      quoteVault: virtualPoolState.quoteVault,
+      baseMint: virtualPoolState.baseMint,
+      quoteMint: configState.quoteMint,
+      claimFeeOperator,
+      signer: operator.publicKey,
+      tokenBaseProgram: baseMintAccount.owner,
+      tokenQuoteAccount,
+      tokenBaseAccount,
+      tokenQuoteProgram: quoteMintAccount.owner,
+    })
+    .preInstructions(preInstructions)
+    .transaction();
+
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(operator);
+  svm.sendTransaction(transaction);
 }
 
 export async function createLockEscrowIx(
