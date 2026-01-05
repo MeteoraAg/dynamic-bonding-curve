@@ -132,7 +132,10 @@ pub struct VirtualPool {
     pub is_withdraw_leftover: u8,
     /// is creator withdraw surplus
     pub is_creator_withdraw_surplus: u8,
-    /// migration fee withdraw status, first bit is for partner, second bit is for creator
+    /// migration fee withdraw status
+    /// 0 is for partner,
+    /// 1 is for creator,
+    /// 2 is for protocol claim migration fee
     pub migration_fee_withdraw_status: u8,
     /// pool metrics
     pub metrics: PoolMetrics,
@@ -148,8 +151,9 @@ pub struct VirtualPool {
     pub creation_fee_bits: u8,
     /// Cached flag
     pub has_swap: u8,
+    pub protocol_liquidity_migration_fee_bps: u16,
     /// Padding for further use
-    pub _padding_0: [u8; 5],
+    pub _padding_0: [u8; 3],
     /// Padding for further use
     pub _padding_1: [u64; 6],
 }
@@ -158,6 +162,7 @@ const_assert_eq!(VirtualPool::INIT_SPACE, 416);
 
 pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
 pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
+pub const PROTOCOL_CLAIM_MIGRATION_FEE_MASK: u8 = 0b001;
 
 const LEGACY_CREATION_FEE_CHARGED_MASK: u8 = 0b01;
 const LEGACY_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
@@ -208,6 +213,7 @@ impl VirtualPool {
         pool_type: u8,
         activation_point: u64,
         base_reserve: u64,
+        protocol_liquidity_migration_fee_bps: u16,
     ) {
         self.volatility_tracker = volatility_tracker;
         self.config = config;
@@ -219,6 +225,7 @@ impl VirtualPool {
         self.pool_type = pool_type;
         self.activation_point = activation_point;
         self.base_reserve = base_reserve;
+        self.protocol_liquidity_migration_fee_bps = protocol_liquidity_migration_fee_bps;
     }
 
     pub fn get_swap_result_from_exact_output(
@@ -1072,6 +1079,18 @@ impl VirtualPool {
     }
     pub fn update_withdraw_migration_fee(&mut self, mask: u8) {
         self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask)
+    }
+
+    pub fn eligible_to_withdraw_protocol_migration_fee(&self) -> bool {
+        self.migration_fee_withdraw_status
+            .bitand(PROTOCOL_CLAIM_MIGRATION_FEE_MASK)
+            == 0
+    }
+
+    pub fn update_protocol_withdraw_migration_fee(&mut self) {
+        self.migration_fee_withdraw_status = self
+            .migration_fee_withdraw_status
+            .bitxor(PROTOCOL_CLAIM_MIGRATION_FEE_MASK)
     }
 
     pub fn get_migration_progress(&self) -> Result<MigrationProgress> {

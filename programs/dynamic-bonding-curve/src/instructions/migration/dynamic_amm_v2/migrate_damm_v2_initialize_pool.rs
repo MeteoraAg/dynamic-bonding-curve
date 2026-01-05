@@ -584,10 +584,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         migration_sqrt_price,
     )?;
 
+    let protocol_liquidity_fee = safe_mul_div_cast_u128(
+        initial_liquidity,
+        virtual_pool.protocol_liquidity_migration_fee_bps.into(),
+        MAX_BASIS_POINT.into(),
+        Rounding::Down,
+    )?;
+
+    let excluded_protocol_fee_initial_liquidity =
+        initial_liquidity.safe_sub(protocol_liquidity_fee)?;
+
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
         creator: creator_liquidity_distribution,
-    } = config.get_liquidity_distribution(initial_liquidity)?;
+    } = config.get_liquidity_distribution(excluded_protocol_fee_initial_liquidity)?;
 
     let (
         first_position_liquidity_distribution,
@@ -651,9 +661,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let updated_excluded_fee_base_reserve =
-        excluded_fee_base_reserve.safe_sub(deposited_base_amount)?;
-    let updated_quote_threshold = quote_amount.safe_sub(deposited_quote_amount)?;
+    // Round up so that liquidity_for_second_position will be round down
+    let (protocol_liquidity_fee_base, protocol_liquidity_fee_quote) =
+        get_protocol_liquidity_fee_tokens(
+            protocol_liquidity_fee,
+            migration_sqrt_price,
+            Rounding::Up,
+        )?;
+
+    let updated_excluded_fee_base_reserve = excluded_fee_base_reserve
+        .safe_sub(deposited_base_amount)?
+        .safe_sub(protocol_liquidity_fee_base)?;
+    let updated_quote_threshold = quote_amount
+        .safe_sub(deposited_quote_amount)?
+        .safe_sub(protocol_liquidity_fee_quote)?;
 
     let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
         updated_excluded_fee_base_reserve,
@@ -711,12 +732,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     ctx.accounts.base_vault.reload()?;
 
     // check whether we should burn token
+    let non_burnable_amount =
+        protocol_and_partner_base_fee.safe_add(protocol_liquidity_fee_base)?;
 
     let left_base_token = ctx
         .accounts
         .base_vault
         .amount
-        .safe_sub(protocol_and_partner_base_fee)?;
+        .safe_sub(non_burnable_amount)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
 
@@ -743,7 +766,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     Ok(())
 }
 
-fn get_liquidity_for_adding_liquidity(
+pub(crate) fn get_protocol_liquidity_fee_tokens(
+    liquidity: u128,
+    sqrt_price: u128,
+    rounding: Rounding,
+) -> Result<(u64, u64)> {
+    let base_amount =
+        get_delta_amount_base_unsigned(sqrt_price, MAX_SQRT_PRICE, liquidity, rounding)?;
+    let quote_amount =
+        get_delta_amount_quote_unsigned(MIN_SQRT_PRICE, sqrt_price, liquidity, rounding)?;
+
+    Ok((base_amount, quote_amount))
+}
+
+pub(crate) fn get_liquidity_for_adding_liquidity(
     base_amount: u64,
     quote_amount: u64,
     sqrt_price: u128,

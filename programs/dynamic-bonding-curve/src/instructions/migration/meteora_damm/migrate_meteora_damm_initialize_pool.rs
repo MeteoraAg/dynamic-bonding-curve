@@ -1,7 +1,9 @@
 use anchor_spl::token::{Burn, Token, TokenAccount};
+use ruint::aliases::U256;
 
 use crate::{
     const_pda,
+    constants::{fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS, BASIS_POINT_MAX},
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
@@ -9,6 +11,8 @@ use crate::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
         VirtualPool,
     },
+    u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u64,
     *,
 };
 
@@ -240,18 +244,37 @@ pub fn handle_migrate_meteora_damm<'info>(
     let base_reserve = config.migration_base_threshold;
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
 
-    ctx.accounts
-        .create_pool(base_reserve, quote_amount, const_pda::pool_authority::BUMP)?;
+    let (protocol_liquidity_fee_base, protocol_liquidity_fee_quote) =
+        get_protocol_liquidity_fee_tokens(
+            base_reserve,
+            quote_amount,
+            config.migration_sqrt_price,
+            virtual_pool.protocol_liquidity_migration_fee_bps,
+        )?;
+
+    let excluded_protocol_fee_base_amount = base_reserve.safe_sub(protocol_liquidity_fee_base)?;
+    let excluded_protocol_fee_quote_amount = quote_amount.safe_sub(protocol_liquidity_fee_quote)?;
+
+    ctx.accounts.create_pool(
+        excluded_protocol_fee_base_amount,
+        excluded_protocol_fee_quote_amount,
+        const_pda::pool_authority::BUMP,
+    )?;
 
     virtual_pool.update_after_create_pool();
 
     // burn the rest of token in pool authority after migrated amount and fee
     ctx.accounts.base_vault.reload()?;
+
+    let non_burnable_amount = virtual_pool
+        .get_protocol_and_trading_base_fee()?
+        .safe_add(protocol_liquidity_fee_base)?;
+
     let left_base_token = ctx
         .accounts
         .base_vault
         .amount
-        .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?;
+        .safe_sub(non_burnable_amount)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
     if burnable_amount > 0 {
@@ -282,4 +305,35 @@ pub fn handle_migrate_meteora_damm<'info>(
     // TODO emit event
 
     Ok(())
+}
+
+pub(crate) fn get_protocol_liquidity_fee_tokens(
+    base_amount: u64,
+    quote_amount: u64,
+    sqrt_price: u128,
+    fee_bps: u16,
+) -> Result<(u64, u64)> {
+    let quote_fee_amount = safe_mul_div_cast_u64(
+        quote_amount,
+        fee_bps.into(),
+        BASIS_POINT_MAX,
+        Rounding::Down,
+    )?;
+
+    let excluded_fee_quote_amount = quote_amount.safe_sub(quote_fee_amount)?;
+
+    let sqrt_migration_price = U256::from(sqrt_price);
+    let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
+    let excluded_fee_quote = U256::from(excluded_fee_quote_amount).safe_shl(128)?;
+    let (mut excluded_fee_base, rem) = excluded_fee_quote.div_rem(price);
+    if !rem.is_zero() {
+        excluded_fee_base = excluded_fee_base.safe_add(U256::from(1))?;
+    }
+
+    let excluded_fee_base = excluded_fee_base
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
+
+    let base_fee_amount = base_amount.safe_sub(excluded_fee_base)?;
+    Ok((base_fee_amount, quote_fee_amount))
 }
