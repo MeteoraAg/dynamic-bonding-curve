@@ -1,7 +1,4 @@
-use std::{
-    io::{BufWriter, Write},
-    u128,
-};
+use std::u128;
 
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
@@ -62,8 +59,7 @@ pub struct ConfigParameters {
     pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
     pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
     pub migrated_pool_base_fee_mode: u8,
-    pub migrated_pool_market_cap_fee_scheduler_params:
-        Option<MigratedPoolMarketCapFeeSchedulerParams>,
+    pub migrated_pool_market_cap_fee_scheduler_params: MigratedPoolMarketCapFeeSchedulerParams,
     /// padding for future use
     pub padding: [u8; 5],
     pub curve: Vec<LiquidityDistributionParameters>,
@@ -139,6 +135,10 @@ pub struct MigratedPoolMarketCapFeeSchedulerParams {
 }
 
 impl MigratedPoolMarketCapFeeSchedulerParams {
+    pub fn is_none(&self) -> bool {
+        *self == MigratedPoolMarketCapFeeSchedulerParams::default()
+    }
+
     pub fn validate(&self, cliff_fee_numerator: u64, base_fee_mode: u8) -> Result<()> {
         let base_fee_mode =
             damm_v2::BaseFeeMode::try_from(base_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
@@ -425,18 +425,16 @@ impl ConfigParameters {
                 if migration_fee_option == MigrationFeeOption::Customizable {
                     self.migrated_pool_fee.validate()?;
 
-                    match &self.migrated_pool_market_cap_fee_scheduler_params {
-                        Some(market_cap_fee_params) => {
-                            let cliff_fee_numerator = to_numerator(
-                                self.migrated_pool_fee.pool_fee_bps.into(),
-                                damm_v2::constants::FEE_DENOMINATOR.into(),
-                            )?;
-                            market_cap_fee_params
-                                .validate(cliff_fee_numerator, self.migrated_pool_base_fee_mode)?;
-                        }
-                        None => {
-                            self.ensure_migrated_pool_no_fee_scheduler()?;
-                        }
+                    let market_cap_fee_params = &self.migrated_pool_market_cap_fee_scheduler_params;
+                    if !market_cap_fee_params.is_none() {
+                        let cliff_fee_numerator = to_numerator(
+                            self.migrated_pool_fee.pool_fee_bps.into(),
+                            damm_v2::constants::FEE_DENOMINATOR.into(),
+                        )?;
+                        market_cap_fee_params
+                            .validate(cliff_fee_numerator, self.migrated_pool_base_fee_mode)?;
+                    } else {
+                        self.ensure_migrated_pool_no_fee_scheduler()?;
                     }
                 } else {
                     require!(

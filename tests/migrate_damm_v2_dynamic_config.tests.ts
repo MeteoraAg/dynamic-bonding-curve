@@ -11,8 +11,12 @@ import {
 } from "./instructions";
 import {
   createDammV2DynamicConfig,
+  createDammV2Operator,
+  createDammV2Program,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   FLASH_RENT_FUND,
   generateAndFund,
   MAX_SQRT_PRICE,
@@ -21,7 +25,7 @@ import {
   U64_MAX,
 } from "./utils";
 import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
-import { VirtualCurveProgram } from "./utils/types";
+import { PodAlignedFeeTimeScheduler, VirtualCurveProgram } from "./utils/types";
 
 import { BN } from "@coral-xyz/anchor";
 import { expect } from "chai";
@@ -50,6 +54,12 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     user = generateAndFund(svm);
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("Full flow migrated to damm v2 new create pool endpoint", async () => {
@@ -93,9 +103,15 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     // validate pool state
     const poolFeeNumerator =
       (migratedPoolFee.poolFeeBps * 1_000_000_000) / 10_000;
-    expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
-      poolFeeNumerator
-    );
+
+    const dammV2Program = createDammV2Program();
+    const feeSchedulerInfo: PodAlignedFeeTimeScheduler =
+      dammV2Program.coder.types.decode(
+        "podAlignedFeeTimeScheduler",
+        Buffer.from(dammPoolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+    expect(feeSchedulerInfo.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator);
     expect(dammPoolState.collectFeeMode).eq(
       convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
     );
@@ -196,6 +212,8 @@ async function fullFlow(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,

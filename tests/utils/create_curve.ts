@@ -523,6 +523,8 @@ export function designCurve(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
     poolCreationFee: new BN(0),
     curve,
   };
@@ -689,6 +691,8 @@ export function designGraphCurve(
       frequency: 0,
     },
     poolCreationFee: new BN(0),
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
     curve,
   };
   return instructionParams;

@@ -7,15 +7,15 @@ use anchor_spl::{
 use damm_v2::{
     accounts::PodAlignedFeeTimeScheduler,
     types::{
-        AddLiquidityParameters, BaseFeeParameters, InitializeCustomizablePoolParameters,
-        InitializePoolParameters, PoolFeeParameters,
+        AddLiquidityParameters, InitializeCustomizablePoolParameters, InitializePoolParameters,
+        PoolFeeParameters,
     },
 };
 use ruint::aliases::U512;
 
 use crate::{
     activation_handler::ActivationType,
-    base_fee, calculate_dynamic_fee_params,
+    calculate_dynamic_fee_params,
     const_pda::{self, pool_authority::BUMP},
     constants::{
         fee::FEE_DENOMINATOR, seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
@@ -499,9 +499,10 @@ fn validate_config_key(
                 PoolError::InvalidConfigAccount
             );
 
-            let fee_scheduler = PodAlignedFeeTimeScheduler::try_deserialize(
-                &mut damm_config.pool_fees.base_fee.data.as_ref(),
-            )?;
+            let fee_scheduler = bytemuck::try_from_bytes::<PodAlignedFeeTimeScheduler>(
+                &damm_config.pool_fees.base_fee.data,
+            )
+            .map_err(|_| PoolError::UndeterminedError)?;
 
             let base_fee_bps = to_bps(
                 fee_scheduler.cliff_fee_numerator.into(),

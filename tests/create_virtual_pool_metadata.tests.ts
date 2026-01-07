@@ -117,6 +117,8 @@ describe("Create virtual pool metadata", () => {
         frequency: 0,
       },
       poolCreationFee: new BN(0),
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {

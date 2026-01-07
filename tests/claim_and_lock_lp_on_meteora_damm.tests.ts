@@ -128,6 +128,8 @@ async function createPartnerConfig(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
     poolCreationFee: new BN(0),
     curve: curves,
   };

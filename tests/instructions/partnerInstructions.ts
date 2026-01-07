@@ -70,6 +70,13 @@ export type MigrationFeeParams = {
   creatorFeePercentage: number;
 };
 
+export type MigratedPoolMarketCapFeeSchedulerParams = {
+  numberOfPeriod: number;
+  sqrtPriceStepBps: number;
+  schedulerExpirationDuration: number;
+  reductionFactor: BN;
+};
+
 export type ConfigParameters = {
   poolFees: {
     baseFee: BaseFee;
@@ -98,6 +105,8 @@ export type ConfigParameters = {
     dynamicFee: number;
   };
   poolCreationFee: BN;
+  migratedPoolBaseFeeMode: number;
+  migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams | null;
   partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
   creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
   curve: Array<LiquidityDistributionParameters>;
@@ -128,10 +137,19 @@ export async function createConfig(
     params;
   const config = Keypair.generate();
 
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
-      padding: new Array(22).fill(0),
+      padding: new Array(5).fill(0),
     })
     .accountsPartial({
       config: config.publicKey,

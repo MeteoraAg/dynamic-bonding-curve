@@ -10,10 +10,13 @@ import {
 } from "./instructions";
 import {
   createDammV2DynamicConfig,
+  createDammV2Operator,
   createDammV2Program,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
   designGraphCurve,
+  encodePermissions,
   generateAndFund,
   startSvm,
 } from "./utils";
@@ -60,6 +63,12 @@ describe("Migrate to damm v2 with vesting", () => {
     poolCreator = generateAndFund(svm);
 
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("Full flow migrated to damm v2 with vesting", async () => {

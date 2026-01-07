@@ -713,7 +713,7 @@ impl PoolConfig {
         partner_liquidity_vesting_info: LiquidityVestingInfo,
         creator_liquidity_vesting_info: LiquidityVestingInfo,
         migrated_pool_base_fee_mode: u8,
-        migrated_pool_market_cap_fee_scheduler: Option<MigratedPoolMarketCapFeeSchedulerParams>,
+        migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
     ) -> Result<()> {
         self.version = 0;
@@ -760,12 +760,10 @@ impl PoolConfig {
 
         self.migrated_pool_base_fee_mode = migrated_pool_base_fee_mode;
 
-        if let Some(info) = migrated_pool_market_cap_fee_scheduler {
-            self.migrated_pool_base_fee_bytes = info
-                .try_to_vec()?
-                .try_into()
-                .map_err(|_| PoolError::UndeterminedError)?;
-        }
+        self.migrated_pool_base_fee_bytes = migrated_pool_market_cap_fee_scheduler
+            .try_to_vec()?
+            .try_into()
+            .map_err(|_| PoolError::UndeterminedError)?;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();

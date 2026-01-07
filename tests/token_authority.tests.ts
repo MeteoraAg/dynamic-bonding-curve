@@ -522,6 +522,8 @@ async function createPool(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,

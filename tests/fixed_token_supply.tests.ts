@@ -14,8 +14,11 @@ import {
 } from "./instructions";
 import {
   createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   generateAndFund,
   getMint,
   MAX_SQRT_PRICE,
@@ -57,6 +60,12 @@ describe("Fixed token supply", () => {
     user = generateAndFund(svm);
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("Partner create config", async () => {
@@ -139,6 +148,8 @@ describe("Fixed token supply", () => {
         numberOfPeriods: 0,
         frequency: 0,
       },
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
     };
     const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,

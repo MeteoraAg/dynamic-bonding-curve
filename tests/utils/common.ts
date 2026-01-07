@@ -1,11 +1,4 @@
-import {
-  AnchorProvider,
-  BN,
-  IdlAccounts,
-  Program,
-  Wallet,
-  web3,
-} from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
 import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
@@ -21,19 +14,13 @@ import {
   LiteSVM,
   TransactionMetadata,
 } from "litesvm";
-
 import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
-
 import VaultIDL from "../../idls/dynamic_vault.json";
 import { DynamicVault as Vault } from "./idl/dynamic_vault";
-
 import AmmIDL from "../../idls/dynamic_amm.json";
-
 import DammV2IDL from "../../idls/damm_v2.json";
-
 import { DynamicAmm as Damm } from "./idl/dynamic_amm";
-
 import { CpAmm as DammV2 } from "./idl/damm_v2";
 
 import {
@@ -53,9 +40,12 @@ import {
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
 } from "./constants";
-import { VirtualCurveProgram } from "./types";
+import {
+  BorshFeeTimeScheduler,
+  DynamicVault,
+  VirtualCurveProgram,
+} from "./types";
 
-export type DynamicVault = IdlAccounts<Vault>["vault"];
 const BASE_ADDRESS = new PublicKey(
   "HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv"
 );
@@ -399,22 +389,96 @@ export async function createDammConfig(
   return config;
 }
 
+export enum DammV2OperatorPermission {
+  CreateConfigKey, // 0
+  RemoveConfigKey, // 1
+  CreateTokenBadge, // 2
+  CloseTokenBadge, // 3
+  SetPoolStatus, // 4
+  InitializeReward, // 5
+  UpdateRewardDuration, // 6
+  UpdateRewardFunder, // 7
+  UpdatePoolFees, // 8
+  ClaimProtocolFee, // 9
+}
+
+export function encodePermissions(permissions: DammV2OperatorPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
+function deriveDammV2OperatorAddress(
+  whitelistedAddress: PublicKey,
+  programId: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("operator"), whitelistedAddress.toBuffer()],
+    programId
+  )[0];
+}
+
+export type CreateOperatorParams = {
+  admin: Keypair;
+  whitelistAddress: PublicKey;
+  permission: BN;
+};
+
+export async function createDammV2Operator(
+  svm: LiteSVM,
+  params: CreateOperatorParams
+) {
+  const program = createDammV2Program();
+  const { admin, permission, whitelistAddress } = params;
+
+  const operator = deriveDammV2OperatorAddress(
+    whitelistAddress,
+    program.programId
+  );
+
+  const transaction = await program.methods
+    .createOperatorAccount(permission)
+    .accountsPartial({
+      operator,
+      whitelistedAddress: whitelistAddress,
+      admin: admin.publicKey,
+      payer: admin.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(admin);
+
+  svm.sendTransaction(transaction);
+}
+
 export async function createDammV2Config(
   svm: LiteSVM,
-  payer: Keypair,
+  operator: Keypair,
   poolCreatorAuthority: PublicKey,
   activationType: number = 0
 ): Promise<PublicKey> {
   const program = createDammV2Program();
+
+  const feeTimeScheduler: BorshFeeTimeScheduler = {
+    cliffFeeNumerator: new BN(2_500_000),
+    numberOfPeriod: 0,
+    reductionFactor: new BN(0),
+    periodFrequency: new BN(0),
+    baseFeeMode: 0,
+    padding: Array(3).fill(0),
+  };
+
+  const baseFeeData = program.coder.types.encode(
+    "borshFeeTimeScheduler",
+    feeTimeScheduler
+  );
+
   const params = {
     index: new BN(0),
     poolFees: {
       baseFee: {
-        cliffFeeNumerator: new BN(2_500_000),
-        numberOfPeriod: 0,
-        reductionFactor: new BN(0),
-        periodFrequency: new BN(0),
-        feeSchedulerMode: 0,
+        data: Array.from(baseFeeData),
       },
       protocolFeePercent: 10,
       partnerFeePercent: 0,
@@ -432,16 +496,24 @@ export async function createDammV2Config(
     [Buffer.from("config"), params.index.toBuffer("le", 8)],
     DAMM_V2_PROGRAM_ID
   );
+
+  const operatorPda = deriveDammV2OperatorAddress(
+    operator.publicKey,
+    program.programId
+  );
+
   const transaction = await program.methods
     .createConfig(new BN(0), params)
     .accountsPartial({
       config,
-      admin: payer.publicKey,
+      operator: operatorPda,
+      payer: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
     })
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
+  transaction.sign(operator);
   svm.sendTransaction(transaction);
 
   return config;
@@ -449,7 +521,7 @@ export async function createDammV2Config(
 
 export async function createDammV2DynamicConfig(
   svm: LiteSVM,
-  payer: Keypair,
+  operator: Keypair,
   poolCreatorAuthority: PublicKey
 ): Promise<PublicKey> {
   const program = createDammV2Program();
@@ -458,16 +530,24 @@ export async function createDammV2DynamicConfig(
     [Buffer.from("config"), new BN(0).toBuffer("le", 8)],
     DAMM_V2_PROGRAM_ID
   );
+
+  const operatorPda = deriveDammV2OperatorAddress(
+    operator.publicKey,
+    program.programId
+  );
+
   const transaction = await program.methods
     .createDynamicConfig(new BN(0), { poolCreatorAuthority })
     .accountsPartial({
       config,
-      admin: payer.publicKey,
+      operator: operatorPda,
+      whitelistedAddress: operator.publicKey,
+      payer: operator.publicKey,
     })
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(payer);
+  transaction.sign(operator);
   svm.sendTransaction(transaction);
 
   return config;
