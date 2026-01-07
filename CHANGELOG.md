@@ -23,19 +23,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
+
+### Added
+
 - Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
 - Add new endpoint `claim_protocol_pool_creation_fee` to allow protocol to withdraw the pool creation fee.
 - `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
 
 ### Changed
+
 - Allow partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
 - Allow partners to config `partner_lp_vesting_info` and `creator_lp_vesting_info` when creating config key that includes liquidity vesting information if pool is migrated to damm v2 later
 
 ### Removed
+
 - Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
 - Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
 
 ### Breaking Changes
+
 - Endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` will only allow config that has minimum 10% of locked liquidity in at least 1 day
 - `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
 

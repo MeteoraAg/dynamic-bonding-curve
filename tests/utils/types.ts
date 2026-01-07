@@ -22,3 +22,5 @@ export type DynamicVault = IdlAccounts<Vault>["vault"];
 export type BorshFeeTimeScheduler = IdlTypes<DammV2>["borshFeeTimeScheduler"];
 export type PodAlignedFeeTimeScheduler =
   IdlTypes<DammV2>["podAlignedFeeTimeScheduler"];
+export type PodAlignedFeeMarketCapScheduler =
+  IdlTypes<DammV2>["podAlignedFeeMarketCapScheduler"];

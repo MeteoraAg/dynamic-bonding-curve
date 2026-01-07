@@ -6,6 +6,7 @@ import {
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
+  MigratedPoolMarketCapFeeSchedulerParams,
   swap,
   SwapMode,
 } from "./instructions";
@@ -25,7 +26,11 @@ import {
   U64_MAX,
 } from "./utils";
 import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
-import { PodAlignedFeeTimeScheduler, VirtualCurveProgram } from "./utils/types";
+import {
+  PodAlignedFeeMarketCapScheduler,
+  PodAlignedFeeTimeScheduler,
+  VirtualCurveProgram,
+} from "./utils/types";
 
 import { BN } from "@coral-xyz/anchor";
 import { expect } from "chai";
@@ -85,7 +90,14 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       poolCreator,
       operator,
       user,
-      migratedPoolFee
+      migratedPoolFee,
+      0,
+      {
+        schedulerExpirationDuration: 0,
+        sqrtPriceStepBps: 0,
+        reductionFactor: new BN(0),
+        numberOfPeriod: 0,
+      }
     );
 
     const afterPoolAuthorityLamport = svm.getBalance(poolAuthority);
@@ -119,6 +131,87 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       migratedPoolFee.dynamicFee
     );
   });
+
+  it("Full flow migrated to damm v2 with fee market cap scheduler", async () => {
+    const migratedPoolFee = {
+      poolFeeBps: 1000,
+      collectFeeMode: 0,
+      dynamicFee: 1,
+    };
+
+    const poolAuthority = derivePoolAuthority();
+
+    const beforePoolAuthorityLamport = svm.getBalance(poolAuthority);
+
+    expect(beforePoolAuthorityLamport.toString()).eq(
+      FLASH_RENT_FUND.toString()
+    );
+
+    const marketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams =
+      {
+        schedulerExpirationDuration: 86400,
+        sqrtPriceStepBps: 100,
+        reductionFactor: new BN(900000),
+        numberOfPeriod: 100,
+      };
+
+    const { pool, poolConfig } = await fullFlow(
+      svm,
+      program,
+      admin,
+      partner,
+      poolCreator,
+      operator,
+      user,
+      migratedPoolFee,
+      3, // FeeMarketCap
+      marketCapFeeSchedulerParams
+    );
+
+    const dammPoolState = getDammV2Pool(svm, pool);
+    const poolConfigState = getConfig(svm, program, poolConfig);
+
+    // validate pool config
+    expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee);
+    expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode);
+    const feeBpsValue = poolConfigState.migratedPoolFeeBps;
+    expect(feeBpsValue).eq(migratedPoolFee.poolFeeBps);
+
+    // validate pool state
+    const poolFeeNumerator =
+      (migratedPoolFee.poolFeeBps * 1_000_000_000) / 10_000;
+
+    const dammV2Program = createDammV2Program();
+    const feeSchedulerInfo: PodAlignedFeeMarketCapScheduler =
+      dammV2Program.coder.types.decode(
+        "podAlignedFeeMarketCapScheduler",
+        Buffer.from(dammPoolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+    expect(feeSchedulerInfo.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator);
+    expect(feeSchedulerInfo.baseFeeMode).eq(3); // FeeMarketCap
+    expect(feeSchedulerInfo.schedulerExpirationDuration).eq(
+      marketCapFeeSchedulerParams.schedulerExpirationDuration
+    );
+    expect(feeSchedulerInfo.sqrtPriceStepBps).eq(
+      marketCapFeeSchedulerParams.sqrtPriceStepBps
+    );
+    expect(
+      feeSchedulerInfo.reductionFactor.eq(
+        marketCapFeeSchedulerParams.reductionFactor
+      )
+    ).to.be.true;
+    expect(feeSchedulerInfo.numberOfPeriod).to.eq(
+      marketCapFeeSchedulerParams.numberOfPeriod
+    );
+
+    expect(dammPoolState.collectFeeMode).eq(
+      convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+    );
+    expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
+      migratedPoolFee.dynamicFee
+    );
+  });
 });
 
 async function fullFlow(
@@ -133,7 +226,9 @@ async function fullFlow(
     poolFeeBps: number;
     collectFeeMode: number;
     dynamicFee: number;
-  }
+  },
+  migratedPoolBaseFeeMode: number,
+  migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams
 ): Promise<{
   pool: PublicKey;
   poolConfig: PublicKey;
@@ -212,8 +307,8 @@ async function fullFlow(
       numberOfPeriods: 0,
       frequency: 0,
     },
-    migratedPoolBaseFeeMode: 0,
-    migratedPoolMarketCapFeeSchedulerParams: null,
+    migratedPoolBaseFeeMode,
+    migratedPoolMarketCapFeeSchedulerParams,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,
