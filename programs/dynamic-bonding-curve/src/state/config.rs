@@ -21,7 +21,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, MigrationFee, PoolError,
+    LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
@@ -542,12 +542,13 @@ pub struct PoolConfig {
     pub migrated_dynamic_fee: u8,
     /// migrated pool fee in bps
     pub migrated_pool_fee_bps: u16,
+    pub migrated_pool_base_fee_mode: u8,
     /// padding 1
-    pub _padding_1: [u8; 4],
+    pub _padding_1: [u8; 3],
     /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
     /// padding 2
-    pub _padding_2: u128,
+    pub migrated_pool_base_fee_bytes: [u8; 16],
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -711,8 +712,10 @@ impl PoolConfig {
         pool_creation_fee: u64,
         partner_liquidity_vesting_info: LiquidityVestingInfo,
         creator_liquidity_vesting_info: LiquidityVestingInfo,
+        migrated_pool_base_fee_mode: u8,
+        migrated_pool_market_cap_fee_scheduler: Option<MigratedPoolMarketCapFeeSchedulerParams>,
         curve: &[LiquidityDistributionParameters],
-    ) {
+    ) -> Result<()> {
         self.version = 0;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
@@ -755,9 +758,20 @@ impl PoolConfig {
         self.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
         self.partner_liquidity_vesting_info = partner_liquidity_vesting_info;
 
+        self.migrated_pool_base_fee_mode = migrated_pool_base_fee_mode;
+
+        if let Some(info) = migrated_pool_market_cap_fee_scheduler {
+            self.migrated_pool_base_fee_bytes = info
+                .try_to_vec()?
+                .try_into()
+                .map_err(|_| PoolError::UndeterminedError)?;
+        }
+
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
+
+        Ok(())
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {
@@ -991,6 +1005,57 @@ impl PoolConfig {
             .safe_add(creator_permanent_locked_liquidity_bps)?;
 
         Ok(total_locked_liquidity_bps_at_n_seconds)
+    }
+
+    pub fn get_base_fee_parameters(
+        &self,
+        cliff_fee_numerator: u64,
+    ) -> Result<damm_v2::types::BaseFeeParameters> {
+        let base_fee_mode = damm_v2::BaseFeeMode::try_from(self.migrated_pool_base_fee_mode)
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        let data: [u8; 30] = match base_fee_mode {
+            // This is the default mode with fixed fee
+            damm_v2::BaseFeeMode::FeeTimeSchedulerLinear
+            | damm_v2::BaseFeeMode::FeeTimeSchedulerExponential => {
+                let fee_time_scheduler = damm_v2::types::BorshFeeTimeScheduler {
+                    base_fee_mode: self.migrated_pool_base_fee_mode,
+                    cliff_fee_numerator,
+                    ..Default::default()
+                };
+                fee_time_scheduler
+                    .try_to_vec()?
+                    .try_into()
+                    .map_err(|_| PoolError::UndeterminedError)?
+            }
+            damm_v2::BaseFeeMode::FeeMarketCapSchedulerExponential
+            | damm_v2::BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let saved_market_cap_fee_info =
+                    MigratedPoolMarketCapFeeSchedulerParams::try_from_slice(
+                        &self.migrated_pool_base_fee_bytes,
+                    )?;
+                let market_cap_fee_scheduler = damm_v2::types::BorshFeeMarketCapScheduler {
+                    base_fee_mode: self.migrated_pool_base_fee_mode,
+                    cliff_fee_numerator,
+                    number_of_period: saved_market_cap_fee_info.number_of_period,
+                    sqrt_price_step_bps: saved_market_cap_fee_info.sqrt_price_step_bps.into(),
+                    scheduler_expiration_duration: saved_market_cap_fee_info
+                        .scheduler_expiration_duration,
+                    reduction_factor: saved_market_cap_fee_info.reduction_factor,
+                    padding: [0; 3],
+                };
+                market_cap_fee_scheduler
+                    .try_to_vec()?
+                    .try_into()
+                    .map_err(|_| PoolError::UndeterminedError)?
+            }
+            _ => {
+                // Shall be unreachable since we have validated during initialization
+                return Err(PoolError::UndeterminedError.into());
+            }
+        };
+
+        Ok(damm_v2::types::BaseFeeParameters { data })
     }
 }
 

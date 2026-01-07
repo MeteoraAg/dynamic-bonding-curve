@@ -1,7 +1,11 @@
-use std::u128;
+use std::{
+    io::{BufWriter, Write},
+    u128,
+};
 
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
+use damm_v2::get_max_fee_numerator;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
 
@@ -13,8 +17,9 @@ use crate::{
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
+    fee_math::get_fee_in_period,
     params::{
-        fee_parameters::PoolFeeParameters,
+        fee_parameters::{to_numerator, validate_fee_fraction, PoolFeeParameters},
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
             LiquidityDistributionParameters,
@@ -56,9 +61,11 @@ pub struct ConfigParameters {
     pub pool_creation_fee: u64,
     pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
     pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
-
+    pub migrated_pool_base_fee_mode: u8,
+    pub migrated_pool_market_cap_fee_scheduler_params:
+        Option<MigratedPoolMarketCapFeeSchedulerParams>,
     /// padding for future use
-    pub padding: [u8; 22],
+    pub padding: [u8; 5],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -124,11 +131,104 @@ impl MigratedPoolFee {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
+pub struct MigratedPoolMarketCapFeeSchedulerParams {
+    pub number_of_period: u16,
+    pub sqrt_price_step_bps: u16,
+    pub scheduler_expiration_duration: u32,
+    pub reduction_factor: u64,
+}
+
+impl MigratedPoolMarketCapFeeSchedulerParams {
+    pub fn validate(&self, cliff_fee_numerator: u64, base_fee_mode: u8) -> Result<()> {
+        let base_fee_mode =
+            damm_v2::BaseFeeMode::try_from(base_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
+
+        require!(
+            base_fee_mode == damm_v2::BaseFeeMode::FeeMarketCapSchedulerLinear
+                || base_fee_mode == damm_v2::BaseFeeMode::FeeMarketCapSchedulerExponential,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        // doesn't allow zero fee marketcap scheduler
+        require!(
+            self.reduction_factor > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.sqrt_price_step_bps > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.scheduler_expiration_duration > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.number_of_period > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        let min_fee_numerator =
+            self.get_min_base_fee_numerator(base_fee_mode, cliff_fee_numerator)?;
+        let max_fee_numerator = cliff_fee_numerator;
+        validate_fee_fraction(min_fee_numerator, damm_v2::constants::FEE_DENOMINATOR)?;
+        validate_fee_fraction(max_fee_numerator, damm_v2::constants::FEE_DENOMINATOR)?;
+
+        require!(
+            min_fee_numerator >= damm_v2::constants::MIN_FEE_NUMERATOR
+                && max_fee_numerator
+                    <= get_max_fee_numerator(damm_v2::constants::CURRENT_POOL_VERSION)?,
+            PoolError::ExceedMaxFeeBps
+        );
+
+        Ok(())
+    }
+
+    fn get_min_base_fee_numerator(
+        &self,
+        base_fee_mode: damm_v2::BaseFeeMode,
+        cliff_fee_numerator: u64,
+    ) -> Result<u64> {
+        self.get_base_fee_numerator_by_period(
+            self.number_of_period.into(),
+            base_fee_mode,
+            cliff_fee_numerator,
+        )
+    }
+
+    fn get_base_fee_numerator_by_period(
+        &self,
+        period: u64,
+        base_fee_mode: damm_v2::BaseFeeMode,
+        cliff_fee_numerator: u64,
+    ) -> Result<u64> {
+        let period = period.min(self.number_of_period.into());
+
+        match base_fee_mode {
+            damm_v2::BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let fee_numerator =
+                    cliff_fee_numerator.safe_sub(self.reduction_factor.safe_mul(period)?)?;
+                Ok(fee_numerator)
+            }
+            damm_v2::BaseFeeMode::FeeMarketCapSchedulerExponential => {
+                let period = u16::try_from(period).map_err(|_| PoolError::MathOverflow)?;
+                let fee_numerator =
+                    get_fee_in_period(cliff_fee_numerator, self.reduction_factor, period)?;
+                Ok(fee_numerator)
+            }
+            _ => Err(PoolError::UndeterminedError.into()),
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct TokenSupplyParams {
     /// pre migration token supply
     pub pre_migration_token_supply: u64,
     /// post migration token supply
-    /// becase DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
+    /// because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
     /// that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)
     pub post_migration_token_supply: u64,
 }
@@ -318,15 +418,33 @@ impl ConfigParameters {
                     self.creator_liquidity_vesting_info.is_zero(),
                     PoolError::InvalidVestingParameters
                 );
+
+                self.ensure_migrated_pool_no_fee_scheduler()?;
             }
             MigrationOption::DammV2 => {
                 if migration_fee_option == MigrationFeeOption::Customizable {
                     self.migrated_pool_fee.validate()?;
+
+                    match &self.migrated_pool_market_cap_fee_scheduler_params {
+                        Some(market_cap_fee_params) => {
+                            let cliff_fee_numerator = to_numerator(
+                                self.migrated_pool_fee.pool_fee_bps.into(),
+                                damm_v2::constants::FEE_DENOMINATOR.into(),
+                            )?;
+                            market_cap_fee_params
+                                .validate(cliff_fee_numerator, self.migrated_pool_base_fee_mode)?;
+                        }
+                        None => {
+                            self.ensure_migrated_pool_no_fee_scheduler()?;
+                        }
+                    }
                 } else {
                     require!(
                         self.migrated_pool_fee.is_none(),
                         PoolError::InvalidMigratedPoolFee
                     );
+
+                    self.ensure_migrated_pool_no_fee_scheduler()?;
                 }
                 // validate vesting
                 self.partner_liquidity_vesting_info
@@ -410,6 +528,19 @@ impl ConfigParameters {
 
         Ok(())
     }
+
+    pub fn ensure_migrated_pool_no_fee_scheduler(&self) -> Result<()> {
+        require!(
+            self.migrated_pool_base_fee_mode == 0,
+            PoolError::InvalidMigratedPoolFee
+        );
+
+        require!(
+            self.migrated_pool_market_cap_fee_scheduler_params.is_none(),
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+        Ok(())
+    }
 }
 
 #[event_cpi]
@@ -469,6 +600,8 @@ pub fn handle_create_config(
         pool_creation_fee,
         partner_liquidity_vesting_info,
         creator_liquidity_vesting_info,
+        migrated_pool_base_fee_mode,
+        migrated_pool_market_cap_fee_scheduler_params,
         ..
     } = config_parameters.clone();
 
@@ -580,8 +713,10 @@ pub fn handle_create_config(
         pool_creation_fee,
         partner_liquidity_vesting_info.to_liquidity_vesting_info(),
         creator_liquidity_vesting_info.to_liquidity_vesting_info(),
+        migrated_pool_base_fee_mode,
+        migrated_pool_market_cap_fee_scheduler_params,
         &curve,
-    );
+    )?;
 
     // re-validate total locked liquidity
     require!(
