@@ -13,6 +13,7 @@ pub fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSw
         current_point,
         amount_0: amount_out,
         amount_1: maximum_amount_in,
+        eligible_for_first_swap_with_min_fee,
         ..
     } = params;
 
@@ -22,6 +23,7 @@ pub fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSw
         fee_mode,
         trade_direction,
         current_point,
+        eligible_for_first_swap_with_min_fee,
     )?;
 
     let included_fee_input_amount = swap_result.included_fee_input_amount;

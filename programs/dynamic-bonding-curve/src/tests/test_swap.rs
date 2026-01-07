@@ -63,6 +63,7 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
         0,
         0,
         1_000_000_000_000,
+        false,
     );
     let user = UserBalance {
         base_balance: 0,
@@ -70,6 +71,7 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
     };
     (config, pool, user)
 }
+
 #[test]
 fn test_swap() {
     let (config, pool, _user) = initialize_pool_and_config();
@@ -84,6 +86,7 @@ fn test_swap() {
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
+            false,
         )
         .unwrap();
     println!("{:?}", result);
@@ -139,6 +142,7 @@ fn simulate_swap_exact_in(
             &fee_mode,
             trade_direction,
             current_timestamp,
+            false,
         )
         .unwrap();
 
@@ -169,6 +173,7 @@ fn simulate_swap_exact_out(
         &fee_mode,
         trade_direction,
         current_timestamp,
+        false,
     ) {
         Ok(swap_exact_out_result) => {
             if trade_direction == TradeDirection::BaseToQuote

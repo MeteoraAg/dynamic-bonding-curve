@@ -109,6 +109,7 @@ export type ConfigParameters = {
   migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams | null;
   partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
   creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
+  enableFirstSwapWithMinFee: boolean;
   curve: Array<LiquidityDistributionParameters>;
 };
 
@@ -149,7 +150,7 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
-      padding: new Array(5).fill(0),
+      padding: new Array(4).fill(0),
     })
     .accountsPartial({
       config: config.publicKey,

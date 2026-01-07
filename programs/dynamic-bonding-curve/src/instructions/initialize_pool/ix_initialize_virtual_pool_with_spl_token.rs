@@ -243,6 +243,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
+        config.is_first_swap_with_min_fee_enabled(),
     );
 
     emit_cpi!(EvtInitializePool {

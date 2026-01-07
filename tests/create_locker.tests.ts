@@ -138,6 +138,7 @@ describe("Create locker", () => {
         poolCreationFee: new BN(0),
         migratedPoolBaseFeeMode: 0,
         migratedPoolMarketCapFeeSchedulerParams: null,
+        enableFirstSwapWithMinFee: false,
         curve: curves,
       };
       const params: CreateConfigParams<ConfigParameters> = {
@@ -323,6 +324,7 @@ describe("Create locker", () => {
         poolCreationFee: new BN(0),
         migratedPoolBaseFeeMode: 0,
         migratedPoolMarketCapFeeSchedulerParams: null,
+        enableFirstSwapWithMinFee: false,
         curve: curves,
       };
       const params: CreateConfigParams<ConfigParameters> = {

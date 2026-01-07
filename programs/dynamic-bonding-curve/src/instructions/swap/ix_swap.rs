@@ -1,5 +1,7 @@
 use std::u64;
 
+use crate::instruction::InitializeVirtualPoolWithSplToken;
+use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
 use crate::math::safe_math::SafeMath;
@@ -182,6 +184,14 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         }
     }
 
+    let eligible_for_first_swap_with_min_fee =
+        pool.is_first_swap_with_min_fee_enabled() && !pool.is_first_swap_occurred();
+
+    if eligible_for_first_swap_with_min_fee {
+        validate_first_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
+        pool.update_first_swap_occurrence();
+    }
+
     // validate if it is over threshold
     require!(
         !pool.is_curve_complete(config.migration_quote_threshold),
@@ -202,6 +212,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         current_point,
         amount_0,
         amount_1,
+        eligible_for_first_swap_with_min_fee,
     };
 
     let ProcessSwapResult {
@@ -401,4 +412,52 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
         return instruction.accounts[2].pubkey.eq(pool);
     }
     false
+}
+
+pub fn validate_first_swap_instruction<'c, 'info>(
+    pool: &Pubkey,
+    remaining_accounts: &'c [AccountInfo<'info>],
+) -> Result<()> {
+    let instruction_sysvar_account_info = remaining_accounts
+        .get(0)
+        .ok_or_else(|| PoolError::FirstSwapValidationFailed)?;
+
+    // get current index of instruction
+    let current_index =
+        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
+
+    let current_instruction = sysvar::instructions::load_instruction_at_checked(
+        current_index.into(),
+        instruction_sysvar_account_info,
+    )?;
+
+    require!(
+        current_instruction.program_id == crate::ID,
+        PoolError::FirstSwapValidationFailed
+    );
+
+    for i in 0..current_index {
+        let instruction = sysvar::instructions::load_instruction_at_checked(
+            i.into(),
+            instruction_sysvar_account_info,
+        )?;
+
+        if instruction.program_id == crate::ID {
+            let disc = &instruction.data[..8];
+            if disc.eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
+                || disc.eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR)
+            {
+                const VIRTUAL_POOL_ACCOUNT_INDEX: usize = 5;
+                let Some(account) = instruction.accounts.get(VIRTUAL_POOL_ACCOUNT_INDEX) else {
+                    continue;
+                };
+
+                if account.pubkey.eq(pool) {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    Err(PoolError::FirstSwapValidationFailed.into())
 }

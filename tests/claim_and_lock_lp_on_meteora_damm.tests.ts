@@ -132,6 +132,7 @@ async function createPartnerConfig(
     migratedPoolMarketCapFeeSchedulerParams: null,
     poolCreationFee: new BN(0),
     curve: curves,
+    enableFirstSwapWithMinFee: false,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer,
