@@ -7,4 +7,3 @@ edition = "2021"
 [dependencies]
 anchor-lang = { workspace = true }
 bytemuck = { workspace = true, features = ["min_const_generics"] }
-num_enum = "0.7.0"

@@ -8,30 +8,27 @@ use damm_v2::{
     accounts::PodAlignedFeeTimeScheduler,
     types::{
         AddLiquidityParameters, InitializeCustomizablePoolParameters, InitializePoolParameters,
-        PoolFeeParameters,
     },
 };
 use ruint::aliases::U512;
 
 use crate::{
     activation_handler::ActivationType,
-    calculate_dynamic_fee_params,
     const_pda::{self, pool_authority::BUMP},
-    constants::{
-        fee::FEE_DENOMINATOR, seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
-    },
+    constants::{seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     convert_collect_fee_mode_to_dammv2,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
-    flash_rent,
-    params::fee_parameters::{to_bps, to_numerator},
+    damm_v2_utils, flash_rent,
+    params::fee_parameters::to_bps,
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
-    DammV2DynamicFee, PoolError,
+    PoolError,
 };
+use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
@@ -152,31 +149,11 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 self.system_program.to_account_info(),
                 || {
                     if migration_fee_option == MigrationFeeOption::Customizable {
-                        let base_fee_numerator = to_numerator(
-                            config.migrated_pool_fee_bps.into(),
-                            FEE_DENOMINATOR.into(),
-                        )?;
-
-                        let base_fee = config.get_base_fee_parameters(base_fee_numerator)?;
-
-                        let migrated_dynamic_fee =
-                            DammV2DynamicFee::try_from(config.migrated_dynamic_fee)
-                                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-
-                        let dynamic_fee_params = if migrated_dynamic_fee == DammV2DynamicFee::Enable
-                        {
-                            Some(calculate_dynamic_fee_params(base_fee_numerator)?)
-                        } else {
-                            None
-                        };
-
-                        let pool_fees = PoolFeeParameters {
-                            base_fee,
-                            dynamic_fee: dynamic_fee_params,
-                        };
+                        let pool_fees = config.build_damm_v2_pool_fee_params()?;
 
                         let collect_fee_mode =
                             convert_collect_fee_mode_to_dammv2(config.migrated_collect_fee_mode)?;
+
                         let initialize_pool_params = InitializeCustomizablePoolParameters {
                             pool_fees,
                             sqrt_min_price: MIN_SQRT_PRICE,
@@ -481,39 +458,36 @@ fn validate_config_key(
         | MigrationFeeOption::FixedBps200
         | MigrationFeeOption::FixedBps400
         | MigrationFeeOption::FixedBps600 => {
-            const BASE_FEE_MODE_OFFSET: usize = 8;
-            let base_fee_mode = damm_config
-                .pool_fees
-                .base_fee
-                .data
-                .get(BASE_FEE_MODE_OFFSET)
-                .ok_or_else(|| PoolError::UndeterminedError)?;
-
-            let base_fee_mode = damm_v2::BaseFeeMode::try_from(*base_fee_mode)
-                .map_err(|_| PoolError::TypeCastFailed)?;
-
-            // Validate it's fee scheduler linear | exponential
-            require!(
-                base_fee_mode == damm_v2::BaseFeeMode::FeeTimeSchedulerLinear
-                    || base_fee_mode == damm_v2::BaseFeeMode::FeeTimeSchedulerExponential,
-                PoolError::InvalidConfigAccount
-            );
-
             let fee_scheduler = bytemuck::try_from_bytes::<PodAlignedFeeTimeScheduler>(
                 &damm_config.pool_fees.base_fee.data,
             )
             .map_err(|_| PoolError::UndeterminedError)?;
 
+            let base_fee_mode: DammV2BaseFeeMode = fee_scheduler
+                .base_fee_mode
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?;
+
+            // Validate it's fee scheduler linear | exponential
+            require!(
+                base_fee_mode == DammV2BaseFeeMode::FeeTimeSchedulerLinear
+                    || base_fee_mode == DammV2BaseFeeMode::FeeTimeSchedulerExponential,
+                PoolError::InvalidConfigAccount
+            );
+
             let base_fee_bps = to_bps(
                 fee_scheduler.cliff_fee_numerator.into(),
-                1_000_000_000, // damm v2 using the same fee denominator with virtual curve
+                damm_v2::constants::FEE_DENOMINATOR.into(),
             )?;
 
             // Validate no schedule
             require!(
-                fee_scheduler.period_frequency == 0,
+                fee_scheduler.period_frequency == 0
+                    && fee_scheduler.reduction_factor == 0
+                    && fee_scheduler.number_of_period == 0,
                 PoolError::InvalidConfigAccount
             );
+
             migration_fee_option.validate_base_fee(base_fee_bps)?;
 
             require!(

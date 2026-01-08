@@ -5,6 +5,7 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
+    calculate_dynamic_fee_params,
     constants::{
         fee::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR,
@@ -12,17 +13,25 @@ use crate::{
         },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
-    get_max_unlocked_liquidity_at_current_point,
+    damm_v2_utils, get_max_unlocked_liquidity_at_current_point,
     params::{
-        fee_parameters::PoolFeeParameters,
+        fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
         swap::TradeDirection,
     },
     safe_math::{SafeCast, SafeMath},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
+    DammV2DynamicFee, LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee,
+    PoolError,
 };
+use damm_v2::types::BaseFeeParameters as DammV2BaseFeeParameters;
+use damm_v2::types::BorshFeeMarketCapScheduler as DammV2BorshFeeMarketCapScheduler;
+use damm_v2::types::BorshFeeTimeScheduler as DammV2BorshFeeTimeScheduler;
+use damm_v2::types::DynamicFeeParameters as DammV2DynamicFeeParameters;
+use damm_v2::types::PoolFeeParameters as DammV2PoolFeeParameters;
+use damm_v2::types::VestingParameters as DammV2VestingParameters;
+use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
@@ -614,7 +623,7 @@ impl LiquidityVestingInfo {
         &self,
         total_vested_liquidity: u128,
         current_timestamp: u64,
-    ) -> Result<damm_v2::types::VestingParameters> {
+    ) -> Result<DammV2VestingParameters> {
         let mut frequency = self.frequency;
         let mut number_of_period = self.number_of_periods;
         let mut cliff_duration_from_migration_time = self.cliff_duration_from_migration_time;
@@ -650,7 +659,7 @@ impl LiquidityVestingInfo {
 
         let cliff_point = current_timestamp.safe_add(cliff_duration_from_migration_time.into())?;
 
-        Ok(damm_v2::types::VestingParameters {
+        Ok(DammV2VestingParameters {
             cliff_point: Some(cliff_point),
             liquidity_per_period,
             cliff_unlock_liquidity,
@@ -760,8 +769,11 @@ impl PoolConfig {
 
         self.migrated_pool_base_fee_mode = migrated_pool_base_fee_mode;
 
-        self.migrated_pool_base_fee_bytes = migrated_pool_market_cap_fee_scheduler
-            .try_to_vec()?
+        let mut migrated_pool_fees_bytes =
+            Vec::with_capacity(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE);
+        migrated_pool_market_cap_fee_scheduler.serialize(&mut migrated_pool_fees_bytes)?;
+
+        self.migrated_pool_base_fee_bytes = migrated_pool_fees_bytes
             .try_into()
             .map_err(|_| PoolError::UndeterminedError)?;
 
@@ -1005,47 +1017,66 @@ impl PoolConfig {
         Ok(total_locked_liquidity_bps_at_n_seconds)
     }
 
-    pub fn get_base_fee_parameters(
+    fn build_damm_v2_dynamic_fee_params(
         &self,
-        cliff_fee_numerator: u64,
-    ) -> Result<damm_v2::types::BaseFeeParameters> {
-        let base_fee_mode = damm_v2::BaseFeeMode::try_from(self.migrated_pool_base_fee_mode)
+        base_fee_numerator: u64,
+    ) -> Result<Option<DammV2DynamicFeeParameters>> {
+        let migrated_dynamic_fee: DammV2DynamicFee = self
+            .migrated_dynamic_fee
+            .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?;
 
-        let data: [u8; 30] = match base_fee_mode {
-            // This is the default mode with fixed fee
-            damm_v2::BaseFeeMode::FeeTimeSchedulerLinear
-            | damm_v2::BaseFeeMode::FeeTimeSchedulerExponential => {
-                let fee_time_scheduler = damm_v2::types::BorshFeeTimeScheduler {
+        match migrated_dynamic_fee {
+            DammV2DynamicFee::Disable => Ok(None),
+            DammV2DynamicFee::Enable => Ok(calculate_dynamic_fee_params(base_fee_numerator).ok()),
+        }
+    }
+
+    fn build_damm_v2_base_fee_params(
+        &self,
+        cliff_fee_numerator: u64,
+    ) -> Result<DammV2BaseFeeParameters> {
+        let base_fee_mode: DammV2BaseFeeMode = self
+            .migrated_pool_base_fee_mode
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        // 30 length
+        // https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/params/fee_parameters.rs#L25
+        let mut data = Vec::with_capacity(30);
+
+        match base_fee_mode {
+            DammV2BaseFeeMode::FeeTimeSchedulerExponential
+            | DammV2BaseFeeMode::FeeTimeSchedulerLinear => {
+                DammV2BorshFeeTimeScheduler {
                     base_fee_mode: self.migrated_pool_base_fee_mode,
                     cliff_fee_numerator,
+                    // Old behavior is fixed fee bps for migrated pool
                     ..Default::default()
-                };
-                fee_time_scheduler
-                    .try_to_vec()?
-                    .try_into()
-                    .map_err(|_| PoolError::UndeterminedError)?
+                }
+                .serialize(&mut data)?;
             }
-            damm_v2::BaseFeeMode::FeeMarketCapSchedulerExponential
-            | damm_v2::BaseFeeMode::FeeMarketCapSchedulerLinear => {
-                let saved_market_cap_fee_info =
-                    MigratedPoolMarketCapFeeSchedulerParams::try_from_slice(
-                        &self.migrated_pool_base_fee_bytes,
-                    )?;
-                let market_cap_fee_scheduler = damm_v2::types::BorshFeeMarketCapScheduler {
+            DammV2BaseFeeMode::FeeMarketCapSchedulerExponential
+            | DammV2BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let MigratedPoolMarketCapFeeSchedulerParams {
+                    number_of_period,
+                    sqrt_price_step_bps,
+                    scheduler_expiration_duration,
+                    reduction_factor,
+                } = MigratedPoolMarketCapFeeSchedulerParams::try_from_slice(
+                    &self.migrated_pool_base_fee_bytes,
+                )?;
+
+                DammV2BorshFeeMarketCapScheduler {
                     base_fee_mode: self.migrated_pool_base_fee_mode,
                     cliff_fee_numerator,
-                    number_of_period: saved_market_cap_fee_info.number_of_period,
-                    sqrt_price_step_bps: saved_market_cap_fee_info.sqrt_price_step_bps.into(),
-                    scheduler_expiration_duration: saved_market_cap_fee_info
-                        .scheduler_expiration_duration,
-                    reduction_factor: saved_market_cap_fee_info.reduction_factor,
+                    number_of_period,
+                    sqrt_price_step_bps: sqrt_price_step_bps.into(),
+                    scheduler_expiration_duration,
+                    reduction_factor,
                     padding: [0; 3],
-                };
-                market_cap_fee_scheduler
-                    .try_to_vec()?
-                    .try_into()
-                    .map_err(|_| PoolError::UndeterminedError)?
+                }
+                .serialize(&mut data)?;
             }
             _ => {
                 // Shall be unreachable since we have validated during initialization
@@ -1053,7 +1084,26 @@ impl PoolConfig {
             }
         };
 
-        Ok(damm_v2::types::BaseFeeParameters { data })
+        Ok(DammV2BaseFeeParameters {
+            data: data.try_into().map_err(|_| PoolError::UndeterminedError)?,
+        })
+    }
+
+    pub fn build_damm_v2_pool_fee_params(&self) -> Result<DammV2PoolFeeParameters> {
+        let base_fee_numerator = to_numerator(
+            self.migrated_pool_fee_bps.into(),
+            damm_v2::constants::FEE_DENOMINATOR.into(),
+        )?;
+
+        let base_fee = self.build_damm_v2_base_fee_params(base_fee_numerator)?;
+        let dynamic_fee = self.build_damm_v2_dynamic_fee_params(base_fee_numerator)?;
+
+        let pool_fees = DammV2PoolFeeParameters {
+            base_fee,
+            dynamic_fee,
+        };
+
+        Ok(pool_fees)
     }
 }
 

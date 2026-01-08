@@ -1,8 +1,13 @@
+use std::ops::Deref;
+
 use anchor_lang::prelude::*;
 use damm_v2::types::{DynamicFeeParameters, VestingParameters};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::{constants::dynamic_fee::*, safe_math::SafeMath, PoolError};
+use crate::{
+    constants::dynamic_fee::*, fee_math::get_fee_in_period,
+    params::fee_parameters::validate_fee_fraction, safe_math::SafeMath, PoolError,
+};
 
 /// DammV2 DynamicFee
 #[repr(u8)]
@@ -145,4 +150,121 @@ pub fn validate_vesting_parameters(
     );
 
     Ok(())
+}
+
+// https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/constants.rs#L151
+pub fn get_max_fee_numerator(pool_version: u8) -> Result<u64> {
+    match pool_version {
+        0 => Ok(damm_v2::constants::MAX_FEE_NUMERATOR_V0),
+        1 => Ok(damm_v2::constants::MAX_FEE_NUMERATOR_V1),
+        // Shall not happen because pool version is retrieved from on-chain data
+        _ => Err(anchor_lang::error::ErrorCode::RequireViolated.into()),
+    }
+}
+
+// https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/state/fee.rs#L46
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum BaseFeeMode {
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = (current_point - activation_point) / period_frequency
+    FeeTimeSchedulerLinear,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    FeeTimeSchedulerExponential,
+    // rate limiter
+    RateLimiter,
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = changed_price / sqrt_price_step_bps
+    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 / init_sqrt_price / sqrt_price_step_bps
+    FeeMarketCapSchedulerLinear,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    FeeMarketCapSchedulerExponential,
+}
+
+pub struct DammV2PodAlignedFeeMarketCapScheduler(
+    pub(crate) damm_v2::accounts::PodAlignedFeeMarketCapScheduler,
+);
+
+impl Deref for DammV2PodAlignedFeeMarketCapScheduler {
+    type Target = damm_v2::accounts::PodAlignedFeeMarketCapScheduler;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+// https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/base_fee/fee_market_cap_scheduler.rs#L167
+impl DammV2PodAlignedFeeMarketCapScheduler {
+    pub fn validate(&self) -> Result<()> {
+        // doesn't allow zero fee marketcap scheduler
+        require!(
+            self.reduction_factor > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.sqrt_price_step_bps > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.scheduler_expiration_duration > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.number_of_period > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        let min_fee_numerator = self.get_min_base_fee_numerator()?;
+        let max_fee_numerator = self.cliff_fee_numerator;
+        validate_fee_fraction(min_fee_numerator, damm_v2::constants::FEE_DENOMINATOR)?;
+        validate_fee_fraction(max_fee_numerator, damm_v2::constants::FEE_DENOMINATOR)?;
+
+        require!(
+            min_fee_numerator >= damm_v2::constants::MIN_FEE_NUMERATOR
+                && max_fee_numerator
+                    <= get_max_fee_numerator(damm_v2::constants::CURRENT_POOL_VERSION)?,
+            PoolError::ExceedMaxFeeBps
+        );
+
+        Ok(())
+    }
+
+    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        self.get_base_fee_numerator_by_period(self.number_of_period.into())
+    }
+
+    fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
+        let period = period.min(self.number_of_period.into());
+
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
+
+        match base_fee_mode {
+            BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let fee_numerator = self
+                    .cliff_fee_numerator
+                    .safe_sub(self.reduction_factor.safe_mul(period)?)?;
+                Ok(fee_numerator)
+            }
+            BaseFeeMode::FeeMarketCapSchedulerExponential => {
+                let period = u16::try_from(period).map_err(|_| PoolError::MathOverflow)?;
+                let fee_numerator =
+                    get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
+                Ok(fee_numerator)
+            }
+            _ => Err(PoolError::UndeterminedError.into()),
+        }
+    }
 }
