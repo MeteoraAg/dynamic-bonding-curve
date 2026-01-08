@@ -263,7 +263,6 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
-        config.is_first_swap_with_min_fee_enabled(),
     );
 
     emit_cpi!(EvtInitializePool {

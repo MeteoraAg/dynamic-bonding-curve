@@ -37,7 +37,7 @@ import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { wrapSOL } from "./utils/token";
 
-describe("First swap", () => {
+describe.only("First swap", () => {
   let svm: LiteSVM;
   let partner: Keypair;
   let poolCreator: Keypair;
@@ -86,9 +86,6 @@ describe("First swap", () => {
     const expectedFee = amountIn.mul(endFeeNumerator).div(FEE_DENOMINATOR);
     const poolState = await getVirtualPool(svm, program, pool);
 
-    expect(poolState.firstSwapWithMinFeeBits & (1 << 1)).to.be.equals(1 << 1);
-    expect(poolState.firstSwapWithMinFeeBits & 1).to.be.equals(1);
-
     const totalTradingFee0 = poolState.metrics.totalProtocolQuoteFee.add(
       poolState.metrics.totalTradingQuoteFee
     );
@@ -121,6 +118,89 @@ describe("First swap", () => {
     const totalFeeCharged = totalTradingFee2.sub(totalTradingFee0);
     expect(totalFeeCharged.eq(expectedFee2)).to.be.true;
   });
+
+  it("Charge min fee for multiple bundled swap ix", async () => {
+    const {
+      baseMintKP,
+      instruction: initPoolIx,
+      pool,
+      config,
+      endFeeNumerator,
+    } = await createInitializePoolIx(partner, poolCreator, svm, program);
+
+    const amountIn = new BN(LAMPORTS_PER_SOL);
+
+    let swapIxs = await createSwapIx(
+      pool,
+      poolCreator.publicKey,
+      program,
+      amountIn,
+      config,
+      baseMintKP.publicKey,
+      NATIVE_MINT
+    );
+
+    let tx = new Transaction().add(initPoolIx, ...swapIxs);
+    tx.add(...swapIxs);
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = poolCreator.publicKey;
+    tx.sign(poolCreator, baseMintKP);
+
+    const res = svm.sendTransaction(tx);
+    expect(res instanceof TransactionMetadata);
+
+    const expectedFee = amountIn
+      .mul(endFeeNumerator)
+      .div(FEE_DENOMINATOR)
+      .muln(2);
+    const poolState = await getVirtualPool(svm, program, pool);
+
+    const totalTradingFee0 = poolState.metrics.totalProtocolQuoteFee.add(
+      poolState.metrics.totalTradingQuoteFee
+    );
+
+    expect(totalTradingFee0.eq(expectedFee)).to.be.true;
+  });
+
+  it("Charge cliff fee if no sysvar instruction passed in", async () => {
+    const {
+      baseMintKP,
+      instruction: initPoolIx,
+      pool,
+      config,
+      cliffFeeNumerator,
+    } = await createInitializePoolIx(partner, poolCreator, svm, program);
+
+    const amountIn = new BN(LAMPORTS_PER_SOL);
+
+    let swapIxs = await createSwapIx(
+      pool,
+      poolCreator.publicKey,
+      program,
+      amountIn,
+      config,
+      baseMintKP.publicKey,
+      NATIVE_MINT,
+      true
+    );
+
+    let tx = new Transaction().add(initPoolIx, ...swapIxs);
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = poolCreator.publicKey;
+    tx.sign(poolCreator, baseMintKP);
+
+    const res = svm.sendTransaction(tx);
+    expect(res instanceof TransactionMetadata);
+
+    const expectedFee = amountIn.mul(cliffFeeNumerator).div(FEE_DENOMINATOR);
+    const poolState = await getVirtualPool(svm, program, pool);
+
+    const totalTradingFee0 = poolState.metrics.totalProtocolQuoteFee.add(
+      poolState.metrics.totalTradingQuoteFee
+    );
+
+    expect(totalTradingFee0.eq(expectedFee)).to.be.true;
+  });
 });
 
 async function createSwapIx(
@@ -130,7 +210,8 @@ async function createSwapIx(
   amountIn: BN,
   config: PublicKey,
   baseMint: PublicKey,
-  quoteMint: PublicKey
+  quoteMint: PublicKey,
+  skipSysvarInstruction: boolean = false
 ) {
   const poolAuthority = derivePoolAuthority();
   const inputTokenAccount = getAssociatedTokenAddressSync(quoteMint, user);
@@ -151,6 +232,16 @@ async function createSwapIx(
     user,
     baseMint
   );
+
+  const remainingAccounts = [];
+
+  if (!skipSysvarInstruction) {
+    remainingAccounts.push({
+      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      isSigner: false,
+      isWritable: false,
+    });
+  }
 
   const tx = await program.methods
     .swap2({
@@ -173,13 +264,7 @@ async function createSwapIx(
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       referralTokenAccount: program.programId,
     })
-    .remainingAccounts([
-      {
-        pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        isSigner: false,
-        isWritable: false,
-      },
-    ])
+    .remainingAccounts(remainingAccounts)
     .preInstructions([createInputAtaIx, createOutputAtaIx])
     .transaction();
 

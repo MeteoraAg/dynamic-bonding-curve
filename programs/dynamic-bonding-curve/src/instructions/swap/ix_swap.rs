@@ -184,13 +184,8 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         }
     }
 
-    let eligible_for_first_swap_with_min_fee =
-        pool.is_first_swap_with_min_fee_enabled() && !pool.is_first_swap_occurred();
-
-    if eligible_for_first_swap_with_min_fee {
-        validate_first_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
-        pool.update_first_swap_occurrence();
-    }
+    let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
+        && contain_initialize_pool_ix_and_no_cpi(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
 
     // validate if it is over threshold
     require!(
@@ -414,15 +409,23 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
     false
 }
 
-pub fn validate_first_swap_instruction<'c, 'info>(
+// Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
+pub fn contain_initialize_pool_ix_and_no_cpi<'c, 'info>(
     pool: &Pubkey,
     remaining_accounts: &'c [AccountInfo<'info>],
-) -> Result<()> {
+) -> Result<bool> {
+    if remaining_accounts.is_empty() {
+        return Ok(false);
+    }
+
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)
         .ok_or_else(|| PoolError::FirstSwapValidationFailed)?;
 
-    // get current index of instruction
+    if instruction_sysvar_account_info.key != &sysvar::instructions::ID {
+        return Ok(false);
+    }
+
     let current_index =
         sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
 
@@ -431,10 +434,9 @@ pub fn validate_first_swap_instruction<'c, 'info>(
         instruction_sysvar_account_info,
     )?;
 
-    require!(
-        current_instruction.program_id == crate::ID,
-        PoolError::FirstSwapValidationFailed
-    );
+    if current_instruction.program_id != crate::ID {
+        return Ok(false);
+    }
 
     for i in 0..current_index {
         let instruction = sysvar::instructions::load_instruction_at_checked(
@@ -444,6 +446,7 @@ pub fn validate_first_swap_instruction<'c, 'info>(
 
         if instruction.program_id == crate::ID {
             let disc = &instruction.data[..8];
+
             if disc.eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
                 || disc.eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR)
             {
@@ -453,11 +456,11 @@ pub fn validate_first_swap_instruction<'c, 'info>(
                 };
 
                 if account.pubkey.eq(pool) {
-                    return Ok(());
+                    return Ok(true);
                 }
             }
         }
     }
 
-    Err(PoolError::FirstSwapValidationFailed.into())
+    Ok(false)
 }
