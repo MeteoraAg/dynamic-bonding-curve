@@ -213,6 +213,8 @@ pub struct MigratedPoolMarketCapFeeSchedulerParams {
     pub reduction_factor: u64,
 }
 
+const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct TokenSupplyParams {
     /// pre migration token supply
