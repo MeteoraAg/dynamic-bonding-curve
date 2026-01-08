@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Endpoint `swap` and `swap2` require sysvar instruction account to be passed in remaining accounts if the config used to initialize the pool have `enable_first_swap_with_min_fee` as `true`
+- Endpoint `swap` and `swap2` require sysvar instruction account to be passed in remaining accounts if the config have `enable_first_swap_with_min_fee` as `true` to enjoy minimum swap fee. Else, it will charge normal fee.
 
 ## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
 
