@@ -7,3 +7,5 @@ node_modules
 test-ledger
 .yarn
 proptest-regressions
+
+deploy.sh
