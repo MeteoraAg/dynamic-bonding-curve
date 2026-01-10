@@ -241,7 +241,7 @@ impl DammV2PodAlignedFeeMarketCapScheduler {
         Ok(())
     }
 
-    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
         self.get_base_fee_numerator_by_period(self.number_of_period.into())
     }
 
