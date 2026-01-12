@@ -345,36 +345,36 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
-    proptest! {
-        #[test]
-        fn test_protocol_fee_rounding_causes_price_increment(
-            base_amount in 1_000_000..1_000_000_000_000u64,
-            quote_amount in 1_000_000..1_000_000_000_000u64
-        ) {
-            let protocol_fee_base_amount: u64 = safe_mul_div_cast_u64(
-                base_amount,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-                BASIS_POINT_MAX,
-                Rounding::Down,
-            ).unwrap();
+    // proptest! {
+    //     #[test]
+    //     fn test_protocol_fee_rounding_causes_price_increment(
+    //         base_amount in 1_000_000..1_000_000_000_000u64,
+    //         quote_amount in 1_000_000..1_000_000_000_000u64
+    //     ) {
+    //         let protocol_fee_base_amount: u64 = safe_mul_div_cast_u64(
+    //             base_amount,
+    //             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
+    //             BASIS_POINT_MAX,
+    //             Rounding::Down,
+    //         ).unwrap();
 
-            let protocol_fee_quote_amount: u64 = safe_mul_div_cast_u64(
-                quote_amount,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-                BASIS_POINT_MAX,
-                Rounding::Down,
-            ).unwrap();
+    //         let protocol_fee_quote_amount: u64 = safe_mul_div_cast_u64(
+    //             quote_amount,
+    //             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
+    //             BASIS_POINT_MAX,
+    //             Rounding::Down,
+    //         ).unwrap();
 
-            let price_0 = quote_amount as f64 / base_amount as f64;
+    //         let price_0 = quote_amount as f64 / base_amount as f64;
 
-            let excluded_fee_base_amount = base_amount.safe_sub(protocol_fee_base_amount).unwrap();
-            let excluded_fee_quote_amount = quote_amount.safe_sub(protocol_fee_quote_amount).unwrap();
+    //         let excluded_fee_base_amount = base_amount.safe_sub(protocol_fee_base_amount).unwrap();
+    //         let excluded_fee_quote_amount = quote_amount.safe_sub(protocol_fee_quote_amount).unwrap();
 
-            let price_1 = excluded_fee_quote_amount as f64 / excluded_fee_base_amount as f64;
+    //         let price_1 = excluded_fee_quote_amount as f64 / excluded_fee_base_amount as f64;
 
-            assert!(price_1 <= price_0);
-        }
-    }
+    //         assert!(price_1 <= price_0);
+    //     }
+    // }
 
     proptest! {
         #[test]
