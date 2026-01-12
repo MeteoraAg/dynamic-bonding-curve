@@ -187,6 +187,10 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
         && contain_initialize_pool_ix_and_no_cpi(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
 
+    if eligible_for_first_swap_with_min_fee {
+        validate_single_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
+    }
+
     // validate if it is over threshold
     require!(
         !pool.is_curve_complete(config.migration_quote_threshold),

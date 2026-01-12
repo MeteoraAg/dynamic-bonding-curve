@@ -119,49 +119,6 @@ describe.only("First swap", () => {
     expect(totalFeeCharged.eq(expectedFee2)).to.be.true;
   });
 
-  it("Charge min fee for multiple bundled swap ix", async () => {
-    const {
-      baseMintKP,
-      instruction: initPoolIx,
-      pool,
-      config,
-      endFeeNumerator,
-    } = await createInitializePoolIx(partner, poolCreator, svm, program);
-
-    const amountIn = new BN(LAMPORTS_PER_SOL);
-
-    let swapIxs = await createSwapIx(
-      pool,
-      poolCreator.publicKey,
-      program,
-      amountIn,
-      config,
-      baseMintKP.publicKey,
-      NATIVE_MINT
-    );
-
-    let tx = new Transaction().add(initPoolIx, ...swapIxs);
-    tx.add(...swapIxs);
-    tx.recentBlockhash = svm.latestBlockhash();
-    tx.feePayer = poolCreator.publicKey;
-    tx.sign(poolCreator, baseMintKP);
-
-    const res = svm.sendTransaction(tx);
-    expect(res instanceof TransactionMetadata);
-
-    const expectedFee = amountIn
-      .mul(endFeeNumerator)
-      .div(FEE_DENOMINATOR)
-      .muln(2);
-    const poolState = await getVirtualPool(svm, program, pool);
-
-    const totalTradingFee0 = poolState.metrics.totalProtocolQuoteFee.add(
-      poolState.metrics.totalTradingQuoteFee
-    );
-
-    expect(totalTradingFee0.eq(expectedFee)).to.be.true;
-  });
-
   it("Charge cliff fee if no sysvar instruction passed in", async () => {
     const {
       baseMintKP,
