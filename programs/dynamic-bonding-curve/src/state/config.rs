@@ -1101,10 +1101,6 @@ impl PoolConfig {
     }
 
     fn get_damm_v2_migrated_pool_min_base_fee_numerator(&self) -> Result<u64> {
-        let cliff_fee_numerator = to_numerator(
-            self.migrated_pool_fee_bps.into(),
-            damm_v2::constants::FEE_DENOMINATOR.into(),
-        )?;
         let base_fee_mode: DammV2BaseFeeMode = self
             .migrated_pool_base_fee_mode
             .try_into()
@@ -1114,7 +1110,11 @@ impl PoolConfig {
             DammV2BaseFeeMode::FeeTimeSchedulerExponential
             | DammV2BaseFeeMode::FeeTimeSchedulerLinear => {
                 // We do not support fee time scheduler params. It's fixed fee bps.
-                Ok(cliff_fee_numerator)
+                let base_fee_numerator = to_numerator(
+                    self.migrated_pool_fee_bps.into(),
+                    damm_v2::constants::FEE_DENOMINATOR.into(),
+                )?;
+                Ok(base_fee_numerator)
             }
             DammV2BaseFeeMode::FeeMarketCapSchedulerExponential
             | DammV2BaseFeeMode::FeeMarketCapSchedulerLinear => {
@@ -1125,6 +1125,11 @@ impl PoolConfig {
                     reduction_factor,
                 } = MigratedPoolMarketCapFeeSchedulerParams::try_from_slice(
                     &self.migrated_pool_base_fee_bytes,
+                )?;
+                // cliff fee numerator
+                let cliff_fee_numerator = to_numerator(
+                    self.migrated_pool_fee_bps.into(),
+                    damm_v2::constants::FEE_DENOMINATOR.into(),
                 )?;
 
                 let market_cap_fee_scheduler = DammV2PodAlignedFeeMarketCapScheduler(
