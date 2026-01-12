@@ -123,6 +123,9 @@ describe("Fee Swap test", () => {
           numberOfPeriods: 0,
           frequency: 0,
         },
+        enableFirstSwapWithMinFee: false,
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
       };
       const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
@@ -462,6 +465,9 @@ describe("Fee Swap test", () => {
           frequency: 0,
         },
         poolCreationFee: new BN(0),
+        enableFirstSwapWithMinFee: false,
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
         curve: curves,
       };
       const params: CreateConfigParams<ConfigParameters> = {

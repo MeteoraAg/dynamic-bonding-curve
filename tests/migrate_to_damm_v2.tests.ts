@@ -14,8 +14,11 @@ import {
 } from "./instructions";
 import {
   createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -54,6 +57,12 @@ describe("Migrate to damm v2", () => {
     user = generateAndFund(svm);
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("Admin create claim fee operator", async () => {
@@ -140,6 +149,9 @@ describe("Migrate to damm v2", () => {
       },
       poolCreationFee: new BN(0),
       curve: curves,
+      enableFirstSwapWithMinFee: false,
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
     };
     const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,

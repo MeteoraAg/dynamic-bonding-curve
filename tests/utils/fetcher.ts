@@ -5,6 +5,7 @@ import { createDammV2Program } from "./common";
 import { DynamicAmm } from "./idl/dynamic_amm";
 import {
   ClaimFeeOperator,
+  DammV2Pool,
   LockEscrow,
   MeteoraDammMigrationMetadata,
   PartnerMetadata,
@@ -92,7 +93,7 @@ export function getLockEscrow(
   return program.coder.accounts.decode("lockEscrow", Buffer.from(account.data));
 }
 
-export function getDammV2Pool(svm: LiteSVM, pool: PublicKey) {
+export function getDammV2Pool(svm: LiteSVM, pool: PublicKey): DammV2Pool {
   const account = svm.getAccount(pool);
   const program = createDammV2Program();
   return program.coder.accounts.decode("pool", Buffer.from(account.data));

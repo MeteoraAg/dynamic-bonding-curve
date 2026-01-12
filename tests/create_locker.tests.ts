@@ -15,8 +15,11 @@ import {
 } from "./instructions";
 import {
   createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -133,6 +136,9 @@ describe("Create locker", () => {
           frequency: 0,
         },
         poolCreationFee: new BN(0),
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
+        enableFirstSwapWithMinFee: false,
         curve: curves,
       };
       const params: CreateConfigParams<ConfigParameters> = {
@@ -192,6 +198,15 @@ describe("Create locker", () => {
 
     it("Migrate to Meteora Damm V2 Pool", async () => {
       const poolAuthority = derivePoolAuthority();
+
+      await createDammV2Operator(svm, {
+        whitelistAddress: admin.publicKey,
+        admin,
+        permission: encodePermissions([
+          DammV2OperatorPermission.CreateConfigKey,
+        ]),
+      });
+
       dammConfig = await createDammV2Config(
         svm,
         admin,
@@ -307,6 +322,9 @@ describe("Create locker", () => {
           frequency: 0,
         },
         poolCreationFee: new BN(0),
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
+        enableFirstSwapWithMinFee: false,
         curve: curves,
       };
       const params: CreateConfigParams<ConfigParameters> = {
@@ -366,6 +384,15 @@ describe("Create locker", () => {
 
     it("Migrate to Meteora Damm V2 Pool", async () => {
       const poolAuthority = derivePoolAuthority();
+
+      await createDammV2Operator(svm, {
+        whitelistAddress: admin.publicKey,
+        admin,
+        permission: encodePermissions([
+          DammV2OperatorPermission.CreateConfigKey,
+        ]),
+      });
+
       dammConfig = await createDammV2Config(
         svm,
         admin,

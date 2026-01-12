@@ -107,6 +107,9 @@ describe("Simulate CU swap", () => {
           numberOfPeriods: 0,
           frequency: 0,
         },
+        enableFirstSwapWithMinFee: false,
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
       };
       const createConfigParams: CreateConfigParams<ConfigParameters> = {
         payer: user,

@@ -108,6 +108,9 @@ describe("Create config", () => {
         frequency: 0,
       },
       poolCreationFee: new BN(0),
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
+      enableFirstSwapWithMinFee: false,
       curve: curves,
     };
   });
