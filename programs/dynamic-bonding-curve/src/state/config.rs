@@ -214,6 +214,11 @@ impl PoolFeesConfig {
 
         Ok((trading_fee, protocol_fee, referral_fee))
     }
+
+    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        base_fee_handler.get_min_base_fee_numerator()
+    }
 }
 
 #[zero_copy]
@@ -552,8 +557,9 @@ pub struct PoolConfig {
     /// migrated pool fee in bps
     pub migrated_pool_fee_bps: u16,
     pub migrated_pool_base_fee_mode: u8,
+    pub enable_first_swap_with_min_fee: u8,
     /// padding 1
-    pub _padding_1: [u8; 3],
+    pub _padding_1: [u8; 2],
     /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
     /// padding 2
@@ -724,6 +730,7 @@ impl PoolConfig {
         migrated_pool_base_fee_mode: u8,
         migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
+        enable_creator_first_swap_with_min_fee: u8,
     ) -> Result<()> {
         self.version = 0;
         self.quote_mint = *quote_mint;
@@ -776,6 +783,8 @@ impl PoolConfig {
         self.migrated_pool_base_fee_bytes = migrated_pool_fees_bytes
             .try_into()
             .map_err(|_| PoolError::UndeterminedError)?;
+
+        self.enable_first_swap_with_min_fee = enable_creator_first_swap_with_min_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
@@ -1154,6 +1163,10 @@ impl PoolConfig {
         };
 
         Ok(pool_fees)
+    }
+
+    pub fn is_first_swap_with_min_fee_enabled(&self) -> bool {
+        self.enable_first_swap_with_min_fee == 1
     }
 }
 

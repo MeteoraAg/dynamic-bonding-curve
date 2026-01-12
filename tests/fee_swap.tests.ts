@@ -123,6 +123,7 @@ describe("Fee Swap test", () => {
           numberOfPeriods: 0,
           frequency: 0,
         },
+        enableFirstSwapWithMinFee: false,
         migratedPoolBaseFeeMode: 0,
         migratedPoolMarketCapFeeSchedulerParams: null,
       };
@@ -464,6 +465,7 @@ describe("Fee Swap test", () => {
           frequency: 0,
         },
         poolCreationFee: new BN(0),
+        enableFirstSwapWithMinFee: false,
         migratedPoolBaseFeeMode: 0,
         migratedPoolMarketCapFeeSchedulerParams: null,
         curve: curves,

@@ -307,6 +307,7 @@ async function fullFlow(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    enableFirstSwapWithMinFee: false,
     migratedPoolBaseFeeMode,
     migratedPoolMarketCapFeeSchedulerParams,
   };

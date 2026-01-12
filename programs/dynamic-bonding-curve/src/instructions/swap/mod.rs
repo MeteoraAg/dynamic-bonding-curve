@@ -22,4 +22,5 @@ struct ProcessSwapParams<'a> {
     current_point: u64,
     amount_0: u64,
     amount_1: u64,
+    eligible_for_first_swap_with_min_fee: bool,
 }

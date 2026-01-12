@@ -27,6 +27,7 @@ pub trait BaseFeeHandler {
     ) -> Result<u64>;
 
     fn validate_min_base_fee(&self) -> Result<()>;
+    fn get_min_base_fee_numerator(&self) -> Result<u64>;
 }
 
 pub fn get_base_fee_handler(

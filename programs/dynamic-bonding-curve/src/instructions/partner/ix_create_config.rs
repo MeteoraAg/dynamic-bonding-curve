@@ -60,8 +60,9 @@ pub struct ConfigParameters {
     pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
     pub migrated_pool_base_fee_mode: u8,
     pub migrated_pool_market_cap_fee_scheduler_params: MigratedPoolMarketCapFeeSchedulerParams,
+    pub enable_first_swap_with_min_fee: bool,
     /// padding for future use
-    pub padding: [u8; 5],
+    pub padding: [u8; 4],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -569,6 +570,7 @@ pub fn handle_create_config(
         creator_liquidity_vesting_info,
         migrated_pool_base_fee_mode,
         migrated_pool_market_cap_fee_scheduler_params,
+        enable_first_swap_with_min_fee,
         ..
     } = config_parameters.clone();
 
@@ -683,6 +685,7 @@ pub fn handle_create_config(
         migrated_pool_base_fee_mode,
         migrated_pool_market_cap_fee_scheduler_params,
         &curve,
+        enable_first_swap_with_min_fee.into(),
     )?;
 
     // re-validate total locked liquidity

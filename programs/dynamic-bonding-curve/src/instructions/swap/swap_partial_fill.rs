@@ -13,6 +13,7 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         fee_mode,
         trade_direction,
         current_point,
+        eligible_for_first_swap_with_min_fee,
     } = params;
 
     let swap_result = pool.get_swap_result_from_partial_input(
@@ -21,6 +22,7 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         fee_mode,
         trade_direction,
         current_point,
+        eligible_for_first_swap_with_min_fee,
     )?;
 
     require!(
