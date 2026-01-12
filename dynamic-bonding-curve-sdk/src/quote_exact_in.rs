@@ -13,7 +13,7 @@ pub fn quote_exact_in(
     current_slot: u64,
     in_amount: u64,
     has_referral: bool,
-    is_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
+    eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
 ) -> Result<SwapResult2> {
     ensure!(
         !pool.is_curve_complete(config.migration_quote_threshold),
@@ -42,7 +42,7 @@ pub fn quote_exact_in(
         fee_mode,
         trade_direction,
         current_point,
-        is_first_swap_with_min_fee,
+        eligible_for_first_swap_with_min_fee,
     )?;
 
     Ok(swap_result)
