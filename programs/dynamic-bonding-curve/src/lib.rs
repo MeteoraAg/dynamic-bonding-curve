@@ -156,7 +156,10 @@ pub mod dynamic_bonding_curve {
     }
 
     /// TRADING BOTS FUNCTIONS ////
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+    pub fn swap<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+        params: SwapParameters,
+    ) -> Result<()> {
         instructions::handle_swap_wrapper(
             ctx,
             SwapParameters2 {
@@ -168,7 +171,10 @@ pub mod dynamic_bonding_curve {
         )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    pub fn swap2<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+        params: SwapParameters2,
+    ) -> Result<()> {
         instructions::handle_swap_wrapper(ctx, params)
     }
 

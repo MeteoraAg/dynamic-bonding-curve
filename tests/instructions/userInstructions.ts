@@ -52,11 +52,15 @@ export type CreatePoolSplTokenParams = {
 
 export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
 
-export async function createPoolWithSplToken(
+export async function createInitializePoolWithSplTokenIx(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreatePoolSplTokenParams
-): Promise<PublicKey> {
+): Promise<{
+  instruction: TransactionInstruction;
+  pool: PublicKey;
+  baseMintKP: Keypair;
+}> {
   const { payer, quoteMint, poolCreator, config, instructionParams } = params;
   const configState = getConfig(svm, program, config);
 
@@ -69,8 +73,8 @@ export async function createPoolWithSplToken(
   const mintMetadata = deriveMetadataAccount(baseMintKP.publicKey);
 
   const tokenProgram =
-    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-  const transaction = await program.methods
+  configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  const instruction = await program.methods
     .initializeVirtualPoolWithSplToken(instructionParams)
     .accountsPartial({
       config,
@@ -87,11 +91,33 @@ export async function createPoolWithSplToken(
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram,
     })
-    .transaction();
+    .instruction();
+
+  return {
+    instruction,
+    pool,
+    baseMintKP,
+  };
+}
+
+export async function createPoolWithSplToken(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreatePoolSplTokenParams
+): Promise<PublicKey> {
+  const { instruction, pool, baseMintKP } =
+    await createInitializePoolWithSplTokenIx(svm, program, params);
+
+  const { payer, poolCreator } = params;
+
+  const transaction = new Transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+
   transaction.add(
     ComputeBudgetProgram.setComputeUnitLimit({
       units: 400_000,
-    })
+    }),
+    instruction
   );
 
   sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);

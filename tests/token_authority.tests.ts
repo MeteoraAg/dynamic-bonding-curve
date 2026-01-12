@@ -522,6 +522,9 @@ async function createPool(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    enableFirstSwapWithMinFee: false,
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,

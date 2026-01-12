@@ -148,6 +148,9 @@ describe("Full flow with spl-token", () => {
         numberOfPeriods: 0,
         frequency: 0,
       },
+      enableFirstSwapWithMinFee: false,
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {

@@ -331,6 +331,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         );
         Ok(())
     }
+
     fn get_base_fee_numerator_from_included_fee_amount(
         &self,
         current_point: u64,
@@ -365,5 +366,9 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidMinBaseFee
         );
         Ok(())
+    }
+
+    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        Ok(self.cliff_fee_numerator)
     }
 }

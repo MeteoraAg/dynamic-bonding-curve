@@ -172,4 +172,10 @@ pub enum PoolError {
 
     #[msg("Invalid migration locked liquidity")]
     InvalidMigrationLockedLiquidity,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
+
+    #[msg("Fail to validate first swap with minimum fee")]
+    FirstSwapValidationFailed,
 }

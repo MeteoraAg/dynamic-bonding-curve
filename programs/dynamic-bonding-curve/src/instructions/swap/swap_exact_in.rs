@@ -13,6 +13,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
         fee_mode,
         trade_direction,
         current_point,
+        eligible_for_first_swap_with_min_fee,
         ..
     } = params;
 
@@ -22,6 +23,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
         fee_mode,
         trade_direction,
         current_point,
+        eligible_for_first_swap_with_min_fee,
     )?;
 
     require!(
