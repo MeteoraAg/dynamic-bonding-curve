@@ -602,7 +602,6 @@ export async function claimProtocolLiquidityMigrationFee(
   let transaction = await program.methods
     .claimProtocolLiquidityMigrationFee()
     .accountsPartial({
-      config,
       pool: virtualPoolAddress,
       poolAuthority,
       baseVault: virtualPoolState.baseVault,

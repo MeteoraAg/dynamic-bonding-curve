@@ -151,13 +151,14 @@ pub struct VirtualPool {
     pub creation_fee_bits: u8,
     /// Cached flag
     pub has_swap: u8,
-    pub protocol_liquidity_migration_fee_bps: u16,
     /// Padding for further use
-    pub _padding_0: [u8; 3],
+    pub _padding_0: [u8; 5],
+    pub protocol_liquidity_migration_fee_bps: u16,
+    pub _padding_1: [u8; 6],
     pub protocol_liquidity_migration_base_fee_amount: u64,
     pub protocol_liquidity_migration_quote_fee_amount: u64,
     /// Padding for further use
-    pub _padding_1: [u64; 4],
+    pub _padding_2: [u64; 3],
 }
 
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);

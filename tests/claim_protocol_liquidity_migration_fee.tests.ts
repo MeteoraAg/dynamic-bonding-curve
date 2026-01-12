@@ -21,8 +21,11 @@ import {
   claimProtocolLiquidityMigrationFee,
   createDammConfig,
   createDammV2DynamicConfig,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -61,6 +64,12 @@ describe("Claim protocol liquidity migration fee", () => {
     await createClaimProtocolFeeOperator(svm, program, {
       operator: operator.publicKey,
       admin,
+    });
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
     });
   });
 
@@ -307,6 +316,9 @@ async function createDbcConfig(
       numberOfPeriods: 0,
       frequency: 0,
     },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
+    enableFirstSwapWithMinFee: false,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,

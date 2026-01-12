@@ -15,10 +15,15 @@ use ruint::aliases::U512;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
-    constants::{seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{
+        fee::MAX_BASIS_POINT, seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
+    },
     convert_collect_fee_mode_to_dammv2,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
+    curve::{
+        get_delta_amount_base_unsigned_256, get_delta_amount_quote_unsigned_256,
+        get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote,
+    },
     damm_v2_utils, flash_rent,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
@@ -26,6 +31,8 @@ use crate::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
+    u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
 use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
