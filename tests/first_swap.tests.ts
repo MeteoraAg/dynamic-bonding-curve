@@ -37,7 +37,7 @@ import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { wrapSOL } from "./utils/token";
 
-describe.only("First swap", () => {
+describe("First swap", () => {
   let svm: LiteSVM;
   let partner: Keypair;
   let poolCreator: Keypair;

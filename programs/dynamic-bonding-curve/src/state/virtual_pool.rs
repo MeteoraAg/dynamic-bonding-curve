@@ -146,8 +146,10 @@ pub struct VirtualPool {
     pub legacy_creation_fee_bits: u8,
     /// pool creation fee claim status
     pub creation_fee_bits: u8,
+    /// Cached flag
+    pub has_swap: u8,
     /// Padding for further use
-    pub _padding_0: [u8; 6],
+    pub _padding_0: [u8; 5],
     /// Padding for further use
     pub _padding_1: [u64; 6],
 }
@@ -920,6 +922,8 @@ impl VirtualPool {
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;
+        // update cached flag
+        self.has_swap = 1;
         Ok(())
     }
 
@@ -956,6 +960,10 @@ impl VirtualPool {
             }
         }
         Ok(())
+    }
+
+    pub fn is_first_swap(&self) -> bool {
+        self.has_swap == 0
     }
 
     pub fn claim_protocol_fee(&mut self) -> (u64, u64) {
