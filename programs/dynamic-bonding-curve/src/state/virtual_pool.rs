@@ -146,8 +146,10 @@ pub struct VirtualPool {
     pub legacy_creation_fee_bits: u8,
     /// pool creation fee claim status
     pub creation_fee_bits: u8,
+    /// Cached flag
+    pub has_swap: u8,
     /// Padding for further use
-    pub _padding_0: [u8; 6],
+    pub _padding_0: [u8; 5],
     /// Padding for further use
     pub _padding_1: [u64; 6],
 }
@@ -235,7 +237,9 @@ impl VirtualPool {
         let included_fee_out_amount = if fee_mode.fees_on_input {
             amount_out
         } else {
-            let trade_fee_numerator = if !eligible_for_first_swap_with_min_fee {
+            let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                config.pool_fees.get_min_base_fee_numerator()?
+            } else {
                 config
                     .pool_fees
                     .get_total_fee_numerator_from_excluded_fee_amount(
@@ -245,8 +249,6 @@ impl VirtualPool {
                         amount_out,
                         trade_direction,
                     )?
-            } else {
-                config.pool_fees.get_min_base_fee_numerator()?
             };
 
             let (included_fee_out_amount, fee_amount) =
@@ -281,7 +283,9 @@ impl VirtualPool {
         );
 
         let (excluded_fee_input_amount, included_fee_input_amount) = if fee_mode.fees_on_input {
-            let trade_fee_numerator = if !eligible_for_first_swap_with_min_fee {
+            let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                config.pool_fees.get_min_base_fee_numerator()?
+            } else {
                 config
                     .pool_fees
                     .get_total_fee_numerator_from_excluded_fee_amount(
@@ -291,8 +295,6 @@ impl VirtualPool {
                         amount_in,
                         trade_direction,
                     )?
-            } else {
-                config.pool_fees.get_min_base_fee_numerator()?
             };
 
             let (included_fee_in_amount, fee_amount) =
@@ -481,7 +483,9 @@ impl VirtualPool {
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = if !eligible_for_first_swap_with_min_fee {
+        let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+            config.pool_fees.get_min_base_fee_numerator()?
+        } else {
             config
                 .pool_fees
                 .get_total_fee_numerator_from_included_fee_amount(
@@ -491,8 +495,6 @@ impl VirtualPool {
                     amount_in,
                     trade_direction,
                 )?
-        } else {
-            config.pool_fees.get_min_base_fee_numerator()?
         };
 
         let actual_amount_in = if fee_mode.fees_on_input {
@@ -579,7 +581,9 @@ impl VirtualPool {
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = if !eligible_for_first_swap_with_min_fee {
+        let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+            config.pool_fees.get_min_base_fee_numerator()?
+        } else {
             config
                 .pool_fees
                 .get_total_fee_numerator_from_included_fee_amount(
@@ -589,8 +593,6 @@ impl VirtualPool {
                     amount_in,
                     trade_direction,
                 )?
-        } else {
-            config.pool_fees.get_min_base_fee_numerator()?
         };
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
@@ -633,7 +635,9 @@ impl VirtualPool {
             actual_amount_in = actual_amount_in.safe_sub(amount_left)?;
             // recalculate included_fee_input_amount actual_trading_fee, actual_protocol_fee, actual_referral_fee
             if fee_mode.fees_on_input {
-                let trade_fee_numerator = if !eligible_for_first_swap_with_min_fee {
+                let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                    config.pool_fees.get_min_base_fee_numerator()?
+                } else {
                     config
                         .pool_fees
                         .get_total_fee_numerator_from_excluded_fee_amount(
@@ -643,8 +647,6 @@ impl VirtualPool {
                             actual_amount_in,
                             trade_direction,
                         )?
-                } else {
-                    config.pool_fees.get_min_base_fee_numerator()?
                 };
 
                 let (included_fee_input_amount, fee_amount) =
@@ -920,6 +922,8 @@ impl VirtualPool {
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;
+        // update cached flag
+        self.has_swap = 1;
         Ok(())
     }
 
@@ -956,6 +960,10 @@ impl VirtualPool {
             }
         }
         Ok(())
+    }
+
+    pub fn is_first_swap(&self) -> bool {
+        self.has_swap == 0
     }
 
     pub fn claim_protocol_fee(&mut self) -> (u64, u64) {

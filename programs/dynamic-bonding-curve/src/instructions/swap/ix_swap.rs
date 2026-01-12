@@ -125,7 +125,10 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+pub fn handle_swap_wrapper<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+    params: SwapParameters2,
+) -> Result<()> {
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -185,11 +188,13 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     }
 
     let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
-        && contain_initialize_pool_ix_and_no_cpi(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
-
-    if eligible_for_first_swap_with_min_fee {
-        validate_single_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
-    }
+        && pool.is_first_swap()
+        && validate_contain_initialize_pool_ix_and_no_cpi(
+            &ctx.accounts.pool.key(),
+            &ctx.accounts.referral_token_account,
+            ctx.remaining_accounts,
+        )
+        .is_ok();
 
     // validate if it is over threshold
     require!(
@@ -414,21 +419,27 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
 }
 
 // Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
-pub fn contain_initialize_pool_ix_and_no_cpi<'c, 'info>(
+pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
     pool: &Pubkey,
+    referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
     remaining_accounts: &'c [AccountInfo<'info>],
-) -> Result<bool> {
-    if remaining_accounts.is_empty() {
-        return Ok(false);
-    }
-
+) -> Result<()> {
+    // just use a random error
+    // not allow user to bypass referral fee
+    require!(
+        referral_token_account.is_none(),
+        PoolError::UndeterminedError
+    );
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)
-        .ok_or_else(|| PoolError::FirstSwapValidationFailed)?;
+        .ok_or_else(|| PoolError::UndeterminedError)?;
 
-    if instruction_sysvar_account_info.key != &sysvar::instructions::ID {
-        return Ok(false);
-    }
+    require!(
+        instruction_sysvar_account_info
+            .key
+            .eq(&sysvar::instructions::ID),
+        PoolError::UndeterminedError
+    );
 
     let current_index =
         sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
@@ -438,9 +449,10 @@ pub fn contain_initialize_pool_ix_and_no_cpi<'c, 'info>(
         instruction_sysvar_account_info,
     )?;
 
-    if current_instruction.program_id != crate::ID {
-        return Ok(false);
-    }
+    require!(
+        current_instruction.program_id.eq(&crate::ID),
+        PoolError::UndeterminedError
+    );
 
     for i in 0..current_index {
         let instruction = sysvar::instructions::load_instruction_at_checked(
@@ -460,11 +472,12 @@ pub fn contain_initialize_pool_ix_and_no_cpi<'c, 'info>(
                 };
 
                 if account.pubkey.eq(pool) {
-                    return Ok(true);
+                    //pass
+                    return Ok(());
                 }
             }
         }
     }
 
-    Ok(false)
+    Err(PoolError::UndeterminedError.into())
 }
