@@ -125,7 +125,10 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+pub fn handle_swap_wrapper<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+    params: SwapParameters2,
+) -> Result<()> {
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -188,6 +191,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         && pool.is_first_swap()
         && validate_contain_initialize_pool_ix_and_no_cpi(
             &ctx.accounts.pool.key(),
+            &ctx.accounts.referral_token_account,
             ctx.remaining_accounts,
         )
         .is_ok();
@@ -415,11 +419,17 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
 }
 
 // Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
-pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c, 'info>(
+pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
     pool: &Pubkey,
+    referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
     remaining_accounts: &'c [AccountInfo<'info>],
 ) -> Result<()> {
     // just use a random error
+    // not allow user to bypass referral fee
+    require!(
+        referral_token_account.is_none(),
+        PoolError::UndeterminedError
+    );
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)
         .ok_or_else(|| PoolError::UndeterminedError)?;
