@@ -1,12 +1,5 @@
 use crate::{
-    constants::fee::{MAX_BASIS_POINT, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS},
-    error::PoolError,
-    migration,
-    safe_math::SafeMath,
-    state::{MigrationAmount, MigrationOption},
-    token::transfer_token_from_pool_authority,
-    u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u128,
+    error::PoolError, token::transfer_token_from_pool_authority,
     EvtClaimProtocolLiquidityMigrationFee,
 };
 use anchor_lang::prelude::*;
@@ -14,7 +7,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{ClaimFeeOperator, MigrationProgress, PoolConfig, VirtualPool},
+    state::{ClaimFeeOperator, MigrationProgress, VirtualPool},
     treasury,
 };
 
@@ -28,10 +21,7 @@ pub struct ClaimProtocolLiquidityMigrationFeesCtx<'info> {
     )]
     pub pool_authority: AccountInfo<'info>,
 
-    #[account(has_one=quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
-
-    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = base_mint, has_one = config)]
+    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = base_mint)]
     pub pool: AccountLoader<'info, VirtualPool>,
 
     /// The vault token account for input token
@@ -96,16 +86,8 @@ pub fn handle_claim_protocol_liquidity_migration_fee(
         PoolError::PoolIsIncompleted
     );
 
-    let config = ctx.accounts.config.load()?;
-    let migration_option = MigrationOption::try_from(config.migration_option)
-        .map_err(|_| PoolError::TypeCastFailed)?;
-
-    let (base_amount, quote_amount) = match migration_option {
-        MigrationOption::DammV2 => calculate_damm_v2_protocol_liquidity_fee_tokens(&config, &pool)?,
-        MigrationOption::MeteoraDamm => {
-            calculate_damm_protocol_liquidity_fee_tokens(&config, &pool)?
-        }
-    };
+    let base_amount = pool.protocol_liquidity_migration_base_fee_amount;
+    let quote_amount = pool.protocol_liquidity_migration_quote_fee_amount;
 
     pool.update_protocol_withdraw_migration_fee();
 
@@ -138,59 +120,4 @@ pub fn handle_claim_protocol_liquidity_migration_fee(
     });
 
     Ok(())
-}
-
-fn calculate_damm_protocol_liquidity_fee_tokens(
-    config: &PoolConfig,
-    pool: &VirtualPool,
-) -> Result<(u64, u64)> {
-    let sqrt_price = config.migration_sqrt_price;
-    let base_reserve = config.migration_base_threshold;
-
-    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
-
-    let (base_amount, quote_amount) = migration::meteora_damm::get_protocol_liquidity_fee_tokens(
-        base_reserve,
-        quote_amount,
-        sqrt_price,
-        pool.protocol_liquidity_migration_fee_bps,
-    )?;
-
-    Ok((base_amount, quote_amount))
-}
-
-fn calculate_damm_v2_protocol_liquidity_fee_tokens(
-    config: &PoolConfig,
-    pool: &VirtualPool,
-) -> Result<(u64, u64)> {
-    let protocol_and_partner_base_fee = pool.get_protocol_and_trading_base_fee()?;
-    let migration_sqrt_price = config.migration_sqrt_price;
-
-    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
-
-    let initial_base_supply_amount = config.get_initial_base_supply()?;
-
-    let excluded_fee_base_reserve =
-        initial_base_supply_amount.safe_sub(protocol_and_partner_base_fee)?;
-
-    let initial_liquidity = migration::dynamic_amm_v2::get_liquidity_for_adding_liquidity(
-        excluded_fee_base_reserve,
-        quote_amount,
-        migration_sqrt_price,
-    )?;
-
-    let protocol_liquidity_fee = safe_mul_div_cast_u128(
-        initial_liquidity,
-        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-        MAX_BASIS_POINT.into(),
-        Rounding::Down,
-    )?;
-
-    let (base_amount, quote_amount) = migration::dynamic_amm_v2::get_protocol_liquidity_fee_tokens(
-        protocol_liquidity_fee,
-        migration_sqrt_price,
-        Rounding::Down,
-    )?;
-
-    Ok((base_amount, quote_amount))
 }

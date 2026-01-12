@@ -154,8 +154,10 @@ pub struct VirtualPool {
     pub protocol_liquidity_migration_fee_bps: u16,
     /// Padding for further use
     pub _padding_0: [u8; 3],
+    pub protocol_liquidity_migration_base_fee_amount: u64,
+    pub protocol_liquidity_migration_quote_fee_amount: u64,
     /// Padding for further use
-    pub _padding_1: [u64; 6],
+    pub _padding_1: [u64; 4],
 }
 
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
@@ -1143,6 +1145,11 @@ impl VirtualPool {
         self.creation_fee_bits = self
             .creation_fee_bits
             .bitxor(PROTOCOL_CREATION_FEE_CLAIMED_MASK)
+    }
+
+    pub fn save_protocol_liquidity_migration_fee(&mut self, base_amount: u64, quote_amount: u64) {
+        self.protocol_liquidity_migration_base_fee_amount = base_amount;
+        self.protocol_liquidity_migration_quote_fee_amount = quote_amount;
     }
 }
 

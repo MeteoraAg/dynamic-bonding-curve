@@ -161,11 +161,12 @@ export async function migrateToDammV2(
       units: 600_000,
     })
   );
-  sendTransactionMaybeThrow(svm, transaction, [
-    payer,
-    firstPositionNftKP,
-    secondPositionNftKP,
-  ]);
+  sendTransactionMaybeThrow(
+    svm,
+    transaction,
+    [payer, firstPositionNftKP, secondPositionNftKP]
+    // true
+  );
 
   return {
     dammPool,

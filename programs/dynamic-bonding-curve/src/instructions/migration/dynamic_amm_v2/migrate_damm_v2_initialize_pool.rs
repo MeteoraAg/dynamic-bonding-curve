@@ -574,30 +574,38 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migration_sqrt_price = config.migration_sqrt_price;
 
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
+    // Migration base threshold + buffer
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
+    let (protocol_liquidity_base_fee_amount, protocol_liquidity_quote_fee_amount) =
+        get_protocol_liquidity_fee_tokens(
+            excluded_fee_base_reserve,
+            quote_amount,
+            virtual_pool.protocol_liquidity_migration_fee_bps,
+            migration_sqrt_price,
+        )?;
+
+    virtual_pool.save_protocol_liquidity_migration_fee(
+        protocol_liquidity_base_fee_amount,
+        protocol_liquidity_quote_fee_amount,
+    );
+
+    let migration_base_amount =
+        excluded_fee_base_reserve.safe_sub(protocol_liquidity_base_fee_amount)?;
+    let migration_quote_amount = quote_amount.safe_sub(protocol_liquidity_quote_fee_amount)?;
+
     // calculate initial liquidity
     let initial_liquidity = get_liquidity_for_adding_liquidity(
-        excluded_fee_base_reserve,
-        quote_amount,
+        migration_base_amount,
+        migration_quote_amount,
         migration_sqrt_price,
     )?;
-
-    let protocol_liquidity_fee = safe_mul_div_cast_u128(
-        initial_liquidity,
-        virtual_pool.protocol_liquidity_migration_fee_bps.into(),
-        MAX_BASIS_POINT.into(),
-        Rounding::Down,
-    )?;
-
-    let excluded_protocol_fee_initial_liquidity =
-        initial_liquidity.safe_sub(protocol_liquidity_fee)?;
 
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
         creator: creator_liquidity_distribution,
-    } = config.get_liquidity_distribution(excluded_protocol_fee_initial_liquidity)?;
+    } = config.get_liquidity_distribution(initial_liquidity)?;
 
     let (
         first_position_liquidity_distribution,
@@ -661,24 +669,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    // Round up so that liquidity_for_second_position will be round down
-    let (protocol_liquidity_fee_base, protocol_liquidity_fee_quote) =
-        get_protocol_liquidity_fee_tokens(
-            protocol_liquidity_fee,
-            migration_sqrt_price,
-            Rounding::Up,
-        )?;
+    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
 
-    let updated_excluded_fee_base_reserve = excluded_fee_base_reserve
-        .safe_sub(deposited_base_amount)?
-        .safe_sub(protocol_liquidity_fee_base)?;
-    let updated_quote_threshold = quote_amount
-        .safe_sub(deposited_quote_amount)?
-        .safe_sub(protocol_liquidity_fee_quote)?;
+    let leftover_migration_quote_amount =
+        migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
     let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
-        updated_excluded_fee_base_reserve,
-        updated_quote_threshold,
+        leftover_migration_base_amount,
+        leftover_migration_quote_amount,
         migration_sqrt_price,
     )?;
 
@@ -733,7 +731,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     // check whether we should burn token
     let non_burnable_amount =
-        protocol_and_partner_base_fee.safe_add(protocol_liquidity_fee_base)?;
+        protocol_and_partner_base_fee.safe_add(protocol_liquidity_base_fee_amount)?;
 
     let left_base_token = ctx
         .accounts
@@ -766,17 +764,58 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     Ok(())
 }
 
-pub(crate) fn get_protocol_liquidity_fee_tokens(
-    liquidity: u128,
-    sqrt_price: u128,
-    rounding: Rounding,
+fn get_protocol_liquidity_fee_tokens(
+    base_amount_with_swap_buffer: u64,
+    quote_amount: u64,
+    fee_bps: u16,
+    migration_sqrt_price: u128,
 ) -> Result<(u64, u64)> {
-    let base_amount =
-        get_delta_amount_base_unsigned(sqrt_price, MAX_SQRT_PRICE, liquidity, rounding)?;
-    let quote_amount =
-        get_delta_amount_quote_unsigned(MIN_SQRT_PRICE, sqrt_price, liquidity, rounding)?;
+    // Due to it select min liquidity from base and quote, it will exclude the swap buffer because theoretically quote will always < base (round up) + base_buffer
+    let initial_liquidity = get_liquidity_for_adding_liquidity(
+        base_amount_with_swap_buffer,
+        quote_amount,
+        migration_sqrt_price,
+    )?;
 
-    Ok((base_amount, quote_amount))
+    // Simulate base and quote deposited to DAMM v2
+    // https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/instructions/ix_add_liquidity.rs#L105
+    let refined_base_amount = get_delta_amount_base_unsigned_256(
+        migration_sqrt_price,
+        MAX_SQRT_PRICE,
+        initial_liquidity,
+        Rounding::Up,
+    )?;
+
+    let refined_base_amount: u64 = refined_base_amount
+        .try_into()
+        .map_err(|_| PoolError::MathOverflow)?;
+
+    let refined_quote_amount = get_delta_amount_quote_unsigned_256(
+        MIN_SQRT_PRICE,
+        migration_sqrt_price,
+        initial_liquidity,
+        Rounding::Up,
+    )?;
+
+    let refined_quote_amount: u64 = refined_quote_amount
+        .try_into()
+        .map_err(|_| PoolError::MathOverflow)?;
+
+    let protocol_fee_base_amount = safe_mul_div_cast_u64(
+        refined_base_amount,
+        fee_bps.into(),
+        MAX_BASIS_POINT,
+        Rounding::Down,
+    )?;
+
+    let protocol_fee_quote_amount = safe_mul_div_cast_u64(
+        refined_quote_amount,
+        fee_bps.into(),
+        MAX_BASIS_POINT,
+        Rounding::Down,
+    )?;
+
+    Ok((protocol_fee_base_amount, protocol_fee_quote_amount))
 }
 
 pub(crate) fn get_liquidity_for_adding_liquidity(
@@ -794,5 +833,46 @@ pub(crate) fn get_liquidity_for_adding_liquidity(
         Ok(liquidity_from_base
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::curve::{get_delta_amount_base_unsigned, get_delta_amount_quote_unsigned};
+
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_get_liquidity_for_adding_liquidity(
+            base_amount in 1u64..1_000_000_000u64,
+            quote_amount in 1u64..1_000_000_000u64,
+            sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE,
+        ) {
+            let liquidity = get_liquidity_for_adding_liquidity(
+                base_amount,
+                quote_amount,
+                sqrt_price,
+            ).unwrap();
+
+            // DAMM v2 add liquidity
+            let derived_base_amount = get_delta_amount_base_unsigned(
+                sqrt_price,
+                MAX_SQRT_PRICE,
+                liquidity,
+                Rounding::Up,
+            ).unwrap();
+
+            let derived_quote_amount = get_delta_amount_quote_unsigned(
+                MIN_SQRT_PRICE,
+                sqrt_price,
+                liquidity,
+                Rounding::Up,
+            ).unwrap();
+
+            assert!(derived_base_amount <= base_amount);
+            assert!(derived_quote_amount <= quote_amount);
+        }
     }
 }

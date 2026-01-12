@@ -204,7 +204,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     )?;
 
     let config = ctx.accounts.config.load()?;
-    let initial_base_supply = config.get_initial_base_supply()?;
+let initial_base_supply = config.get_initial_base_supply()?;
 
     // mint token
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
