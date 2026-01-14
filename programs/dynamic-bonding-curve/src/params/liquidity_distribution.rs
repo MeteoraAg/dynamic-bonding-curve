@@ -4,14 +4,16 @@ use anchor_lang::prelude::*;
 use ruint::aliases::U256;
 
 use crate::{
-    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{BASIS_POINT_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{
-        get_delta_amount_base_unsigned_256, get_delta_amount_quote_unsigned_256,
-        get_initial_liquidity_from_delta_quote, get_next_sqrt_price_from_input,
+        get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256,
+        get_delta_amount_quote_unsigned_256, get_initial_liquidity_from_delta_quote,
+        get_next_sqrt_price_from_input,
     },
     safe_math::SafeMath,
     state::{LiquidityDistributionConfig, MigrationAmount, MigrationOption, PoolConfig},
     u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
 
@@ -65,6 +67,50 @@ pub fn get_base_token_for_swap(
         }
     }
     Ok(total_amount)
+}
+
+pub fn get_protocol_migration_fee(
+    deposit_base_amount: u64,  // amount of base will be deposited in pool
+    deposit_quote_amount: u64, // amount of quote will be deposited in pool
+    migration_sqrt_price: u128,
+    migration_fee_bps: u16,
+    migration_option: MigrationOption,
+) -> Result<(u64, u64)> {
+    let quote_fee_amount = safe_mul_div_cast_u64(
+        deposit_quote_amount,
+        migration_fee_bps.into(),
+        BASIS_POINT_MAX,
+        Rounding::Down,
+    )?;
+    match migration_option {
+        MigrationOption::MeteoraDamm => {
+            // just take fee as the same ratio
+            let base_fee_amount = safe_mul_div_cast_u64(
+                deposit_base_amount,
+                migration_fee_bps.into(),
+                BASIS_POINT_MAX,
+                Rounding::Down,
+            )?;
+
+            Ok((base_fee_amount, quote_fee_amount))
+        }
+        MigrationOption::DammV2 => {
+            let fee_liquidity = get_initial_liquidity_from_delta_quote(
+                quote_fee_amount,
+                MIN_SQRT_PRICE,
+                migration_sqrt_price,
+            )?;
+
+            let base_fee_amount = get_delta_amount_base_unsigned(
+                migration_sqrt_price,
+                MAX_SQRT_PRICE,
+                fee_liquidity,
+                Rounding::Down,
+            )?;
+
+            Ok((base_fee_amount, quote_fee_amount))
+        }
+    }
 }
 
 pub fn get_migration_base_token(

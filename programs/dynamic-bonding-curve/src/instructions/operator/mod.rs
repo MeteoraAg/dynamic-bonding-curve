@@ -6,3 +6,5 @@ pub mod ix_claim_protocol_pool_creation_fee;
 pub use ix_claim_protocol_pool_creation_fee::*;
 pub mod ix_claim_legacy_pool_creation_fee;
 pub use ix_claim_legacy_pool_creation_fee::*;
+pub mod ix_claim_protocol_liquidity_migration_fee;
+pub use ix_claim_protocol_liquidity_migration_fee::*;

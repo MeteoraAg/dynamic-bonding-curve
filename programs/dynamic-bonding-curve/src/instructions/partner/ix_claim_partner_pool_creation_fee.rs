@@ -45,6 +45,7 @@ pub fn handle_claim_partner_pool_creation_fee(
         pool: ctx.accounts.pool.key(),
         partner: ctx.accounts.fee_claimer.key(),
         creation_fee: partner_fee,
+        fee_receiver: ctx.accounts.fee_receiver.key(),
     });
 
     Ok(())

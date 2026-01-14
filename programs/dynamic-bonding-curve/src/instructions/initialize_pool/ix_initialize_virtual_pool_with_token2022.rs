@@ -1,5 +1,6 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
+use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
 use crate::token::transfer_lamports_from_user;
 use crate::{
@@ -263,6 +264,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
 
     emit_cpi!(EvtInitializePool {
