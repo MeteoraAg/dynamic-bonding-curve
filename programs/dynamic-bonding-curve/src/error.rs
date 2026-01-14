@@ -53,7 +53,7 @@ pub enum PoolError {
     #[msg("Invalid migration option")]
     InvalidMigrationOption,
 
-    #[msg("Invalid activation type")]
+    #[msg("Invalid token decimals")]
     InvalidTokenDecimals,
 
     #[msg("Invalid token type")]

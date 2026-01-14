@@ -20,7 +20,7 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
-    params::fee_parameters::to_bps,
+    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
@@ -574,13 +574,30 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migration_sqrt_price = config.migration_sqrt_price;
 
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
+    // Migration base threshold + buffer
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
-    // calculate initial liquidity
-    let initial_liquidity = get_liquidity_for_adding_liquidity(
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
         excluded_fee_base_reserve,
         quote_amount,
+        migration_sqrt_price,
+        virtual_pool.protocol_liquidity_migration_fee_bps,
+        MigrationOption::DammV2,
+    )?;
+
+    virtual_pool.save_protocol_liquidity_migration_fee(
+        protocol_migration_base_fee,
+        protocol_migration_quote_fee,
+    );
+
+    let migration_base_amount = excluded_fee_base_reserve.safe_sub(protocol_migration_base_fee)?;
+    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
+
+    // calculate initial liquidity
+    let initial_liquidity = get_liquidity_for_adding_liquidity(
+        migration_base_amount,
+        migration_quote_amount,
         migration_sqrt_price,
     )?;
 
@@ -651,13 +668,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let updated_excluded_fee_base_reserve =
-        excluded_fee_base_reserve.safe_sub(deposited_base_amount)?;
-    let updated_quote_threshold = quote_amount.safe_sub(deposited_quote_amount)?;
+    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
+
+    let leftover_migration_quote_amount =
+        migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
     let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
-        updated_excluded_fee_base_reserve,
-        updated_quote_threshold,
+        leftover_migration_base_amount,
+        leftover_migration_quote_amount,
         migration_sqrt_price,
     )?;
 
@@ -711,12 +729,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     ctx.accounts.base_vault.reload()?;
 
     // check whether we should burn token
+    let non_burnable_amount =
+        protocol_and_partner_base_fee.safe_add(protocol_migration_base_fee)?;
 
     let left_base_token = ctx
         .accounts
         .base_vault
         .amount
-        .safe_sub(protocol_and_partner_base_fee)?;
+        .safe_sub(non_burnable_amount)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
 
@@ -743,7 +763,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     Ok(())
 }
 
-fn get_liquidity_for_adding_liquidity(
+pub(crate) fn get_liquidity_for_adding_liquidity(
     base_amount: u64,
     quote_amount: u64,
     sqrt_price: u128,

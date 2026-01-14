@@ -401,7 +401,7 @@ proptest! {
             cliff_fee_numerator,
             reference_amount,
             max_limiter_duration: 60, // 60 seconds
-            fee_increment_bps: fee_increment_bps,
+            fee_increment_bps
         };
         rate_limiter
         .get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)

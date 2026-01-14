@@ -3,7 +3,7 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    params::fee_parameters::to_bps,
+    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
     safe_math::SafeMath,
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
@@ -237,21 +237,46 @@ pub fn handle_migrate_meteora_damm<'info>(
         migration_option == MigrationOption::MeteoraDamm,
         PoolError::InvalidMigrationOption
     );
+
     let base_reserve = config.migration_base_threshold;
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
 
-    ctx.accounts
-        .create_pool(base_reserve, quote_amount, const_pda::pool_authority::BUMP)?;
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
+        base_reserve,
+        quote_amount,
+        config.migration_sqrt_price,
+        virtual_pool.protocol_liquidity_migration_fee_bps,
+        MigrationOption::MeteoraDamm,
+    )?;
+
+    virtual_pool.save_protocol_liquidity_migration_fee(
+        protocol_migration_base_fee,
+        protocol_migration_quote_fee,
+    );
+
+    let migration_base_amount = base_reserve.safe_sub(protocol_migration_base_fee)?;
+    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
+
+    ctx.accounts.create_pool(
+        migration_base_amount,
+        migration_quote_amount,
+        const_pda::pool_authority::BUMP,
+    )?;
 
     virtual_pool.update_after_create_pool();
 
     // burn the rest of token in pool authority after migrated amount and fee
     ctx.accounts.base_vault.reload()?;
+
+    let non_burnable_amount = virtual_pool
+        .get_protocol_and_trading_base_fee()?
+        .safe_add(protocol_migration_base_fee)?;
+
     let left_base_token = ctx
         .accounts
         .base_vault
         .amount
-        .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?;
+        .safe_sub(non_burnable_amount)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
     if burnable_amount > 0 {

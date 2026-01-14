@@ -25,10 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
 - Added field `enable_first_swap_with_min_fee` in `create_config` endpoint to allow user to initialize pool and swap in single transaction without any anti sniper suite fee.
+- Add new endpoint `claim_protocol_liquidity_migration_fee` to allow protocol to claim liquidity migration fee.
+- Add new field `protocol_liquidity_migration_fee_bps` which store the bps cut the protocol will take from migration liquidity.
 
 ### Changed
 
 - Endpoint `swap` and `swap2` require sysvar instruction account to be passed in remaining accounts if the config have `enable_first_swap_with_min_fee` as `true` to enjoy minimum swap fee. Else, it will charge normal fee.
+- Charge protocol migration fee upon migration. It take a cut from liquidity to be migrated to.
+
+### Breaking Changes
+
+- Add `fee_receiver` field to event `EvtPartnerClaimPoolCreationFee`.
 
 ## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
 

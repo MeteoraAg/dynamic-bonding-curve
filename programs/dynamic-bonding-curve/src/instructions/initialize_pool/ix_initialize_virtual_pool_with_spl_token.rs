@@ -12,6 +12,7 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     constants::{
+        fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
         seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
         MIN_LOCKED_LIQUIDITY_BPS,
     },
@@ -243,6 +244,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
 
     emit_cpi!(EvtInitializePool {

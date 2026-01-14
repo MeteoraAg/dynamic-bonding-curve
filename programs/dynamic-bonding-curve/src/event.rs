@@ -201,4 +201,12 @@ pub struct EvtPartnerClaimPoolCreationFee {
     pub pool: Pubkey,
     pub partner: Pubkey,
     pub creation_fee: u64,
+    pub fee_receiver: Pubkey,
+}
+
+#[event]
+pub struct EvtClaimProtocolLiquidityMigrationFee {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
 }
