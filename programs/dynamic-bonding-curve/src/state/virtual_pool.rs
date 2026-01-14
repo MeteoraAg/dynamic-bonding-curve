@@ -155,8 +155,8 @@ pub struct VirtualPool {
     pub _padding_0: [u8; 5],
     pub protocol_liquidity_migration_fee_bps: u16,
     pub _padding_1: [u8; 6],
-    pub protocol_liquidity_migration_base_fee_amount: u64,
-    pub protocol_liquidity_migration_quote_fee_amount: u64,
+    pub protocol_migration_base_fee_amount: u64,
+    pub protocol_migration_quote_fee_amount: u64,
     /// Padding for further use
     pub _padding_2: [u64; 3],
 }
@@ -165,7 +165,6 @@ const_assert_eq!(VirtualPool::INIT_SPACE, 416);
 
 pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
 pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
-pub const PROTOCOL_CLAIM_MIGRATION_FEE_MASK: u8 = 0b001;
 
 const LEGACY_CREATION_FEE_CHARGED_MASK: u8 = 0b01;
 const LEGACY_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
@@ -1084,18 +1083,6 @@ impl VirtualPool {
         self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask);
     }
 
-    pub fn eligible_to_withdraw_protocol_migration_fee(&self) -> bool {
-        self.migration_fee_withdraw_status
-            .bitand(PROTOCOL_CLAIM_MIGRATION_FEE_MASK)
-            == 0
-    }
-
-    pub fn update_protocol_withdraw_migration_fee(&mut self) {
-        self.migration_fee_withdraw_status = self
-            .migration_fee_withdraw_status
-            .bitxor(PROTOCOL_CLAIM_MIGRATION_FEE_MASK);
-    }
-
     pub fn get_migration_progress(&self) -> Result<MigrationProgress> {
         let migration_progress = MigrationProgress::try_from(self.migration_progress)
             .map_err(|_| PoolError::TypeCastFailed)?;
@@ -1149,8 +1136,28 @@ impl VirtualPool {
     }
 
     pub fn save_protocol_liquidity_migration_fee(&mut self, base_amount: u64, quote_amount: u64) {
-        self.protocol_liquidity_migration_base_fee_amount = base_amount;
-        self.protocol_liquidity_migration_quote_fee_amount = quote_amount;
+        self.protocol_migration_base_fee_amount = base_amount;
+        self.protocol_migration_quote_fee_amount = quote_amount;
+    }
+
+    pub fn claim_protocol_migration_fee(
+        &mut self,
+        max_base_amount: u64,
+        max_quote_amount: u64,
+    ) -> Result<(u64, u64)> {
+        let claim_base_amount = self.protocol_migration_base_fee_amount.min(max_base_amount);
+        let claim_quote_amount = self
+            .protocol_migration_quote_fee_amount
+            .min(max_quote_amount);
+
+        self.protocol_migration_base_fee_amount = self
+            .protocol_migration_base_fee_amount
+            .safe_sub(claim_base_amount)?;
+        self.protocol_migration_quote_fee_amount = self
+            .protocol_migration_quote_fee_amount
+            .safe_sub(claim_quote_amount)?;
+
+        Ok((claim_base_amount, claim_quote_amount))
     }
 }
 

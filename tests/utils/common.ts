@@ -41,6 +41,7 @@ import {
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   TREASURY,
+  U64_MAX,
 } from "./constants";
 import {
   BorshFeeTimeScheduler,
@@ -600,7 +601,7 @@ export async function claimProtocolLiquidityMigrationFee(
   }
 
   let transaction = await program.methods
-    .claimProtocolLiquidityMigrationFee()
+    .claimProtocolLiquidityMigrationFee(U64_MAX, U64_MAX)
     .accountsPartial({
       pool: virtualPoolAddress,
       poolAuthority,
@@ -619,8 +620,13 @@ export async function claimProtocolLiquidityMigrationFee(
     .transaction();
 
   transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(operator);
-  svm.sendTransaction(transaction);
+
+  sendTransactionMaybeThrow(
+    svm,
+    transaction,
+    [operator],
+    // true
+  );
 }
 
 export async function createLockEscrowIx(

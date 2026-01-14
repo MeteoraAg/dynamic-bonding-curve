@@ -166,6 +166,7 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
   virtualPoolAddress: PublicKey
 ) {
   let virtualPoolState = getVirtualPool(svm, program, virtualPoolAddress);
+
   const configState = getConfig(svm, program, config);
 
   const treasuryBaseTokenAddress = getAssociatedTokenAddressSync(
@@ -195,41 +196,30 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
 
   const beforeBaseBalance = beforeBaseTokenAccount
     ? unpackAccount(treasuryBaseTokenAddress, {
-        ...beforeBaseTokenAccount,
-        data: Buffer.from(beforeBaseTokenAccount.data),
-      }).amount
+      ...beforeBaseTokenAccount,
+      data: Buffer.from(beforeBaseTokenAccount.data),
+    }).amount
     : BigInt(0);
 
   const beforeQuoteBalance = beforeQuoteTokenAccount
     ? unpackAccount(treasuryQuoteTokenAddress, {
-        ...beforeQuoteTokenAccount,
-        data: Buffer.from(beforeQuoteTokenAccount.data),
-      }).amount
+      ...beforeQuoteTokenAccount,
+      data: Buffer.from(beforeQuoteTokenAccount.data),
+    }).amount
     : BigInt(0);
 
-  const afterBaseBalance = afterBaseTokenAccount
-    ? unpackAccount(treasuryBaseTokenAddress, {
-        ...afterBaseTokenAccount,
-        data: Buffer.from(afterBaseTokenAccount.data),
-      }).amount
-    : BigInt(0);
+  const afterBaseBalance = unpackAccount(treasuryBaseTokenAddress, {
+    ...afterBaseTokenAccount,
+    data: Buffer.from(afterBaseTokenAccount.data),
+  }).amount;
 
-  const afterQuoteBalance = afterQuoteTokenAccount
-    ? unpackAccount(treasuryQuoteTokenAddress, {
-        ...afterQuoteTokenAccount,
-        data: Buffer.from(afterQuoteTokenAccount.data),
-      }).amount
-    : BigInt(0);
+  const afterQuoteBalance = unpackAccount(treasuryQuoteTokenAddress, {
+    ...afterQuoteTokenAccount,
+    data: Buffer.from(afterQuoteTokenAccount.data),
+  }).amount;
 
   expect(afterBaseBalance > beforeBaseBalance).to.be.true;
   expect(afterQuoteBalance > beforeQuoteBalance).to.be.true;
-
-  virtualPoolState = getVirtualPool(svm, program, virtualPoolAddress);
-
-  const protocolLiquidityMigrationFeeMask = 1;
-  expect(virtualPoolState.migrationFeeWithdrawStatus).to.be.equal(
-    protocolLiquidityMigrationFeeMask
-  );
 }
 
 async function createDbcConfig(

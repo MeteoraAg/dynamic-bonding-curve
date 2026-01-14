@@ -71,13 +71,10 @@ pub struct ClaimProtocolLiquidityMigrationFeesCtx<'info> {
 
 pub fn handle_claim_protocol_liquidity_migration_fee(
     ctx: Context<ClaimProtocolLiquidityMigrationFeesCtx>,
+    max_base_amount: u64,
+    max_quote_amount: u64,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
-
-    require!(
-        pool.eligible_to_withdraw_protocol_migration_fee(),
-        PoolError::NotPermitToDoThisAction
-    );
 
     let migration_progress = pool.get_migration_progress()?;
 
@@ -86,10 +83,8 @@ pub fn handle_claim_protocol_liquidity_migration_fee(
         PoolError::PoolIsIncompleted
     );
 
-    let base_amount = pool.protocol_liquidity_migration_base_fee_amount;
-    let quote_amount = pool.protocol_liquidity_migration_quote_fee_amount;
-
-    pool.update_protocol_withdraw_migration_fee();
+    let (base_amount, quote_amount) =
+        pool.claim_protocol_migration_fee(max_base_amount, max_quote_amount)?;
 
     if base_amount > 0 {
         transfer_token_from_pool_authority(
