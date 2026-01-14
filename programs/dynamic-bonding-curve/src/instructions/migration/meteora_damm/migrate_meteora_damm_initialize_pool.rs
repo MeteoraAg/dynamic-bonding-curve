@@ -1,18 +1,14 @@
 use anchor_spl::token::{Burn, Token, TokenAccount};
-use ruint::aliases::U256;
 
 use crate::{
     const_pda,
-    constants::BASIS_POINT_MAX,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    params::fee_parameters::to_bps,
+    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
     safe_math::SafeMath,
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
         VirtualPool,
     },
-    u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u64,
     *,
 };
 
@@ -245,24 +241,25 @@ pub fn handle_migrate_meteora_damm<'info>(
     let base_reserve = config.migration_base_threshold;
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
 
-    let (protocol_liquidity_fee_base, protocol_liquidity_fee_quote) =
-        get_protocol_liquidity_fee_tokens(
-            quote_amount,
-            config.migration_sqrt_price,
-            virtual_pool.protocol_liquidity_migration_fee_bps,
-        )?;
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
+        base_reserve,
+        quote_amount,
+        config.migration_sqrt_price,
+        virtual_pool.protocol_liquidity_migration_fee_bps,
+        MigrationOption::MeteoraDamm,
+    )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
-        protocol_liquidity_fee_base,
-        protocol_liquidity_fee_quote,
+        protocol_migration_base_fee,
+        protocol_migration_quote_fee,
     );
 
-    let excluded_protocol_fee_base_amount = base_reserve.safe_sub(protocol_liquidity_fee_base)?;
-    let excluded_protocol_fee_quote_amount = quote_amount.safe_sub(protocol_liquidity_fee_quote)?;
+    let migration_base_amount = base_reserve.safe_sub(protocol_migration_base_fee)?;
+    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     ctx.accounts.create_pool(
-        excluded_protocol_fee_base_amount,
-        excluded_protocol_fee_quote_amount,
+        migration_base_amount,
+        migration_quote_amount,
         const_pda::pool_authority::BUMP,
     )?;
 
@@ -273,7 +270,7 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let non_burnable_amount = virtual_pool
         .get_protocol_and_trading_base_fee()?
-        .safe_add(protocol_liquidity_fee_base)?;
+        .safe_add(protocol_migration_base_fee)?;
 
     let left_base_token = ctx
         .accounts
@@ -310,157 +307,4 @@ pub fn handle_migrate_meteora_damm<'info>(
     // TODO emit event
 
     Ok(())
-}
-
-fn get_protocol_liquidity_fee_tokens(
-    quote_amount: u64,
-    sqrt_price: u128,
-    fee_bps: u16,
-) -> Result<(u64, u64)> {
-    let quote_fee_amount = safe_mul_div_cast_u64(
-        quote_amount,
-        fee_bps.into(),
-        BASIS_POINT_MAX,
-        Rounding::Down,
-    )?;
-
-    let sqrt_migration_price = U256::from(sqrt_price);
-    let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
-
-    let base_fee_amount = U256::from(quote_fee_amount)
-        .safe_shl(128)?
-        .safe_div(U256::from(price))?
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
-    Ok((base_fee_amount, quote_fee_amount))
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::constants::{
-        fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
-    };
-
-    use super::*;
-    use proptest::prelude::*;
-
-    // proptest! {
-    //     #[test]
-    //     fn test_protocol_fee_rounding_causes_price_increment(
-    //         base_amount in 1_000_000..1_000_000_000_000u64,
-    //         quote_amount in 1_000_000..1_000_000_000_000u64
-    //     ) {
-    //         let protocol_fee_base_amount: u64 = safe_mul_div_cast_u64(
-    //             base_amount,
-    //             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-    //             BASIS_POINT_MAX,
-    //             Rounding::Down,
-    //         ).unwrap();
-
-    //         let protocol_fee_quote_amount: u64 = safe_mul_div_cast_u64(
-    //             quote_amount,
-    //             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-    //             BASIS_POINT_MAX,
-    //             Rounding::Down,
-    //         ).unwrap();
-
-    //         let price_0 = quote_amount as f64 / base_amount as f64;
-
-    //         let excluded_fee_base_amount = base_amount.safe_sub(protocol_fee_base_amount).unwrap();
-    //         let excluded_fee_quote_amount = quote_amount.safe_sub(protocol_fee_quote_amount).unwrap();
-
-    //         let price_1 = excluded_fee_quote_amount as f64 / excluded_fee_base_amount as f64;
-
-    //         assert!(price_1 <= price_0);
-    //     }
-    // }
-
-    proptest! {
-        #[test]
-        fn test_protocol_base_amount_computed_from_protocol_quote_amount_always_lesser(
-            quote_amount in 10_000_000_000_000u64..u64::MAX,
-            sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
-        ) {
-             let price = U256::from(sqrt_price)
-                .safe_mul(U256::from(sqrt_price))
-                .unwrap();
-
-            let (base_migration_amount, rem) =
-                    U256::from(quote_amount).safe_shl(128).unwrap().div_rem(price);
-
-            let mut base_migration_amount: u64 = base_migration_amount.try_into().unwrap();
-
-            if !rem.is_zero() {
-                base_migration_amount = base_migration_amount.safe_add(1).unwrap();
-            }
-
-            if base_migration_amount == 0 {
-                return Ok(());
-            }
-
-            let protocol_fee_base_amount: u64 = safe_mul_div_cast_u64(
-                base_migration_amount,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-                BASIS_POINT_MAX,
-                Rounding::Down,
-            ).unwrap();
-
-            let (computed_protocol_base_fee_amount, _protocol_fee_quote_amount) = get_protocol_liquidity_fee_tokens(
-                quote_amount,
-                sqrt_price,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
-            ).unwrap();
-
-            assert!(computed_protocol_base_fee_amount <= protocol_fee_base_amount);
-        }
-    }
-
-    proptest! {
-        #[test]
-        fn test_protocol_fee_rounding_avoid_price_increment(
-            quote_amount in 10_000_000_000_000u64..u64::MAX,
-            sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
-        ) {
-            let price_0 = U256::from(sqrt_price)
-                .safe_mul(U256::from(sqrt_price))
-                .unwrap();
-
-            let (base_migration_amount, rem) =
-                    U256::from(quote_amount).safe_shl(128).unwrap().div_rem(price_0);
-
-            let mut base_migration_amount: u64 = base_migration_amount.try_into().unwrap();
-
-            if !rem.is_zero() {
-                base_migration_amount = base_migration_amount.safe_add(1).unwrap();
-            }
-
-            if base_migration_amount == 0 {
-                return Ok(());
-            }
-
-            let price_0 = U256::from(quote_amount)
-                .safe_shl(128).unwrap()
-                .safe_div(U256::from(base_migration_amount)).unwrap();
-
-            let (protocol_fee_base_amount, protocol_fee_quote_amount) = get_protocol_liquidity_fee_tokens(
-                quote_amount,
-                sqrt_price,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
-            ).unwrap();
-
-            let excluded_fee_base_amount = base_migration_amount.safe_sub(protocol_fee_base_amount).unwrap();
-            let excluded_fee_quote_amount = quote_amount.safe_sub(protocol_fee_quote_amount).unwrap();
-
-            let price_1 = U256::from(excluded_fee_quote_amount)
-                .safe_shl(128).unwrap()
-                .safe_div(U256::from(excluded_fee_base_amount)).unwrap();
-
-            assert!(price_1 <= price_0);
-
-            // let price_0_float = quote_amount as f64 / base_migration_amount as f64;
-            // let price_1_float = excluded_fee_quote_amount as f64 / excluded_fee_base_amount as f64;
-            // assert!(price_1_float <= price_0_float);
-        }
-    }
 }

@@ -76,7 +76,8 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         .accounts
         .base_vault
         .amount
-        .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?;
+        .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?
+        .safe_sub(virtual_pool.protocol_migration_base_fee_amount)?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),

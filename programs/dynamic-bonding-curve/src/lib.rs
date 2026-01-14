@@ -54,8 +54,14 @@ pub mod dynamic_bonding_curve {
     #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
     pub fn claim_protocol_liquidity_migration_fee(
         ctx: Context<ClaimProtocolLiquidityMigrationFeesCtx>,
+        max_base_amount: u64,
+        max_quote_amount: u64,
     ) -> Result<()> {
-        instructions::handle_claim_protocol_liquidity_migration_fee(ctx)
+        instructions::handle_claim_protocol_liquidity_migration_fee(
+            ctx,
+            max_base_amount,
+            max_quote_amount,
+        )
     }
 
     #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]

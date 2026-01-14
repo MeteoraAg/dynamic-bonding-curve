@@ -164,7 +164,7 @@ export async function migrateToDammV2(
   sendTransactionMaybeThrow(
     svm,
     transaction,
-    [payer, firstPositionNftKP, secondPositionNftKP]
+    [payer, firstPositionNftKP, secondPositionNftKP],
     // true
   );
 

@@ -15,24 +15,17 @@ use ruint::aliases::U512;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
-    constants::{
-        fee::MAX_BASIS_POINT, seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE,
-    },
+    constants::{seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     convert_collect_fee_mode_to_dammv2,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    curve::{
-        get_delta_amount_base_unsigned_256, get_delta_amount_quote_unsigned_256,
-        get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote,
-    },
+    curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
-    params::fee_parameters::to_bps,
+    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
     safe_math::SafeMath,
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
-    u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
 use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
@@ -585,22 +578,21 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
-    let (protocol_liquidity_base_fee_amount, protocol_liquidity_quote_fee_amount) =
-        get_protocol_liquidity_fee_tokens(
-            excluded_fee_base_reserve,
-            quote_amount,
-            virtual_pool.protocol_liquidity_migration_fee_bps,
-            migration_sqrt_price,
-        )?;
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
+        excluded_fee_base_reserve,
+        quote_amount,
+        migration_sqrt_price,
+        virtual_pool.protocol_liquidity_migration_fee_bps,
+        MigrationOption::DammV2,
+    )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
-        protocol_liquidity_base_fee_amount,
-        protocol_liquidity_quote_fee_amount,
+        protocol_migration_base_fee,
+        protocol_migration_quote_fee,
     );
 
-    let migration_base_amount =
-        excluded_fee_base_reserve.safe_sub(protocol_liquidity_base_fee_amount)?;
-    let migration_quote_amount = quote_amount.safe_sub(protocol_liquidity_quote_fee_amount)?;
+    let migration_base_amount = excluded_fee_base_reserve.safe_sub(protocol_migration_base_fee)?;
+    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     // calculate initial liquidity
     let initial_liquidity = get_liquidity_for_adding_liquidity(
@@ -738,7 +730,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     // check whether we should burn token
     let non_burnable_amount =
-        protocol_and_partner_base_fee.safe_add(protocol_liquidity_base_fee_amount)?;
+        protocol_and_partner_base_fee.safe_add(protocol_migration_base_fee)?;
 
     let left_base_token = ctx
         .accounts
@@ -771,60 +763,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     Ok(())
 }
 
-fn get_protocol_liquidity_fee_tokens(
-    base_amount_with_swap_buffer: u64,
-    quote_amount: u64,
-    fee_bps: u16,
-    migration_sqrt_price: u128,
-) -> Result<(u64, u64)> {
-    // Due to it select min liquidity from base and quote, it will exclude the swap buffer because theoretically quote will always < base (round up) + base_buffer
-    let initial_liquidity = get_liquidity_for_adding_liquidity(
-        base_amount_with_swap_buffer,
-        quote_amount,
-        migration_sqrt_price,
-    )?;
-
-    // Simulate base and quote deposited to DAMM v2
-    // https://github.com/MeteoraAg/damm-v2/blob/f36db1b7ae2b465bf3fd773594bd62528c3d51cd/programs/cp-amm/src/instructions/ix_add_liquidity.rs#L105
-    let refined_base_amount = get_delta_amount_base_unsigned_256(
-        migration_sqrt_price,
-        MAX_SQRT_PRICE,
-        initial_liquidity,
-        Rounding::Up,
-    )?;
-
-    let refined_base_amount: u64 = refined_base_amount
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
-    let refined_quote_amount = get_delta_amount_quote_unsigned_256(
-        MIN_SQRT_PRICE,
-        migration_sqrt_price,
-        initial_liquidity,
-        Rounding::Up,
-    )?;
-
-    let refined_quote_amount: u64 = refined_quote_amount
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
-    let protocol_fee_base_amount = safe_mul_div_cast_u64(
-        refined_base_amount,
-        fee_bps.into(),
-        MAX_BASIS_POINT,
-        Rounding::Down,
-    )?;
-
-    let protocol_fee_quote_amount = safe_mul_div_cast_u64(
-        refined_quote_amount,
-        fee_bps.into(),
-        MAX_BASIS_POINT,
-        Rounding::Down,
-    )?;
-
-    Ok((protocol_fee_base_amount, protocol_fee_quote_amount))
-}
-
 pub(crate) fn get_liquidity_for_adding_liquidity(
     base_amount: u64,
     quote_amount: u64,
@@ -840,46 +778,5 @@ pub(crate) fn get_liquidity_for_adding_liquidity(
         Ok(liquidity_from_base
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::curve::{get_delta_amount_base_unsigned, get_delta_amount_quote_unsigned};
-
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn test_get_liquidity_for_adding_liquidity(
-            base_amount in 1u64..1_000_000_000u64,
-            quote_amount in 1u64..1_000_000_000u64,
-            sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE,
-        ) {
-            let liquidity = get_liquidity_for_adding_liquidity(
-                base_amount,
-                quote_amount,
-                sqrt_price,
-            ).unwrap();
-
-            // DAMM v2 add liquidity
-            let derived_base_amount = get_delta_amount_base_unsigned(
-                sqrt_price,
-                MAX_SQRT_PRICE,
-                liquidity,
-                Rounding::Up,
-            ).unwrap();
-
-            let derived_quote_amount = get_delta_amount_quote_unsigned(
-                MIN_SQRT_PRICE,
-                sqrt_price,
-                liquidity,
-                Rounding::Up,
-            ).unwrap();
-
-            assert!(derived_base_amount <= base_amount);
-            assert!(derived_quote_amount <= quote_amount);
-        }
     }
 }
