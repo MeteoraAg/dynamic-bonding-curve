@@ -83,7 +83,7 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
         &ctx.accounts.base_vault,
-        &ctx.accounts.token_base_account,
+        ctx.accounts.token_base_account.to_account_info(),
         &ctx.accounts.token_base_program,
         leftover_amount,
     )?;

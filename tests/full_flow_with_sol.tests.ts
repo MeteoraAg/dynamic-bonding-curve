@@ -14,7 +14,6 @@ import {
   CreateConfigParams,
   createPoolWithSplToken,
   partnerWithdrawSurplus,
-  protocolWithdrawSurplus,
   swap,
   SwapMode,
   SwapParams,
@@ -270,22 +269,17 @@ describe("Full flow with spl-token", () => {
     }
   });
   it("Protocol withdraw surplus", async () => {
-    await protocolWithdrawSurplus(svm, program, {
+    await claimProtocolFee(svm, program, {
       operator: operator,
-      virtualPool,
+      pool: virtualPool,
     });
   });
 
-  it("Protocol can not withdraw surplus again", async () => {
-    try {
-      await protocolWithdrawSurplus(svm, program, {
-        operator: operator,
-        virtualPool,
-      });
-      assert.ok(false);
-    } catch (e) {
-      //
-    }
+  it("Protocol can withdraw surplus again", async () => {
+    await claimProtocolFee(svm, program, {
+      operator: operator,
+      pool: virtualPool,
+    });
   });
 
   it("Partner claim trading fee", async () => {

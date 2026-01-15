@@ -975,12 +975,34 @@ impl VirtualPool {
         self.has_swap == 0
     }
 
-    pub fn claim_protocol_fee(&mut self) -> (u64, u64) {
-        let token_base_amount = self.protocol_base_fee;
-        let token_quote_amount = self.protocol_quote_fee;
-        self.protocol_base_fee = 0;
-        self.protocol_quote_fee = 0;
-        (token_base_amount, token_quote_amount)
+    pub fn claim_protocol_base_fee(&mut self, max_amount: u64) -> Result<u64> {
+        // try to claim from trading fees firstly
+        let trading_claimed_fee = self.protocol_base_fee.min(max_amount);
+        self.protocol_base_fee = self.protocol_base_fee.safe_sub(trading_claimed_fee)?;
+        let max_amount = max_amount.safe_sub(trading_claimed_fee)?;
+        // claim from migration fee
+        let migration_claimed_fee = self.protocol_migration_base_fee_amount.min(max_amount);
+        self.protocol_migration_base_fee_amount = self
+            .protocol_migration_base_fee_amount
+            .safe_sub(migration_claimed_fee)?;
+        let total_claimed_fee = trading_claimed_fee.safe_add(migration_claimed_fee)?;
+
+        Ok(total_claimed_fee)
+    }
+
+    pub fn claim_protocol_quote_fee(&mut self, max_amount: u64) -> Result<u64> {
+        // try to claim from trading fees firstly
+        let trading_claimed_fee = self.protocol_quote_fee.min(max_amount);
+        self.protocol_quote_fee = self.protocol_quote_fee.safe_sub(trading_claimed_fee)?;
+        let max_amount = max_amount.safe_sub(trading_claimed_fee)?;
+        // claim from migration fee
+        let migration_claimed_fee = self.protocol_migration_quote_fee_amount.min(max_amount);
+        self.protocol_migration_quote_fee_amount = self
+            .protocol_migration_quote_fee_amount
+            .safe_sub(migration_claimed_fee)?;
+        let total_claimed_fee = trading_claimed_fee.safe_add(migration_claimed_fee)?;
+
+        Ok(total_claimed_fee)
     }
 
     pub fn claim_partner_trading_fee(
@@ -1138,26 +1160,6 @@ impl VirtualPool {
     pub fn save_protocol_liquidity_migration_fee(&mut self, base_amount: u64, quote_amount: u64) {
         self.protocol_migration_base_fee_amount = base_amount;
         self.protocol_migration_quote_fee_amount = quote_amount;
-    }
-
-    pub fn claim_protocol_migration_fee(
-        &mut self,
-        max_base_amount: u64,
-        max_quote_amount: u64,
-    ) -> Result<(u64, u64)> {
-        let claim_base_amount = self.protocol_migration_base_fee_amount.min(max_base_amount);
-        let claim_quote_amount = self
-            .protocol_migration_quote_fee_amount
-            .min(max_quote_amount);
-
-        self.protocol_migration_base_fee_amount = self
-            .protocol_migration_base_fee_amount
-            .safe_sub(claim_base_amount)?;
-        self.protocol_migration_quote_fee_amount = self
-            .protocol_migration_quote_fee_amount
-            .safe_sub(claim_quote_amount)?;
-
-        Ok((claim_base_amount, claim_quote_amount))
     }
 }
 

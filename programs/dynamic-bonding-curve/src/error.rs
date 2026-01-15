@@ -178,4 +178,7 @@ pub enum PoolError {
 
     #[msg("Fail to validate first swap with minimum fee")]
     FirstSwapValidationFailed,
+
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
 }

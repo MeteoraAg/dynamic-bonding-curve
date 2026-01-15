@@ -6,6 +6,7 @@ import {
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   BaseFee,
+  claimProtocolFee,
   ConfigParameters,
   createClaimProtocolFeeOperator,
   createConfig,
@@ -18,7 +19,6 @@ import {
   SwapMode,
 } from "./instructions";
 import {
-  claimProtocolLiquidityMigrationFee,
   createDammConfig,
   createDammV2DynamicConfig,
   createDammV2Operator,
@@ -184,11 +184,13 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
   const beforeBaseTokenAccount = svm.getAccount(treasuryBaseTokenAddress);
   const beforeQuoteTokenAccount = svm.getAccount(treasuryQuoteTokenAddress);
 
-  await claimProtocolLiquidityMigrationFee(
+  await claimProtocolFee(
     svm,
-    operator,
-    config,
-    virtualPoolAddress
+    program,
+    {
+      operator,
+      pool: virtualPoolAddress
+    }
   );
 
   const afterBaseTokenAccount = svm.getAccount(treasuryBaseTokenAddress);

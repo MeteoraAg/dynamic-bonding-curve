@@ -3,8 +3,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
+    safe_math::SafeMath,
     state::{ClaimFeeOperator, PoolConfig, VirtualPool},
-    token::transfer_token_from_pool_authority,
+    token::{transfer_token_from_pool_authority, validate_ata_token},
     treasury, EvtClaimProtocolFee,
 };
 
@@ -38,23 +39,13 @@ pub struct ClaimProtocolFeesCtx<'info> {
     /// The mint of token b
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// The treasury token a account
-    #[account(
-        mut,
-        associated_token::authority = treasury::ID,
-        associated_token::mint = base_mint,
-        associated_token::token_program = token_base_program,
-    )]
-    pub token_base_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    /// CHECK: The treasury base account
+    #[account(mut)]
+    pub token_base_account: UncheckedAccount<'info>,
 
-    /// The treasury token b account
-    #[account(
-        mut,
-        associated_token::authority = treasury::ID,
-        associated_token::mint = quote_mint,
-        associated_token::token_program = token_quote_program,
-    )]
-    pub token_quote_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    /// CHECK: The treasury quote account
+    #[account(mut)]
+    pub token_quote_account: UncheckedAccount<'info>,
 
     /// Claim fee operator
     pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
@@ -70,28 +61,62 @@ pub struct ClaimProtocolFeesCtx<'info> {
 }
 
 /// Withdraw protocol fees. Permissionless.
-pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<()> {
+pub fn handle_claim_protocol_fee(
+    ctx: Context<ClaimProtocolFeesCtx>,
+    max_base_amount: u64,
+    // note: max_quote_amount is just a cap of total trading fee and migration fee, if pool has surplus we could withdraw more than max_quote_amount
+    max_quote_amount: u64,
+) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
 
-    let (token_base_amount, token_quote_amount) = pool.claim_protocol_fee();
+    let token_base_amount = pool.claim_protocol_base_fee(max_base_amount)?;
+    if token_base_amount > 0 {
+        validate_ata_token(
+            &ctx.accounts.token_base_account.to_account_info(),
+            &treasury::ID,
+            &ctx.accounts.base_mint.key(),
+            &ctx.accounts.token_base_program.key(),
+        )?;
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.base_mint,
+            &ctx.accounts.base_vault,
+            ctx.accounts.token_base_account.to_account_info(),
+            &ctx.accounts.token_base_program,
+            token_base_amount,
+        )?;
+    }
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.base_mint,
-        &ctx.accounts.base_vault,
-        &ctx.accounts.token_base_account,
-        &ctx.accounts.token_base_program,
-        token_base_amount,
-    )?;
+    let mut token_quote_amount = pool.claim_protocol_quote_fee(max_quote_amount)?;
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.quote_mint,
-        &ctx.accounts.quote_vault,
-        &ctx.accounts.token_quote_account,
-        &ctx.accounts.token_quote_program,
-        token_quote_amount,
-    )?;
+    // check if pool is having surplus
+    let config = ctx.accounts.config.load()?;
+    if pool.is_protocol_withdraw_surplus == 0
+        && pool.is_curve_complete(config.migration_quote_threshold)
+    {
+        // Update protocol withdraw surplus
+        pool.update_protocol_withdraw_surplus();
+        let protocol_surplus_amount =
+            pool.get_protocol_surplus(config.migration_quote_threshold)?;
+        token_quote_amount = token_quote_amount.safe_add(protocol_surplus_amount)?;
+    }
+
+    if token_quote_amount > 0 {
+        validate_ata_token(
+            &ctx.accounts.token_quote_account.to_account_info(),
+            &treasury::ID,
+            &ctx.accounts.quote_mint.key(),
+            &ctx.accounts.token_quote_program.key(),
+        )?;
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.quote_mint,
+            &ctx.accounts.quote_vault,
+            ctx.accounts.token_quote_account.to_account_info(),
+            &ctx.accounts.token_quote_program,
+            token_quote_amount,
+        )?;
+    }
 
     emit_cpi!(EvtClaimProtocolFee {
         pool: ctx.accounts.pool.key(),

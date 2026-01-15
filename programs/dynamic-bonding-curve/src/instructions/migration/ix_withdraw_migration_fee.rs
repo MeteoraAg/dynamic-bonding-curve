@@ -119,7 +119,7 @@ pub fn handle_withdraw_migration_fee(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
-        &ctx.accounts.token_quote_account,
+        ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         fee,
     )?;

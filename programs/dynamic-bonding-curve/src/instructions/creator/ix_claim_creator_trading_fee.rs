@@ -69,7 +69,7 @@ pub fn handle_claim_creator_trading_fee(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
         &ctx.accounts.base_vault,
-        &ctx.accounts.token_a_account,
+        ctx.accounts.token_a_account.to_account_info(),
         &ctx.accounts.token_base_program,
         token_base_amount,
     )?;
@@ -78,7 +78,7 @@ pub fn handle_claim_creator_trading_fee(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
-        &ctx.accounts.token_b_account,
+        ctx.accounts.token_b_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         token_quote_amount,
     )?;
