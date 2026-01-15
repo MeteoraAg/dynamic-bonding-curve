@@ -181,4 +181,7 @@ pub enum PoolError {
 
     #[msg("Incorrect ATA")]
     IncorrectATA,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
 }

@@ -33,10 +33,16 @@ pub mod dynamic_bonding_curve {
     use super::*;
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
-    pub fn create_claim_protocol_fee_operator(
-        ctx: Context<CreateClaimProtocolFeeOperatorCtx>,
+    pub fn create_operator_account(
+        ctx: Context<CreateOperatorAccountCtx>,
+        permission: u128,
     ) -> Result<()> {
-        instructions::handle_create_claim_protocol_fee_operator(ctx)
+        instructions::handle_create_operator_account(ctx, permission)
+    }
+
+    #[access_control(is_admin(ctx.accounts.signer.key))]
+    pub fn close_operator_account(ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+        Ok(())
     }
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
