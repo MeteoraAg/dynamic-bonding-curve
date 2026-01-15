@@ -15,8 +15,7 @@ pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
     #[account(mut, has_one = config)]
     pub pool: AccountLoader<'info, VirtualPool>,
 
-    /// Claim fee operator
-    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+    pub operator: AccountLoader<'info, Operator>,
 
     /// Operator
     pub signer: Signer<'info>,

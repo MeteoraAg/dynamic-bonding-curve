@@ -14,42 +14,46 @@ import {
 } from "../utils";
 import {
   deriveClaimFeeOperatorAddress,
+  deriveOperatorAddress,
   derivePoolAuthority,
 } from "../utils/accounts";
 import { VirtualCurveProgram } from "../utils/types";
+import BN from "bn.js";
 
-export type CreateClaimProtocolFeeOperatorParams = {
-  admin: Keypair;
-  operator: PublicKey;
-};
+export enum OperatorPermission {
+  ClaimProtocolFee,
+  ZapProtocolFee,
+  ClaimProtocolPoolCreationFee,
+}
 
-export async function createClaimProtocolFeeOperator(
+export function encodePermissions(permissions: OperatorPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
+export async function createOperatorAccount(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateClaimProtocolFeeOperatorParams
-): Promise<PublicKey> {
-  const { operator, admin } = params;
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
+  params: {
+    admin: Keypair;
+    whitelistedAddress: PublicKey;
+    permissions: OperatorPermission[];
+  }
+) {
+  const { admin, whitelistedAddress, permissions } = params;
+
   const transaction = await program.methods
-    .createClaimProtocolFeeOperator()
+    .createOperatorAccount(encodePermissions(permissions))
     .accountsPartial({
-      claimFeeOperator,
-      operator,
       signer: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress),
+      whitelistedAddress,
       payer: admin.publicKey,
     })
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [admin]);
-
-  const claimFeeOperatorState = getClaimFeeOperator(
-    svm,
-    program,
-    claimFeeOperator
-  );
-  expect(claimFeeOperatorState.operator.toString()).eq(operator.toString());
-
-  return claimFeeOperator;
 }
 
 export async function closeClaimProtocolFeeOperator(
@@ -82,7 +86,6 @@ export type ClaimLegacyPoolCreationFeeParams = {
   pool: PublicKey;
 };
 
-
 export type ClaimProtocolPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
@@ -105,7 +108,7 @@ export async function claimProtocolPoolCreationFee(
       config: poolState.config,
       treasury: TREASURY,
       signer: operator.publicKey,
-      claimFeeOperator,
+      operator: deriveOperatorAddress(operator.publicKey),
     })
     // Trick to bypass bankrun transaction has been processed if we wish to execute same tx again
     .remainingAccounts([
@@ -133,7 +136,6 @@ export async function claimProtocolFee(
   const poolState = getVirtualPool(svm, program, pool);
   const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
 
   const tokenBaseProgram =
@@ -147,21 +149,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        poolState.baseMint,
-        TREASURY,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        quoteMintInfo.mint,
-        TREASURY,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      poolState.baseMint,
+      TREASURY,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      quoteMintInfo.mint,
+      TREASURY,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -177,7 +179,7 @@ export async function claimProtocolFee(
       quoteMint: quoteMintInfo.mint,
       tokenBaseAccount,
       tokenQuoteAccount,
-      claimFeeOperator,
+      operator: deriveOperatorAddress(operator.publicKey),
       signer: operator.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
@@ -186,6 +188,4 @@ export async function claimProtocolFee(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [operator]);
-
 }
-

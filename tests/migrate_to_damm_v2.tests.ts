@@ -3,11 +3,13 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import {
   BaseFee,
+  claimProtocolFee,
   ConfigParameters,
-  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
+  createOperatorAccount,
   createPoolWithSplToken,
+  OperatorPermission,
   swap,
   SwapMode,
   SwapParams,
@@ -47,7 +49,6 @@ describe("Migrate to damm v2", () => {
   let virtualPool: PublicKey;
   let virtualPoolState: Pool;
   let dammConfig: PublicKey;
-  let claimFeeOperator: PublicKey;
 
   before(async () => {
     svm = startSvm();
@@ -65,10 +66,11 @@ describe("Migrate to damm v2", () => {
     });
   });
 
-  it("Admin create claim fee operator", async () => {
-    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
+  it("Admin create operator account", async () => {
+    await createOperatorAccount(svm, program, {
       admin,
-      operator: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
   });
 
@@ -216,5 +218,12 @@ describe("Migrate to damm v2", () => {
     };
 
     await migrateToDammV2(svm, program, migrationParams);
+  });
+
+  it("Operator claim protocol fee", async () => {
+    await claimProtocolFee(svm, program, {
+      pool: virtualPool,
+      operator: operator,
+    });
   });
 });

@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     safe_math::SafeMath,
-    state::{ClaimFeeOperator, PoolConfig, VirtualPool},
+    state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
     treasury, EvtClaimProtocolFee,
 };
@@ -47,8 +47,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     #[account(mut)]
     pub token_quote_account: UncheckedAccount<'info>,
 
-    /// Claim fee operator
-    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+    pub operator: AccountLoader<'info, Operator>,
 
     /// Signer
     pub signer: Signer<'info>,
