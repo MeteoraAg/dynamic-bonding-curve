@@ -1,4 +1,3 @@
-import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { expect } from "chai";
@@ -83,34 +82,6 @@ export type ClaimLegacyPoolCreationFeeParams = {
   pool: PublicKey;
 };
 
-// export async function claimLegacyPoolCreationFee(
-//   svm: LiteSVM,
-//   program: VirtualCurveProgram,
-//   params: ClaimLegacyPoolCreationFeeParams
-// ) {
-//   const { operator, pool } = params;
-
-//   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
-
-//   const transaction = await program.methods
-//     .claimLegacyPoolCreationFee()
-//     .accountsPartial({
-//       pool,
-//       treasury: TREASURY,
-//       signer: operator.publicKey,
-//       systemProgram: SYSTEM_PROGRAM_ID,
-//       claimFeeOperator,
-//     })
-//     .remainingAccounts([
-//       {
-//         pubkey: PublicKey.unique(),
-//         isSigner: false,
-//         isWritable: false,
-//       },
-//     ])
-//     .transaction();
-//   sendTransactionMaybeThrow(svm, transaction, [operator]);
-// }
 
 export type ClaimProtocolPoolCreationFeeParams = {
   operator: Keypair;
@@ -194,11 +165,6 @@ export async function claimProtocolFee(
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const tokenQuoteAccountState = getTokenAccount(svm, tokenQuoteAccount);
-  const preQuoteTokenBalance = tokenQuoteAccountState
-    ? tokenQuoteAccountState.amount
-    : 0;
-
   const transaction = await program.methods
     .claimProtocolFee(U64_MAX, U64_MAX)
     .accountsPartial({
@@ -223,48 +189,3 @@ export async function claimProtocolFee(
 
 }
 
-// export type ProtocolWithdrawSurplusParams = {
-//   operator: Keypair;
-//   virtualPool: PublicKey;
-// };
-// export async function protocolWithdrawSurplus(
-//   svm: LiteSVM,
-//   program: VirtualCurveProgram,
-//   params: ProtocolWithdrawSurplusParams
-// ): Promise<any> {
-//   const { operator, virtualPool } = params;
-
-//   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
-//   const poolState = getVirtualPool(svm, program, virtualPool);
-//   const poolAuthority = derivePoolAuthority();
-//   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
-
-//   const preInstructions: TransactionInstruction[] = [];
-//   const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-//     getOrCreateAssociatedTokenAccount(
-//       svm,
-//       operator,
-//       quoteMintInfo.mint,
-//       TREASURY,
-//       TOKEN_PROGRAM_ID
-//     );
-//   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
-
-//   const transaction = await program.methods
-//     .protocolWithdrawSurplus()
-//     .accountsPartial({
-//       poolAuthority,
-//       config: poolState.config,
-//       virtualPool,
-//       quoteVault: poolState.quoteVault,
-//       quoteMint: quoteMintInfo.mint,
-//       tokenQuoteAccount,
-//       claimFeeOperator,
-//       signer: operator.publicKey,
-//       tokenQuoteProgram: TOKEN_PROGRAM_ID,
-//     })
-//     .preInstructions(preInstructions)
-//     .transaction();
-
-//   sendTransactionMaybeThrow(svm, transaction, [operator]);
-// }

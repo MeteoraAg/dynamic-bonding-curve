@@ -191,9 +191,6 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
       operator,
       pool: virtualPoolAddress
     }
-    // operator,
-    // config,
-    // virtualPoolAddress
   );
 
   const afterBaseTokenAccount = svm.getAccount(treasuryBaseTokenAddress);

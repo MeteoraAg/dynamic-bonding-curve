@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Remove endpoint `protocol_withdraw_surplus`, and merge surplus claiming to endpoint `claim_protocol_fee`
 - Remove endpoint `claim_legacy_pool_creation_fee`, and merge `legacy_pool_creation_fee` to endpoint `claim_protocol_pool_creation_fee`
 
 ### Breaking Changes
