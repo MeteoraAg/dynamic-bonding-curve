@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
 - Added field `enable_first_swap_with_min_fee` in `create_config` endpoint to allow user to initialize pool and swap in single transaction without any anti sniper suite fee.
+- Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
 
 ### Changed
 
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `fee_receiver` field to event `EvtPartnerClaimPoolCreationFee`.
 - Endpoint `claim_protocol_fee` add new params `max_base_amount` and `max_quote_amount`
 - Remove endpoint `protocol_withdraw_surplus`, surplus amount will be merged in endpoint `claim_protocol_fee`
+- Removed the `create_claim_protocol_fee_operator` endpoint in favor of `create_operator_account`, which can create an operator account configured with permissions, including claiming protocol fees.
 
 ## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
 

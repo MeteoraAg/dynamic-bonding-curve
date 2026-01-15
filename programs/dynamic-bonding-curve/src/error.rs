@@ -184,4 +184,7 @@ pub enum PoolError {
 
     #[msg("Pool has insufficient lamports to perform the operation")]
     InsufficientPoolLamports,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
 }

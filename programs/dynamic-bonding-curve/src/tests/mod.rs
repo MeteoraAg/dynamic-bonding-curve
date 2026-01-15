@@ -33,3 +33,6 @@ mod test_dammv2_vesting_params;
 
 #[cfg(test)]
 mod test_migration_fee;
+
+#[cfg(test)]
+mod test_operator_permission;
