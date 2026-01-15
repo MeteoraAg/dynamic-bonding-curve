@@ -8,13 +8,14 @@ import {
   BaseFee,
   claimProtocolFee,
   ConfigParameters,
-  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
   createMeteoraMetadata,
+  createOperatorAccount,
   createPoolWithSplToken,
   MigrateMeteoraParams,
   migrateToMeteoraDamm,
+  OperatorPermission,
   swap,
   SwapMode,
 } from "./instructions";
@@ -61,9 +62,10 @@ describe("Claim protocol liquidity migration fee", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createClaimProtocolFeeOperator(svm, program, {
-      operator: operator.publicKey,
+    await createOperatorAccount(svm, program, {
       admin,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
 
     await createDammV2Operator(svm, {
@@ -184,30 +186,26 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
   const beforeBaseTokenAccount = svm.getAccount(treasuryBaseTokenAddress);
   const beforeQuoteTokenAccount = svm.getAccount(treasuryQuoteTokenAddress);
 
-  await claimProtocolFee(
-    svm,
-    program,
-    {
-      operator,
-      pool: virtualPoolAddress
-    }
-  );
+  await claimProtocolFee(svm, program, {
+    operator,
+    pool: virtualPoolAddress,
+  });
 
   const afterBaseTokenAccount = svm.getAccount(treasuryBaseTokenAddress);
   const afterQuoteTokenAccount = svm.getAccount(treasuryQuoteTokenAddress);
 
   const beforeBaseBalance = beforeBaseTokenAccount
     ? unpackAccount(treasuryBaseTokenAddress, {
-      ...beforeBaseTokenAccount,
-      data: Buffer.from(beforeBaseTokenAccount.data),
-    }).amount
+        ...beforeBaseTokenAccount,
+        data: Buffer.from(beforeBaseTokenAccount.data),
+      }).amount
     : BigInt(0);
 
   const beforeQuoteBalance = beforeQuoteTokenAccount
     ? unpackAccount(treasuryQuoteTokenAddress, {
-      ...beforeQuoteTokenAccount,
-      data: Buffer.from(beforeQuoteTokenAccount.data),
-    }).amount
+        ...beforeQuoteTokenAccount,
+        data: Buffer.from(beforeQuoteTokenAccount.data),
+      }).amount
     : BigInt(0);
 
   const afterBaseBalance = unpackAccount(treasuryBaseTokenAddress, {

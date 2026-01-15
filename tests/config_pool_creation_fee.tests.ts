@@ -5,10 +5,11 @@ import { LiteSVM } from "litesvm";
 import {
   claimPartnerPoolCreationFee,
   claimProtocolPoolCreationFee,
-  createClaimProtocolFeeOperator,
   createConfig,
+  createOperatorAccount,
   createPoolWithSplToken,
   createPoolWithToken2022,
+  OperatorPermission,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -58,9 +59,10 @@ describe("Config pool creation fee", () => {
       BigInt(U64_MAX.toString())
     );
 
-    await createClaimProtocolFeeOperator(svm, program, {
+    await createOperatorAccount(svm, program, {
       admin,
-      operator: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolPoolCreationFee],
     });
   });
 

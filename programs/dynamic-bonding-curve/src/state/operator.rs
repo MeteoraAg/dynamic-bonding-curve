@@ -16,14 +16,15 @@ use static_assertions::const_assert_eq;
     AnchorSerialize,
 )]
 pub enum OperatorPermission {
-    ClaimProtocolFee, // 0
-    ZapProtocolFee,   // 1
+    ClaimProtocolFee,             // 0
+    ZapProtocolFee,               // 1
+    ClaimProtocolPoolCreationFee, // 2
 }
 
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
 pub struct Operator {
-    pub signer: Pubkey,
+    pub whitelisted_address: Pubkey,
     pub permission: u128,
     pub padding: [u64; 2], // padding for future use
 }
@@ -31,8 +32,8 @@ pub struct Operator {
 const_assert_eq!(Operator::INIT_SPACE, 64);
 
 impl Operator {
-    pub fn initialize(&mut self, whitelisted_signer: Pubkey, permission: u128) {
-        self.signer = whitelisted_signer;
+    pub fn initialize(&mut self, whitelisted_address: Pubkey, permission: u128) {
+        self.whitelisted_address = whitelisted_address;
         self.permission = permission;
     }
 

@@ -16,13 +16,14 @@ import {
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
-  createClaimProtocolFeeOperator,
+  createOperatorAccount,
   createConfig,
   CreateConfigParams,
   createPoolWithToken2022,
   swap,
   SwapMode,
   SwapParams,
+  OperatorPermission,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -47,7 +48,6 @@ describe("Create pool with token2022", () => {
   let config: PublicKey;
   let virtualPool: PublicKey;
   let virtualPoolState: Pool;
-  let claimFeeOperator: PublicKey;
 
   before(async () => {
     svm = startSvm();
@@ -58,10 +58,10 @@ describe("Create pool with token2022", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    // admin create claimFeeOperator
-    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
+    await createOperatorAccount(svm, program, {
       admin,
-      operator: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
   });
 
