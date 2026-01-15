@@ -557,77 +557,77 @@ export async function createDammV2DynamicConfig(
   return config;
 }
 
-export async function claimProtocolLiquidityMigrationFee(
-  svm: LiteSVM,
-  operator: Keypair,
-  config: PublicKey,
-  virtualPoolAddress: PublicKey
-) {
-  const program = createVirtualCurveProgram();
-  const poolAuthority = derivePoolAuthority();
+// export async function claimProtocolLiquidityMigrationFee(
+//   svm: LiteSVM,
+//   operator: Keypair,
+//   config: PublicKey,
+//   virtualPoolAddress: PublicKey
+// ) {
+//   const program = createVirtualCurveProgram();
+//   const poolAuthority = derivePoolAuthority();
 
-  const virtualPoolState = getVirtualPool(svm, program, virtualPoolAddress);
-  const configState = getConfig(svm, program, config);
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+//   const virtualPoolState = getVirtualPool(svm, program, virtualPoolAddress);
+//   const configState = getConfig(svm, program, config);
+//   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
-  const baseMintAccount = svm.getAccount(virtualPoolState.baseMint);
-  const quoteMintAccount = svm.getAccount(configState.quoteMint);
+//   const baseMintAccount = svm.getAccount(virtualPoolState.baseMint);
+//   const quoteMintAccount = svm.getAccount(configState.quoteMint);
 
-  const { ix: createTreasuryBaseAtaIx, ata: tokenBaseAccount } =
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      virtualPoolState.baseMint,
-      TREASURY,
-      baseMintAccount.owner
-    );
+//   const { ix: createTreasuryBaseAtaIx, ata: tokenBaseAccount } =
+//     getOrCreateAssociatedTokenAccount(
+//       svm,
+//       operator,
+//       virtualPoolState.baseMint,
+//       TREASURY,
+//       baseMintAccount.owner
+//     );
 
-  const preInstructions: TransactionInstruction[] = [];
-  if (createTreasuryBaseAtaIx) {
-    preInstructions.push(createTreasuryBaseAtaIx);
-  }
+//   const preInstructions: TransactionInstruction[] = [];
+//   if (createTreasuryBaseAtaIx) {
+//     preInstructions.push(createTreasuryBaseAtaIx);
+//   }
 
-  const { ix: createTreasuryQuoteAtaIx, ata: tokenQuoteAccount } =
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      configState.quoteMint,
-      TREASURY,
-      quoteMintAccount.owner
-    );
+//   const { ix: createTreasuryQuoteAtaIx, ata: tokenQuoteAccount } =
+//     getOrCreateAssociatedTokenAccount(
+//       svm,
+//       operator,
+//       configState.quoteMint,
+//       TREASURY,
+//       quoteMintAccount.owner
+//     );
 
-  if (createTreasuryQuoteAtaIx) {
-    preInstructions.push(createTreasuryQuoteAtaIx);
-  }
+//   if (createTreasuryQuoteAtaIx) {
+//     preInstructions.push(createTreasuryQuoteAtaIx);
+//   }
 
-  let transaction = await program.methods
-    .claimProtocolLiquidityMigrationFee(U64_MAX, U64_MAX)
-    .accountsPartial({
-      pool: virtualPoolAddress,
-      poolAuthority,
-      baseVault: virtualPoolState.baseVault,
-      quoteVault: virtualPoolState.quoteVault,
-      baseMint: virtualPoolState.baseMint,
-      quoteMint: configState.quoteMint,
-      claimFeeOperator,
-      signer: operator.publicKey,
-      tokenBaseProgram: baseMintAccount.owner,
-      tokenQuoteAccount,
-      tokenBaseAccount,
-      tokenQuoteProgram: quoteMintAccount.owner,
-    })
-    .preInstructions(preInstructions)
-    .transaction();
+//   let transaction = await program.methods
+//     .claimProtocolLiquidityMigrationFee(U64_MAX, U64_MAX)
+//     .accountsPartial({
+//       pool: virtualPoolAddress,
+//       poolAuthority,
+//       baseVault: virtualPoolState.baseVault,
+//       quoteVault: virtualPoolState.quoteVault,
+//       baseMint: virtualPoolState.baseMint,
+//       quoteMint: configState.quoteMint,
+//       claimFeeOperator,
+//       signer: operator.publicKey,
+//       tokenBaseProgram: baseMintAccount.owner,
+//       tokenQuoteAccount,
+//       tokenBaseAccount,
+//       tokenQuoteProgram: quoteMintAccount.owner,
+//     })
+//     .preInstructions(preInstructions)
+//     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
+//   transaction.recentBlockhash = svm.latestBlockhash();
 
-  sendTransactionMaybeThrow(
-    svm,
-    transaction,
-    [operator],
-    // true
-  );
-}
+//   sendTransactionMaybeThrow(
+//     svm,
+//     transaction,
+//     [operator],
+//     // true
+//   );
+// }
 
 export async function createLockEscrowIx(
   svm: LiteSVM,

@@ -145,12 +145,6 @@ pub struct EvtCreateMeteoraMigrationMetadata {
 }
 
 #[event]
-pub struct EvtProtocolWithdrawSurplus {
-    pub pool: Pubkey,
-    pub surplus_amount: u64,
-}
-
-#[event]
 pub struct EvtPartnerWithdrawSurplus {
     pub pool: Pubkey,
     pub surplus_amount: u64,

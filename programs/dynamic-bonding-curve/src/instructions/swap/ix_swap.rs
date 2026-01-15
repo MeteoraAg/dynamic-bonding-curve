@@ -252,7 +252,7 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
         ctx.accounts.pool_authority.to_account_info(),
         token_out_mint,
         output_vault_account,
-        &ctx.accounts.output_token_account,
+        ctx.accounts.output_token_account.to_account_info(),
         output_program,
         swap_result.output_amount,
     )?;
@@ -264,7 +264,7 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.base_mint,
                 &ctx.accounts.base_vault,
-                referral_token_account,
+                referral_token_account.to_account_info(),
                 &ctx.accounts.token_base_program,
                 swap_result.referral_fee,
             )?;
@@ -273,7 +273,7 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.quote_mint,
                 &ctx.accounts.quote_vault,
-                referral_token_account,
+                referral_token_account.to_account_info(),
                 &ctx.accounts.token_quote_program,
                 swap_result.referral_fee,
             )?;

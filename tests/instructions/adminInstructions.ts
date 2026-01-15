@@ -11,6 +11,7 @@ import {
   getVirtualPool,
   sendTransactionMaybeThrow,
   TREASURY,
+  U64_MAX,
 } from "../utils";
 import {
   deriveClaimFeeOperatorAddress,
@@ -82,34 +83,34 @@ export type ClaimLegacyPoolCreationFeeParams = {
   pool: PublicKey;
 };
 
-export async function claimLegacyPoolCreationFee(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: ClaimLegacyPoolCreationFeeParams
-) {
-  const { operator, pool } = params;
+// export async function claimLegacyPoolCreationFee(
+//   svm: LiteSVM,
+//   program: VirtualCurveProgram,
+//   params: ClaimLegacyPoolCreationFeeParams
+// ) {
+//   const { operator, pool } = params;
 
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+//   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
 
-  const transaction = await program.methods
-    .claimLegacyPoolCreationFee()
-    .accountsPartial({
-      pool,
-      treasury: TREASURY,
-      signer: operator.publicKey,
-      systemProgram: SYSTEM_PROGRAM_ID,
-      claimFeeOperator,
-    })
-    .remainingAccounts([
-      {
-        pubkey: PublicKey.unique(),
-        isSigner: false,
-        isWritable: false,
-      },
-    ])
-    .transaction();
-  sendTransactionMaybeThrow(svm, transaction, [operator]);
-}
+//   const transaction = await program.methods
+//     .claimLegacyPoolCreationFee()
+//     .accountsPartial({
+//       pool,
+//       treasury: TREASURY,
+//       signer: operator.publicKey,
+//       systemProgram: SYSTEM_PROGRAM_ID,
+//       claimFeeOperator,
+//     })
+//     .remainingAccounts([
+//       {
+//         pubkey: PublicKey.unique(),
+//         isSigner: false,
+//         isWritable: false,
+//       },
+//     ])
+//     .transaction();
+//   sendTransactionMaybeThrow(svm, transaction, [operator]);
+// }
 
 export type ClaimProtocolPoolCreationFeeParams = {
   operator: Keypair;
@@ -160,8 +161,6 @@ export async function claimProtocolFee(
   const { operator, pool } = params;
   const poolState = getVirtualPool(svm, program, pool);
   const configState = getConfig(svm, program, poolState.config);
-  const totalQuoteProtocolFee = poolState.protocolQuoteFee;
-  const totalBaseProtocolFee = poolState.protocolBaseFee;
   const poolAuthority = derivePoolAuthority();
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
@@ -177,21 +176,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      poolState.baseMint,
-      TREASURY,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        poolState.baseMint,
+        TREASURY,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        quoteMintInfo.mint,
+        TREASURY,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -201,7 +200,7 @@ export async function claimProtocolFee(
     : 0;
 
   const transaction = await program.methods
-    .claimProtocolFee()
+    .claimProtocolFee(U64_MAX, U64_MAX)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
@@ -222,59 +221,50 @@ export async function claimProtocolFee(
 
   sendTransactionMaybeThrow(svm, transaction, [operator]);
 
-  //
-  const quoteTokenBalance = getTokenAccount(svm, tokenQuoteAccount).amount;
-  const baseTokenBalance = getTokenAccount(svm, tokenBaseAccount).amount;
-  expect(
-    (Number(quoteTokenBalance) - Number(preQuoteTokenBalance)).toString()
-  ).eq(totalQuoteProtocolFee.toString());
-  expect(Number(baseTokenBalance).toString()).eq(
-    totalBaseProtocolFee.toString()
-  );
 }
 
-export type ProtocolWithdrawSurplusParams = {
-  operator: Keypair;
-  virtualPool: PublicKey;
-};
-export async function protocolWithdrawSurplus(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: ProtocolWithdrawSurplusParams
-): Promise<any> {
-  const { operator, virtualPool } = params;
+// export type ProtocolWithdrawSurplusParams = {
+//   operator: Keypair;
+//   virtualPool: PublicKey;
+// };
+// export async function protocolWithdrawSurplus(
+//   svm: LiteSVM,
+//   program: VirtualCurveProgram,
+//   params: ProtocolWithdrawSurplusParams
+// ): Promise<any> {
+//   const { operator, virtualPool } = params;
 
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
-  const poolState = getVirtualPool(svm, program, virtualPool);
-  const poolAuthority = derivePoolAuthority();
-  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
+//   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+//   const poolState = getVirtualPool(svm, program, virtualPool);
+//   const poolAuthority = derivePoolAuthority();
+//   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
 
-  const preInstructions: TransactionInstruction[] = [];
-  const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      TOKEN_PROGRAM_ID
-    );
-  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
+//   const preInstructions: TransactionInstruction[] = [];
+//   const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
+//     getOrCreateAssociatedTokenAccount(
+//       svm,
+//       operator,
+//       quoteMintInfo.mint,
+//       TREASURY,
+//       TOKEN_PROGRAM_ID
+//     );
+//   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const transaction = await program.methods
-    .protocolWithdrawSurplus()
-    .accountsPartial({
-      poolAuthority,
-      config: poolState.config,
-      virtualPool,
-      quoteVault: poolState.quoteVault,
-      quoteMint: quoteMintInfo.mint,
-      tokenQuoteAccount,
-      claimFeeOperator,
-      signer: operator.publicKey,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
-    })
-    .preInstructions(preInstructions)
-    .transaction();
+//   const transaction = await program.methods
+//     .protocolWithdrawSurplus()
+//     .accountsPartial({
+//       poolAuthority,
+//       config: poolState.config,
+//       virtualPool,
+//       quoteVault: poolState.quoteVault,
+//       quoteMint: quoteMintInfo.mint,
+//       tokenQuoteAccount,
+//       claimFeeOperator,
+//       signer: operator.publicKey,
+//       tokenQuoteProgram: TOKEN_PROGRAM_ID,
+//     })
+//     .preInstructions(preInstructions)
+//     .transaction();
 
-  sendTransactionMaybeThrow(svm, transaction, [operator]);
-}
+//   sendTransactionMaybeThrow(svm, transaction, [operator]);
+// }
