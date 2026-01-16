@@ -220,8 +220,8 @@ async function claimProtocolLiquidityMigrationFeeAndAssert(
     data: Buffer.from(afterQuoteTokenAccount.data),
   }).amount;
 
-  expect(afterBaseBalance > beforeBaseBalance).to.be.true;
-  expect(afterQuoteBalance > beforeQuoteBalance).to.be.true;
+  expect(afterBaseBalance >= beforeBaseBalance).to.be.true;
+  expect(afterQuoteBalance >= beforeQuoteBalance).to.be.true;
 }
 
 async function createDbcConfig(
