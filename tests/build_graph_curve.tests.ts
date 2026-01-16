@@ -1,5 +1,6 @@
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -11,24 +12,25 @@ import {
   SwapMode,
   SwapParams,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createDammConfig,
+  createVirtualCurveProgram,
+  derivePoolAuthority,
   designGraphCurve,
-  fundSol,
+  generateAndFund,
   getMint,
-  startTest,
+  startSvm,
 } from "./utils";
-import { createVirtualCurveProgram, derivePoolAuthority } from "./utils";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
+import { VirtualCurveProgram } from "./utils/types";
 
-import { expect } from "chai";
-import { createToken, mintSplTokenTo } from "./utils/token";
 import { BN } from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Build graph curve", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -37,19 +39,12 @@ describe("Build graph curve", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -69,12 +64,7 @@ describe("Build graph curve", () => {
     };
     let leftOver = 10_000;
     let migrationOption = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designGraphCurve(
       totalTokenSupply,
       initialMarketcap,
@@ -95,16 +85,16 @@ describe("Build graph curve", () => {
         baseFeeMode: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
-    await mintSplTokenTo(
-      context.banksClient,
+    let config = await createConfig(svm, program, params);
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -112,7 +102,7 @@ describe("Build graph curve", () => {
       instructionParams.migrationQuoteThreshold.toNumber()
     );
     await fullFlow(
-      context.banksClient,
+      svm,
       program,
       config,
       operator,
@@ -139,12 +129,7 @@ describe("Build graph curve", () => {
     };
     let leftOver = 10_000;
     let migrationOption = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designGraphCurve(
       totalTokenSupply,
       initialMarketcap,
@@ -165,16 +150,16 @@ describe("Build graph curve", () => {
         baseFeeMode: 0,
       }
     );
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
-    await mintSplTokenTo(
-      context.banksClient,
+    let config = await createConfig(svm, program, params);
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -182,7 +167,7 @@ describe("Build graph curve", () => {
       instructionParams.migrationQuoteThreshold.toNumber()
     );
     await fullFlow(
-      context.banksClient,
+      svm,
       program,
       config,
       operator,
@@ -195,7 +180,7 @@ describe("Build graph curve", () => {
 });
 
 async function fullFlow(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   config: PublicKey,
   operator: Keypair,
@@ -205,7 +190,7 @@ async function fullFlow(
   quoteMint: PublicKey
 ) {
   // create pool
-  let virtualPool = await createPoolWithSplToken(banksClient, program, {
+  let virtualPool = await createPoolWithSplToken(svm, program, {
     poolCreator,
     payer: operator,
     quoteMint,
@@ -216,13 +201,9 @@ async function fullFlow(
       uri: "abc.com",
     },
   });
-  let virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-  let configState = await getConfig(banksClient, program, config);
+  let configState = getConfig(svm, program, config);
 
   // swap
   const params: SwapParams = {
@@ -236,30 +217,30 @@ async function fullFlow(
     swapMode: SwapMode.ExactIn,
     referralTokenAccount: null,
   };
-  await swap(banksClient, program, params);
+  await swap(svm, program, params);
 
   // migrate
   const poolAuthority = derivePoolAuthority();
-  let dammConfig = await createDammConfig(banksClient, admin, poolAuthority);
+  let dammConfig = await createDammConfig(svm, admin, poolAuthority);
   const migrationParams: MigrateMeteoraParams = {
     payer: admin,
     virtualPool,
     dammConfig,
   };
-  await createMeteoraMetadata(banksClient, program, {
+  await createMeteoraMetadata(svm, program, {
     payer: admin,
     virtualPool,
     config,
   });
 
   if (configState.lockedVestingConfig.frequency.toNumber() != 0) {
-    await createLocker(banksClient, program, {
+    await createLocker(svm, program, {
       payer: admin,
       virtualPool,
     });
   }
-  await migrateToMeteoraDamm(banksClient, program, migrationParams);
-  const baseMintData = await getMint(banksClient, virtualPoolState.baseMint);
+  await migrateToMeteoraDamm(svm, program, migrationParams);
+  const baseMintData = getMint(svm, virtualPoolState.baseMint);
 
   expect(baseMintData.supply.toString()).eq(
     configState.postMigrationTokenSupply.toString()

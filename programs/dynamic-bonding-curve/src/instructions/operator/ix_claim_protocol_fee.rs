@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     state::{ClaimFeeOperator, PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    token::transfer_token_from_pool_authority,
     treasury, EvtClaimProtocolFee,
 };
 
@@ -57,11 +57,10 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_quote_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Claim fee operator
-    #[account(has_one = operator)]
     pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
 
-    /// Operator
-    pub operator: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_base_program: Interface<'info, TokenInterface>,
@@ -76,24 +75,22 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<(
 
     let (token_base_amount, token_quote_amount) = pool.claim_protocol_fee();
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
         &ctx.accounts.base_vault,
         &ctx.accounts.token_base_account,
         &ctx.accounts.token_base_program,
         token_base_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         token_quote_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtClaimProtocolFee {

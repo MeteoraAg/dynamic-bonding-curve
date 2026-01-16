@@ -3,8 +3,8 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{PoolConfig, VirtualPool},
-    token::transfer_from_pool,
+    state::{ClaimFeeOperator, PoolConfig, VirtualPool},
+    token::transfer_token_from_pool_authority,
     treasury, EvtProtocolWithdrawSurplus, PoolError,
 };
 
@@ -44,6 +44,12 @@ pub struct ProtocolWithdrawSurplusCtx<'info> {
     /// The mint of token
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
+    /// Claim fee operator
+    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+
+    /// Signer
+    pub signer: Signer<'info>,
+
     /// Token b program
     pub token_quote_program: Interface<'info, TokenInterface>,
 }
@@ -65,14 +71,13 @@ pub fn handle_protocol_withdraw_surplus(ctx: Context<ProtocolWithdrawSurplusCtx>
 
     let protocol_surplus_amount = pool.get_protocol_surplus(config.migration_quote_threshold)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
         &ctx.accounts.token_quote_account,
         &ctx.accounts.token_quote_program,
         protocol_surplus_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     // Update protocol withdraw surplus

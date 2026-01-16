@@ -1,5 +1,7 @@
-import { ProgramTestContext } from "solana-bankrun";
+import { Keypair } from "@solana/web3.js";
 import {
+  createClaimProtocolFeeOperator,
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createLocker,
@@ -14,24 +16,25 @@ import {
   SwapParams,
   swapPartialFill,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair } from "@solana/web3.js";
 import {
   createDammConfig,
+  createVirtualCurveProgram,
+  derivePoolAuthority,
   designCurve,
-  fundSol,
+  generateAndFund,
   getMint,
-  startTest,
+  startSvm,
 } from "./utils";
-import { createVirtualCurveProgram, derivePoolAuthority } from "./utils";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
+import { VirtualCurveProgram } from "./utils/types";
 
-import { createToken, mintSplTokenTo } from "./utils/token";
-import { expect } from "chai";
 import { BN } from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Swap Over the Curve", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -40,20 +43,18 @@ describe("Swap Over the Curve", () => {
   let program: VirtualCurveProgram;
 
   beforeEach(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createClaimProtocolFeeOperator(svm, program, {
+      admin,
+      operator: operator.publicKey,
+    });
   });
 
   it("Swap exact in over the curve", async () => {
@@ -70,12 +71,7 @@ describe("Swap Over the Curve", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -92,21 +88,21 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
-    let configState = await getConfig(context.banksClient, program, config);
+    let config = await createConfig(svm, program, params);
+    let configState = getConfig(svm, program, config);
     let swapAmount = instructionParams.migrationQuoteThreshold
       .mul(new BN(120))
       .div(new BN(100)); // swap more 20%
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -115,26 +111,18 @@ describe("Swap Over the Curve", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const swapParams: SwapParams = {
@@ -148,48 +136,41 @@ describe("Swap Over the Curve", () => {
       swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
-    await swap(context.banksClient, program, swapParams);
+    await swap(svm, program, swapParams);
 
     // migrate
     const poolAuthority = derivePoolAuthority();
-    let dammConfig = await createDammConfig(
-      context.banksClient,
-      admin,
-      poolAuthority
-    );
+    let dammConfig = await createDammConfig(svm, admin, poolAuthority);
     const migrationParams: MigrateMeteoraParams = {
       payer: admin,
       virtualPool,
       dammConfig,
     };
-    await createMeteoraMetadata(context.banksClient, program, {
+    await createMeteoraMetadata(svm, program, {
       payer: admin,
       virtualPool,
       config,
     });
 
     if (configState.lockedVestingConfig.frequency.toNumber() != 0) {
-      await createLocker(context.banksClient, program, {
+      await createLocker(svm, program, {
         payer: admin,
         virtualPool,
       });
     }
-    await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+    await migrateToMeteoraDamm(svm, program, migrationParams);
 
-    await protocolWithdrawSurplus(context.banksClient, program, {
+    await protocolWithdrawSurplus(svm, program, {
       operator: operator,
       virtualPool,
     });
 
-    await partnerWithdrawSurplus(context.banksClient, program, {
+    await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,
       virtualPool,
     });
 
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
 
     expect(baseMintData.supply.toString()).eq(
       new BN(totalTokenSupply * 10 ** tokenBaseDecimal).toString()
@@ -210,12 +191,7 @@ describe("Swap Over the Curve", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
 
     const feeIncrementBps = 10;
     const maxLimiterDuration = 86400;
@@ -247,22 +223,22 @@ describe("Swap Over the Curve", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
-    let configState = await getConfig(context.banksClient, program, config);
+    let config = await createConfig(svm, program, params);
+    let configState = getConfig(svm, program, config);
 
     let swapAmount = instructionParams.migrationQuoteThreshold
       .mul(new BN(150))
       .div(new BN(100)); // swap more 150%
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -271,26 +247,18 @@ describe("Swap Over the Curve", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const swapParams: SwapParams = {
@@ -305,20 +273,16 @@ describe("Swap Over the Curve", () => {
       referralTokenAccount: null,
     };
 
-    const beforeAmount = await context.banksClient.getBalance(
-      swapParams.payer.publicKey
-    );
+    const beforeAmount = svm.getBalance(swapParams.payer.publicKey);
 
     const { computeUnitsConsumed } = await swapPartialFill(
-      context.banksClient,
+      svm,
       program,
       swapParams
     );
     console.log(`CU used ${computeUnitsConsumed}`);
 
-    const afterAmount = await context.banksClient.getBalance(
-      swapParams.payer.publicKey
-    );
+    const afterAmount = svm.getBalance(swapParams.payer.publicKey);
 
     // Make sure it's partial fill
     const consumedAmount = beforeAmount - afterAmount;
@@ -326,44 +290,37 @@ describe("Swap Over the Curve", () => {
 
     // migrate
     const poolAuthority = derivePoolAuthority();
-    let dammConfig = await createDammConfig(
-      context.banksClient,
-      admin,
-      poolAuthority
-    );
+    let dammConfig = await createDammConfig(svm, admin, poolAuthority);
     const migrationParams: MigrateMeteoraParams = {
       payer: admin,
       virtualPool,
       dammConfig,
     };
-    await createMeteoraMetadata(context.banksClient, program, {
+    await createMeteoraMetadata(svm, program, {
       payer: admin,
       virtualPool,
       config,
     });
 
     if (configState.lockedVestingConfig.frequency.toNumber() != 0) {
-      await createLocker(context.banksClient, program, {
+      await createLocker(svm, program, {
         payer: admin,
         virtualPool,
       });
     }
-    await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+    await migrateToMeteoraDamm(svm, program, migrationParams);
 
-    await protocolWithdrawSurplus(context.banksClient, program, {
+    await protocolWithdrawSurplus(svm, program, {
       operator: operator,
       virtualPool,
     });
 
-    await partnerWithdrawSurplus(context.banksClient, program, {
+    await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,
       virtualPool,
     });
 
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
 
     expect(baseMintData.supply.toString()).eq(
       new BN(totalTokenSupply * 10 ** tokenBaseDecimal).toString()

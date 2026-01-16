@@ -1,5 +1,7 @@
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
@@ -10,33 +12,31 @@ import {
   SwapParams,
   swapSimulate,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { startTest } from "./utils";
 import {
   createVirtualCurveProgram,
+  generateAndFund,
+  getVirtualPool,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  startSvm,
   U64_MAX,
 } from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { VirtualCurveProgram } from "./utils/types";
 
 describe("Simulate CU swap", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let user: Keypair;
   let program: VirtualCurveProgram;
 
   beforeEach(async () => {
-    context = await startTest();
-    user = context.payer;
+    svm = startSvm();
+    user = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
   it("Simulate CU Swap", async () => {
     const result = [];
     for (let curve_size = 1; curve_size <= 16; curve_size++) {
-      console.log("curve size: ", curve_size);
       let curves = [];
       for (let i = 1; i <= curve_size; i++) {
         curves.push({
@@ -66,10 +66,10 @@ describe("Simulate CU swap", () => {
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(50_000 * 10 ** 6),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE,
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -91,23 +91,33 @@ describe("Simulate CU swap", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        padding: [],
+        poolCreationFee: new BN(0),
         curve: curves,
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
       };
-      const createConfigParams: CreateConfigParams = {
+      const createConfigParams: CreateConfigParams<ConfigParameters> = {
         payer: user,
         leftoverReceiver: user.publicKey,
         feeClaimer: user.publicKey,
         quoteMint: NATIVE_MINT,
         instructionParams,
       };
-      const config = await createConfig(
-        context.banksClient,
-        program,
-        createConfigParams
-      );
+      const config = await createConfig(svm, program, createConfigParams);
 
-      const pool = await createPoolWithSplToken(context.banksClient, program, {
+      const pool = await createPoolWithSplToken(svm, program, {
         poolCreator: user,
         payer: user,
         quoteMint: NATIVE_MINT,
@@ -119,11 +129,7 @@ describe("Simulate CU swap", () => {
         },
       });
 
-      const poolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        pool
-      );
+      const poolState = getVirtualPool(svm, program, pool);
       const params: SwapParams = {
         config,
         payer: user,
@@ -137,7 +143,7 @@ describe("Simulate CU swap", () => {
       };
 
       const { computeUnitsConsumed, numInstructions, completed, message } =
-        await swapSimulate(context.banksClient, program, params);
+        await swapSimulate(svm, program, params);
       result.push({
         curveSize: curves.length,
         completed,

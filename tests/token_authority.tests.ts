@@ -1,27 +1,4 @@
-import { BN } from "bn.js";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  deserializeMetadata,
-  Key,
-} from "@metaplex-foundation/mpl-token-metadata";
-import {
-  BaseFee,
-  ConfigParameters,
-  createConfig,
-  CreateConfigParams,
-  createPoolWithSplToken,
-  createPoolWithToken2022,
-} from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { deriveMetadataAccount, fundSol, getMint, startTest } from "./utils";
-import {
-  createVirtualCurveProgram,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  U64_MAX,
-} from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
+import { deserializeMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
@@ -31,11 +8,34 @@ import {
   MintLayout,
   NATIVE_MINT,
 } from "@solana/spl-token";
-import { expect } from "chai";
 import { unpack } from "@solana/spl-token-metadata";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { BN } from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import {
+  BaseFee,
+  ConfigParameters,
+  createConfig,
+  CreateConfigParams,
+  createPoolWithSplToken,
+  createPoolWithToken2022,
+} from "./instructions";
+import {
+  createVirtualCurveProgram,
+  deriveMetadataAccount,
+  generateAndFund,
+  getMint,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
+  startSvm,
+  U64_MAX,
+} from "./utils";
+import { getVirtualPool } from "./utils/fetcher";
+import { VirtualCurveProgram } from "./utils/types";
 
 describe("Token authority with token2022", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -44,19 +44,12 @@ describe("Token authority with token2022", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -65,22 +58,18 @@ describe("Token authority with token2022", () => {
     const tokenType = 1;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const metadataPointer = MetadataPointerLayout.decode(
       getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
     );
@@ -92,37 +81,31 @@ describe("Token authority with token2022", () => {
     const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
-    expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
 
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
-
 
   it("Token2022: immutable", async () => {
     const tokenUpdateAuthority = 1;
     const tokenType = 1;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const metadataPointer = MetadataPointerLayout.decode(
       getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
     );
@@ -134,13 +117,10 @@ describe("Token authority with token2022", () => {
     const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
-    expect(tokenMetadata.updateAuthority).to.be.undefined
+    expect(tokenMetadata.updateAuthority).to.be.undefined;
 
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -149,22 +129,18 @@ describe("Token authority with token2022", () => {
     const tokenType = 1;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const metadataPointer = MetadataPointerLayout.decode(
       getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
     );
@@ -175,13 +151,12 @@ describe("Token authority with token2022", () => {
     const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
-    expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      partner.publicKey.toString()
+    );
 
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -190,22 +165,18 @@ describe("Token authority with token2022", () => {
     const tokenType = 1;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const dataDecoded = MintLayout.decode(Buffer.from(tlvData));
     expect(dataDecoded.mintAuthority.toString()).eq(
       poolCreator.publicKey.toString()
@@ -222,7 +193,9 @@ describe("Token authority with token2022", () => {
     const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
-    expect(tokenMetadata.updateAuthority.toString()).eq(poolCreator.publicKey.toString())
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
   });
 
   it("Token2022: partner can update update_authority and as mint authority", async () => {
@@ -230,22 +203,18 @@ describe("Token authority with token2022", () => {
     const tokenType = 1;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const tlvData = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
     const dataDecoded = MintLayout.decode(Buffer.from(tlvData));
     expect(dataDecoded.mintAuthority.toString()).eq(
       partner.publicKey.toString()
@@ -262,12 +231,14 @@ describe("Token authority with token2022", () => {
     const tokenMetadata = unpack(
       getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
     );
-    expect(tokenMetadata.updateAuthority.toString()).eq(partner.publicKey.toString())
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      partner.publicKey.toString()
+    );
   });
 });
 
 describe("Token authority with spl token", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -276,19 +247,12 @@ describe("Token authority with spl token", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -297,7 +261,7 @@ describe("Token authority with spl token", () => {
     const tokenType = 0;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
@@ -305,15 +269,11 @@ describe("Token authority with spl token", () => {
       tokenType
     );
 
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const data = {
       executable: metadataAccount.executable,
@@ -328,10 +288,7 @@ describe("Token authority with spl token", () => {
     expect(metadata.updateAuthority).eq(poolCreator.publicKey.toString());
 
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -340,22 +297,18 @@ describe("Token authority with spl token", () => {
     const tokenType = 0;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const data = {
       executable: metadataAccount.executable,
@@ -370,10 +323,7 @@ describe("Token authority with spl token", () => {
     expect(metadata.updateAuthority).eq(PublicKey.default.toString());
 
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -382,22 +332,18 @@ describe("Token authority with spl token", () => {
     const tokenType = 0;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const data = {
       executable: metadataAccount.executable,
@@ -411,10 +357,7 @@ describe("Token authority with spl token", () => {
 
     expect(metadata.updateAuthority).eq(partner.publicKey.toString());
     // validate mint authority
-    const baseMintData = await getMint(
-      context.banksClient,
-      virtualPoolState.baseMint
-    );
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
@@ -423,22 +366,16 @@ describe("Token authority with spl token", () => {
     const tokenType = 0;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const data = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data;
+    const data = svm.getAccount(virtualPoolState.baseMint).data;
     const dataDecoded = MintLayout.decode(Buffer.from(data));
     expect(dataDecoded.mintAuthority.toString()).eq(
       poolCreator.publicKey.toString()
@@ -447,7 +384,7 @@ describe("Token authority with spl token", () => {
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const dataDecode = {
       executable: metadataAccount.executable,
@@ -467,22 +404,16 @@ describe("Token authority with spl token", () => {
     const tokenType = 0;
 
     const virtualPool = await createPool(
-      context.banksClient,
+      svm,
       program,
       partner,
       poolCreator,
       tokenUpdateAuthority,
       tokenType
     );
-    const virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-    const data = (
-      await context.banksClient.getAccount(virtualPoolState.baseMint)
-    ).data;
+    const data = svm.getAccount(virtualPoolState.baseMint).data;
     const dataDecoded = MintLayout.decode(Buffer.from(data));
     expect(dataDecoded.mintAuthority.toString()).eq(
       partner.publicKey.toString()
@@ -491,7 +422,7 @@ describe("Token authority with spl token", () => {
 
     const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
 
-    let metadataAccount = await context.banksClient.getAccount(metadataAddress);
+    let metadataAccount = svm.getAccount(metadataAddress);
 
     const dataDecode = {
       executable: metadataAccount.executable,
@@ -508,7 +439,7 @@ describe("Token authority with spl token", () => {
 });
 
 async function createPool(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   partner: Keypair,
   user: Keypair,
@@ -550,10 +481,10 @@ async function createPool(
     tokenType: tokenType,
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-    partnerLpPercentage: 0,
-    creatorLpPercentage: 0,
-    partnerLockedLpPercentage: 95,
-    creatorLockedLpPercentage: 5,
+    partnerLiquidityPercentage: 0,
+    creatorLiquidityPercentage: 0,
+    partnerPermanentLockedLiquidityPercentage: 95,
+    creatorPermanentLockedLiquidityPercentage: 5,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -575,10 +506,24 @@ async function createPool(
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    padding: [],
+    poolCreationFee: new BN(0),
     curve: curves,
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
   };
-  const params: CreateConfigParams = {
+  const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
     feeClaimer: partner.publicKey,
@@ -586,11 +531,11 @@ async function createPool(
     instructionParams,
   };
 
-  const config = await createConfig(banksClient, program, params);
+  const config = await createConfig(svm, program, params);
 
   let virtualPool: PublicKey;
   if (tokenType == 1) {
-    virtualPool = await createPoolWithToken2022(banksClient, program, {
+    virtualPool = await createPoolWithToken2022(svm, program, {
       payer: user,
       poolCreator: user,
       quoteMint: NATIVE_MINT,
@@ -602,7 +547,7 @@ async function createPool(
       },
     });
   } else {
-    virtualPool = await createPoolWithSplToken(banksClient, program, {
+    virtualPool = await createPoolWithSplToken(svm, program, {
       poolCreator: user,
       payer: user,
       quoteMint: NATIVE_MINT,

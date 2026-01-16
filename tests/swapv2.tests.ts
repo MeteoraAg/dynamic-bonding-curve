@@ -1,5 +1,6 @@
-import { ProgramTestContext } from "solana-bankrun";
+import { Keypair } from "@solana/web3.js";
 import {
+  ConfigParameters,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
@@ -7,29 +8,29 @@ import {
   SwapMode,
   SwapParams2,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair } from "@solana/web3.js";
 import {
+  createVirtualCurveProgram,
   designCurve,
   FEE_DENOMINATOR,
-  fundSol,
+  generateAndFund,
   getTokenAccount,
-  startTest,
+  startSvm,
   U64_MAX,
 } from "./utils";
-import { createVirtualCurveProgram } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
+import { VirtualCurveProgram } from "./utils/types";
 
-import { createToken, mintSplTokenTo } from "./utils/token";
-import { expect } from "chai";
-import { BN } from "bn.js";
 import {
   getAssociatedTokenAddressSync,
   unpackAccount,
 } from "@solana/spl-token";
+import { BN } from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Swap V2", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -38,19 +39,12 @@ describe("Swap V2", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
   it("Swap over the curve exact in collect fee mode both tokens", async () => {
@@ -68,12 +62,7 @@ describe("Swap V2", () => {
       cliffUnlockAmount: new BN(0),
     };
     let collectFeeMode = 1;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -90,19 +79,19 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
+    let config = await createConfig(svm, program, params);
     // exact amount in is migration quote threshold amount
     let swapAmount = instructionParams.migrationQuoteThreshold;
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -111,31 +100,22 @@ describe("Swap V2", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const preVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
     const swapParams: SwapParams2 = {
       config,
       payer: user,
@@ -147,19 +127,14 @@ describe("Swap V2", () => {
       referralTokenAccount: null,
       swapMode: SwapMode.ExactIn,
     };
-    await swap2(context.banksClient, program, swapParams);
+    await swap2(svm, program, swapParams);
     const postVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
     expect(Number(postVaultBalance) - Number(preVaultBalance)).eq(
       swapAmount.toNumber()
     );
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
@@ -181,12 +156,7 @@ describe("Swap V2", () => {
       cliffUnlockAmount: new BN(0),
     };
     let collectFeeMode = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -203,22 +173,25 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
+    let config = await createConfig(svm, program, params);
 
-    const tradeFeeNumerator = instructionParams.poolFees.baseFee.cliffFeeNumerator;
+    const tradeFeeNumerator =
+      instructionParams.poolFees.baseFee.cliffFeeNumerator;
     // swapAmount - swapAmount * fee_numerator / denominator = migration_quote_threshold;
-    let { div, mod } = instructionParams.migrationQuoteThreshold.mul(FEE_DENOMINATOR).divmod(FEE_DENOMINATOR.sub(tradeFeeNumerator));
-    const swapAmount = mod.isZero() ? div : div.add(new BN(1)) // round up
+    let { div, mod } = instructionParams.migrationQuoteThreshold
+      .mul(FEE_DENOMINATOR)
+      .divmod(FEE_DENOMINATOR.sub(tradeFeeNumerator));
+    const swapAmount = mod.isZero() ? div : div.add(new BN(1)); // round up
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -227,31 +200,22 @@ describe("Swap V2", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const preVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
     const swapParams: SwapParams2 = {
       config,
       payer: user,
@@ -264,19 +228,14 @@ describe("Swap V2", () => {
       swapMode: SwapMode.ExactIn,
     };
 
-    await swap2(context.banksClient, program, swapParams);
+    await swap2(svm, program, swapParams);
     const postVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
     expect(Number(postVaultBalance) - Number(preVaultBalance)).eq(
       swapAmount.toNumber()
     );
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     expect(virtualPoolState.quoteReserve.toNumber()).eq(
       instructionParams.migrationQuoteThreshold.toNumber()
@@ -298,12 +257,7 @@ describe("Swap V2", () => {
       cliffUnlockAmount: new BN(0),
     };
     let collectFeeMode = 1;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -320,20 +274,20 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
+    let config = await createConfig(svm, program, params);
     let swapAmount = instructionParams.migrationQuoteThreshold
       .mul(new BN(120))
       .div(new BN(100)); // swap more 20%
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -342,31 +296,22 @@ describe("Swap V2", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const preVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
     const swapParams: SwapParams2 = {
       config,
       payer: user,
@@ -378,19 +323,14 @@ describe("Swap V2", () => {
       referralTokenAccount: null,
       swapMode: SwapMode.PartialFill,
     };
-    await swap2(context.banksClient, program, swapParams);
+    await swap2(svm, program, swapParams);
     const postVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
     expect(Number(postVaultBalance) - Number(preVaultBalance)).lt(
       swapAmount.toNumber()
     );
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
     console.log(
       "diffBalance %d swapAmount %d",
       Number(postVaultBalance) - Number(preVaultBalance),
@@ -421,12 +361,7 @@ describe("Swap V2", () => {
       cliffUnlockAmount: new BN(0),
     };
     let collectFeeMode = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -443,20 +378,20 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
+    let config = await createConfig(svm, program, params);
     let swapAmount = instructionParams.migrationQuoteThreshold
       .mul(new BN(120))
       .div(new BN(100)); // swap more 20%
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -465,31 +400,22 @@ describe("Swap V2", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap
     const preVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
     const swapParams: SwapParams2 = {
       config,
       payer: user,
@@ -499,21 +425,16 @@ describe("Swap V2", () => {
       amount0: swapAmount,
       amount1: new BN(0),
       referralTokenAccount: null,
-      swapMode: SwapMode.PartialFill
+      swapMode: SwapMode.PartialFill,
     };
-    await swap2(context.banksClient, program, swapParams);
+    await swap2(svm, program, swapParams);
     const postVaultBalance =
-      (await getTokenAccount(context.banksClient, virtualPoolState.quoteVault))
-        .amount ?? 0;
+      getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
     expect(Number(postVaultBalance) - Number(preVaultBalance)).lt(
       swapAmount.toNumber()
     );
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
     console.log(
       "diffBalance %d swapAmount %d",
       Number(postVaultBalance) - Number(preVaultBalance),
@@ -544,12 +465,7 @@ describe("Swap V2", () => {
       cliffUnlockAmount: new BN(0),
     };
     let collectFeeMode = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     const feeIncrementBps = 100;
     const maxLimiterDuration = 86400;
     const referenceAmount = 1_000_000;
@@ -578,20 +494,20 @@ describe("Swap V2", () => {
       }
     );
 
-    const params: CreateConfigParams = {
+    const params: CreateConfigParams<ConfigParameters> = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(context.banksClient, program, params);
+    let config = await createConfig(svm, program, params);
     let swapAmount = instructionParams.migrationQuoteThreshold
       .mul(new BN(120))
       .div(new BN(100)); // swap more 20%
 
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -600,26 +516,18 @@ describe("Swap V2", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // 90% of base
     const outAmount = new BN(totalTokenSupply).muln(90).divn(100);
@@ -633,14 +541,10 @@ describe("Swap V2", () => {
       amount0: outAmount,
       amount1: U64_MAX, // yolo
       referralTokenAccount: null,
-      swapMode: SwapMode.ExactOut
+      swapMode: SwapMode.ExactOut,
     };
 
-    const { computeUnitsConsumed } = await swap2(
-      context.banksClient,
-      program,
-      swapParams
-    );
+    const { computeUnitsConsumed } = await swap2(svm, program, swapParams);
 
     console.log(`CU used ${computeUnitsConsumed}`);
 
@@ -649,9 +553,7 @@ describe("Swap V2", () => {
       swapParams.payer.publicKey,
       false
     );
-    const userOutRawTokenAccount = await context.banksClient.getAccount(
-      userOutTokenAccount
-    );
+    const userOutRawTokenAccount = svm.getAccount(userOutTokenAccount);
     const userOutTokenBal = unpackAccount(
       userOutTokenAccount,
       // @ts-expect-error

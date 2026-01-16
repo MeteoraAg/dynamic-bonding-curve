@@ -1,21 +1,23 @@
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
+  AccountMeta,
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
 import {
-  getVirtualPool,
-  processTransactionMaybeThrow,
-  VirtualCurveProgram,
-  getConfig,
-  deriveDammV2PoolAddress,
   DAMM_V2_PROGRAM_ID,
+  deriveDammV2PoolAddress,
   deriveMigrationDammV2MetadataAddress,
   derivePoolAuthority,
+  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  getConfig,
+  getVirtualPool,
+  sendTransactionMaybeThrow,
+  VirtualCurveProgram,
 } from "../utils";
-import { BanksClient } from "solana-bankrun";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export type CreateMeteoraDammV2Metadata = {
   payer: Keypair;
@@ -24,7 +26,7 @@ export type CreateMeteoraDammV2Metadata = {
 };
 
 export async function createMeteoraDammV2Metadata(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreateMeteoraDammV2Metadata
 ): Promise<any> {
@@ -40,9 +42,8 @@ export async function createMeteoraDammV2Metadata(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
 export type MigrateMeteoraDammV2Params = {
@@ -52,7 +53,7 @@ export type MigrateMeteoraDammV2Params = {
 };
 
 export async function migrateToDammV2(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: MigrateMeteoraDammV2Params
 ): Promise<{
@@ -61,17 +62,9 @@ export async function migrateToDammV2(
   secondPosition: PublicKey;
 }> {
   const { payer, virtualPool, dammConfig } = params;
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-  const configState = await getConfig(
-    banksClient,
-    program,
-    virtualPoolState.config
-  );
+  const configState = getConfig(svm, program, virtualPoolState.config);
 
   const poolAuthority = derivePoolAuthority();
   const migrationMetadata = deriveMigrationDammV2MetadataAddress(virtualPool);
@@ -108,6 +101,30 @@ export async function migrateToDammV2(
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
+
+
+  const firstPositionVestingAddress = derivePositionVestingAccount(firstPosition);
+
+  const secondPositionVestingAddress = derivePositionVestingAccount(secondPosition);
+
+  const remainingAccounts: AccountMeta[] = [
+    {
+      isSigner: false,
+      isWritable: false,
+      pubkey: dammConfig,
+    },
+    {
+      isSigner: false,
+      isWritable: true,
+      pubkey: firstPositionVestingAddress,
+    },
+    {
+      isSigner: false,
+      isWritable: true,
+      pubkey: secondPositionVestingAddress,
+    },
+  ];
+
   const transaction = await program.methods
     .migrationDammV2()
     .accountsStrict({
@@ -137,22 +154,18 @@ export async function migrateToDammV2(
       systemProgram: SystemProgram.programId,
       dammEventAuthority: deriveDammV2EventAuthority(),
     })
-    .remainingAccounts([
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: dammConfig,
-      },
-    ])
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.add(
     ComputeBudgetProgram.setComputeUnitLimit({
-      units: 500_000,
+      units: 600_000,
     })
   );
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, firstPositionNftKP, secondPositionNftKP);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [
+    payer,
+    firstPositionNftKP,
+    secondPositionNftKP,
+  ]);
 
   return {
     dammPool,
@@ -180,6 +193,15 @@ export function derivePositionNftAccount(
   return PublicKey.findProgramAddressSync(
     [Buffer.from("position_nft_account"), positionNftMint.toBuffer()],
     DAMM_V2_PROGRAM_ID
+  )[0];
+}
+
+export function derivePositionVestingAccount(
+  position: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("position_vesting"), position.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 

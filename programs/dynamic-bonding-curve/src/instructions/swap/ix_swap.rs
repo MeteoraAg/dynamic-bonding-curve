@@ -14,7 +14,7 @@ use crate::{
     params::swap::TradeDirection,
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
-    token::{transfer_from_pool, transfer_from_user},
+    token::{transfer_token_from_pool_authority, transfer_token_from_user},
     EvtSwap, PoolError,
 };
 use crate::{EvtCurveComplete, EvtSwap2};
@@ -24,7 +24,7 @@ use anchor_lang::solana_program::instruction::{
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use num_enum::{FromPrimitive, IntoPrimitive};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 // only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -46,10 +46,16 @@ pub struct SwapParameters2 {
 
 #[repr(u8)]
 #[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
 )]
 pub enum SwapMode {
-    #[num_enum(default)]
     ExactIn,
     PartialFill,
     ExactOut,
@@ -217,7 +223,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     )?;
 
     // send to reserve
-    transfer_from_user(
+    transfer_token_from_user(
         &ctx.accounts.payer,
         token_in_mint,
         &ctx.accounts.input_token_account,
@@ -227,37 +233,34 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
     )?;
 
     // send to user
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         token_out_mint,
         output_vault_account,
         &ctx.accounts.output_token_account,
         output_program,
         swap_result.output_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     // send to referral
     if let Some(referral_token_account) = ctx.accounts.referral_token_account.as_ref() {
         if fee_mode.fees_on_base_token {
-            transfer_from_pool(
+            transfer_token_from_pool_authority(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.base_mint,
                 &ctx.accounts.base_vault,
                 referral_token_account,
                 &ctx.accounts.token_base_program,
                 swap_result.referral_fee,
-                const_pda::pool_authority::BUMP,
             )?;
         } else {
-            transfer_from_pool(
+            transfer_token_from_pool_authority(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.quote_mint,
                 &ctx.accounts.quote_vault,
                 referral_token_account,
                 &ctx.accounts.token_quote_program,
                 swap_result.referral_fee,
-                const_pda::pool_authority::BUMP,
             )?;
         }
     }

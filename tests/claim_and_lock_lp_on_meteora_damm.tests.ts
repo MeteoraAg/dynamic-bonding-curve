@@ -6,7 +6,7 @@ import {
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
@@ -33,10 +33,10 @@ import {
   deriveDammPoolAddress,
   deriveLpMintAddress,
   derivePoolAuthority,
-  fundSol,
+  generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  startTest,
+  startSvm,
   U64_MAX,
 } from "./utils";
 import {
@@ -51,7 +51,7 @@ async function createPartnerConfig(
   payer: Keypair,
   owner: PublicKey,
   feeClaimer: PublicKey,
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
@@ -89,10 +89,10 @@ async function createPartnerConfig(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 20,
-    partnerLockedLpPercentage: 55,
-    creatorLockedLpPercentage: 5,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 20,
+    partnerPermanentLockedLiquidityPercentage: 55,
+    creatorPermanentLockedLiquidityPercentage: 5,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -114,21 +114,35 @@ async function createPartnerConfig(
       dynamicFee: 0,
       poolFeeBps: 0,
     },
-    padding: [],
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    poolCreationFee: new BN(0),
     curve: curves,
   };
-  const params: CreateConfigParams = {
+  const params: CreateConfigParams<ConfigParameters> = {
     payer,
     leftoverReceiver: owner,
     feeClaimer,
     quoteMint: NATIVE_MINT,
     instructionParams,
   };
-  return createConfig(banksClient, program, params);
+  return createConfig(svm, program, params);
 }
 
 async function setupPrerequisite(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   payer: Keypair,
   poolCreator: Keypair,
@@ -140,7 +154,7 @@ async function setupPrerequisite(
   dammConfig: PublicKey;
   migrationMetadata: PublicKey;
 }> {
-  const virtualPool = await createPoolWithSplToken(banksClient, program, {
+  const virtualPool = await createPoolWithSplToken(svm, program, {
     payer,
     poolCreator,
     quoteMint: NATIVE_MINT,
@@ -152,11 +166,7 @@ async function setupPrerequisite(
     },
   });
 
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
   const params: SwapParams = {
     config,
@@ -170,23 +180,23 @@ async function setupPrerequisite(
     referralTokenAccount: null,
   };
 
-  await swap(banksClient, program, params);
+  await swap(svm, program, params);
 
-  const migrationMetadata = await createMeteoraMetadata(banksClient, program, {
+  const migrationMetadata = await createMeteoraMetadata(svm, program, {
     payer: admin,
     virtualPool,
     config,
   });
 
   const poolAuthority = derivePoolAuthority();
-  const dammConfig = await createDammConfig(banksClient, admin, poolAuthority);
+  const dammConfig = await createDammConfig(svm, admin, poolAuthority);
   const migrationParams: MigrateMeteoraParams = {
     payer: admin,
     virtualPool,
     dammConfig,
   };
 
-  await migrateToMeteoraDamm(banksClient, program, migrationParams);
+  await migrateToMeteoraDamm(svm, program, migrationParams);
 
   return {
     virtualPool,
@@ -195,32 +205,26 @@ async function setupPrerequisite(
   };
 }
 
-async function startTestContext(): Promise<{
-  context: ProgramTestContext;
+function startTestSvm(): {
+  svm: LiteSVM;
   admin: Keypair;
   operator: Keypair;
   partner: Keypair;
   user: Keypair;
   poolCreator: Keypair;
   program: VirtualCurveProgram;
-}> {
-  const context = await startTest();
-  const admin = context.payer;
-  const operator = Keypair.generate();
-  const partner = Keypair.generate();
-  const user = Keypair.generate();
-  const poolCreator = Keypair.generate();
-  const receivers = [
-    operator.publicKey,
-    partner.publicKey,
-    user.publicKey,
-    poolCreator.publicKey,
-  ];
-  await fundSol(context.banksClient, admin, receivers);
+} {
+  const svm = startSvm();
+  const operator = generateAndFund(svm);
+  const partner = generateAndFund(svm);
+  const user = generateAndFund(svm);
+  const poolCreator = generateAndFund(svm);
+  const admin = generateAndFund(svm);
+
   const program = createVirtualCurveProgram();
 
   return {
-    context,
+    svm,
     admin,
     operator,
     partner,
@@ -231,7 +235,7 @@ async function startTestContext(): Promise<{
 }
 
 describe("Claim and lock lp on meteora dammm", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -246,16 +250,16 @@ describe("Claim and lock lp on meteora dammm", () => {
   describe("Self partnered creator", () => {
     before(async () => {
       const {
-        context: innerContext,
         admin: innerAdmin,
         operator: innerOperator,
         user: innerUser,
         poolCreator: innerPoolCreator,
         partner: innerPartner,
         program: innerProgram,
-      } = await startTestContext();
+        svm: innerSvm,
+      } = startTestSvm();
 
-      context = innerContext;
+      svm = innerSvm;
       admin = innerAdmin;
       operator = innerOperator;
       partner = innerPartner;
@@ -267,7 +271,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         admin,
         poolCreator.publicKey,
         poolCreator.publicKey,
-        context.banksClient,
+        svm,
         program
       );
 
@@ -276,7 +280,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         virtualPool: innerVirtualPool,
         migrationMetadata: innerMigrationMetadata,
       } = await setupPrerequisite(
-        context.banksClient,
+        svm,
         program,
         admin,
         poolCreator,
@@ -291,24 +295,20 @@ describe("Claim and lock lp on meteora dammm", () => {
     });
 
     it("Self partnered creator lock LP", async () => {
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const lockEscrowKey = await lockLpForPartnerDamm(
-        context.banksClient,
-        program,
-        {
-          payer: partner, // Partner or creator it's fine
-          dammConfig,
-          virtualPool,
-        }
-      );
+      const lockEscrowKey = await lockLpForPartnerDamm(svm, program, {
+        payer: partner, // Partner or creator it's fine
+        dammConfig,
+        virtualPool,
+      });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
@@ -319,15 +319,16 @@ describe("Claim and lock lp on meteora dammm", () => {
       expect(afterMigrationMetadata.creatorLockedStatus).equal(Number(true));
       expect(afterMigrationMetadata.partnerLockedStatus).equal(Number(true));
 
-      const lockEscrowState = await getLockEscrow(
-        context.banksClient,
+      const lockEscrowState = getLockEscrow(
+        svm,
         createDammProgram(),
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.creatorLockedLp.add(
-        beforeMigrationMetadata.partnerLockedLp
-      );
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.creatorLockedLiquidity.add(
+          beforeMigrationMetadata.partnerLockedLiquidity
+        );
 
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
@@ -335,13 +336,9 @@ describe("Claim and lock lp on meteora dammm", () => {
     });
 
     it("Self partnered creator claim LP", async () => {
-      const configState = await getConfig(context.banksClient, program, config);
+      const configState = getConfig(svm, program, config);
 
-      const virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       const dammPool = deriveDammPoolAddress(
         dammConfig,
@@ -355,27 +352,25 @@ describe("Claim and lock lp on meteora dammm", () => {
         poolCreator.publicKey
       );
 
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      await creatorClaimLpDamm(context.banksClient, program, {
+      await creatorClaimLpDamm(svm, program, {
         payer: poolCreator,
         dammConfig,
         virtualPool,
       });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const creatorLpTokenAccount = await context.banksClient.getAccount(
-        creatorLpAta
-      );
+      const creatorLpTokenAccount = svm.getAccount(creatorLpAta);
 
       const creatorLpTokenState = unpackAccount(
         creatorLpAta,
@@ -388,8 +383,8 @@ describe("Claim and lock lp on meteora dammm", () => {
       expect(afterMigrationMetadata.creatorClaimStatus).equal(Number(true));
       expect(afterMigrationMetadata.partnerClaimStatus).equal(Number(true));
 
-      const expectedLpToClaim = beforeMigrationMetadata.creatorLp.add(
-        beforeMigrationMetadata.partnerLp
+      const expectedLpToClaim = beforeMigrationMetadata.creatorLiquidity.add(
+        beforeMigrationMetadata.partnerLiquidity
       );
 
       expect(expectedLpToClaim.toString()).equal(
@@ -401,28 +396,28 @@ describe("Claim and lock lp on meteora dammm", () => {
   describe("Separated partner and creator", () => {
     before(async () => {
       const {
-        context: innerContext,
+        svm: innerSvm,
         admin: innerAdmin,
         operator: innerOperator,
         user: innerUser,
         poolCreator: innerPoolCreator,
         partner: innerPartner,
         program: innerProgram,
-      } = await startTestContext();
+      } = startTestSvm();
 
-      context = innerContext;
-      admin = innerAdmin;
       operator = innerOperator;
       partner = innerPartner;
       user = innerUser;
       poolCreator = innerPoolCreator;
       program = innerProgram;
+      svm = innerSvm;
+      admin = innerAdmin;
 
       config = await createPartnerConfig(
         admin,
         poolCreator.publicKey,
         partner.publicKey,
-        context.banksClient,
+        svm,
         program
       );
 
@@ -431,7 +426,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         virtualPool: innerVirtualPool,
         migrationMetadata: innerMigrationMetadata,
       } = await setupPrerequisite(
-        context.banksClient,
+        svm,
         program,
         operator,
         poolCreator,
@@ -446,24 +441,20 @@ describe("Claim and lock lp on meteora dammm", () => {
     });
 
     it("Creator lock LP", async () => {
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const lockEscrowKey = await lockLpForCreatorDamm(
-        context.banksClient,
-        program,
-        {
-          payer: poolCreator,
-          dammConfig,
-          virtualPool,
-        }
-      );
+      const lockEscrowKey = await lockLpForCreatorDamm(svm, program, {
+        payer: poolCreator,
+        dammConfig,
+        virtualPool,
+      });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
@@ -475,37 +466,34 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.partnerLockedStatus
       );
 
-      const lockEscrowState = await getLockEscrow(
-        context.banksClient,
+      const lockEscrowState = getLockEscrow(
+        svm,
         createDammProgram(),
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.creatorLockedLp;
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.creatorLockedLiquidity;
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
       expect(expectedTotalLockLp.toString()).equal(totalLockLp.toString());
     });
 
     it("Partner lock LP", async () => {
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const lockEscrowKey = await lockLpForPartnerDamm(
-        context.banksClient,
-        program,
-        {
-          payer: partner,
-          dammConfig,
-          virtualPool,
-        }
-      );
+      const lockEscrowKey = await lockLpForPartnerDamm(svm, program, {
+        payer: partner,
+        dammConfig,
+        virtualPool,
+      });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
@@ -517,26 +505,23 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.creatorLockedStatus
       );
 
-      const lockEscrowState = await getLockEscrow(
-        context.banksClient,
+      const lockEscrowState = getLockEscrow(
+        svm,
         createDammProgram(),
         lockEscrowKey
       );
 
-      const expectedTotalLockLp = beforeMigrationMetadata.partnerLockedLp;
+      const expectedTotalLockLp =
+        beforeMigrationMetadata.partnerLockedLiquidity;
       const totalLockLp = lockEscrowState.totalLockedAmount;
 
       expect(expectedTotalLockLp.toString()).equal(totalLockLp.toString());
     });
 
     it("Creator claim LP", async () => {
-      const configState = await getConfig(context.banksClient, program, config);
+      const configState = getConfig(svm, program, config);
 
-      const virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       const dammPool = deriveDammPoolAddress(
         dammConfig,
@@ -550,27 +535,25 @@ describe("Claim and lock lp on meteora dammm", () => {
         poolCreator.publicKey
       );
 
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      await creatorClaimLpDamm(context.banksClient, program, {
+      await creatorClaimLpDamm(svm, program, {
         payer: poolCreator,
         dammConfig,
         virtualPool,
       });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const creatorLpTokenAccount = await context.banksClient.getAccount(
-        creatorLpAta
-      );
+      const creatorLpTokenAccount = svm.getAccount(creatorLpAta);
 
       const creatorLpTokenState = unpackAccount(
         creatorLpAta,
@@ -584,7 +567,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.partnerClaimStatus
       );
 
-      const expectedLpToClaim = beforeMigrationMetadata.creatorLp;
+      const expectedLpToClaim = beforeMigrationMetadata.creatorLiquidity;
 
       expect(expectedLpToClaim.toString()).equal(
         creatorLpTokenState.amount.toString()
@@ -592,13 +575,9 @@ describe("Claim and lock lp on meteora dammm", () => {
     });
 
     it("Partner claim LP", async () => {
-      const configState = await getConfig(context.banksClient, program, config);
+      const configState = getConfig(svm, program, config);
 
-      const virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       const dammPool = deriveDammPoolAddress(
         dammConfig,
@@ -612,27 +591,25 @@ describe("Claim and lock lp on meteora dammm", () => {
         partner.publicKey
       );
 
-      const beforeMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const beforeMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      await partnerClaimLpDamm(context.banksClient, program, {
+      await partnerClaimLpDamm(svm, program, {
         payer: partner,
         dammConfig,
         virtualPool,
       });
 
-      const afterMigrationMetadata = await getMeteoraDammMigrationMetadata(
-        context.banksClient,
+      const afterMigrationMetadata = getMeteoraDammMigrationMetadata(
+        svm,
         program,
         migrationMetadata
       );
 
-      const partnerLpTokenAccount = await context.banksClient.getAccount(
-        partnerLpAta
-      );
+      const partnerLpTokenAccount = svm.getAccount(partnerLpAta);
 
       const partnerLpTokenState = unpackAccount(
         partnerLpAta,
@@ -646,7 +623,7 @@ describe("Claim and lock lp on meteora dammm", () => {
         afterMigrationMetadata.creatorClaimStatus
       );
 
-      const expectedLpToClaim = beforeMigrationMetadata.partnerLp;
+      const expectedLpToClaim = beforeMigrationMetadata.partnerLiquidity;
 
       expect(expectedLpToClaim.toString()).equal(
         partnerLpTokenState.amount.toString()

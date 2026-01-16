@@ -63,7 +63,6 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
         0,
         0,
         1_000_000_000_000,
-        false,
     );
     let user = UserBalance {
         base_balance: 0,

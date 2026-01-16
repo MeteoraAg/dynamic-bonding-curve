@@ -157,4 +157,19 @@ pub enum PoolError {
 
     #[msg("Account invariant violation")]
     AccountInvariantViolation,
+
+    #[msg("Invalid pool creation fee")]
+    InvalidPoolCreationFee,
+
+    #[msg("Pool creation fee has been claimed")]
+    PoolCreationFeeHasBeenClaimed,
+
+    #[msg("Not permit to do this action")]
+    Unauthorized,
+
+    #[msg("Pool creation fee is zero")]
+    ZeroPoolCreationFee,
+
+    #[msg("Invalid migration locked liquidity")]
+    InvalidMigrationLockedLiquidity,
 }

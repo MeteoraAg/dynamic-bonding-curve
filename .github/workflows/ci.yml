@@ -4,12 +4,12 @@ on:
   pull_request:
     branches:
       - main
-      - release_0.1.7
+      - release_0.1.8
 
 env:
   SOLANA_CLI_VERSION: 2.1.0
   NODE_VERSION: 20.19.0
-  ANCHOR_CLI_VERSION: 0.31.0  
+  ANCHOR_CLI_VERSION: 0.31.0
   TOOLCHAIN: 1.76.0
 
 jobs:
@@ -90,7 +90,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.TOOLCHAIN }}
-          components: clippy    
+          components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v2
 
@@ -127,7 +127,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.TOOLCHAIN }}
-          components: clippy    
+          components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v2
 
