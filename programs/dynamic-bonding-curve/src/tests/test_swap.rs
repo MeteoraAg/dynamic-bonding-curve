@@ -126,7 +126,7 @@ impl UserBalance {
     }
 }
 
-fn simulate_swap_exact_in(
+fn simulate_swap_partiall_fill(
     config: &PoolConfig,
     pool: &mut VirtualPool,
     user: &mut UserBalance,
@@ -136,7 +136,7 @@ fn simulate_swap_exact_in(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let current_timestamp = 0;
     let swap_exact_in_result = pool
-        .get_swap_result_from_exact_input(
+        .get_swap_result_from_partial_input(
             &config,
             amount_in,
             &fee_mode,
@@ -208,13 +208,13 @@ fn test_swap_exact_out() {
     let amount_in = 1_000_000_000; // 1k
     {
         let trade_direction = TradeDirection::QuoteToBase;
-        simulate_swap_exact_in(&config, &mut pool, &mut user, amount_in, trade_direction);
+        simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount_in, trade_direction);
         println!("{:?}", user);
     }
 
     {
         let trade_direction = TradeDirection::QuoteToBase;
-        simulate_swap_exact_in(&config, &mut pool, &mut user, amount_in, trade_direction);
+        simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount_in, trade_direction);
         println!("{:?}", user);
     }
 
@@ -227,7 +227,7 @@ fn test_swap_exact_out() {
     {
         let trade_direction = TradeDirection::BaseToQuote;
         let remaining_base_balance = user.base_balance;
-        simulate_swap_exact_in(
+        simulate_swap_partiall_fill(
             &config,
             &mut pool,
             &mut user,
@@ -257,7 +257,7 @@ fn test_swap_wont_depelete_reserve() {
             if trade_direction == TradeDirection::BaseToQuote && user.base_balance < amount {
                 continue;
             }
-            simulate_swap_exact_in(&config, &mut pool, &mut user, amount, trade_direction);
+            simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount, trade_direction);
             count_exact_in = count_exact_in + 1;
         } else {
             if trade_direction == TradeDirection::BaseToQuote && pool.quote_reserve < amount {
@@ -280,7 +280,7 @@ fn test_swap_wont_depelete_reserve() {
     let trade_direction = TradeDirection::BaseToQuote;
     let remaining_base_balance = user.base_balance;
     if remaining_base_balance > 0 {
-        simulate_swap_exact_in(
+        simulate_swap_partiall_fill(
             &config,
             &mut pool,
             &mut user,

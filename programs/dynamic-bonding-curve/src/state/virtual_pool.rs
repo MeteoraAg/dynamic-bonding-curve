@@ -730,7 +730,7 @@ impl VirtualPool {
                     config.curve[i].sqrt_price,
                     current_sqrt_price,
                     config.curve[i + 1].liquidity,
-                    Rounding::Up, // TODO check whether we should use round down or round up
+                    Rounding::Up,
                 )?;
                 if U256::from(amount_left) < max_amount_in {
                     let next_sqrt_price = get_next_sqrt_price_from_input(
@@ -769,12 +769,25 @@ impl VirtualPool {
             }
         }
         if amount_left != 0 {
-            let next_sqrt_price = get_next_sqrt_price_from_input(
+            let mut next_sqrt_price = get_next_sqrt_price_from_input(
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 amount_left,
                 true,
             )?;
+
+            if next_sqrt_price < config.sqrt_start_price {
+                next_sqrt_price = config.sqrt_start_price;
+                let amount_in = get_delta_amount_base_unsigned(
+                    next_sqrt_price,
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    Rounding::Up,
+                )?;
+                amount_left = amount_left.safe_sub(amount_in)?;
+            } else {
+                amount_left = 0;
+            }
 
             let output_amount = get_delta_amount_quote_unsigned(
                 next_sqrt_price,
@@ -785,10 +798,9 @@ impl VirtualPool {
             total_output_amount = total_output_amount.safe_add(output_amount)?;
             current_sqrt_price = next_sqrt_price;
         }
-        // no need to validate amount_left because if user sell more than what has in quote reserve, then it will be failed when deduct pool.quote_reserve
 
         Ok(SwapAmountFromInput {
-            amount_left: 0,
+            amount_left,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })
