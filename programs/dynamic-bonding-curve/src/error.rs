@@ -104,8 +104,8 @@ pub enum PoolError {
     #[msg("Invalid leftover address")]
     InvalidLeftoverAddress,
 
-    #[msg("Swap amount is over a threshold")]
-    SwapAmountIsOverAThreshold,
+    #[msg("Liquidity in bonding curve is insufficient")]
+    InsufficientLiquidity,
 
     #[msg("Invalid fee scheduler")]
     InvalidFeeScheduler,

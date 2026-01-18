@@ -288,7 +288,7 @@ impl VirtualPool {
 
         require!(
             next_sqrt_price <= config.migration_sqrt_price,
-            PoolError::SwapAmountIsOverAThreshold
+            PoolError::InsufficientLiquidity
         );
 
         let (excluded_fee_input_amount, included_fee_input_amount) = if fee_mode.fees_on_input {
@@ -387,15 +387,26 @@ impl VirtualPool {
             }
         }
         if amount_left != 0 {
+            let max_amount_out = get_delta_amount_quote_unsigned_256(
+                config.sqrt_start_price,
+                current_sqrt_price,
+                config.curve[0].liquidity,
+                Rounding::Down,
+            )?;
+            require!(
+                U256::from(amount_left) <= max_amount_out,
+                PoolError::InsufficientLiquidity
+            );
             let next_sqrt_price = get_next_sqrt_price_from_output(
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 amount_left,
                 true,
             )?;
+            // redundant check
             require!(
                 next_sqrt_price >= config.sqrt_start_price,
-                PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice
+                PoolError::InsufficientLiquidity
             );
             let in_amount = get_delta_amount_base_unsigned(
                 next_sqrt_price,
@@ -542,7 +553,7 @@ impl VirtualPool {
             )?,
         };
 
-        require!(amount_left == 0, PoolError::SwapAmountIsOverAThreshold);
+        require!(amount_left == 0, PoolError::InsufficientLiquidity);
 
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
