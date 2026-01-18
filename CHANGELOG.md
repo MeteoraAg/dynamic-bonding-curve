@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Endpoint `swap` and `swap2` require sysvar instruction account to be passed in remaining accounts if the config have `enable_first_swap_with_min_fee` as `true` to enjoy minimum swap fee. Else, it will charge normal fee.
+- Standalize error code for quoting in swap exact in and swap exact out when bonding curve is not enough liquidity.
 
 ### Removed
 
