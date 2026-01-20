@@ -128,3 +128,12 @@ pub mod seeds {
 }
 
 pub const MAX_OPERATION: u8 = 3; // Check OperatorPermission enum variants count
+
+pub mod zap {
+    use protocol_zap::ZapAmmProgram;
+
+    pub const SUPPORTED_ZAP_AMM_PROGRAMS: &[ZapAmmProgram] = &[
+        ZapAmmProgram::JupV6Route,
+        ZapAmmProgram::JupV6SharedAccountRoute,
+    ];
+}
