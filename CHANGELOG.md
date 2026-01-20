@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
 - Added field `enable_first_swap_with_min_fee` in `create_config` endpoint to allow user to initialize pool and swap in single transaction without any anti sniper suite fee.
 - Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
+- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
+- Add new endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
 
 ### Changed
 
