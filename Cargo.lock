@@ -1148,7 +1148,7 @@ dependencies = [
 [[package]]
 name = "jupiter"
 version = "0.10.1"
-source = "git+https://github.com/MeteoraAg/zap-program?rev=b6f49d289b9ef482393f7b6e823f7cfd5fed5433#b6f49d289b9ef482393f7b6e823f7cfd5fed5433"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=4fc1a1705d58b682644beda9aff74b79d56c5c77#4fc1a1705d58b682644beda9aff74b79d56c5c77"
 dependencies = [
  "anchor-lang",
 ]
@@ -3722,10 +3722,11 @@ dependencies = [
 [[package]]
 name = "zap-sdk"
 version = "0.1.0"
-source = "git+https://github.com/MeteoraAg/zap-program?rev=b6f49d289b9ef482393f7b6e823f7cfd5fed5433#b6f49d289b9ef482393f7b6e823f7cfd5fed5433"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=4fc1a1705d58b682644beda9aff74b79d56c5c77#4fc1a1705d58b682644beda9aff74b79d56c5c77"
 dependencies = [
  "borsh 0.10.3",
  "jupiter",
+ "num_enum",
  "ruint",
  "solana-account-info",
  "solana-instruction",

@@ -194,21 +194,33 @@ pub enum PoolError {
 
     #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
     MintRestrictedFromZap,
+
+    #[msg("Invalid zap out parameters")]
+    InvalidZapOutParameters,
+
+    #[msg("CPI disabled")]
+    CpiDisabled,
+
+    #[msg("Missing zap out instruction")]
+    MissingZapOutInstruction,
+
+    #[msg("Invalid zap accounts")]
+    InvalidZapAccounts,
 }
 
 impl From<ZapSdkError> for PoolError {
     fn from(e: ZapSdkError) -> Self {
         match e {
             ZapSdkError::MathOverflow => PoolError::MathOverflow,
-            ZapSdkError::InvalidZapOutParameters => PoolError::InvalidInput,
+            ZapSdkError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
             ZapSdkError::TypeCastFailed => PoolError::TypeCastFailed,
-            ZapSdkError::MissingZapOutInstruction => PoolError::InvalidAccount,
+            ZapSdkError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
             ZapSdkError::InvalidWithdrawProtocolFeeZapAccounts => {
                 PoolError::InvalidWithdrawProtocolFeeZapAccounts
             }
             ZapSdkError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
-            ZapSdkError::CpiDisabled => PoolError::NotPermitToDoThisAction,
-            ZapSdkError::InvalidZapAccounts => PoolError::InvalidAccount,
+            ZapSdkError::CpiDisabled => PoolError::CpiDisabled,
+            ZapSdkError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
         }
     }
 }
