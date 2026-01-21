@@ -2,10 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use protocol_zap::utils::validate_zap_out_to_treasury;
-use protocol_zap::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, error::ProtocolZapError};
+use zap_sdk::constants::MINTS_DISALLOWED_TO_ZAP_OUT;
+use zap_sdk::utils::validate_zap_out_to_treasury;
 
-use crate::constants::zap::SUPPORTED_ZAP_AMM_PROGRAMS;
 use crate::token::{transfer_token_from_pool_authority, validate_ata_token};
 use crate::{
     const_pda,
@@ -63,7 +62,7 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 ) -> Result<bool> {
     require!(
         token_mint.key() == pool.base_mint || token_mint.key() == config.quote_mint,
-        ProtocolZapError::InvalidWithdrawProtocolFeeZapAccounts
+        PoolError::InvalidWithdrawProtocolFeeZapAccounts
     );
 
     let is_withdrawing_token_base = token_mint.key() == pool.base_mint;
@@ -72,20 +71,20 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
     if is_withdrawing_token_base {
         require!(
             token_vault.key() == pool.base_vault,
-            ProtocolZapError::InvalidWithdrawProtocolFeeZapAccounts
+            PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
         require!(
             *token_mint_ai.owner == token_base_program.key(),
-            ProtocolZapError::InvalidWithdrawProtocolFeeZapAccounts
+            PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
     } else {
         require!(
             token_vault.key() == pool.quote_vault,
-            ProtocolZapError::InvalidWithdrawProtocolFeeZapAccounts
+            PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
         require!(
             *token_mint_ai.owner == token_quote_program.key(),
-            ProtocolZapError::InvalidWithdrawProtocolFeeZapAccounts
+            PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
     }
 
@@ -109,7 +108,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     require!(
         !MINTS_DISALLOWED_TO_ZAP_OUT.contains(&ctx.accounts.token_mint.key()),
-        ProtocolZapError::MintRestrictedFromZap
+        PoolError::MintRestrictedFromZap
     );
 
     let (amount, treasury_paired_destination_token_address) = if is_withdrawing_base {
@@ -153,11 +152,11 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     validate_zap_out_to_treasury(
         amount,
-        &receiver_token_ai,
-        treasury_paired_destination_token_address,
-        &ctx.accounts.sysvar_instructions,
         crate::ID,
-        SUPPORTED_ZAP_AMM_PROGRAMS,
+        &receiver_token_ai,
+        &ctx.accounts.sysvar_instructions,
+        treasury::ID,
+        treasury_paired_destination_token_address,
     )?;
 
     transfer_token_from_pool_authority(

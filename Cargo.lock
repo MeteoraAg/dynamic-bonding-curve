@@ -860,11 +860,11 @@ dependencies = [
  "num-traits",
  "num_enum",
  "proptest",
- "protocol-zap",
  "rand 0.9.2",
  "ruint",
  "spl-token-metadata-interface",
  "static_assertions",
+ "zap-sdk",
 ]
 
 [[package]]
@@ -1148,7 +1148,7 @@ dependencies = [
 [[package]]
 name = "jupiter"
 version = "0.10.1"
-source = "git+https://github.com/MeteoraAg/zap-program?rev=ed5f649bc2cc93a09875b961d0759d45af294a9c#ed5f649bc2cc93a09875b961d0759d45af294a9c"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=aaafea8fc272aacebe0957fe9a1e2ccfd6a7a0b0#aaafea8fc272aacebe0957fe9a1e2ccfd6a7a0b0"
 dependencies = [
  "anchor-lang",
 ]
@@ -1586,18 +1586,6 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
-]
-
-[[package]]
-name = "protocol-zap"
-version = "0.1.0"
-source = "git+https://github.com/MeteoraAg/zap-program?rev=ed5f649bc2cc93a09875b961d0759d45af294a9c#ed5f649bc2cc93a09875b961d0759d45af294a9c"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "const-crypto",
- "jupiter",
- "ruint",
 ]
 
 [[package]]
@@ -3729,6 +3717,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
+]
+
+[[package]]
+name = "zap-sdk"
+version = "0.1.0"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=aaafea8fc272aacebe0957fe9a1e2ccfd6a7a0b0#aaafea8fc272aacebe0957fe9a1e2ccfd6a7a0b0"
+dependencies = [
+ "borsh 0.10.3",
+ "jupiter",
+ "ruint",
+ "solana-account-info",
+ "solana-instruction",
+ "solana-program",
+ "solana-program-error",
+ "solana-pubkey",
+ "spl-associated-token-account",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

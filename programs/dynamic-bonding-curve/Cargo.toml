@@ -32,7 +32,7 @@ spl-token-metadata-interface = "0.6"
 dynamic-amm = { path = "../../libs/dynamic-amm" }
 damm-v2 = { path = "../../libs/damm-v2" }
 locker = { path = "../../libs/locker" }
-protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "ed5f649bc2cc93a09875b961d0759d45af294a9c" }
+zap-sdk = { git = "https://github.com/MeteoraAg/zap-program", rev = "aaafea8fc272aacebe0957fe9a1e2ccfd6a7a0b0" }
 
 [dev-dependencies]
 proptest = "1.2.0"
