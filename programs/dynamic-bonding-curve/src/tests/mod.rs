@@ -36,3 +36,6 @@ mod test_migration_fee;
 
 #[cfg(test)]
 mod test_operator_permission;
+
+#[cfg(test)]
+mod test_safe_math;

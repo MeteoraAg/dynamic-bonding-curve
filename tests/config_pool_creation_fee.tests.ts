@@ -62,7 +62,7 @@ describe("Config pool creation fee", () => {
     await createOperatorAccount(svm, program, {
       admin,
       whitelistedAddress: operator.publicKey,
-      permissions: [OperatorPermission.ClaimProtocolPoolCreationFee],
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
   });
 

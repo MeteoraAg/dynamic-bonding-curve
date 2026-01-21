@@ -67,7 +67,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolPoolCreationFee))]
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
     ) -> Result<()> {
