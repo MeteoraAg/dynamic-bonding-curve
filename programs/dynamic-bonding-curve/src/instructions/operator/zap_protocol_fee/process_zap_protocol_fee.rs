@@ -5,12 +5,15 @@ use crate::{
     treasury, PoolError,
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program_error::ProgramError;
 use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use zap_sdk::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, utils::validate_zap_out_to_treasury};
+use zap_sdk::{
+    constants::MINTS_DISALLOWED_TO_ZAP_OUT, error::ZapSdkError, utils::validate_zap_out_to_treasury,
+};
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
@@ -143,7 +146,15 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         &ctx.accounts.sysvar_instructions,
         treasury::ID,
         treasury_paired_destination_token_address,
-    )?;
+    )
+    .map_err(|e| -> anchor_lang::error::Error {
+        if let ProgramError::Custom(code) = e {
+            if let Ok(zap_err) = ZapSdkError::try_from(code) {
+                return PoolError::from(zap_err).into();
+            }
+        }
+        e.into()
+    })?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
