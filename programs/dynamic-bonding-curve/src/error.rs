@@ -1,5 +1,6 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
+use zap_sdk::error::ZapSdkError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -187,4 +188,27 @@ pub enum PoolError {
 
     #[msg("Invalid permission")]
     InvalidPermission,
+
+    #[msg("Invalid withdraw protocol fee zap accounts")]
+    InvalidWithdrawProtocolFeeZapAccounts,
+
+    #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
+    MintRestrictedFromZap,
+}
+
+impl From<ZapSdkError> for PoolError {
+    fn from(e: ZapSdkError) -> Self {
+        match e {
+            ZapSdkError::MathOverflow => PoolError::MathOverflow,
+            ZapSdkError::InvalidZapOutParameters => PoolError::InvalidInput,
+            ZapSdkError::TypeCastFailed => PoolError::TypeCastFailed,
+            ZapSdkError::MissingZapOutInstruction => PoolError::InvalidAccount,
+            ZapSdkError::InvalidWithdrawProtocolFeeZapAccounts => {
+                PoolError::InvalidWithdrawProtocolFeeZapAccounts
+            }
+            ZapSdkError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
+            ZapSdkError::CpiDisabled => PoolError::NotPermitToDoThisAction,
+            ZapSdkError::InvalidZapAccounts => PoolError::InvalidAccount,
+        }
+    }
 }
