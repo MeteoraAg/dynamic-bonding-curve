@@ -133,9 +133,8 @@ pub struct VirtualPool {
     /// is creator withdraw surplus
     pub is_creator_withdraw_surplus: u8,
     /// migration fee withdraw status
-    /// 0 is for partner,
-    /// 1 is for creator,
-    /// 2 is for protocol claim migration fee
+    /// bit 1 (0b010) creator
+    /// bit 2 (0b100) partner
     pub migration_fee_withdraw_status: u8,
     /// pool metrics
     pub metrics: PoolMetrics,
