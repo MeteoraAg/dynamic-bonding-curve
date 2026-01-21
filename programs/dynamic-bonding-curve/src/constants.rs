@@ -127,4 +127,4 @@ pub mod seeds {
     pub const OPERATOR_PREFIX: &[u8] = b"operator";
 }
 
-pub const MAX_OPERATION: u8 = 3; // Check OperatorPermission enum variants count
+pub const MAX_OPERATION: u8 = 2; // Check OperatorPermission enum variants count

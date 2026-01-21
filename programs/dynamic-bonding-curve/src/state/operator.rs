@@ -16,9 +16,8 @@ use static_assertions::const_assert_eq;
     AnchorSerialize,
 )]
 pub enum OperatorPermission {
-    ClaimProtocolFee,             // 0
-    ZapProtocolFee,               // 1
-    ClaimProtocolPoolCreationFee, // 2
+    ClaimProtocolFee, // 0
+    ZapProtocolFee,   // 1
 }
 
 #[account(zero_copy)]

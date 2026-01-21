@@ -1,16 +1,16 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use zap_sdk::constants::MINTS_DISALLOWED_TO_ZAP_OUT;
-use zap_sdk::utils::validate_zap_out_to_treasury;
-
-use crate::token::{transfer_token_from_pool_authority, validate_ata_token};
 use crate::{
     const_pda,
     state::{Operator, PoolConfig, VirtualPool},
+    token::{get_token_program_from_flag, transfer_token_from_pool_authority, validate_ata_token},
+    treasury, PoolError,
 };
-use crate::{treasury, PoolError};
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
+use anchor_spl::{
+    associated_token::get_associated_token_address_with_program_id,
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
+use zap_sdk::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, utils::validate_zap_out_to_treasury};
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
@@ -21,7 +21,7 @@ pub struct ZapProtocolFee<'info> {
 
     pub config: AccountLoader<'info, PoolConfig>,
 
-    #[account(mut)]
+    #[account(mut, has_one = config)]
     pub pool: AccountLoader<'info, VirtualPool>,
 
     #[account(mut)]
@@ -39,11 +39,8 @@ pub struct ZapProtocolFee<'info> {
     /// Operator
     pub signer: Signer<'info>,
 
-    /// Token base program
-    pub token_base_program: Interface<'info, TokenInterface>,
-
-    /// Token quote program
-    pub token_quote_program: Interface<'info, TokenInterface>,
+    /// Token program
+    pub token_program: Interface<'info, TokenInterface>,
 
     /// CHECK: Sysvar Instructions account
     #[account(
@@ -57,24 +54,19 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
     pool: &VirtualPool,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_mint: &InterfaceAccount<'info, Mint>,
-    token_base_program: &Interface<'info, TokenInterface>,
-    token_quote_program: &Interface<'info, TokenInterface>,
+    token_program: &Interface<'info, TokenInterface>,
 ) -> Result<bool> {
     require!(
         token_mint.key() == pool.base_mint || token_mint.key() == config.quote_mint,
         PoolError::InvalidWithdrawProtocolFeeZapAccounts
     );
 
-    let is_withdrawing_token_base = token_mint.key() == pool.base_mint;
+    let is_withdrawing_base = token_mint.key() == pool.base_mint;
     let token_mint_ai = token_mint.to_account_info();
 
-    if is_withdrawing_token_base {
+    if is_withdrawing_base {
         require!(
             token_vault.key() == pool.base_vault,
-            PoolError::InvalidWithdrawProtocolFeeZapAccounts
-        );
-        require!(
-            *token_mint_ai.owner == token_base_program.key(),
             PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
     } else {
@@ -82,13 +74,14 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
             token_vault.key() == pool.quote_vault,
             PoolError::InvalidWithdrawProtocolFeeZapAccounts
         );
-        require!(
-            *token_mint_ai.owner == token_quote_program.key(),
-            PoolError::InvalidWithdrawProtocolFeeZapAccounts
-        );
     }
 
-    Ok(is_withdrawing_token_base)
+    require!(
+        *token_mint_ai.owner == token_program.key(),
+        PoolError::InvalidWithdrawProtocolFeeZapAccounts
+    );
+
+    Ok(is_withdrawing_base)
 }
 
 // Rules:
@@ -102,8 +95,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         &pool,
         &ctx.accounts.token_vault,
         &ctx.accounts.token_mint,
-        &ctx.accounts.token_base_program,
-        &ctx.accounts.token_quote_program,
+        &ctx.accounts.token_program,
     )?;
 
     require!(
@@ -117,7 +109,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         let treasury_token_quote_address = get_associated_token_address_with_program_id(
             &treasury::ID,
             &config.quote_mint,
-            &ctx.accounts.token_quote_program.key(),
+            &get_token_program_from_flag(config.quote_token_flag)?,
         );
         (base_amount, treasury_token_quote_address)
     } else {
@@ -126,7 +118,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,
             &pool.base_mint,
-            &ctx.accounts.token_base_program.key(),
+            &get_token_program_from_flag(pool.pool_type)?,
         );
         (quote_amount, treasury_token_base_address)
     };
@@ -137,17 +129,11 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     let receiver_token_ai = ctx.accounts.receiver_token.to_account_info();
 
-    let token_program = if is_withdrawing_base {
-        &ctx.accounts.token_base_program
-    } else {
-        &ctx.accounts.token_quote_program
-    };
-
     validate_ata_token(
         &receiver_token_ai,
         &ctx.accounts.signer.key(),
         &ctx.accounts.token_mint.key(),
-        &token_program.key(),
+        &ctx.accounts.token_program.key(),
     )?;
 
     validate_zap_out_to_treasury(
@@ -164,7 +150,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         &ctx.accounts.token_mint,
         &ctx.accounts.token_vault,
         receiver_token_ai,
-        &token_program,
+        &ctx.accounts.token_program,
         amount,
     )?;
 

@@ -301,8 +301,7 @@ async function zapProtocolFeeAndAssert(
     receiverToken,
     operator: deriveOperatorAddress(operatorAddress),
     signer: operatorKeypair,
-    tokenBaseProgram: TOKEN_PROGRAM_ID,
-    tokenQuoteProgram: TOKEN_PROGRAM_ID,
+    tokenProgram: TOKEN_PROGRAM_ID,
     maxAmount: claimAmount,
     postInstruction: zapOutIx,
   });
@@ -325,8 +324,7 @@ async function zapProtocolFee(params: {
   receiverToken: PublicKey;
   operator: PublicKey;
   signer: Keypair;
-  tokenBaseProgram: PublicKey;
-  tokenQuoteProgram: PublicKey;
+  tokenProgram: PublicKey;
   maxAmount: BN;
   postInstruction?: TransactionInstruction;
 }) {
@@ -340,8 +338,7 @@ async function zapProtocolFee(params: {
     receiverToken,
     operator,
     signer,
-    tokenBaseProgram,
-    tokenQuoteProgram,
+    tokenProgram,
     maxAmount,
     postInstruction,
   } = params;
@@ -357,8 +354,7 @@ async function zapProtocolFee(params: {
       receiverToken,
       operator,
       signer: signer.publicKey,
-      tokenBaseProgram,
-      tokenQuoteProgram,
+      tokenProgram,
       sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
     })
     .postInstructions(postInstruction ? [postInstruction] : [])

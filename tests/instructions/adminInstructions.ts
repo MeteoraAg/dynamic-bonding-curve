@@ -23,7 +23,6 @@ import BN from "bn.js";
 export enum OperatorPermission {
   ClaimProtocolFee,
   ZapProtocolFee,
-  ClaimProtocolPoolCreationFee,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
