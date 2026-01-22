@@ -18,8 +18,8 @@ export type ClaimFeeOperator =
 export type MeteoraDammMigrationMetadata =
   IdlAccounts<DynamicBondingCurve>["meteoraDammMigrationMetadata"];
 export type LockEscrow = IdlAccounts<DynamicAmm>["lockEscrow"];
-export type DammV2Pool = IdlAccounts<DammV2>["pool"];
 export type DammV1Pool = IdlAccounts<DammV1>["pool"];
+export type DammV2Pool = IdlAccounts<DammV2>["pool"];
 export type DynamicVault = IdlAccounts<Vault>["vault"];
 export type BorshFeeTimeScheduler = IdlTypes<DammV2>["borshFeeTimeScheduler"];
 export type PodAlignedFeeTimeScheduler =
