@@ -22,7 +22,21 @@ import AmmIDL from "../../idls/dynamic_amm.json";
 import DammV2IDL from "../../idls/damm_v2.json";
 import { DynamicAmm as Damm } from "./idl/dynamic_amm";
 import { CpAmm as DammV2 } from "./idl/damm_v2";
-
+import {
+  BaseFee,
+  ConfigParameters,
+  createConfig,
+  CreateConfigParams,
+  createMeteoraMetadata,
+  createPoolWithSplToken,
+  MigrateMeteoraParams,
+  migrateToMeteoraDamm,
+  swap,
+  SwapMode,
+  createMeteoraDammV2Metadata,
+  MigrateMeteoraDammV2Params,
+  migrateToDammV2,
+} from "../instructions";
 import {
   clusterApiUrl,
   Connection,
@@ -33,14 +47,14 @@ import {
   SYSVAR_RENT_PUBKEY,
   Transaction,
   TransactionInstruction,
+  LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
-import { deriveClaimFeeOperatorAddress, derivePoolAuthority } from "./accounts";
+import { derivePoolAuthority } from "./accounts";
 import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  TREASURY,
   U64_MAX,
 } from "./constants";
 import {
@@ -48,7 +62,7 @@ import {
   DynamicVault,
   VirtualCurveProgram,
 } from "./types";
-import { getConfig, getVirtualPool } from "./fetcher";
+import { getVirtualPool } from "./fetcher";
 
 const BASE_ADDRESS = new PublicKey(
   "HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv"
@@ -614,4 +628,187 @@ export function getOrCreateAta(
 
 export function getTokenProgram(flag: number): PublicKey {
   return flag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+}
+
+export async function createDbcConfig(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  migrationOption: number,
+  migrationFeeOption: number,
+  migratedPoolFee: {
+    poolFeeBps: number;
+    collectFeeMode: number;
+    dynamicFee: number;
+  },
+  partner: Keypair,
+): Promise<PublicKey> {
+  const baseFee: BaseFee = {
+    cliffFeeNumerator: new BN(2_500_000),
+    firstFactor: 0,
+    secondFactor: new BN(0),
+    thirdFactor: new BN(0),
+    baseFeeMode: 0,
+  };
+
+  const curves = [];
+
+  for (let i = 1; i <= 16; i++) {
+    if (i == 16) {
+      curves.push({
+        sqrtPrice: MAX_SQRT_PRICE,
+        liquidity: U64_MAX.shln(30 + i),
+      });
+    } else {
+      curves.push({
+        sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
+        liquidity: U64_MAX.shln(30 + i),
+      });
+    }
+  }
+
+  const instructionParams: ConfigParameters = {
+    poolFees: {
+      baseFee,
+      dynamicFee: null,
+    },
+    activationType: 0,
+    collectFeeMode: 1, // BothToken
+    migrationOption,
+    tokenType: 0, // spl_token
+    tokenDecimal: 6,
+    migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 20,
+    partnerPermanentLockedLiquidityPercentage: 55,
+    creatorPermanentLockedLiquidityPercentage: 5,
+    sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
+    lockedVesting: {
+      amountPerPeriod: new BN(0),
+      cliffDurationFromMigrationTime: new BN(0),
+      frequency: new BN(0),
+      numberOfPeriod: new BN(0),
+      cliffUnlockAmount: new BN(0),
+    },
+    migrationFeeOption,
+    tokenSupply: null,
+    creatorTradingFeePercentage: 0,
+    tokenUpdateAuthority: 0,
+    migrationFee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+    poolCreationFee: new BN(0),
+    migratedPoolFee,
+    curve: curves,
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
+    enableFirstSwapWithMinFee: false,
+  };
+  const params: CreateConfigParams<ConfigParameters> = {
+    payer: partner,
+    leftoverReceiver: partner.publicKey,
+    feeClaimer: partner.publicKey,
+    quoteMint: NATIVE_MINT,
+    instructionParams,
+  };
+  const config = await createConfig(svm, program, params);
+
+  return config;
+}
+
+export async function createPoolAndSwapForMigration(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  config: PublicKey,
+  poolCreator: Keypair,
+) {
+  const virtualPool = await createPoolWithSplToken(svm, program, {
+    poolCreator,
+    payer: poolCreator,
+    quoteMint: NATIVE_MINT,
+    config,
+    instructionParams: {
+      name: "test token spl",
+      symbol: "TEST",
+      uri: "abc.com",
+    },
+  });
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+  await swap(svm, program, {
+    config,
+    payer: poolCreator,
+    pool: virtualPool,
+    inputTokenMint: NATIVE_MINT,
+    outputTokenMint: virtualPoolState.baseMint,
+    amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
+    minimumAmountOut: new BN(0),
+    swapMode: SwapMode.PartialFill,
+    referralTokenAccount: null,
+  });
+
+  return virtualPool;
+}
+
+export async function dammV2Migration(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  poolCreator: Keypair,
+  admin: Keypair,
+  virtualPoolAddress: PublicKey,
+  config: PublicKey,
+) {
+  await createMeteoraDammV2Metadata(svm, program, {
+    payer: poolCreator,
+    virtualPool: virtualPoolAddress,
+    config,
+  });
+
+  const poolAuthority = derivePoolAuthority();
+  const dammConfig = await createDammV2DynamicConfig(svm, admin, poolAuthority);
+  const migrationParams: MigrateMeteoraDammV2Params = {
+    payer: admin,
+    virtualPool: virtualPoolAddress,
+    dammConfig,
+  };
+
+  await migrateToDammV2(svm, program, migrationParams);
+}
+
+export async function dammMigration(
+  svm: LiteSVM,
+  admin: Keypair,
+  poolCreator: Keypair,
+  program: VirtualCurveProgram,
+  virtualPool: PublicKey,
+  config: PublicKey,
+) {
+  const poolAuthority = derivePoolAuthority();
+  const dammConfig = await createDammConfig(svm, admin, poolAuthority);
+  const migrationParams: MigrateMeteoraParams = {
+    payer: poolCreator,
+    virtualPool,
+    dammConfig,
+  };
+  await createMeteoraMetadata(svm, program, {
+    payer: admin,
+    virtualPool,
+    config,
+  });
+
+  await migrateToMeteoraDamm(svm, program, migrationParams);
 }

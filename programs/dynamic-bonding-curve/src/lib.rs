@@ -62,16 +62,16 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_fee(ctx, max_base_amount, max_quote_amount)
     }
 
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
-        instructions::handle_zap_protocol_fee(ctx, max_amount)
-    }
-
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
     ) -> Result<()> {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+        instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
     /// PARTNER FUNCTIONS ///
