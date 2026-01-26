@@ -5,15 +5,12 @@ use crate::{
     treasury, PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program_error::ProgramError;
 use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use zap_sdk::{
-    constants::MINTS_DISALLOWED_TO_ZAP_OUT, error::ZapSdkError, utils::validate_zap_out_to_treasury,
-};
+use protocol_zap::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, utils::validate_zap_out_to_treasury};
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
@@ -102,7 +99,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
     )?;
 
     require!(
-        !MINTS_DISALLOWED_TO_ZAP_OUT.contains(&ctx.accounts.token_mint.key()),
+        !MINTS_DISALLOWED_TO_ZAP_OUT.contains(&ctx.accounts.token_mint.key().to_bytes()),
         PoolError::MintRestrictedFromZap
     );
 
@@ -141,20 +138,14 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     validate_zap_out_to_treasury(
         amount,
-        crate::ID,
-        &receiver_token_ai,
-        &ctx.accounts.sysvar_instructions,
-        treasury::ID,
-        treasury_paired_destination_token_address,
+        crate::ID.to_bytes(),
+        &ctx.accounts.receiver_token.key().to_bytes(),
+        &ctx.accounts.receiver_token.try_borrow_data()?,
+        &ctx.accounts.sysvar_instructions.try_borrow_data()?,
+        treasury::ID.to_bytes(),
+        treasury_paired_destination_token_address.to_bytes(),
     )
-    .map_err(|e| -> anchor_lang::error::Error {
-        if let ProgramError::Custom(code) = e {
-            if let Ok(zap_err) = ZapSdkError::try_from(code) {
-                return PoolError::from(zap_err).into();
-            }
-        }
-        e.into()
-    })?;
+    .map_err(|e| -> anchor_lang::error::Error { PoolError::from(e).into() })?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
