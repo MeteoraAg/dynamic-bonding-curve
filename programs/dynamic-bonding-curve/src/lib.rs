@@ -12,6 +12,7 @@ pub mod constants;
 pub mod error;
 pub mod state;
 pub use error::*;
+pub use state::operator::OperatorPermission;
 pub mod event;
 pub use event::*;
 pub mod utils;
@@ -33,10 +34,16 @@ pub mod dynamic_bonding_curve {
     use super::*;
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
-    pub fn create_claim_protocol_fee_operator(
-        ctx: Context<CreateClaimProtocolFeeOperatorCtx>,
+    pub fn create_operator_account(
+        ctx: Context<CreateOperatorAccountCtx>,
+        permission: u128,
     ) -> Result<()> {
-        instructions::handle_create_claim_protocol_fee_operator(ctx)
+        instructions::handle_create_operator_account(ctx, permission)
+    }
+
+    #[access_control(is_admin(ctx.accounts.signer.key))]
+    pub fn close_operator_account(ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+        Ok(())
     }
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
@@ -46,7 +53,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
-    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_fee(
         ctx: Context<ClaimProtocolFeesCtx>,
         max_base_amount: u64,
@@ -55,11 +62,16 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_fee(ctx, max_base_amount, max_quote_amount)
     }
 
-    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
     ) -> Result<()> {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+        instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
     /// PARTNER FUNCTIONS ///

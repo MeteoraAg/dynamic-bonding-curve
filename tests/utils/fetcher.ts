@@ -1,11 +1,17 @@
 import { Program } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import { LiteSVM } from "litesvm";
-import { createDammV2Program } from "./common";
+import {
+  createDammProgram,
+  createDammV2Program,
+  createVaultProgram,
+} from "./common";
 import { DynamicAmm } from "./idl/dynamic_amm";
 import {
   ClaimFeeOperator,
+  DammV1Pool,
   DammV2Pool,
+  DynamicVault,
   LockEscrow,
   MeteoraDammMigrationMetadata,
   PartnerMetadata,
@@ -97,4 +103,16 @@ export function getDammV2Pool(svm: LiteSVM, pool: PublicKey): DammV2Pool {
   const account = svm.getAccount(pool);
   const program = createDammV2Program();
   return program.coder.accounts.decode("pool", Buffer.from(account.data));
+}
+
+export function getDammV1Pool(svm: LiteSVM, pool: PublicKey): DammV1Pool {
+  const account = svm.getAccount(pool);
+  const program = createDammProgram();
+  return program.coder.accounts.decode("pool", Buffer.from(account.data));
+}
+
+export function getVaultAccount(svm: LiteSVM, vault: PublicKey): DynamicVault {
+  const account = svm.getAccount(vault);
+  const program = createVaultProgram();
+  return program.coder.accounts.decode("vault", Buffer.from(account.data));
 }

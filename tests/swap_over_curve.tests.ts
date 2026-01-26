@@ -1,6 +1,5 @@
 import { Keypair } from "@solana/web3.js";
 import {
-  createClaimProtocolFeeOperator,
   ConfigParameters,
   createConfig,
   CreateConfigParams,
@@ -15,6 +14,8 @@ import {
   SwapParams,
   swapPartialFill,
   claimProtocolFee,
+  createOperatorAccount,
+  OperatorPermission,
 } from "./instructions";
 import {
   createDammConfig,
@@ -51,9 +52,10 @@ describe("Swap Over the Curve", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createClaimProtocolFeeOperator(svm, program, {
+    await createOperatorAccount(svm, program, {
       admin,
-      operator: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
   });
 
