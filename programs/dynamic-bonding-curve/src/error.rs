@@ -1,6 +1,6 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
-use zap_sdk::error::ZapSdkError;
+use protocol_zap::error::ProtozolZapError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -208,19 +208,19 @@ pub enum PoolError {
     InvalidZapAccounts,
 }
 
-impl From<ZapSdkError> for PoolError {
-    fn from(e: ZapSdkError) -> Self {
+impl From<ProtozolZapError> for PoolError {
+    fn from(e: ProtozolZapError) -> Self {
         match e {
-            ZapSdkError::MathOverflow => PoolError::MathOverflow,
-            ZapSdkError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
-            ZapSdkError::TypeCastFailed => PoolError::TypeCastFailed,
-            ZapSdkError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
-            ZapSdkError::InvalidWithdrawProtocolFeeZapAccounts => {
+            ProtozolZapError::MathOverflow => PoolError::MathOverflow,
+            ProtozolZapError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
+            ProtozolZapError::TypeCastFailed => PoolError::TypeCastFailed,
+            ProtozolZapError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
+            ProtozolZapError::InvalidWithdrawProtocolFeeZapAccounts => {
                 PoolError::InvalidWithdrawProtocolFeeZapAccounts
             }
-            ZapSdkError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
-            ZapSdkError::CpiDisabled => PoolError::CpiDisabled,
-            ZapSdkError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
+            ProtozolZapError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
+            ProtozolZapError::CpiDisabled => PoolError::CpiDisabled,
+            ProtozolZapError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
         }
     }
 }
