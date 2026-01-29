@@ -19,6 +19,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
+use crate::state::VirtualPool;
 use crate::PoolError;
 
 #[derive(
@@ -168,6 +169,13 @@ pub fn transfer_lamports_from_pool_account<'info>(
 ) -> Result<()> {
     pool.sub_lamports(lamports)?;
     to.add_lamports(lamports)?;
+
+    let minimum_balance = Rent::get()?.minimum_balance(8 + VirtualPool::INIT_SPACE);
+
+    require!(
+        pool.get_lamports() >= minimum_balance,
+        PoolError::InsufficientPoolLamports
+    );
 
     Ok(())
 }
