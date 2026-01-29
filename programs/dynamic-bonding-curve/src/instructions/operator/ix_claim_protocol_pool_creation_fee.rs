@@ -54,13 +54,13 @@ pub fn handle_claim_protocol_pool_creation_fee(
             ctx.accounts.treasury.to_account_info(),
             protocol_fee,
         )?;
-
-        emit_cpi!(EvtClaimPoolCreationFee {
-            pool: ctx.accounts.pool.key(),
-            receiver: ctx.accounts.treasury.key(),
-            creation_fee: protocol_fee,
-        });
     }
+
+    emit_cpi!(EvtClaimPoolCreationFee {
+        pool: ctx.accounts.pool.key(),
+        receiver: ctx.accounts.treasury.key(),
+        creation_fee: protocol_fee,
+    });
 
     Ok(())
 }
