@@ -181,4 +181,7 @@ pub enum PoolError {
 
     #[msg("Incorrect ATA")]
     IncorrectATA,
+
+    #[msg("Pool has insufficient lamports to perform the operation")]
+    InsufficientPoolLamports,
 }
