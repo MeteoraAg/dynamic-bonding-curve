@@ -60,7 +60,6 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_quote_program: Interface<'info, TokenInterface>,
 }
 
-/// Withdraw protocol fees. Permissionless.
 pub fn handle_claim_protocol_fee(
     ctx: Context<ClaimProtocolFeesCtx>,
     max_base_amount: u64,
