@@ -103,8 +103,8 @@ pub mod fee {
     // max pool creation fee: 100 SOL
     pub const MAX_POOL_CREATION_FEE: u64 = 100_000_000_000;
 
-    // migration fee bps, temporarily set to zero, it could be increased one day
-    pub const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS: u16 = 0; // 0%
+    // migration fee bps
+    pub const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS: u16 = 20; // 0.2%
 }
 
 pub mod seeds {
