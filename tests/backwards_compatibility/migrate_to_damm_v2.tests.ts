@@ -2,8 +2,11 @@ import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
   generateAndFund,
   startSvm,
 } from "../utils";
@@ -49,6 +52,12 @@ describe("Backwards compatibility - DAMMv2 migration", () => {
     user = generateAndFund(svm);
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("createConfigSplTokenForSwapDammv2", async () => {

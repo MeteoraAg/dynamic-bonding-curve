@@ -47,18 +47,12 @@ pub mod dynamic_bonding_curve {
     }
 
     #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
-    pub fn claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<()> {
-        instructions::handle_claim_protocol_fee(ctx)
-    }
-
-    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
-    pub fn protocol_withdraw_surplus(ctx: Context<ProtocolWithdrawSurplusCtx>) -> Result<()> {
-        instructions::handle_protocol_withdraw_surplus(ctx)
-    }
-
-    #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
-    pub fn claim_legacy_pool_creation_fee(ctx: Context<ClaimLegacyCreationFeeCtx>) -> Result<()> {
-        instructions::handle_claim_legacy_pool_creation_fee(ctx)
+    pub fn claim_protocol_fee(
+        ctx: Context<ClaimProtocolFeesCtx>,
+        max_base_amount: u64,
+        max_quote_amount: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee(ctx, max_base_amount, max_quote_amount)
     }
 
     #[access_control(is_claim_fee_operator(&ctx.accounts.claim_fee_operator, ctx.accounts.signer.key))]
@@ -156,7 +150,10 @@ pub mod dynamic_bonding_curve {
     }
 
     /// TRADING BOTS FUNCTIONS ////
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+    pub fn swap<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+        params: SwapParameters,
+    ) -> Result<()> {
         instructions::handle_swap_wrapper(
             ctx,
             SwapParameters2 {
@@ -168,7 +165,10 @@ pub mod dynamic_bonding_curve {
         )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    pub fn swap2<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+        params: SwapParameters2,
+    ) -> Result<()> {
         instructions::handle_swap_wrapper(ctx, params)
     }
 

@@ -1,5 +1,7 @@
 use std::u64;
 
+use crate::instruction::InitializeVirtualPoolWithSplToken;
+use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
 use crate::math::safe_math::SafeMath;
@@ -123,7 +125,10 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+pub fn handle_swap_wrapper<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+    params: SwapParameters2,
+) -> Result<()> {
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -182,6 +187,15 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         }
     }
 
+    let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
+        && pool.is_first_swap()
+        && validate_contain_initialize_pool_ix_and_no_cpi(
+            &ctx.accounts.pool.key(),
+            &ctx.accounts.referral_token_account,
+            ctx.remaining_accounts,
+        )
+        .is_ok();
+
     // validate if it is over threshold
     require!(
         !pool.is_curve_complete(config.migration_quote_threshold),
@@ -202,6 +216,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         current_point,
         amount_0,
         amount_1,
+        eligible_for_first_swap_with_min_fee,
     };
 
     let ProcessSwapResult {
@@ -237,7 +252,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
         ctx.accounts.pool_authority.to_account_info(),
         token_out_mint,
         output_vault_account,
-        &ctx.accounts.output_token_account,
+        ctx.accounts.output_token_account.to_account_info(),
         output_program,
         swap_result.output_amount,
     )?;
@@ -249,7 +264,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.base_mint,
                 &ctx.accounts.base_vault,
-                referral_token_account,
+                referral_token_account.to_account_info(),
                 &ctx.accounts.token_base_program,
                 swap_result.referral_fee,
             )?;
@@ -258,7 +273,7 @@ pub fn handle_swap_wrapper(ctx: Context<SwapCtx>, params: SwapParameters2) -> Re
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.quote_mint,
                 &ctx.accounts.quote_vault,
-                referral_token_account,
+                referral_token_account.to_account_info(),
                 &ctx.accounts.token_quote_program,
                 swap_result.referral_fee,
             )?;
@@ -401,4 +416,68 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
         return instruction.accounts[2].pubkey.eq(pool);
     }
     false
+}
+
+// Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
+pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
+    pool: &Pubkey,
+    referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    remaining_accounts: &'c [AccountInfo<'info>],
+) -> Result<()> {
+    // just use a random error
+    // not allow user to bypass referral fee
+    require!(
+        referral_token_account.is_none(),
+        PoolError::UndeterminedError
+    );
+    let instruction_sysvar_account_info = remaining_accounts
+        .get(0)
+        .ok_or_else(|| PoolError::UndeterminedError)?;
+
+    require!(
+        instruction_sysvar_account_info
+            .key
+            .eq(&sysvar::instructions::ID),
+        PoolError::UndeterminedError
+    );
+
+    let current_index =
+        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
+
+    let current_instruction = sysvar::instructions::load_instruction_at_checked(
+        current_index.into(),
+        instruction_sysvar_account_info,
+    )?;
+
+    require!(
+        current_instruction.program_id.eq(&crate::ID),
+        PoolError::UndeterminedError
+    );
+
+    for i in 0..current_index {
+        let instruction = sysvar::instructions::load_instruction_at_checked(
+            i.into(),
+            instruction_sysvar_account_info,
+        )?;
+
+        if instruction.program_id == crate::ID {
+            let disc = &instruction.data[..8];
+
+            if disc.eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
+                || disc.eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR)
+            {
+                const VIRTUAL_POOL_ACCOUNT_INDEX: usize = 5;
+                let Some(account) = instruction.accounts.get(VIRTUAL_POOL_ACCOUNT_INDEX) else {
+                    continue;
+                };
+
+                if account.pubkey.eq(pool) {
+                    //pass
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    Err(PoolError::UndeterminedError.into())
 }

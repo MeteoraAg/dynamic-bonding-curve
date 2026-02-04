@@ -5,6 +5,8 @@ use anchor_lang::{
     solana_program::program::{invoke, invoke_signed},
     solana_program::system_instruction::transfer,
 };
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token::accessor;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -17,6 +19,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
+use crate::state::VirtualPool;
 use crate::PoolError;
 
 #[derive(
@@ -77,7 +80,7 @@ pub fn transfer_token_from_pool_authority<'c: 'info, 'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
-    token_owner_account: &InterfaceAccount<'info, TokenAccount>,
+    token_owner_account: AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
@@ -167,5 +170,28 @@ pub fn transfer_lamports_from_pool_account<'info>(
     pool.sub_lamports(lamports)?;
     to.add_lamports(lamports)?;
 
+    let minimum_balance = Rent::get()?.minimum_balance(8 + VirtualPool::INIT_SPACE);
+
+    require!(
+        pool.get_lamports() >= minimum_balance,
+        PoolError::InsufficientPoolLamports
+    );
+
+    Ok(())
+}
+
+pub fn validate_ata_token<'info>(
+    token_account: &AccountInfo<'info>,
+    owner: &Pubkey,
+    mint: &Pubkey,
+    token_program_id: &Pubkey,
+) -> Result<()> {
+    // validate ata address
+    let ata_address = get_associated_token_address_with_program_id(owner, mint, token_program_id);
+    require!(ata_address.eq(token_account.key), PoolError::IncorrectATA);
+
+    // validate owner
+    let current_owner = accessor::authority(token_account)?;
+    require!(current_owner.eq(owner), PoolError::IncorrectATA);
     Ok(())
 }

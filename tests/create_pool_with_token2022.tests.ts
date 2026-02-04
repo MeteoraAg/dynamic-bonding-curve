@@ -141,6 +141,9 @@ describe("Create pool with token2022", () => {
         frequency: 0,
       },
       poolCreationFee: new BN(0),
+      enableFirstSwapWithMinFee: false,
+      migratedPoolBaseFeeMode: 0,
+      migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {

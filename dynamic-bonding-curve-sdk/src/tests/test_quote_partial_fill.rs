@@ -24,6 +24,7 @@ fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
         current_slot,
         input_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -34,6 +35,7 @@ fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
         current_timestamp,
         current_slot,
         input_amount,
+        false,
         false,
     )
     .unwrap();
@@ -60,6 +62,7 @@ fn test_quote_partial_fill_fee_in_quote_from_quote_to_base() {
         current_slot,
         input_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -70,6 +73,7 @@ fn test_quote_partial_fill_fee_in_quote_from_quote_to_base() {
         current_timestamp,
         current_slot,
         input_amount,
+        false,
         false,
     )
     .unwrap();
@@ -96,6 +100,7 @@ fn test_quote_partial_fill_fee_in_both_from_base_for_quote() {
         current_slot,
         input_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -106,6 +111,7 @@ fn test_quote_partial_fill_fee_in_both_from_base_for_quote() {
         current_timestamp,
         current_slot,
         input_amount,
+        false,
         false,
     )
     .unwrap();
@@ -132,6 +138,7 @@ fn test_quote_partial_fill_fee_in_both_from_quote_to_base() {
         current_slot,
         input_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -142,6 +149,7 @@ fn test_quote_partial_fill_fee_in_both_from_quote_to_base() {
         current_timestamp,
         current_slot,
         input_amount,
+        false,
         false,
     )
     .unwrap();

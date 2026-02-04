@@ -13,8 +13,9 @@ use crate::{
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
+    damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode,
     params::{
-        fee_parameters::PoolFeeParameters,
+        fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
             LiquidityDistributionParameters,
@@ -28,7 +29,8 @@ use crate::{
     token::{get_token_program_flags, is_supported_quote_mint},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
-    validate_vesting_parameters, DammV2DynamicFee, EvtCreateConfig, EvtCreateConfigV2, PoolError,
+    validate_vesting_parameters, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
+    EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -56,9 +58,11 @@ pub struct ConfigParameters {
     pub pool_creation_fee: u64,
     pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
     pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
-
+    pub migrated_pool_base_fee_mode: u8,
+    pub migrated_pool_market_cap_fee_scheduler_params: MigratedPoolMarketCapFeeSchedulerParams,
+    pub enable_first_swap_with_min_fee: bool,
     /// padding for future use
-    pub padding: [u8; 22],
+    pub padding: [u8; 4],
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
@@ -90,18 +94,47 @@ impl MigrationFee {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
-pub struct MigratedPoolFee {
+pub struct MigratedPoolFeeValidator {
     pub collect_fee_mode: u8,
     pub dynamic_fee: u8,
     pub pool_fee_bps: u16,
+    pub migrated_pool_base_fee_mode: u8,
+    pub number_of_period: u16,
+    pub sqrt_price_step_bps: u16,
+    pub scheduler_expiration_duration: u32,
+    pub reduction_factor: u64,
 }
-const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
 
-impl MigratedPoolFee {
-    pub fn is_none(&self) -> bool {
-        self.collect_fee_mode == 0 && self.dynamic_fee == 0 && self.pool_fee_bps == 0
+impl MigratedPoolFeeValidator {
+    pub fn new(
+        migrated_pool_fee: &MigratedPoolFee,
+        migrated_pool_market_cap_fee_scheduler_params: &MigratedPoolMarketCapFeeSchedulerParams,
+        migrated_pool_base_fee_mode: u8,
+    ) -> Self {
+        Self {
+            collect_fee_mode: migrated_pool_fee.collect_fee_mode,
+            dynamic_fee: migrated_pool_fee.dynamic_fee,
+            pool_fee_bps: migrated_pool_fee.pool_fee_bps,
+            migrated_pool_base_fee_mode,
+            number_of_period: migrated_pool_market_cap_fee_scheduler_params.number_of_period,
+            sqrt_price_step_bps: migrated_pool_market_cap_fee_scheduler_params.sqrt_price_step_bps,
+            scheduler_expiration_duration: migrated_pool_market_cap_fee_scheduler_params
+                .scheduler_expiration_duration,
+            reduction_factor: migrated_pool_market_cap_fee_scheduler_params.reduction_factor,
+        }
     }
+
+    pub fn is_none(&self) -> bool {
+        self.collect_fee_mode == 0
+            && self.dynamic_fee == 0
+            && self.pool_fee_bps == 0
+            && self.migrated_pool_base_fee_mode == 0
+            && self.number_of_period == 0
+            && self.sqrt_price_step_bps == 0
+            && self.scheduler_expiration_duration == 0
+            && self.reduction_factor == 0
+    }
+
     pub fn validate(&self) -> Result<()> {
         require!(
             self.pool_fee_bps >= MIN_MIGRATED_POOL_FEE_BPS
@@ -119,16 +152,76 @@ impl MigratedPoolFee {
             DammV2DynamicFee::try_from(self.dynamic_fee).is_ok(),
             PoolError::InvalidMigratedPoolFee
         );
+
+        let migrated_base_fee_mode = DammV2BaseFeeMode::try_from(self.migrated_pool_base_fee_mode)
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        match migrated_base_fee_mode {
+            // Old behavior is fixed fee bps for migrated pool
+            DammV2BaseFeeMode::FeeTimeSchedulerLinear
+            | DammV2BaseFeeMode::FeeTimeSchedulerExponential => {
+                require!(
+                    self.number_of_period == 0
+                        && self.sqrt_price_step_bps == 0
+                        && self.scheduler_expiration_duration == 0
+                        && self.reduction_factor == 0,
+                    PoolError::InvalidMigratedPoolFee
+                );
+            }
+            DammV2BaseFeeMode::FeeMarketCapSchedulerExponential
+            | DammV2BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let cliff_fee_numerator = to_numerator(
+                    self.pool_fee_bps.into(),
+                    damm_v2::constants::FEE_DENOMINATOR.into(),
+                )?;
+
+                let market_cap_fee_scheduler = DammV2PodAlignedFeeMarketCapScheduler(
+                    damm_v2::accounts::PodAlignedFeeMarketCapScheduler {
+                        cliff_fee_numerator,
+                        base_fee_mode: self.migrated_pool_base_fee_mode,
+                        number_of_period: self.number_of_period,
+                        sqrt_price_step_bps: self.sqrt_price_step_bps.into(),
+                        scheduler_expiration_duration: self.scheduler_expiration_duration,
+                        reduction_factor: self.reduction_factor,
+                        padding: [0; 5],
+                    },
+                );
+
+                market_cap_fee_scheduler.validate()?;
+            }
+            _ => {
+                return Err(PoolError::InvalidMigratedPoolFee.into());
+            }
+        }
+
         Ok(())
     }
 }
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
+pub struct MigratedPoolFee {
+    pub collect_fee_mode: u8,
+    pub dynamic_fee: u8,
+    pub pool_fee_bps: u16,
+}
+const_assert_eq!(MigratedPoolFee::INIT_SPACE, 4);
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
+pub struct MigratedPoolMarketCapFeeSchedulerParams {
+    pub number_of_period: u16,
+    pub sqrt_price_step_bps: u16,
+    pub scheduler_expiration_duration: u32,
+    pub reduction_factor: u64,
+}
+
+const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct TokenSupplyParams {
     /// pre migration token supply
     pub pre_migration_token_supply: u64,
     /// post migration token supply
-    /// becase DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
+    /// because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve
     /// that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)
     pub post_migration_token_supply: u64,
 }
@@ -293,6 +386,12 @@ impl ConfigParameters {
         let token_type_value =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
+        let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
+            &self.migrated_pool_fee,
+            &self.migrated_pool_market_cap_fee_scheduler_params,
+            self.migrated_pool_base_fee_mode,
+        );
+
         match migration_option_value {
             MigrationOption::MeteoraDamm => {
                 require!(
@@ -306,7 +405,7 @@ impl ConfigParameters {
 
                 require!(
                     migration_fee_option != MigrationFeeOption::Customizable
-                        && self.migrated_pool_fee.is_none(),
+                        && migrated_pool_fee_validator.is_none(),
                     PoolError::InvalidMigrationFeeOption
                 );
                 // validate vesting
@@ -321,10 +420,10 @@ impl ConfigParameters {
             }
             MigrationOption::DammV2 => {
                 if migration_fee_option == MigrationFeeOption::Customizable {
-                    self.migrated_pool_fee.validate()?;
+                    migrated_pool_fee_validator.validate()?;
                 } else {
                     require!(
-                        self.migrated_pool_fee.is_none(),
+                        migrated_pool_fee_validator.is_none(),
                         PoolError::InvalidMigratedPoolFee
                     );
                 }
@@ -469,6 +568,9 @@ pub fn handle_create_config(
         pool_creation_fee,
         partner_liquidity_vesting_info,
         creator_liquidity_vesting_info,
+        migrated_pool_base_fee_mode,
+        migrated_pool_market_cap_fee_scheduler_params,
+        enable_first_swap_with_min_fee,
         ..
     } = config_parameters.clone();
 
@@ -580,8 +682,11 @@ pub fn handle_create_config(
         pool_creation_fee,
         partner_liquidity_vesting_info.to_liquidity_vesting_info(),
         creator_liquidity_vesting_info.to_liquidity_vesting_info(),
+        migrated_pool_base_fee_mode,
+        migrated_pool_market_cap_fee_scheduler_params,
         &curve,
-    );
+        enable_first_swap_with_min_fee.into(),
+    )?;
 
     // re-validate total locked liquidity
     require!(

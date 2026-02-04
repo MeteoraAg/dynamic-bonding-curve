@@ -2,6 +2,7 @@ use std::u64;
 
 use crate::{
     constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE},
+    curve::get_delta_amount_quote_unsigned_256,
     params::{
         liquidity_distribution::{get_migration_threshold_price, LiquidityDistributionParameters},
         swap::TradeDirection,
@@ -10,9 +11,10 @@ use crate::{
         fee::{FeeMode, VolatilityTracker},
         CollectFeeMode, LiquidityDistributionConfig, PoolConfig, SwapResult2, VirtualPool,
     },
+    u128x128_math::Rounding,
     PoolError,
 };
-use anchor_lang::prelude::Pubkey;
+use anchor_lang::{prelude::Pubkey, require};
 use rand::prelude::*;
 
 use super::price_math::get_price_from_id;
@@ -63,6 +65,7 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
         0,
         0,
         1_000_000_000_000,
+        0,
     );
     let user = UserBalance {
         base_balance: 0,
@@ -70,6 +73,7 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
     };
     (config, pool, user)
 }
+
 #[test]
 fn test_swap() {
     let (config, pool, _user) = initialize_pool_and_config();
@@ -84,6 +88,7 @@ fn test_swap() {
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
+            false,
         )
         .unwrap();
     println!("{:?}", result);
@@ -123,7 +128,7 @@ impl UserBalance {
     }
 }
 
-fn simulate_swap_exact_in(
+fn simulate_swap_partiall_fill(
     config: &PoolConfig,
     pool: &mut VirtualPool,
     user: &mut UserBalance,
@@ -133,12 +138,13 @@ fn simulate_swap_exact_in(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let current_timestamp = 0;
     let swap_exact_in_result = pool
-        .get_swap_result_from_exact_input(
+        .get_swap_result_from_partial_input(
             &config,
             amount_in,
             &fee_mode,
             trade_direction,
             current_timestamp,
+            false,
         )
         .unwrap();
 
@@ -169,6 +175,7 @@ fn simulate_swap_exact_out(
         &fee_mode,
         trade_direction,
         current_timestamp,
+        false,
     ) {
         Ok(swap_exact_out_result) => {
             if trade_direction == TradeDirection::BaseToQuote
@@ -187,10 +194,7 @@ fn simulate_swap_exact_out(
             }
         }
         Err(err) => {
-            assert_eq!(
-                err,
-                PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice.into()
-            );
+            assert_eq!(err, PoolError::InsufficientLiquidity.into());
         }
     }
     return false;
@@ -203,13 +207,13 @@ fn test_swap_exact_out() {
     let amount_in = 1_000_000_000; // 1k
     {
         let trade_direction = TradeDirection::QuoteToBase;
-        simulate_swap_exact_in(&config, &mut pool, &mut user, amount_in, trade_direction);
+        simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount_in, trade_direction);
         println!("{:?}", user);
     }
 
     {
         let trade_direction = TradeDirection::QuoteToBase;
-        simulate_swap_exact_in(&config, &mut pool, &mut user, amount_in, trade_direction);
+        simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount_in, trade_direction);
         println!("{:?}", user);
     }
 
@@ -222,7 +226,7 @@ fn test_swap_exact_out() {
     {
         let trade_direction = TradeDirection::BaseToQuote;
         let remaining_base_balance = user.base_balance;
-        simulate_swap_exact_in(
+        simulate_swap_partiall_fill(
             &config,
             &mut pool,
             &mut user,
@@ -252,7 +256,7 @@ fn test_swap_wont_depelete_reserve() {
             if trade_direction == TradeDirection::BaseToQuote && user.base_balance < amount {
                 continue;
             }
-            simulate_swap_exact_in(&config, &mut pool, &mut user, amount, trade_direction);
+            simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount, trade_direction);
             count_exact_in = count_exact_in + 1;
         } else {
             if trade_direction == TradeDirection::BaseToQuote && pool.quote_reserve < amount {
@@ -275,7 +279,7 @@ fn test_swap_wont_depelete_reserve() {
     let trade_direction = TradeDirection::BaseToQuote;
     let remaining_base_balance = user.base_balance;
     if remaining_base_balance > 0 {
-        simulate_swap_exact_in(
+        simulate_swap_partiall_fill(
             &config,
             &mut pool,
             &mut user,
@@ -285,4 +289,34 @@ fn test_swap_wont_depelete_reserve() {
     }
 
     println!("{:?} user loss: {}", user, u64::MAX - user.quote_balance);
+}
+
+#[test]
+fn test_swap_exact_out_overflow() {
+    let (config, pool, _user) = initialize_pool_and_config();
+
+    let quote_amount_in_curve = get_delta_amount_quote_unsigned_256(
+        1,
+        config.sqrt_start_price,
+        config.curve[0].liquidity,
+        Rounding::Down,
+    )
+    .unwrap();
+
+    let quote_amount_in_curve: u64 = quote_amount_in_curve.try_into().unwrap();
+
+    let trade_direction = TradeDirection::BaseToQuote;
+    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
+    let result = pool.get_swap_result_from_exact_output(
+        &config,
+        quote_amount_in_curve + 1,
+        &fee_mode,
+        trade_direction,
+        0,
+        false,
+    );
+    assert_eq!(
+        result.err().unwrap(),
+        PoolError::InsufficientLiquidity.into()
+    );
 }

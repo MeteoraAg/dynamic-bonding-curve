@@ -53,7 +53,7 @@ pub enum PoolError {
     #[msg("Invalid migration option")]
     InvalidMigrationOption,
 
-    #[msg("Invalid activation type")]
+    #[msg("Invalid token decimals")]
     InvalidTokenDecimals,
 
     #[msg("Invalid token type")]
@@ -104,8 +104,8 @@ pub enum PoolError {
     #[msg("Invalid leftover address")]
     InvalidLeftoverAddress,
 
-    #[msg("Swap amount is over a threshold")]
-    SwapAmountIsOverAThreshold,
+    #[msg("Liquidity in bonding curve is insufficient")]
+    InsufficientLiquidity,
 
     #[msg("Invalid fee scheduler")]
     InvalidFeeScheduler,
@@ -172,4 +172,16 @@ pub enum PoolError {
 
     #[msg("Invalid migration locked liquidity")]
     InvalidMigrationLockedLiquidity,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
+
+    #[msg("Fail to validate first swap with minimum fee")]
+    FirstSwapValidationFailed,
+
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
+
+    #[msg("Pool has insufficient lamports to perform the operation")]
+    InsufficientPoolLamports,
 }

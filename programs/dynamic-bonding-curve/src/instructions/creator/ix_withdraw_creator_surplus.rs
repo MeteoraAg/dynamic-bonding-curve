@@ -67,7 +67,7 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
-        &ctx.accounts.token_quote_account,
+        ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         creator_surplus_amount,
     )?;

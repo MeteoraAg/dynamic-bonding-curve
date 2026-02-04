@@ -22,7 +22,7 @@ export const DAMM_V2_PROGRAM_ID = new PublicKey(
 );
 
 export const TREASURY = new PublicKey(
-  "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+  "6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"
 );
 
 export const LOCKER_PROGRAM_ID = new PublicKey(

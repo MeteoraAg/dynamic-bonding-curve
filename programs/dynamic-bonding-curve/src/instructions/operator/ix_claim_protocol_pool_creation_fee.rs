@@ -1,4 +1,10 @@
-use crate::{state::*, token::transfer_lamports_from_pool_account, EvtClaimPoolCreationFee, *};
+use crate::{
+    safe_math::SafeMath, state::*, token::transfer_lamports_from_pool_account,
+    EvtClaimPoolCreationFee, *,
+};
+
+// Move the constant here, because the fixed fee logic is removed
+const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
 
 /// Accounts for withdraw creation fees
 #[event_cpi]
@@ -27,26 +33,28 @@ pub fn handle_claim_protocol_pool_creation_fee(
     ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
-
-    let (protocol_fee, _) = config.split_pool_creation_fee()?;
-
-    require!(protocol_fee > 0, PoolError::ZeroPoolCreationFee);
-
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let mut protocol_fee = if pool.eligible_to_claim_protocol_pool_creation_fee() {
+        pool.update_protocol_pool_creation_fee_claimed();
+        let (protocol_fee, _) = config.split_pool_creation_fee()?;
+        protocol_fee
+    } else {
+        0
+    };
 
-    require!(
-        pool.eligible_to_claim_protocol_pool_creation_fee(),
-        PoolError::PoolCreationFeeHasBeenClaimed
-    );
+    if pool.has_legacy_creation_fee() && pool.eligible_to_claim_legacy_creation_fee() {
+        pool.update_legacy_creation_fee_claimed();
+        protocol_fee =
+            protocol_fee.safe_add(TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE)?;
+    }
 
-    // update flag status
-    pool.update_protocol_pool_creation_fee_claimed();
-
-    transfer_lamports_from_pool_account(
-        ctx.accounts.pool.to_account_info(),
-        ctx.accounts.treasury.to_account_info(),
-        protocol_fee,
-    )?;
+    if protocol_fee > 0 {
+        transfer_lamports_from_pool_account(
+            ctx.accounts.pool.to_account_info(),
+            ctx.accounts.treasury.to_account_info(),
+            protocol_fee,
+        )?;
+    }
 
     emit_cpi!(EvtClaimPoolCreationFee {
         pool: ctx.accounts.pool.key(),
