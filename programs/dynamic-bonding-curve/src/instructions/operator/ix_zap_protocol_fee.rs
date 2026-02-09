@@ -138,12 +138,12 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     validate_zap_out_to_treasury(
         amount,
-        crate::ID.to_bytes(),
+        &crate::ID.to_bytes(),
         &ctx.accounts.receiver_token.key().to_bytes(),
         &ctx.accounts.receiver_token.try_borrow_data()?,
         &ctx.accounts.sysvar_instructions.try_borrow_data()?,
-        treasury::ID.to_bytes(),
-        treasury_paired_destination_token_address.to_bytes(),
+        &treasury::ID.to_bytes(),
+        &treasury_paired_destination_token_address.to_bytes(),
     )
     .map_err(|e| -> anchor_lang::error::Error { PoolError::from(e).into() })?;
 
