@@ -1,5 +1,6 @@
 use crate::{
     const_pda,
+    safe_math::SafeMath,
     state::{Operator, PoolConfig, VirtualPool},
     token::{get_token_program_from_flag, transfer_token_from_pool_authority, validate_ata_token},
     treasury, PoolError,
@@ -113,7 +114,16 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         );
         (base_amount, treasury_token_quote_address)
     } else {
-        let quote_amount = pool.claim_protocol_quote_fee(max_amount)?;
+        let mut quote_amount = pool.claim_protocol_quote_fee(max_amount)?;
+
+        if pool.is_protocol_withdraw_surplus == 0
+            && pool.is_curve_complete(config.migration_quote_threshold)
+        {
+            pool.update_protocol_withdraw_surplus();
+            let protocol_surplus_amount =
+                pool.get_protocol_surplus(config.migration_quote_threshold)?;
+            quote_amount = quote_amount.safe_add(protocol_surplus_amount)?;
+        }
 
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,
