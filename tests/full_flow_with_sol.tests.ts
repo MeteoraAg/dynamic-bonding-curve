@@ -9,10 +9,11 @@ import {
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
-  createClaimProtocolFeeOperator,
   createConfig,
   CreateConfigParams,
+  createOperatorAccount,
   createPoolWithSplToken,
+  OperatorPermission,
   partnerWithdrawSurplus,
   swap,
   SwapMode,
@@ -52,7 +53,6 @@ describe("Full flow with spl-token", () => {
   let virtualPool: PublicKey;
   let virtualPoolState: Pool;
   let dammConfig: PublicKey;
-  let claimFeeOperator: PublicKey;
 
   before(async () => {
     svm = startSvm();
@@ -64,10 +64,11 @@ describe("Full flow with spl-token", () => {
     program = createVirtualCurveProgram();
   });
 
-  it("Admin create claim fee operator", async () => {
-    claimFeeOperator = await createClaimProtocolFeeOperator(svm, program, {
+  it("Admin create operator with claim protocol fee permission", async () => {
+    await createOperatorAccount(svm, program, {
       admin,
-      operator: operator.publicKey,
+      whitelistedAddress: operator.publicKey,
+      permissions: [OperatorPermission.ClaimProtocolFee],
     });
   });
 
