@@ -1012,7 +1012,7 @@ impl VirtualPool {
         Ok(total_claimed_fee)
     }
 
-    pub fn claim_protocol_quote_fee(&mut self, max_amount: u64) -> Result<u64> {
+    fn claim_protocol_quote_fee(&mut self, max_amount: u64) -> Result<u64> {
         // try to claim from trading fees firstly
         let trading_claimed_fee = self.protocol_quote_fee.min(max_amount);
         self.protocol_quote_fee = self.protocol_quote_fee.safe_sub(trading_claimed_fee)?;
@@ -1025,6 +1025,24 @@ impl VirtualPool {
         let total_claimed_fee = trading_claimed_fee.safe_add(migration_claimed_fee)?;
 
         Ok(total_claimed_fee)
+    }
+
+    pub fn claim_protocol_quote_fee_and_surplus(
+        &mut self,
+        max_amount: u64,
+        migration_quote_threshold: u64,
+    ) -> Result<u64> {
+        let mut amount = self.claim_protocol_quote_fee(max_amount)?;
+
+        if self.is_protocol_withdraw_surplus == 0
+            && self.is_curve_complete(migration_quote_threshold)
+        {
+            self.update_protocol_withdraw_surplus();
+            let protocol_surplus_amount = self.get_protocol_surplus(migration_quote_threshold)?;
+            amount = amount.safe_add(protocol_surplus_amount)?;
+        }
+
+        Ok(amount)
     }
 
     pub fn claim_partner_trading_fee(
