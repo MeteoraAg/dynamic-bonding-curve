@@ -12,7 +12,6 @@ import {
   deriveDammV2PoolAddress,
   deriveMigrationDammV2MetadataAddress,
   derivePoolAuthority,
-  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
   getConfig,
   getVirtualPool,
   sendTransactionMaybeThrow,
@@ -101,27 +100,12 @@ export async function migrateToDammV2(
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
-  const firstPositionVestingAddress =
-    derivePositionVestingAccount(firstPosition);
-
-  const secondPositionVestingAddress =
-    derivePositionVestingAccount(secondPosition);
 
   const remainingAccounts: AccountMeta[] = [
     {
       isSigner: false,
       isWritable: false,
       pubkey: dammConfig,
-    },
-    {
-      isSigner: false,
-      isWritable: true,
-      pubkey: firstPositionVestingAddress,
-    },
-    {
-      isSigner: false,
-      isWritable: true,
-      pubkey: secondPositionVestingAddress,
     },
   ];
 
@@ -197,12 +181,6 @@ export function derivePositionNftAccount(
   )[0];
 }
 
-export function derivePositionVestingAccount(position: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("position_vesting"), position.toBuffer()],
-    DYNAMIC_BONDING_CURVE_PROGRAM_ID
-  )[0];
-}
 
 export function deriveDammV2PoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(

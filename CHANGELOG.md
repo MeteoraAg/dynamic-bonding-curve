@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 ### Changed
 
 ### Deprecated
@@ -19,15 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
+
+### Added
+- Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
+- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
+- Add new endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
+
+### Changed
+- When migrate to damm-v2, instead of using external accounts for vesting, now we will use position itself, that would save 2 accounts for damm-v2 migration instruction.
+
+### Removed
+- Removed the `create_claim_protocol_fee_operator` endpoint in favor of `create_operator_account`, which can create an operator account configured with permissions, including claiming protocol fees.
+
 ## dynamic_bonding_curve [0.1.9] [PR #165](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/165)
 
 ### Added
 
 - Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
 - Added field `enable_first_swap_with_min_fee` in `create_config` endpoint to allow user to initialize pool and swap in single transaction without any anti sniper suite fee.
-- Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
-- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
-- Add new endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
 
 ### Changed
 
@@ -45,7 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `fee_receiver` field to event `EvtPartnerClaimPoolCreationFee`.
 - Endpoint `claim_protocol_fee` add new params `max_base_amount` and `max_quote_amount`
 - Remove endpoint `protocol_withdraw_surplus`, surplus amount will be merged in endpoint `claim_protocol_fee`
-- Removed the `create_claim_protocol_fee_operator` endpoint in favor of `create_operator_account`, which can create an operator account configured with permissions, including claiming protocol fees.
 
 ## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
 

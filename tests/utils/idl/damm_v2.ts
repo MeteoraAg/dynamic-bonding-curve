@@ -8,7 +8,7 @@ export type CpAmm = {
   "address": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
   "metadata": {
     "name": "cpAmm",
-    "version": "0.1.6",
+    "version": "0.1.8",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -494,189 +494,11 @@ export type CpAmm = {
         },
         {
           "name": "tokenAAccount",
-          "docs": [
-            "The treasury token a account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tokenAProgram"
-              },
-              {
-                "kind": "account",
-                "path": "tokenAMint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
+          "writable": true
         },
         {
           "name": "tokenBAccount",
-          "docs": [
-            "The treasury token b account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tokenBProgram"
-              },
-              {
-                "kind": "account",
-                "path": "tokenBMint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
+          "writable": true
         },
         {
           "name": "operator",
@@ -685,14 +507,11 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "whitelistedAddress",
+          "name": "signer",
           "docs": [
             "operator"
           ],
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "signer": true
         },
         {
           "name": "tokenAProgram",
@@ -873,11 +692,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "rentReceiver",
@@ -936,7 +752,7 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "admin",
+          "name": "signer",
           "signer": true
         },
         {
@@ -1094,11 +910,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "rentReceiver",
@@ -1182,11 +995,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "payer",
@@ -1285,11 +1095,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "payer",
@@ -1393,7 +1200,7 @@ export type CpAmm = {
           "name": "whitelistedAddress"
         },
         {
-          "name": "admin",
+          "name": "signer",
           "signer": true
         },
         {
@@ -1644,11 +1451,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "payer",
@@ -1723,6 +1527,78 @@ export type CpAmm = {
           "type": {
             "defined": {
               "name": "dummyParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fixConfigFeeParams",
+      "discriminator": [
+        38,
+        30,
+        216,
+        81,
+        250,
+        177,
+        243,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "baseFeeParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fixPoolFeeParams",
+      "discriminator": [
+        132,
+        98,
+        81,
+        196,
+        44,
+        58,
+        120,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "baseFeeParameters"
             }
           }
         }
@@ -2768,6 +2644,86 @@ export type CpAmm = {
       ]
     },
     {
+      "name": "lockInnerPosition",
+      "discriminator": [
+        72,
+        19,
+        49,
+        204,
+        18,
+        122,
+        23,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "relations": [
+            "position"
+          ]
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "positionNftAccount",
+          "docs": [
+            "The token account for nft"
+          ]
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "owner of position"
+          ],
+          "signer": true
+        },
+        {
+          "name": "eventAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "vestingParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "lockPosition",
       "discriminator": [
         227,
@@ -3292,11 +3248,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "eventAuthority",
@@ -3827,150 +3780,6 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "swapTest",
-      "docs": [
-        "used to test with old endpoint"
-      ],
-      "discriminator": [
-        131,
-        199,
-        149,
-        42,
-        202,
-        177,
-        42,
-        30
-      ],
-      "accounts": [
-        {
-          "name": "poolAuthority",
-          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
-        },
-        {
-          "name": "pool",
-          "docs": [
-            "Pool account"
-          ],
-          "writable": true
-        },
-        {
-          "name": "inputTokenAccount",
-          "docs": [
-            "The user token account for input token"
-          ],
-          "writable": true
-        },
-        {
-          "name": "outputTokenAccount",
-          "docs": [
-            "The user token account for output token"
-          ],
-          "writable": true
-        },
-        {
-          "name": "tokenAVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAMint",
-          "docs": [
-            "The mint of token a"
-          ]
-        },
-        {
-          "name": "tokenBMint",
-          "docs": [
-            "The mint of token b"
-          ]
-        },
-        {
-          "name": "payer",
-          "docs": [
-            "The user performing the swap"
-          ],
-          "signer": true
-        },
-        {
-          "name": "tokenAProgram",
-          "docs": [
-            "Token a program"
-          ]
-        },
-        {
-          "name": "tokenBProgram",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "referralTokenAccount",
-          "docs": [
-            "referral token account"
-          ],
-          "writable": true,
-          "optional": true
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": [
-        {
-          "name": "params",
-          "type": {
-            "defined": {
-              "name": "swapParameters2"
-            }
-          }
-        }
-      ]
-    },
-    {
       "name": "updatePoolFees",
       "discriminator": [
         118,
@@ -3991,11 +3800,8 @@ export type CpAmm = {
           "name": "operator"
         },
         {
-          "name": "whitelistedAddress",
-          "signer": true,
-          "relations": [
-            "operator"
-          ]
+          "name": "signer",
+          "signer": true
         },
         {
           "name": "eventAuthority",
@@ -4247,6 +4053,69 @@ export type CpAmm = {
         {
           "name": "rewardIndex",
           "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "zapProtocolFee",
+      "discriminator": [
+        213,
+        155,
+        187,
+        34,
+        56,
+        182,
+        91,
+        240
+      ],
+      "accounts": [
+        {
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "tokenVault",
+          "writable": true
+        },
+        {
+          "name": "tokenMint"
+        },
+        {
+          "name": "receiverToken",
+          "writable": true
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "zap claim fee operator"
+          ]
+        },
+        {
+          "name": "signer",
+          "docs": [
+            "operator"
+          ],
+          "signer": true
+        },
+        {
+          "name": "tokenProgram",
+          "docs": [
+            "Token program"
+          ]
+        },
+        {
+          "name": "sysvarInstructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "maxAmount",
+          "type": "u64"
         }
       ]
     }
@@ -4603,6 +4472,19 @@ export type CpAmm = {
         100,
         233,
         103
+      ]
+    },
+    {
+      "name": "evtSplitPosition3",
+      "discriminator": [
+        232,
+        117,
+        190,
+        218,
+        85,
+        162,
+        207,
+        78
       ]
     },
     {
@@ -4971,6 +4853,41 @@ export type CpAmm = {
       "code": 6059,
       "name": "missingOperatorAccount",
       "msg": "Missing operator account"
+    },
+    {
+      "code": 6060,
+      "name": "incorrectAta",
+      "msg": "Incorrect ATA"
+    },
+    {
+      "code": 6061,
+      "name": "invalidZapOutParameters",
+      "msg": "Invalid zap out parameters"
+    },
+    {
+      "code": 6062,
+      "name": "invalidWithdrawProtocolFeeZapAccounts",
+      "msg": "Invalid withdraw protocol fee zap accounts"
+    },
+    {
+      "code": 6063,
+      "name": "mintRestrictedFromZap",
+      "msg": "SOL,USDC protocol fee cannot be withdrawn via zap"
+    },
+    {
+      "code": 6064,
+      "name": "cpiDisabled",
+      "msg": "CPI disabled"
+    },
+    {
+      "code": 6065,
+      "name": "missingZapOutInstruction",
+      "msg": "Missing zap out instruction"
+    },
+    {
+      "code": 6066,
+      "name": "invalidZapAccounts",
+      "msg": "Invalid zap accounts"
     }
   ],
   "types": [
@@ -6155,6 +6072,70 @@ export type CpAmm = {
       }
     },
     {
+      "name": "evtSplitPosition3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "currentSqrtPrice",
+            "type": "u128"
+          },
+          {
+            "name": "amountSplits",
+            "type": {
+              "defined": {
+                "name": "splitAmountInfo2"
+              }
+            }
+          },
+          {
+            "name": "firstPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo2"
+              }
+            }
+          },
+          {
+            "name": "secondPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo2"
+              }
+            }
+          },
+          {
+            "name": "splitPositionParameters",
+            "type": {
+              "defined": {
+                "name": "splitPositionParameters3"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "evtSwap2",
       "type": {
         "kind": "struct",
@@ -6413,6 +6394,51 @@ export type CpAmm = {
             ],
             "type": {
               "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "innerVesting",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffPoint",
+            "type": "u64"
+          },
+          {
+            "name": "periodFrequency",
+            "type": "u64"
+          },
+          {
+            "name": "cliffUnlockLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "liquidityPerPeriod",
+            "type": "u128"
+          },
+          {
+            "name": "totalReleasedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "numberOfPeriod",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                14
+              ]
             }
           }
         ]
@@ -7170,16 +7196,22 @@ export type CpAmm = {
             }
           },
           {
+            "name": "innerVesting",
+            "docs": [
+              "inner vesting info"
+            ],
+            "type": {
+              "defined": {
+                "name": "innerVesting"
+              }
+            }
+          },
+          {
             "name": "padding",
             "docs": [
               "padding for future usage"
             ],
-            "type": {
-              "array": [
-                "u128",
-                6
-              ]
-            }
+            "type": "u128"
           }
         ]
       }
@@ -7388,12 +7420,84 @@ export type CpAmm = {
       }
     },
     {
+      "name": "splitAmountInfo2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "permanentLockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "unlockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "vestedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "splitPositionInfo",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "liquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionInfo2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "permanentLockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "vestedLiquidity",
             "type": "u128"
           },
           {
@@ -7463,6 +7567,13 @@ export type CpAmm = {
             "type": "u8"
           },
           {
+            "name": "innerVestingLiquidityPercentage",
+            "docs": [
+              "Percentage of inner vesting liquidity"
+            ],
+            "type": "u8"
+          },
+          {
             "name": "padding",
             "docs": [
               "padding for future"
@@ -7470,7 +7581,7 @@ export type CpAmm = {
             "type": {
               "array": [
                 "u8",
-                16
+                15
               ]
             }
           }
@@ -7504,6 +7615,42 @@ export type CpAmm = {
           },
           {
             "name": "reward1Numerator",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionParameters3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "permanentLockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeANumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeBNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward0Numerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward1Numerator",
+            "type": "u32"
+          },
+          {
+            "name": "innerVestingLiquidityNumerator",
             "type": "u32"
           }
         ]
@@ -7759,36 +7906,11 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "cliffPoint",
-            "type": "u64"
-          },
-          {
-            "name": "periodFrequency",
-            "type": "u64"
-          },
-          {
-            "name": "cliffUnlockLiquidity",
-            "type": "u128"
-          },
-          {
-            "name": "liquidityPerPeriod",
-            "type": "u128"
-          },
-          {
-            "name": "totalReleasedLiquidity",
-            "type": "u128"
-          },
-          {
-            "name": "numberOfPeriod",
-            "type": "u16"
-          },
-          {
-            "name": "padding",
+            "name": "innerVesting",
             "type": {
-              "array": [
-                "u8",
-                14
-              ]
+              "defined": {
+                "name": "innerVesting"
+              }
             }
           },
           {

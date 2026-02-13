@@ -255,12 +255,12 @@ export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
 }
 
 export function getBalance(svm: LiteSVM, wallet: PublicKey) {
-  const account = svm.getAccount(wallet);
+  const account = svm.getAccount(wallet)!;
   return account.lamports;
 }
 
 export function getMint(svm: LiteSVM, mint: PublicKey) {
-  const account = svm.getAccount(mint);
+  const account = svm.getAccount(mint)!;
   const mintState = MintLayout.decode(account.data);
   return mintState;
 }
@@ -362,7 +362,7 @@ export async function createVaultIfNotExists(
 
 export function getDynamicVault(svm: LiteSVM, vault: PublicKey): DynamicVault {
   const program = createVaultProgram();
-  const account = svm.getAccount(vault);
+  const account = svm.getAccount(vault)!;
   return program.coder.accounts.decode("Vault", Buffer.from(account.data));
 }
 
@@ -459,7 +459,7 @@ export async function createDammV2Operator(
     .accountsPartial({
       operator,
       whitelistedAddress: whitelistAddress,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
       payer: admin.publicKey,
       systemProgram: SystemProgram.programId,
     })
@@ -526,7 +526,7 @@ export async function createDammV2Config(
       config,
       operator: operatorPda,
       payer: operator.publicKey,
-      whitelistedAddress: operator.publicKey,
+      signer: operator.publicKey,
     })
     .transaction();
 
@@ -559,7 +559,7 @@ export async function createDammV2DynamicConfig(
     .accountsPartial({
       config,
       operator: operatorPda,
-      whitelistedAddress: operator.publicKey,
+      signer: operator.publicKey,
       payer: operator.publicKey,
     })
     .transaction();

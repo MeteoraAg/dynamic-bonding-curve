@@ -55,31 +55,6 @@ export async function createOperatorAccount(
   sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
-export async function closeClaimProtocolFeeOperator(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  admin: Keypair,
-  claimProtocolFeeOperator: PublicKey
-): Promise<any> {
-  const transaction = await program.methods
-    .closeClaimProtocolFeeOperator()
-    .accounts({
-      claimFeeOperator: claimProtocolFeeOperator,
-      rentReceiver: admin.publicKey,
-      signer: admin.publicKey,
-    })
-    .transaction();
-
-  const claimFeeOperatorState = getClaimFeeOperator(
-    svm,
-    program,
-    claimProtocolFeeOperator
-  );
-  expect(claimFeeOperatorState).to.be.null;
-
-  sendTransactionMaybeThrow(svm, transaction, [admin]);
-}
-
 export type ClaimLegacyPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
@@ -135,7 +110,7 @@ export async function claimProtocolFee(
   const poolState = getVirtualPool(svm, program, pool);
   const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
-  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -148,21 +123,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      poolState.baseMint,
-      TREASURY,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        poolState.baseMint,
+        TREASURY,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        operator,
+        quoteMintInfo.mint,
+        TREASURY,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
