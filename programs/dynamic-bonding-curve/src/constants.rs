@@ -123,5 +123,7 @@ pub mod seeds {
     pub const PARTNER_METADATA_PREFIX: &[u8] = b"partner_metadata";
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
-    pub const POSITION_VESTING_PREFIX: &[u8] = b"position_vesting";
+    pub const OPERATOR_PREFIX: &[u8] = b"operator";
 }
+
+pub const MAX_OPERATION: u8 = 2; // Check OperatorPermission enum variants count

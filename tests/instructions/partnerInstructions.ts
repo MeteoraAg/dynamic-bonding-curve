@@ -237,7 +237,7 @@ export async function claimTradingFee(
   const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
 
-  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -251,21 +251,21 @@ export async function claimTradingFee(
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      poolState.baseMint,
-      feeClaimer.publicKey,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      feeClaimer,
-      quoteMintInfo.mint,
-      feeClaimer.publicKey,
-      tokenQuoteProgram
-    ),
-  ];
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        poolState.baseMint,
+        feeClaimer.publicKey,
+        tokenBaseProgram
+      ),
+      getOrCreateAssociatedTokenAccount(
+        svm,
+        feeClaimer,
+        quoteMintInfo.mint,
+        feeClaimer.publicKey,
+        tokenQuoteProgram
+      ),
+    ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -309,7 +309,7 @@ export async function partnerWithdrawSurplus(
   const poolState = getVirtualPool(svm, program, virtualPool);
   const poolAuthority = derivePoolAuthority();
 
-  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];

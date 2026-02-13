@@ -1,5 +1,6 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
+use protocol_zap::error::ProtozolZapError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -184,4 +185,42 @@ pub enum PoolError {
 
     #[msg("Pool has insufficient lamports to perform the operation")]
     InsufficientPoolLamports,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
+
+    #[msg("Invalid withdraw protocol fee zap accounts")]
+    InvalidWithdrawProtocolFeeZapAccounts,
+
+    #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
+    MintRestrictedFromZap,
+
+    #[msg("Invalid zap out parameters")]
+    InvalidZapOutParameters,
+
+    #[msg("CPI disabled")]
+    CpiDisabled,
+
+    #[msg("Missing zap out instruction")]
+    MissingZapOutInstruction,
+
+    #[msg("Invalid zap accounts")]
+    InvalidZapAccounts,
+}
+
+impl From<ProtozolZapError> for PoolError {
+    fn from(e: ProtozolZapError) -> Self {
+        match e {
+            ProtozolZapError::MathOverflow => PoolError::MathOverflow,
+            ProtozolZapError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
+            ProtozolZapError::TypeCastFailed => PoolError::TypeCastFailed,
+            ProtozolZapError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
+            ProtozolZapError::InvalidWithdrawProtocolFeeZapAccounts => {
+                PoolError::InvalidWithdrawProtocolFeeZapAccounts
+            }
+            ProtozolZapError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
+            ProtozolZapError::CpiDisabled => PoolError::CpiDisabled,
+            ProtozolZapError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
+        }
+    }
 }

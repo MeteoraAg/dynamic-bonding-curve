@@ -3,8 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    safe_math::SafeMath,
-    state::{ClaimFeeOperator, PoolConfig, VirtualPool},
+    state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
     treasury, EvtClaimProtocolFee,
 };
@@ -47,8 +46,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     #[account(mut)]
     pub token_quote_account: UncheckedAccount<'info>,
 
-    /// Claim fee operator
-    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+    pub operator: AccountLoader<'info, Operator>,
 
     /// Signer
     pub signer: Signer<'info>,
@@ -86,19 +84,9 @@ pub fn handle_claim_protocol_fee(
         )?;
     }
 
-    let mut token_quote_amount = pool.claim_protocol_quote_fee(max_quote_amount)?;
-
-    // check if pool is having surplus
     let config = ctx.accounts.config.load()?;
-    if pool.is_protocol_withdraw_surplus == 0
-        && pool.is_curve_complete(config.migration_quote_threshold)
-    {
-        // Update protocol withdraw surplus
-        pool.update_protocol_withdraw_surplus();
-        let protocol_surplus_amount =
-            pool.get_protocol_surplus(config.migration_quote_threshold)?;
-        token_quote_amount = token_quote_amount.safe_add(protocol_surplus_amount)?;
-    }
+    let token_quote_amount = pool
+        .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
 
     if token_quote_amount > 0 {
         validate_ata_token(

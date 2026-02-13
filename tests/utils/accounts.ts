@@ -139,6 +139,13 @@ export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
   )[0];
 }
 
+export function deriveOperatorAddress(operator: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("operator"), operator.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
 export const getVaultPdas = (tokenMint: PublicKey) => {
   const [vault, _vaultBump] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), tokenMint.toBuffer(), VAULT_BASE_KEY.toBuffer()],
