@@ -8,7 +8,7 @@ export type CpAmm = {
   "address": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
   "metadata": {
     "name": "cpAmm",
-    "version": "0.1.8",
+    "version": "0.2.0",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -155,142 +155,6 @@ export type CpAmm = {
               "name": "addLiquidityParameters"
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "claimPartnerFee",
-      "discriminator": [
-        97,
-        206,
-        39,
-        105,
-        94,
-        94,
-        126,
-        148
-      ],
-      "accounts": [
-        {
-          "name": "poolAuthority",
-          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
-        },
-        {
-          "name": "pool",
-          "writable": true
-        },
-        {
-          "name": "tokenAAccount",
-          "docs": [
-            "The treasury token a account"
-          ],
-          "writable": true
-        },
-        {
-          "name": "tokenBAccount",
-          "docs": [
-            "The treasury token b account"
-          ],
-          "writable": true
-        },
-        {
-          "name": "tokenAVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAMint",
-          "docs": [
-            "The mint of token a"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBMint",
-          "docs": [
-            "The mint of token b"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "partner",
-          "signer": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAProgram",
-          "docs": [
-            "Token a program"
-          ]
-        },
-        {
-          "name": "tokenBProgram",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": [
-        {
-          "name": "maxAmountA",
-          "type": "u64"
-        },
-        {
-          "name": "maxAmountB",
-          "type": "u64"
         }
       ]
     },
@@ -1603,6 +1467,33 @@ export type CpAmm = {
           }
         }
       ]
+    },
+    {
+      "name": "fixPoolLayoutVersion",
+      "discriminator": [
+        166,
+        158,
+        69,
+        35,
+        81,
+        167,
+        200,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": []
     },
     {
       "name": "fundReward",
@@ -4241,19 +4132,6 @@ export type CpAmm = {
   ],
   "events": [
     {
-      "name": "evtClaimPartnerFee",
-      "discriminator": [
-        118,
-        99,
-        77,
-        10,
-        226,
-        1,
-        1,
-        87
-      ]
-    },
-    {
       "name": "evtClaimPositionFee",
       "discriminator": [
         198,
@@ -4888,6 +4766,11 @@ export type CpAmm = {
       "code": 6066,
       "name": "invalidZapAccounts",
       "msg": "Invalid zap accounts"
+    },
+    {
+      "code": 6067,
+      "name": "invalidCompoundingFeeBps",
+      "msg": "Invalid compounding fee bps"
     }
   ],
   "types": [
@@ -4951,7 +4834,7 @@ export type CpAmm = {
             "type": {
               "array": [
                 "u8",
-                30
+                27
               ]
             }
           }
@@ -5010,15 +4893,6 @@ export type CpAmm = {
           {
             "name": "baseFeeMode",
             "type": "u8"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                3
-              ]
-            }
           }
         ]
       }
@@ -5064,15 +4938,6 @@ export type CpAmm = {
           {
             "name": "baseFeeMode",
             "type": "u8"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                3
-              ]
-            }
           }
         ]
       }
@@ -5101,15 +4966,6 @@ export type CpAmm = {
           {
             "name": "baseFeeMode",
             "type": "u8"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                3
-              ]
-            }
           }
         ]
       }
@@ -5425,26 +5281,6 @@ export type CpAmm = {
           {
             "name": "volatilityReference",
             "type": "u128"
-          }
-        ]
-      }
-    },
-    {
-      "name": "evtClaimPartnerFee",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "tokenAAmount",
-            "type": "u64"
-          },
-          {
-            "name": "tokenBAmount",
-            "type": "u64"
           }
         ]
       }
@@ -6660,11 +6496,16 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "partner",
+            "name": "padding0",
             "docs": [
-              "partner"
+              "padding, previously partner pubkey, be careful when using this field"
             ],
-            "type": "pubkey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "liquidity",
@@ -6674,7 +6515,7 @@ export type CpAmm = {
             "type": "u128"
           },
           {
-            "name": "padding",
+            "name": "padding1",
             "docs": [
               "padding, previous reserve amount, be careful to use that field"
             ],
@@ -6695,18 +6536,8 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "partnerAFee",
-            "docs": [
-              "partner a fee"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "partnerBFee",
-            "docs": [
-              "partner b fee"
-            ],
-            "type": "u64"
+            "name": "padding2",
+            "type": "u128"
           },
           {
             "name": "sqrtMinPrice",
@@ -6779,14 +6610,14 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "version",
+            "name": "feeVersion",
             "docs": [
-              "pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%"
+              "pool fee version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%"
             ],
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "padding3",
             "docs": [
               "padding"
             ],
@@ -6839,14 +6670,47 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "padding1",
+            "name": "tokenAAmount",
+            "docs": [
+              "token a amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tokenBAmount",
+            "docs": [
+              "token b amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "layoutVersion",
+            "docs": [
+              "layout version: version 0: haven't track token_a_amount and token_b_amount, version 1: track token_a_amount and token_b_amount"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding4",
+            "docs": [
+              "Padding for further use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "padding5",
             "docs": [
               "Padding for further use"
             ],
             "type": {
               "array": [
                 "u64",
-                6
+                3
               ]
             }
           },
@@ -6887,6 +6751,20 @@ export type CpAmm = {
                 "name": "baseFeeParameters"
               }
             }
+          },
+          {
+            "name": "compoundingFeeBps",
+            "docs": [
+              "compounding fee bps, only have value if CollectFeeMode::Compounding"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "padding for future use"
+            ],
+            "type": "u8"
           },
           {
             "name": "dynamicFee",
@@ -6934,7 +6812,7 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "partnerFeePercent",
+            "name": "padding0",
             "type": "u8"
           },
           {
@@ -6942,16 +6820,23 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                5
+                3
               ]
             }
           },
           {
-            "name": "padding1",
+            "name": "compoundingFeeBps",
+            "docs": [
+              "Compounding fee bps, only non-zero if collect_fee_mode is compounding"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "padding2",
             "type": {
               "array": [
                 "u64",
@@ -6968,8 +6853,7 @@ export type CpAmm = {
         "Information regarding fee charges",
         "trading_fee = amount * trade_fee_numerator / denominator",
         "protocol_fee = trading_fee * protocol_fee_percentage / 100",
-        "referral_fee = protocol_fee * referral_percentage / 100",
-        "partner_fee = (protocol_fee - referral_fee) * partner_fee_percentage / denominator"
+        "referral_fee = protocol_fee * referral_percentage / 100"
       ],
       "serialization": "bytemuck",
       "repr": {
@@ -7002,9 +6886,9 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "partnerFeePercent",
+            "name": "padding0",
             "docs": [
-              "partner fee"
+              "padding for future use"
             ],
             "type": "u8"
           },
@@ -7016,16 +6900,23 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "padding1",
             "docs": [
               "padding"
             ],
             "type": {
               "array": [
                 "u8",
-                5
+                3
               ]
             }
+          },
+          {
+            "name": "compoundingFeeBps",
+            "docs": [
+              "compounding fee bps, only non-zero in CollectFeeMode::Compounding"
+            ],
+            "type": "u16"
           },
           {
             "name": "dynamicFee",
@@ -7071,12 +6962,13 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "totalPartnerAFee",
-            "type": "u64"
-          },
-          {
-            "name": "totalPartnerBFee",
-            "type": "u64"
+            "name": "padding0",
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
           },
           {
             "name": "totalPosition",
@@ -7767,7 +7659,7 @@ export type CpAmm = {
             "type": "u128"
           },
           {
-            "name": "tradingFee",
+            "name": "claimingFee",
             "type": "u64"
           },
           {
@@ -7775,7 +7667,7 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "partnerFee",
+            "name": "compoundingFee",
             "type": "u64"
           },
           {
@@ -7995,7 +7887,7 @@ export type CpAmm = {
       "docs": [
         "Max basis point. 100% in pct"
       ],
-      "type": "u64",
+      "type": "u16",
       "value": "10000"
     },
     {

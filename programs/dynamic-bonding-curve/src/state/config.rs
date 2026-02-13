@@ -1085,7 +1085,6 @@ impl PoolConfig {
                     sqrt_price_step_bps: sqrt_price_step_bps.into(),
                     scheduler_expiration_duration,
                     reduction_factor,
-                    padding: [0; 3],
                 }
                 .serialize(&mut data)?;
             }
@@ -1161,6 +1160,8 @@ impl PoolConfig {
         let pool_fees = DammV2PoolFeeParameters {
             base_fee,
             dynamic_fee,
+            compounding_fee_bps: 0,
+            padding: 0,
         };
 
         Ok(pool_fees)

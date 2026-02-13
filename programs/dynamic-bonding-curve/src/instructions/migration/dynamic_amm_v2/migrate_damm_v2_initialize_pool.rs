@@ -463,11 +463,6 @@ fn validate_config_key(
             migration_fee_option.validate_base_fee(base_fee_bps)?;
 
             require!(
-                damm_config.pool_fees.partner_fee_percent == 0,
-                PoolError::InvalidConfigAccount
-            );
-
-            require!(
                 damm_config.sqrt_min_price == MIN_SQRT_PRICE,
                 PoolError::InvalidConfigAccount
             );
