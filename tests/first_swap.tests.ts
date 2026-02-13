@@ -328,6 +328,7 @@ async function createInitializePoolIx(
       frequency: 0,
     },
     enableFirstSwapWithMinFee: true,
+    compoundingFeeBps: 0,
     migratedPoolBaseFeeMode: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
   };

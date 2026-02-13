@@ -16,7 +16,7 @@ use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    convert_collect_fee_mode_to_dammv2,
+    convert_migrated_collect_fee_mode_to_dammv2,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
@@ -149,8 +149,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     if migration_fee_option == MigrationFeeOption::Customizable {
                         let pool_fees = config.build_damm_v2_pool_fee_params()?;
 
-                        let collect_fee_mode =
-                            convert_collect_fee_mode_to_dammv2(config.migrated_collect_fee_mode)?;
+                        let collect_fee_mode = convert_migrated_collect_fee_mode_to_dammv2(
+                            config.migrated_collect_fee_mode,
+                        )?;
 
                         let initialize_pool_params = InitializeCustomizablePoolParameters {
                             pool_fees,

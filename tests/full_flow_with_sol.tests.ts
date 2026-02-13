@@ -149,6 +149,7 @@ describe("Full flow with spl-token", () => {
         frequency: 0,
       },
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,

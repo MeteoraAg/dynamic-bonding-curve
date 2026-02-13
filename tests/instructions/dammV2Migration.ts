@@ -199,13 +199,15 @@ export function deriveTokenVaultAddress(
   )[0];
 }
 
-export function convertCollectFeeModeToDammv2(
+export function convertMigratedCollectFeeModeToDammv2(
   dbcCollectFeeMode: number
 ): number {
   if (dbcCollectFeeMode == 0) {
     return 1;
   } else if (dbcCollectFeeMode == 1) {
     return 0;
+  } else if (dbcCollectFeeMode == 2) {
+    return 2;
   } else {
     throw Error("Not supported");
   }

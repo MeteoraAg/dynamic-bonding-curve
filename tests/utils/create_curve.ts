@@ -525,6 +525,7 @@ export function designCurve(
     },
     migratedPoolBaseFeeMode: 0,
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
     poolCreationFee: new BN(0),
     curve,
@@ -694,6 +695,7 @@ export function designGraphCurve(
     poolCreationFee: new BN(0),
     migratedPoolBaseFeeMode: 0,
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
     curve,
   };
