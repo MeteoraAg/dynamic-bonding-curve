@@ -31,6 +31,7 @@ fn test_create_config() {
         0,
         sqrt_migration_price,
         MigrationOption::MeteoraDamm,
+        false,
     )
     .unwrap();
 

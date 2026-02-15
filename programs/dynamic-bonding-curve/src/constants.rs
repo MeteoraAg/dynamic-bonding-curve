@@ -63,6 +63,9 @@ pub const MIN_LOCKED_LIQUIDITY_BPS: u16 = 1000; // 10%
 // We reduce to 2 years because cliff_point is relative and depend on time when token is migrated
 pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 2; // 2 years
 
+// https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/programs/cp-amm/src/liquidity_handler/compounding_liquidity.rs#L13
+pub const DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY: u128 = 100 << 64;
+
 static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
 
 /// Store constants related to fees

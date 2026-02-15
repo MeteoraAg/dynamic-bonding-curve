@@ -75,6 +75,7 @@ pub fn get_protocol_migration_fee(
     migration_sqrt_price: u128,
     migration_fee_bps: u16,
     migration_option: MigrationOption,
+    is_compounding: bool,
 ) -> Result<(u64, u64)> {
     let quote_fee_amount = safe_mul_div_cast_u64(
         deposit_quote_amount,
@@ -95,20 +96,32 @@ pub fn get_protocol_migration_fee(
             Ok((base_fee_amount, quote_fee_amount))
         }
         MigrationOption::DammV2 => {
-            let fee_liquidity = get_initial_liquidity_from_delta_quote(
-                quote_fee_amount,
-                MIN_SQRT_PRICE,
-                migration_sqrt_price,
-            )?;
+            if is_compounding {
+                // constant-product formula, same ratio as DammV1
+                let base_fee_amount = safe_mul_div_cast_u64(
+                    deposit_base_amount,
+                    migration_fee_bps.into(),
+                    BASIS_POINT_MAX,
+                    Rounding::Down,
+                )?;
 
-            let base_fee_amount = get_delta_amount_base_unsigned(
-                migration_sqrt_price,
-                MAX_SQRT_PRICE,
-                fee_liquidity,
-                Rounding::Down,
-            )?;
+                Ok((base_fee_amount, quote_fee_amount))
+            } else {
+                let fee_liquidity = get_initial_liquidity_from_delta_quote(
+                    quote_fee_amount,
+                    MIN_SQRT_PRICE,
+                    migration_sqrt_price,
+                )?;
 
-            Ok((base_fee_amount, quote_fee_amount))
+                let base_fee_amount = get_delta_amount_base_unsigned(
+                    migration_sqrt_price,
+                    MAX_SQRT_PRICE,
+                    fee_liquidity,
+                    Rounding::Down,
+                )?;
+
+                Ok((base_fee_amount, quote_fee_amount))
+            }
         }
     }
 }
@@ -118,63 +131,74 @@ pub fn get_migration_base_token(
     migration_fee_percentage: u8,
     sqrt_migration_price: u128,
     migration_option: MigrationOption,
+    is_compounding: bool,
 ) -> Result<u64> {
     let MigrationAmount { quote_amount, .. } =
         PoolConfig::get_migration_quote_amount(migration_threshold, migration_fee_percentage)?;
     match migration_option {
         MigrationOption::MeteoraDamm => {
-            // constant product
-            let sqrt_migration_price = U256::from(sqrt_migration_price);
-            // price = quote / base for constant-product
-            // base = quote / price
-            let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
-            let quote = U256::from(quote_amount).safe_shl(128)?;
-            // round up
-            let (mut base, rem) = quote.div_rem(price);
-            if !rem.is_zero() {
-                base = base.safe_add(U256::from(1))?;
-            }
-            require!(base <= U256::from(u64::MAX), PoolError::MathOverflow);
-            Ok(base.try_into().map_err(|_| PoolError::TypeCastFailed)?)
+            get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)
         }
         MigrationOption::DammV2 => {
-            // calculate to L firsty
-            let liquidity = get_initial_liquidity_from_delta_quote(
-                quote_amount,
-                MIN_SQRT_PRICE,
-                sqrt_migration_price,
-            )?;
-            // calculate base threshold
-            let base_amount = get_delta_amount_base_unsigned_256(
-                sqrt_migration_price,
-                MAX_SQRT_PRICE,
-                liquidity,
-                Rounding::Up,
-            )?;
-            require!(base_amount <= U256::from(u64::MAX), PoolError::MathOverflow);
-            let base_amount = base_amount
-                .try_into()
-                .map_err(|_| PoolError::TypeCastFailed)?;
-
-            // re-validation
-            #[cfg(feature = "local")]
-            {
-                let (_initial_base_amount, initial_quote_amount) = get_initialize_amounts(
+            if is_compounding {
+                get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)
+            } else {
+                // calculate to L firsty
+                let liquidity = get_initial_liquidity_from_delta_quote(
+                    quote_amount,
                     MIN_SQRT_PRICE,
-                    MAX_SQRT_PRICE,
                     sqrt_migration_price,
-                    liquidity,
                 )?;
-                // TODO no need to validate for _initial_base_amount?
-                msg!("debug dammv2 {} {}", initial_quote_amount, quote_amount);
-                require!(
-                    initial_quote_amount <= quote_amount,
-                    PoolError::InsufficientLiquidityForMigration
-                );
+                // calculate base threshold
+                let base_amount = get_delta_amount_base_unsigned_256(
+                    sqrt_migration_price,
+                    MAX_SQRT_PRICE,
+                    liquidity,
+                    Rounding::Up,
+                )?;
+                require!(base_amount <= U256::from(u64::MAX), PoolError::MathOverflow);
+                let base_amount = base_amount
+                    .try_into()
+                    .map_err(|_| PoolError::TypeCastFailed)?;
+
+                // re-validation
+                #[cfg(feature = "local")]
+                {
+                    let (_initial_base_amount, initial_quote_amount) = get_initialize_amounts(
+                        MIN_SQRT_PRICE,
+                        MAX_SQRT_PRICE,
+                        sqrt_migration_price,
+                        liquidity,
+                    )?;
+                    // TODO no need to validate for _initial_base_amount?
+                    msg!("debug dammv2 {} {}", initial_quote_amount, quote_amount);
+                    require!(
+                        initial_quote_amount <= quote_amount,
+                        PoolError::InsufficientLiquidityForMigration
+                    );
+                }
+                Ok(base_amount)
             }
-            Ok(base_amount)
         }
     }
+}
+
+fn get_constant_product_base_from_quote(
+    quote_amount: u64,
+    sqrt_migration_price: u128,
+) -> Result<u64> {
+    let sqrt_migration_price = U256::from(sqrt_migration_price);
+    // price = quote / base for constant-product
+    // base = quote / price
+    let price = sqrt_migration_price.safe_mul(sqrt_migration_price)?;
+    let quote = U256::from(quote_amount).safe_shl(128)?;
+    // round up
+    let (mut base, rem) = quote.div_rem(price);
+    if !rem.is_zero() {
+        base = base.safe_add(U256::from(1))?;
+    }
+    require!(base <= U256::from(u64::MAX), PoolError::MathOverflow);
+    Ok(base.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 pub fn get_migration_threshold_price(

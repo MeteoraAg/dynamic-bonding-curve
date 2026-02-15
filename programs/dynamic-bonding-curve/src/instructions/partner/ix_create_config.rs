@@ -608,13 +608,16 @@ pub fn handle_create_config(
     let swap_base_amount: u64 = swap_base_amount_256
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
+    let migration_option_enum = MigrationOption::try_from(migration_option)
+        .map_err(|_| PoolError::InvalidMigrationOption)?;
+    let is_compounding = collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
 
     let migration_base_amount = get_migration_base_token(
         migration_quote_threshold,
         migration_fee.fee_percentage,
         sqrt_migration_price,
-        MigrationOption::try_from(migration_option)
-            .map_err(|_| PoolError::InvalidMigrationOption)?,
+        migration_option_enum,
+        is_compounding,
     )?;
 
     require!(

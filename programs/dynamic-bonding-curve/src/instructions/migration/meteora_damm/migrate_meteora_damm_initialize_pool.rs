@@ -247,6 +247,7 @@ pub fn handle_migrate_meteora_damm<'info>(
         config.migration_sqrt_price,
         virtual_pool.protocol_liquidity_migration_fee_bps,
         MigrationOption::MeteoraDamm,
+        false,
     )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
