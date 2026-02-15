@@ -523,6 +523,7 @@ async function createPool(
       frequency: 0,
     },
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
     migratedPoolBaseFeeMode: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
   };

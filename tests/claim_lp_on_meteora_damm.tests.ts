@@ -136,6 +136,7 @@ describe("Claim lp on meteora dammm", () => {
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       curve: curves,
     };
     const params: CreateConfigParams<ConfigParameters> = {

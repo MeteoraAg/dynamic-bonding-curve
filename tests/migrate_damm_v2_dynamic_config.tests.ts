@@ -36,7 +36,7 @@ import { BN } from "@coral-xyz/anchor";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
-  convertCollectFeeModeToDammv2,
+  convertMigratedCollectFeeModeToDammv2,
   createMeteoraDammV2Metadata,
   MigrateMeteoraDammV2Params,
   migrateToDammV2,
@@ -91,6 +91,7 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       operator,
       user,
       migratedPoolFee,
+      0, // compounding fee bps
       0,
       {
         schedulerExpirationDuration: 0,
@@ -125,7 +126,7 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
 
     expect(feeSchedulerInfo.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator);
     expect(dammPoolState.collectFeeMode).eq(
-      convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
     );
     expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
       migratedPoolFee.dynamicFee
@@ -164,6 +165,7 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
       operator,
       user,
       migratedPoolFee,
+      0, // compounding fee bps
       3, // FeeMarketCap
       marketCapFeeSchedulerParams
     );
@@ -206,10 +208,57 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     );
 
     expect(dammPoolState.collectFeeMode).eq(
-      convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
     );
     expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
       migratedPoolFee.dynamicFee
+    );
+  });
+
+  it("Full flow migrated to damm v2 with compounding fee", async () => {
+    const migratedPoolFee = {
+      poolFeeBps: 100,
+      collectFeeMode: 2, // Compounding
+      dynamicFee: 0,
+    };
+    const compoundingFeeBps = 500; // 5%
+
+    const { pool, poolConfig } = await fullFlow(
+      svm,
+      program,
+      admin,
+      partner,
+      poolCreator,
+      operator,
+      user,
+      migratedPoolFee,
+      compoundingFeeBps,
+      0,
+      {
+        schedulerExpirationDuration: 0,
+        sqrtPriceStepBps: 0,
+        reductionFactor: new BN(0),
+        numberOfPeriod: 0,
+      }
+    );
+
+    const dammPoolState = getDammV2Pool(svm, pool);
+    const poolConfigState = getConfig(svm, program, poolConfig);
+
+    // validate pool config
+    expect(poolConfigState.migratedCollectFeeMode).eq(
+      migratedPoolFee.collectFeeMode
+    );
+    expect(poolConfigState.migratedCompoundingFeeBps).eq(
+      compoundingFeeBps
+    );
+
+    // validate damm v2 pool state
+    expect(dammPoolState.collectFeeMode).eq(
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+    );
+    expect(dammPoolState.poolFees.compoundingFeeBps).eq(
+      compoundingFeeBps
     );
   });
 });
@@ -227,6 +276,7 @@ async function fullFlow(
     collectFeeMode: number;
     dynamicFee: number;
   },
+  compoundingFeeBps: number,
   migratedPoolBaseFeeMode: number,
   migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams
 ): Promise<{
@@ -308,6 +358,7 @@ async function fullFlow(
       frequency: 0,
     },
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps,
     migratedPoolBaseFeeMode,
     migratedPoolMarketCapFeeSchedulerParams,
   };

@@ -152,6 +152,7 @@ describe("Migrate to damm v2", () => {
       poolCreationFee: new BN(0),
       curve: curves,
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
     };

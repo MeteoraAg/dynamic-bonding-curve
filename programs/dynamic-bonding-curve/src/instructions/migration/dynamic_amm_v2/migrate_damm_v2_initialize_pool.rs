@@ -10,13 +10,13 @@ use damm_v2::{
         AddLiquidityParameters, InitializeCustomizablePoolParameters, InitializePoolParameters,
     },
 };
-use ruint::aliases::U512;
+use ruint::aliases::{U256, U512};
 
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
-    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    convert_collect_fee_mode_to_dammv2,
+    constants::{DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    convert_migrated_collect_fee_mode_to_dammv2,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
@@ -26,9 +26,11 @@ use crate::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
+    utils_math::sqrt_u256,
     PoolError,
 };
 use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
+use damm_v2_utils::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
@@ -149,8 +151,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     if migration_fee_option == MigrationFeeOption::Customizable {
                         let pool_fees = config.build_damm_v2_pool_fee_params()?;
 
-                        let collect_fee_mode =
-                            convert_collect_fee_mode_to_dammv2(config.migrated_collect_fee_mode)?;
+                        let collect_fee_mode = convert_migrated_collect_fee_mode_to_dammv2(
+                            config.migrated_collect_fee_mode,
+                        )?;
 
                         let initialize_pool_params = InitializeCustomizablePoolParameters {
                             pool_fees,
@@ -463,11 +466,6 @@ fn validate_config_key(
             migration_fee_option.validate_base_fee(base_fee_bps)?;
 
             require!(
-                damm_config.pool_fees.partner_fee_percent == 0,
-                PoolError::InvalidConfigAccount
-            );
-
-            require!(
                 damm_config.sqrt_min_price == MIN_SQRT_PRICE,
                 PoolError::InvalidConfigAccount
             );
@@ -550,12 +548,16 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
+    let is_compounding =
+        config.migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
+
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
         excluded_fee_base_reserve,
         quote_amount,
         migration_sqrt_price,
         virtual_pool.protocol_liquidity_migration_fee_bps,
         MigrationOption::DammV2,
+        is_compounding,
     )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
@@ -567,11 +569,31 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     // calculate initial liquidity
-    let initial_liquidity = get_liquidity_for_adding_liquidity(
-        migration_base_amount,
-        migration_quote_amount,
-        migration_sqrt_price,
-    )?;
+    let (pool_sqrt_price, initial_liquidity) = if is_compounding {
+        let (pool_sqrt_price, initial_liquidity) =
+            calculate_compounding_initial_sqrt_price_and_liquidity(
+                migration_base_amount,
+                migration_quote_amount,
+            )?;
+
+        require!(
+            initial_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
+            PoolError::InsufficientLiquidityForMigration
+        );
+
+        // For compounding pools, DAMM-v2 burns DEAD_LIQUIDITY at pool initialization
+        // We must subtract it from the distributable liquidity
+        let initial_liquidity = initial_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;
+
+        (pool_sqrt_price, initial_liquidity)
+    } else {
+        let initial_liquidity = calculate_concentrated_initial_liquidity(
+            migration_base_amount,
+            migration_quote_amount,
+            migration_sqrt_price,
+        )?;
+        (migration_sqrt_price, initial_liquidity)
+    };
 
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
@@ -603,11 +625,20 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     };
 
     // create pool
+    // For compounding pools, DAMM-v2 burns DEAD_LIQUIDITY from the initial liquidity at pool init,
+    // so we add it back to the first position's liquidity to ensure the correct amount is distributed.
+    let first_position_liquidity = first_position_liquidity_distribution.get_total_liquidity()?;
+    let actual_first_position_liquidity = if is_compounding {
+        first_position_liquidity.safe_add(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?
+    } else {
+        first_position_liquidity
+    };
+
     msg!("create pool");
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
-        first_position_liquidity_distribution.get_total_liquidity()?,
-        config.migration_sqrt_price,
+        actual_first_position_liquidity,
+        pool_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
         &config,
@@ -644,11 +675,19 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let leftover_migration_quote_amount =
         migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
-    let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
-        leftover_migration_base_amount,
-        leftover_migration_quote_amount,
-        migration_sqrt_price,
-    )?;
+    let liquidity_for_second_position = if is_compounding {
+        let (_, liquidity) = calculate_compounding_initial_sqrt_price_and_liquidity(
+            leftover_migration_base_amount,
+            leftover_migration_quote_amount,
+        )?;
+        liquidity
+    } else {
+        calculate_concentrated_initial_liquidity(
+            leftover_migration_base_amount,
+            leftover_migration_quote_amount,
+            migration_sqrt_price,
+        )?
+    };
 
     if liquidity_for_second_position > 0 {
         second_position_liquidity_distribution.adjust_liquidity(liquidity_for_second_position)?;
@@ -706,7 +745,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         .accounts
         .base_vault
         .amount
-        .safe_sub(non_burnable_amount)?;
+        .saturating_sub(non_burnable_amount);
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
 
@@ -733,7 +772,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     Ok(())
 }
 
-pub(crate) fn get_liquidity_for_adding_liquidity(
+pub(crate) fn calculate_concentrated_initial_liquidity(
     base_amount: u64,
     quote_amount: u64,
     sqrt_price: u128,
@@ -749,4 +788,46 @@ pub(crate) fn get_liquidity_for_adding_liquidity(
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?)
     }
+}
+
+pub(crate) fn calculate_compounding_initial_sqrt_price_and_liquidity(
+    base_amount: u64,
+    quote_amount: u64,
+) -> Result<(u128, u128)> {
+    // a = l/s and b = l * s
+    // s1: sqrt_price round up
+    // s2: sqrt_price round down
+    // return (s1, a * s2)
+    let sqrt_price_1 = sqrt_u256(
+        U256::from(quote_amount)
+            .checked_shl(128)
+            .ok_or(PoolError::MathOverflow)?
+            .div_ceil(U256::from(base_amount)),
+    )
+    .ok_or(PoolError::MathOverflow)?;
+    let sqrt_price_1: u128 = sqrt_price_1
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
+
+    require!(
+        sqrt_price_1 >= MIN_SQRT_PRICE && sqrt_price_1 <= MAX_SQRT_PRICE,
+        PoolError::MathOverflow
+    );
+
+    let sqrt_price_2 = sqrt_u256(
+        U256::from(quote_amount)
+            .checked_shl(128)
+            .ok_or(PoolError::MathOverflow)?
+            .checked_div(U256::from(base_amount))
+            .ok_or(PoolError::MathOverflow)?,
+    )
+    .ok_or(PoolError::MathOverflow)?;
+    let sqrt_price_2: u128 = sqrt_price_2
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
+    let liquidity = sqrt_price_2
+        .checked_mul(u128::from(base_amount))
+        .ok_or(PoolError::MathOverflow)?;
+
+    Ok((sqrt_price_1, liquidity))
 }

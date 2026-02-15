@@ -110,6 +110,7 @@ export type ConfigParameters = {
   partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
   creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
   enableFirstSwapWithMinFee: boolean;
+  compoundingFeeBps: number;
   curve: Array<LiquidityDistributionParameters>;
 };
 
@@ -150,7 +151,7 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
-      padding: new Array(4).fill(0),
+      padding: new Array(2).fill(0),
     })
     .accountsPartial({
       config: config.publicKey,

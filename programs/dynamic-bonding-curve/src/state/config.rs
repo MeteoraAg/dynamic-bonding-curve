@@ -558,11 +558,11 @@ pub struct PoolConfig {
     pub migrated_pool_fee_bps: u16,
     pub migrated_pool_base_fee_mode: u8,
     pub enable_first_swap_with_min_fee: u8,
-    /// padding 1
-    pub _padding_1: [u8; 2],
+    /// compounding fee bps for migrated DAMM v2 pool, should only be non-zero if migrated_collect_fee_mode is 2 (Compounding)
+    pub migrated_compounding_fee_bps: u16,
     /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
-    /// padding 2
+    /// serialized MigratedPoolMarketCapFeeSchedulerParams, only used when migrated_pool_base_fee_mode is market cap scheduler
     pub migrated_pool_base_fee_bytes: [u8; 16],
     /// minimum price
     pub sqrt_start_price: u128,
@@ -728,6 +728,7 @@ impl PoolConfig {
         partner_liquidity_vesting_info: LiquidityVestingInfo,
         creator_liquidity_vesting_info: LiquidityVestingInfo,
         migrated_pool_base_fee_mode: u8,
+        migrated_compounding_fee_bps: u16,
         migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
@@ -769,6 +770,7 @@ impl PoolConfig {
         self.migrated_pool_fee_bps = migrated_pool_fee_bps;
         self.migrated_collect_fee_mode = migrated_collect_fee_mode;
         self.migrated_dynamic_fee = migrated_dynamic_fee;
+        self.migrated_compounding_fee_bps = migrated_compounding_fee_bps;
         self.pool_creation_fee = pool_creation_fee;
 
         self.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
@@ -1085,7 +1087,6 @@ impl PoolConfig {
                     sqrt_price_step_bps: sqrt_price_step_bps.into(),
                     scheduler_expiration_duration,
                     reduction_factor,
-                    padding: [0; 3],
                 }
                 .serialize(&mut data)?;
             }
@@ -1161,6 +1162,8 @@ impl PoolConfig {
         let pool_fees = DammV2PoolFeeParameters {
             base_fee,
             dynamic_fee,
+            compounding_fee_bps: self.migrated_compounding_fee_bps,
+            padding: 0,
         };
 
         Ok(pool_fees)

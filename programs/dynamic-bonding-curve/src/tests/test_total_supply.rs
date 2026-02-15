@@ -84,6 +84,7 @@ fn get_constant_product_curve(
         0,
         migration_sqrt_price,
         migration_option,
+        false,
     )
     .unwrap();
 
@@ -158,6 +159,7 @@ fn get_total_supply_from_curve(
         0,
         sqrt_migration_price,
         migration_option,
+        false,
     )
     .unwrap();
 

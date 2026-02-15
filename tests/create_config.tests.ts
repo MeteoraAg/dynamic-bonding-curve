@@ -111,6 +111,7 @@ describe("Create config", () => {
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       curve: curves,
     };
   });
