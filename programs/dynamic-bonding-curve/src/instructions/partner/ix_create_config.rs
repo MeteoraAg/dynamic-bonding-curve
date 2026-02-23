@@ -613,7 +613,8 @@ pub fn handle_create_config(
         .map_err(|_| PoolError::TypeCastFailed)?;
     let migration_option_enum = MigrationOption::try_from(migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
-    let is_compounding = collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
+    let is_compounding =
+        migrated_pool_fee.collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
 
     let (migration_base_amount, migration_quote_amount) = get_migration_token_amounts(
         migration_quote_threshold,
