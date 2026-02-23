@@ -628,13 +628,23 @@ pub fn handle_create_config(
     );
 
     if is_compounding {
-        let (_, initial_liquidity) = calculate_compounding_initial_sqrt_price_and_liquidity(
-            migration_base_amount,
-            migration_quote_amount,
-        )?;
+        let (compounding_sqrt_price, initial_liquidity) =
+            calculate_compounding_initial_sqrt_price_and_liquidity(
+                migration_base_amount,
+                migration_quote_amount,
+            )?;
         require!(
             initial_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
             PoolError::InsufficientLiquidityForMigration
+        );
+        // Verify compounding-derived sqrt price is within 1% of curve-derived sqrt price:
+        // abs_diff / max <= 1 / 100
+        // abs_diff       <= max / 100
+        // abs_diff * 100 <= max
+        require!(
+            sqrt_migration_price.abs_diff(compounding_sqrt_price) * 100
+                <= sqrt_migration_price.max(compounding_sqrt_price),
+            PoolError::InvalidCurve
         );
     }
 
