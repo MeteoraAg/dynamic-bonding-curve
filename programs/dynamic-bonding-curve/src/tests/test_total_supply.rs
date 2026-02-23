@@ -4,7 +4,7 @@ use crate::{
     constants::MAX_SQRT_PRICE,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     params::liquidity_distribution::{
-        get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
+        get_base_token_for_swap, get_migration_threshold_price, get_migration_token_amounts,
         LiquidityDistributionParameters,
     },
     state::{MigrationOption, PoolConfig},
@@ -79,7 +79,7 @@ fn get_constant_product_curve(
 ) -> ConstantProductParams {
     let migration_price = (migration_quote_threshold as f64) / (migration_amount as f64);
     let migration_sqrt_price = get_sqrt_price_from_price(migration_price); //round up to reduce base token
-    let migration_base_amount = get_migration_base_token(
+    let (migration_base_amount, _) = get_migration_token_amounts(
         migration_quote_threshold,
         0,
         migration_sqrt_price,
@@ -154,7 +154,7 @@ fn get_total_supply_from_curve(
         PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, &curve)
             .unwrap();
 
-    let migration_base_amount = get_migration_base_token(
+    let (migration_base_amount, _) = get_migration_token_amounts(
         migration_quote_threshold,
         0,
         sqrt_migration_price,

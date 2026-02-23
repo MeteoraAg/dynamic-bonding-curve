@@ -576,11 +576,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
                 migration_quote_amount,
             )?;
 
-        require!(
-            initial_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
-            PoolError::InsufficientLiquidityForMigration
-        );
-
         // For compounding pools, DAMM-v2 burns DEAD_LIQUIDITY at pool initialization
         // We must subtract it from the distributable liquidity
         let initial_liquidity = initial_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;

@@ -10,15 +10,16 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
-        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
-        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
-        MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
+        DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY, MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS,
+        MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
+        MIN_LOCKED_LIQUIDITY_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode,
+    instructions::migration::dynamic_amm_v2::calculate_compounding_initial_sqrt_price_and_liquidity,
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{
-            get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
+            get_base_token_for_swap, get_migration_threshold_price, get_migration_token_amounts,
             LiquidityDistributionParameters,
         },
     },
@@ -612,7 +613,7 @@ pub fn handle_create_config(
         .map_err(|_| PoolError::InvalidMigrationOption)?;
     let is_compounding = collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
 
-    let migration_base_amount = get_migration_base_token(
+    let (migration_base_amount, migration_quote_amount) = get_migration_token_amounts(
         migration_quote_threshold,
         migration_fee.fee_percentage,
         sqrt_migration_price,
@@ -625,6 +626,17 @@ pub fn handle_create_config(
         migration_base_amount > 0 && swap_base_amount > 0,
         PoolError::InvalidCurve
     );
+
+    if is_compounding {
+        let (_, initial_liquidity) = calculate_compounding_initial_sqrt_price_and_liquidity(
+            migration_base_amount,
+            migration_quote_amount,
+        )?;
+        require!(
+            initial_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
+            PoolError::InsufficientLiquidityForMigration
+        );
+    }
 
     let (fixed_token_supply_flag, pre_migration_token_supply, post_migration_token_supply) =
         if let Some(TokenSupplyParams {

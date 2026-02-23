@@ -126,22 +126,26 @@ pub fn get_protocol_migration_fee(
     }
 }
 
-pub fn get_migration_base_token(
+pub fn get_migration_token_amounts(
     migration_threshold: u64,
     migration_fee_percentage: u8,
     sqrt_migration_price: u128,
     migration_option: MigrationOption,
     is_compounding: bool,
-) -> Result<u64> {
+) -> Result<(u64, u64)> {
     let MigrationAmount { quote_amount, .. } =
         PoolConfig::get_migration_quote_amount(migration_threshold, migration_fee_percentage)?;
     match migration_option {
         MigrationOption::MeteoraDamm => {
-            get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)
+            let base_amount =
+                get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)?;
+            Ok((base_amount, quote_amount))
         }
         MigrationOption::DammV2 => {
             if is_compounding {
-                get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)
+                let base_amount =
+                    get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)?;
+                Ok((base_amount, quote_amount))
             } else {
                 // calculate to L firsty
                 let liquidity = get_initial_liquidity_from_delta_quote(
@@ -177,7 +181,7 @@ pub fn get_migration_base_token(
                         PoolError::InsufficientLiquidityForMigration
                     );
                 }
-                Ok(base_amount)
+                Ok((base_amount, quote_amount))
             }
         }
     }
