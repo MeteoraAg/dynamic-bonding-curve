@@ -569,31 +569,22 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     // calculate initial liquidity
-    let (pool_sqrt_price, initial_liquidity) = if is_compounding {
-        let (pool_sqrt_price, initial_liquidity) =
-            calculate_compounding_initial_sqrt_price_and_liquidity(
-                migration_base_amount,
-                migration_quote_amount,
-            )?;
-
-        // For compounding pools, DAMM-v2 burns DEAD_LIQUIDITY at pool initialization
-        // We must subtract it from the distributable liquidity
-        let initial_liquidity = initial_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;
-
-        (pool_sqrt_price, initial_liquidity)
-    } else {
-        let initial_liquidity = calculate_concentrated_initial_liquidity(
-            migration_base_amount,
-            migration_quote_amount,
-            migration_sqrt_price,
-        )?;
-        (migration_sqrt_price, initial_liquidity)
-    };
+    let InitialPoolInformation {
+        sqrt_price: pool_sqrt_price,
+        distributable_liquidity,
+        dead_liquidity,
+        ..
+    } = get_initial_pool_information(
+        migration_base_amount,
+        migration_quote_amount,
+        is_compounding,
+        migration_sqrt_price,
+    )?;
 
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
         creator: creator_liquidity_distribution,
-    } = config.get_liquidity_distribution(initial_liquidity)?;
+    } = config.get_liquidity_distribution(distributable_liquidity)?;
 
     let (
         first_position_liquidity_distribution,
@@ -620,19 +611,14 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     };
 
     // create pool
-    // For compounding pools, DAMM-v2 burns DEAD_LIQUIDITY from the initial liquidity at pool init,
-    // so we add it back to the first position's liquidity to ensure the correct amount is distributed.
-    let first_position_liquidity = first_position_liquidity_distribution.get_total_liquidity()?;
-    let actual_first_position_liquidity = if is_compounding {
-        first_position_liquidity.safe_add(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?
-    } else {
-        first_position_liquidity
-    };
+    let first_position_liquidity = first_position_liquidity_distribution
+        .get_total_liquidity()?
+        .safe_add(dead_liquidity)?;
 
     msg!("create pool");
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
-        actual_first_position_liquidity,
+        first_position_liquidity,
         pool_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
@@ -670,19 +656,15 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let leftover_migration_quote_amount =
         migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
-    let liquidity_for_second_position = if is_compounding {
-        let (_, liquidity) = calculate_compounding_initial_sqrt_price_and_liquidity(
-            leftover_migration_base_amount,
-            leftover_migration_quote_amount,
-        )?;
-        liquidity
-    } else {
-        calculate_concentrated_initial_liquidity(
-            leftover_migration_base_amount,
-            leftover_migration_quote_amount,
-            migration_sqrt_price,
-        )?
-    };
+    let InitialPoolInformation {
+        total_liquidity: liquidity_for_second_position,
+        ..
+    } = get_initial_pool_information(
+        leftover_migration_base_amount,
+        leftover_migration_quote_amount,
+        is_compounding,
+        migration_sqrt_price,
+    )?;
 
     if liquidity_for_second_position > 0 {
         second_position_liquidity_distribution.adjust_liquidity(liquidity_for_second_position)?;
@@ -765,6 +747,45 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     // TODO emit event
 
     Ok(())
+}
+
+pub(crate) struct InitialPoolInformation {
+    pub sqrt_price: u128,
+    pub distributable_liquidity: u128,
+    pub total_liquidity: u128,
+    pub dead_liquidity: u128,
+}
+
+pub(crate) fn get_initial_pool_information(
+    base_amount: u64,
+    quote_amount: u64,
+    is_compounding: bool,
+    migration_sqrt_price: u128,
+) -> Result<InitialPoolInformation> {
+    if is_compounding {
+        let (sqrt_price, total_liquidity) =
+            calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)?;
+        let distributable_liquidity =
+            total_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;
+        Ok(InitialPoolInformation {
+            sqrt_price,
+            distributable_liquidity,
+            total_liquidity,
+            dead_liquidity: DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY, // compounding locks dead liquidity in pool
+        })
+    } else {
+        let liquidity = calculate_concentrated_initial_liquidity(
+            base_amount,
+            quote_amount,
+            migration_sqrt_price,
+        )?;
+        Ok(InitialPoolInformation {
+            sqrt_price: migration_sqrt_price,
+            distributable_liquidity: liquidity,
+            total_liquidity: liquidity,
+            dead_liquidity: 0,
+        })
+    }
 }
 
 pub(crate) fn calculate_concentrated_initial_liquidity(

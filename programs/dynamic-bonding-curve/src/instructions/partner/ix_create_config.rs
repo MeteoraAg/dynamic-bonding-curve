@@ -15,7 +15,9 @@ use crate::{
         MIN_LOCKED_LIQUIDITY_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode,
-    instructions::migration::dynamic_amm_v2::calculate_compounding_initial_sqrt_price_and_liquidity,
+    instructions::migration::dynamic_amm_v2::{
+        get_initial_pool_information, InitialPoolInformation,
+    },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{
@@ -628,13 +630,18 @@ pub fn handle_create_config(
     );
 
     if is_compounding {
-        let (compounding_sqrt_price, initial_liquidity) =
-            calculate_compounding_initial_sqrt_price_and_liquidity(
-                migration_base_amount,
-                migration_quote_amount,
-            )?;
+        let InitialPoolInformation {
+            sqrt_price: compounding_sqrt_price,
+            distributable_liquidity,
+            ..
+        } = get_initial_pool_information(
+            migration_base_amount,
+            migration_quote_amount,
+            true,
+            sqrt_migration_price,
+        )?;
         require!(
-            initial_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
+            distributable_liquidity > 0,
             PoolError::InsufficientLiquidityForMigration
         );
         // Verify compounding-derived sqrt price is within 1% of curve-derived sqrt price:
