@@ -573,7 +573,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         sqrt_price: pool_sqrt_price,
         distributable_liquidity,
         dead_liquidity,
-        ..
     } = get_initial_pool_information(
         migrated_collect_fee_mode,
         migration_base_amount,
@@ -722,7 +721,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         .accounts
         .base_vault
         .amount
-        .saturating_sub(non_burnable_amount);
+        .safe_sub(non_burnable_amount)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
 
@@ -764,6 +763,12 @@ pub(crate) fn get_initial_pool_information(
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)?;
+
+        require!(
+            total_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
+            PoolError::InsufficientLiquidityForMigration
+        );
+
         let distributable_liquidity =
             total_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;
         Ok(InitialPoolInformation {

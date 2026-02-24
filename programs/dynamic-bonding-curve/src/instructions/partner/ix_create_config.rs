@@ -630,27 +630,18 @@ pub fn handle_create_config(
     );
 
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
-        let InitialPoolInformation {
-            sqrt_price: compounding_sqrt_price,
-            distributable_liquidity,
-            ..
-        } = get_initial_pool_information(
+        let InitialPoolInformation { sqrt_price, .. } = get_initial_pool_information(
             migrated_collect_fee_mode,
             migration_base_amount,
             migration_quote_amount,
             sqrt_migration_price,
         )?;
-        require!(
-            distributable_liquidity > 0,
-            PoolError::InsufficientLiquidityForMigration
-        );
         // Verify compounding-derived sqrt price is within 1% of curve-derived sqrt price:
         // abs_diff / max <= 1 / 100
         // abs_diff       <= max / 100
         // abs_diff * 100 <= max
         require!(
-            sqrt_migration_price.abs_diff(compounding_sqrt_price) * 100
-                <= sqrt_migration_price.max(compounding_sqrt_price),
+            sqrt_migration_price.abs_diff(sqrt_price) * 100 <= sqrt_migration_price.max(sqrt_price),
             PoolError::InvalidCurve
         );
     }
@@ -699,7 +690,6 @@ pub fn handle_create_config(
         collect_fee_mode: migrated_collect_fee_mode,
         dynamic_fee: migrated_dynamic_fee,
     } = migrated_pool_fee;
-    let migrated_compounding_fee_bps = compounding_fee_bps;
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init(
@@ -737,7 +727,7 @@ pub fn handle_create_config(
         partner_liquidity_vesting_info.to_liquidity_vesting_info(),
         creator_liquidity_vesting_info.to_liquidity_vesting_info(),
         migrated_pool_base_fee_mode,
-        migrated_compounding_fee_bps,
+        compounding_fee_bps,
         migrated_pool_market_cap_fee_scheduler_params,
         &curve,
         enable_first_swap_with_min_fee.into(),
