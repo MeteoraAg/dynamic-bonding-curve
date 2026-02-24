@@ -21,7 +21,7 @@ use crate::{
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
     params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
-    safe_math::SafeMath,
+    safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
@@ -548,8 +548,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
-    let is_compounding =
-        config.migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
+    let migrated_collect_fee_mode = config.migrated_collect_fee_mode.safe_cast()?;
 
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
         excluded_fee_base_reserve,
@@ -557,7 +556,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         migration_sqrt_price,
         virtual_pool.protocol_liquidity_migration_fee_bps,
         MigrationOption::DammV2,
-        is_compounding,
+        migrated_collect_fee_mode,
     )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
@@ -577,7 +576,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     } = get_initial_pool_information(
         migration_base_amount,
         migration_quote_amount,
-        is_compounding,
+        migrated_collect_fee_mode,
         migration_sqrt_price,
     )?;
 
@@ -659,10 +658,10 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let InitialPoolInformation {
         total_liquidity: liquidity_for_second_position,
         ..
-    } = get_initial_pool_information(
+    } = get_initial_pool_information(   
         leftover_migration_base_amount,
         leftover_migration_quote_amount,
-        is_compounding,
+        migrated_collect_fee_mode,
         migration_sqrt_price,
     )?;
 
@@ -759,10 +758,10 @@ pub(crate) struct InitialPoolInformation {
 pub(crate) fn get_initial_pool_information(
     base_amount: u64,
     quote_amount: u64,
-    is_compounding: bool,
+    migrated_collect_fee_mode: MigratedCollectFeeMode,
     migration_sqrt_price: u128,
 ) -> Result<InitialPoolInformation> {
-    if is_compounding {
+    if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)?;
         let distributable_liquidity =

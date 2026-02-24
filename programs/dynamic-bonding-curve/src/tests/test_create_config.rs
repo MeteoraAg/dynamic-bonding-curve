@@ -5,6 +5,7 @@ use crate::{
         LiquidityDistributionParameters,
     },
     state::{MigrationOption, PoolConfig},
+    MigratedCollectFeeMode,
 };
 
 use super::price_math::get_price_from_id;
@@ -31,7 +32,7 @@ fn test_create_config() {
         0,
         sqrt_migration_price,
         MigrationOption::MeteoraDamm,
-        false,
+        MigratedCollectFeeMode::OutputToken,
     )
     .unwrap();
 

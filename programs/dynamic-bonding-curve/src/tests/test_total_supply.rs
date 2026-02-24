@@ -8,7 +8,7 @@ use crate::{
         LiquidityDistributionParameters,
     },
     state::{MigrationOption, PoolConfig},
-    LockedVestingParams,
+    LockedVestingParams, MigratedCollectFeeMode,
 };
 use proptest::prelude::*;
 
@@ -84,7 +84,7 @@ fn get_constant_product_curve(
         0,
         migration_sqrt_price,
         migration_option,
-        false,
+        MigratedCollectFeeMode::OutputToken,
     )
     .unwrap();
 
@@ -159,7 +159,7 @@ fn get_total_supply_from_curve(
         0,
         sqrt_migration_price,
         migration_option,
-        false,
+        MigratedCollectFeeMode::Compounding,
     )
     .unwrap();
 

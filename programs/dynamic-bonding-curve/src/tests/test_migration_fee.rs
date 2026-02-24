@@ -10,7 +10,7 @@ use crate::{
     utils_math::safe_mul_div_cast_u64,
 };
 
-use crate::calculate_concentrated_initial_liquidity;
+use crate::{calculate_concentrated_initial_liquidity, MigratedCollectFeeMode};
 use num::integer::Roots;
 use proptest::prelude::*;
 use ruint::aliases::U256;
@@ -41,7 +41,7 @@ proptest! {
             sqrt_price,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             MigrationOption::DammV2,
-            false,
+            MigratedCollectFeeMode::OutputToken,
         ).unwrap();
 
         let excluced_fee_migration_base_amount = migration_base_amount.checked_sub(base_fee_amount).unwrap();
@@ -85,7 +85,7 @@ proptest! {
             sqrt_price,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             MigrationOption::DammV2,
-            true,
+            MigratedCollectFeeMode::Compounding,
         ).unwrap();
 
         let excluced_fee_migration_base_amount = migration_base_amount.checked_sub(base_fee_amount).unwrap();
@@ -127,7 +127,7 @@ proptest! {
             sqrt_price,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             MigrationOption::MeteoraDamm,
-            false,
+            MigratedCollectFeeMode::OutputToken,
         ).unwrap();
 
         let excluced_fee_migration_base_amount = migration_base_amount.checked_sub(base_fee_amount).unwrap();
@@ -180,7 +180,7 @@ proptest! {
             sqrt_price,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             MigrationOption::MeteoraDamm,
-            false,
+            MigratedCollectFeeMode::OutputToken,
         ).unwrap();
 
         assert!(computed_protocol_base_fee_amount <= protocol_fee_base_amount);
@@ -220,7 +220,7 @@ proptest! {
             sqrt_price,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             MigrationOption::MeteoraDamm,
-            false,
+            MigratedCollectFeeMode::OutputToken,
         ).unwrap();
 
         let excluded_fee_base_amount = migration_base_amount.safe_sub(protocol_fee_base_amount).unwrap();

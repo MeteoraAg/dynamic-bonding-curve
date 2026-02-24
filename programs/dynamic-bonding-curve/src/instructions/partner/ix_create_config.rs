@@ -10,7 +10,7 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
-        DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY, MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS,
+        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS,
         MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
         MIN_LOCKED_LIQUIDITY_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
@@ -25,7 +25,7 @@ use crate::{
             LiquidityDistributionParameters,
         },
     },
-    safe_math::SafeMath,
+    safe_math::{SafeCast, SafeMath},
     state::{
         CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
         MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
@@ -613,15 +613,14 @@ pub fn handle_create_config(
         .map_err(|_| PoolError::TypeCastFailed)?;
     let migration_option_enum = MigrationOption::try_from(migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
-    let is_compounding =
-        migrated_pool_fee.collect_fee_mode == MigratedCollectFeeMode::Compounding as u8;
+    let migrated_collect_fee_mode = migrated_pool_fee.collect_fee_mode.safe_cast()?;
 
     let (migration_base_amount, migration_quote_amount) = get_migration_token_amounts(
         migration_quote_threshold,
         migration_fee.fee_percentage,
         sqrt_migration_price,
         migration_option_enum,
-        is_compounding,
+        migrated_collect_fee_mode,
     )?;
 
     require!(
@@ -630,7 +629,7 @@ pub fn handle_create_config(
         PoolError::InvalidCurve
     );
 
-    if is_compounding {
+    if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let InitialPoolInformation {
             sqrt_price: compounding_sqrt_price,
             distributable_liquidity,
@@ -638,7 +637,7 @@ pub fn handle_create_config(
         } = get_initial_pool_information(
             migration_base_amount,
             migration_quote_amount,
-            true,
+            migrated_collect_fee_mode,
             sqrt_migration_price,
         )?;
         require!(

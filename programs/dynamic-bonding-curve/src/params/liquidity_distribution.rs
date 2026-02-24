@@ -14,7 +14,7 @@ use crate::{
     state::{LiquidityDistributionConfig, MigrationAmount, MigrationOption, PoolConfig},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
-    PoolError,
+    MigratedCollectFeeMode, PoolError,
 };
 
 #[cfg(feature = "local")]
@@ -75,7 +75,7 @@ pub fn get_protocol_migration_fee(
     migration_sqrt_price: u128,
     migration_fee_bps: u16,
     migration_option: MigrationOption,
-    is_compounding: bool,
+    migrated_collect_fee_mode: MigratedCollectFeeMode,
 ) -> Result<(u64, u64)> {
     let quote_fee_amount = safe_mul_div_cast_u64(
         deposit_quote_amount,
@@ -96,7 +96,7 @@ pub fn get_protocol_migration_fee(
             Ok((base_fee_amount, quote_fee_amount))
         }
         MigrationOption::DammV2 => {
-            if is_compounding {
+            if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
                 // constant-product formula, same ratio as DammV1
                 let base_fee_amount = safe_mul_div_cast_u64(
                     deposit_base_amount,
@@ -131,7 +131,7 @@ pub fn get_migration_token_amounts(
     migration_fee_percentage: u8,
     sqrt_migration_price: u128,
     migration_option: MigrationOption,
-    is_compounding: bool,
+    migrated_collect_fee_mode: MigratedCollectFeeMode,
 ) -> Result<(u64, u64)> {
     let MigrationAmount { quote_amount, .. } =
         PoolConfig::get_migration_quote_amount(migration_threshold, migration_fee_percentage)?;
@@ -142,7 +142,7 @@ pub fn get_migration_token_amounts(
             Ok((base_amount, quote_amount))
         }
         MigrationOption::DammV2 => {
-            if is_compounding {
+            if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
                 let base_amount =
                     get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)?;
                 Ok((base_amount, quote_amount))

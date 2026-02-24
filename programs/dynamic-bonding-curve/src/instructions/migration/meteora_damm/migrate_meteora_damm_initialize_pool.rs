@@ -4,7 +4,7 @@ use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
-    safe_math::SafeMath,
+    safe_math::{SafeCast, SafeMath},
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
         VirtualPool,
@@ -247,7 +247,7 @@ pub fn handle_migrate_meteora_damm<'info>(
         config.migration_sqrt_price,
         virtual_pool.protocol_liquidity_migration_fee_bps,
         MigrationOption::MeteoraDamm,
-        false,
+        config.migrated_collect_fee_mode.safe_cast()?,
     )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
