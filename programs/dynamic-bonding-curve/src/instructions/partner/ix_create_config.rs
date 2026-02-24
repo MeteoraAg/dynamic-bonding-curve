@@ -10,9 +10,9 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
-        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS,
-        MAX_MIGRATED_POOL_FEE_BPS, MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE,
-        MIN_LOCKED_LIQUIDITY_BPS, MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
+        MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
+        MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
+        MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode,
     instructions::migration::dynamic_amm_v2::{
@@ -635,9 +635,9 @@ pub fn handle_create_config(
             distributable_liquidity,
             ..
         } = get_initial_pool_information(
+            migrated_collect_fee_mode,
             migration_base_amount,
             migration_quote_amount,
-            migrated_collect_fee_mode,
             sqrt_migration_price,
         )?;
         require!(

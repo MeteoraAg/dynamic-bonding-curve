@@ -26,7 +26,8 @@ use crate::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
         MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
     },
-    utils_math::sqrt_u256,
+    u128x128_math::Rounding,
+    utils_math::{safe_mul_div_cast_u128, sqrt_u256},
     PoolError,
 };
 use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
@@ -574,9 +575,9 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         dead_liquidity,
         ..
     } = get_initial_pool_information(
+        migrated_collect_fee_mode,
         migration_base_amount,
         migration_quote_amount,
-        migrated_collect_fee_mode,
         migration_sqrt_price,
     )?;
 
@@ -655,13 +656,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let leftover_migration_quote_amount =
         migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
-    let InitialPoolInformation {
-        total_liquidity: liquidity_for_second_position,
-        ..
-    } = get_initial_pool_information(   
+    let liquidity_for_second_position = get_liquidity_delta_for_add_liquidity(
+        migrated_collect_fee_mode,
         leftover_migration_base_amount,
         leftover_migration_quote_amount,
-        migrated_collect_fee_mode,
+        deposited_base_amount,
+        deposited_quote_amount,
+        first_position_liquidity,
         migration_sqrt_price,
     )?;
 
@@ -751,14 +752,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 pub(crate) struct InitialPoolInformation {
     pub sqrt_price: u128,
     pub distributable_liquidity: u128,
-    pub total_liquidity: u128,
     pub dead_liquidity: u128,
 }
 
 pub(crate) fn get_initial_pool_information(
+    migrated_collect_fee_mode: MigratedCollectFeeMode,
     base_amount: u64,
     quote_amount: u64,
-    migrated_collect_fee_mode: MigratedCollectFeeMode,
     migration_sqrt_price: u128,
 ) -> Result<InitialPoolInformation> {
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
@@ -769,25 +769,42 @@ pub(crate) fn get_initial_pool_information(
         Ok(InitialPoolInformation {
             sqrt_price,
             distributable_liquidity,
-            total_liquidity,
             dead_liquidity: DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY, // compounding locks dead liquidity in pool
         })
     } else {
-        let liquidity = calculate_concentrated_initial_liquidity(
-            base_amount,
-            quote_amount,
-            migration_sqrt_price,
-        )?;
+        let liquidity =
+            calculate_concentrated_liquidity(base_amount, quote_amount, migration_sqrt_price)?;
         Ok(InitialPoolInformation {
             sqrt_price: migration_sqrt_price,
             distributable_liquidity: liquidity,
-            total_liquidity: liquidity,
             dead_liquidity: 0,
         })
     }
 }
 
-pub(crate) fn calculate_concentrated_initial_liquidity(
+pub(crate) fn get_liquidity_delta_for_add_liquidity(
+    migrated_collect_fee_mode: MigratedCollectFeeMode,
+    base_amount: u64,
+    quote_amount: u64,
+    pool_base_reserve: u64,
+    pool_quote_reserve: u64,
+    pool_liquidity: u128,
+    migration_sqrt_price: u128,
+) -> Result<u128> {
+    if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
+        calculate_compounding_liquidity_for_add_liquidity(
+            base_amount,
+            quote_amount,
+            pool_base_reserve,
+            pool_quote_reserve,
+            pool_liquidity,
+        )
+    } else {
+        calculate_concentrated_liquidity(base_amount, quote_amount, migration_sqrt_price)
+    }
+}
+
+pub(crate) fn calculate_concentrated_liquidity(
     base_amount: u64,
     quote_amount: u64,
     sqrt_price: u128,
@@ -845,4 +862,33 @@ pub(crate) fn calculate_compounding_initial_sqrt_price_and_liquidity(
         .ok_or(PoolError::MathOverflow)?;
 
     Ok((sqrt_price_1, liquidity))
+}
+
+pub(crate) fn calculate_compounding_liquidity_for_add_liquidity(
+    base_amount: u64,
+    quote_amount: u64,
+    pool_base_reserve: u64,
+    pool_quote_reserve: u64,
+    pool_liquidity: u128,
+) -> Result<u128> {
+    require!(
+        pool_base_reserve > 0 && pool_quote_reserve > 0 && pool_liquidity > 0,
+        PoolError::InvalidInput
+    );
+
+    let liquidity_from_base = safe_mul_div_cast_u128(
+        u128::from(base_amount),
+        pool_liquidity,
+        u128::from(pool_base_reserve),
+        Rounding::Down,
+    )?;
+
+    let liquidity_from_quote = safe_mul_div_cast_u128(
+        u128::from(quote_amount),
+        pool_liquidity,
+        u128::from(pool_quote_reserve),
+        Rounding::Down,
+    )?;
+
+    Ok(liquidity_from_base.min(liquidity_from_quote))
 }

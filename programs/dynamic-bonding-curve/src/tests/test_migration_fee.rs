@@ -10,7 +10,7 @@ use crate::{
     utils_math::safe_mul_div_cast_u64,
 };
 
-use crate::{calculate_concentrated_initial_liquidity, MigratedCollectFeeMode};
+use crate::{calculate_concentrated_liquidity, MigratedCollectFeeMode};
 use num::integer::Roots;
 use proptest::prelude::*;
 use ruint::aliases::U256;
@@ -29,7 +29,7 @@ proptest! {
                 U256::from(migration_quote_amount).safe_shl(128).unwrap().div_rem(price);
         let  migration_base_amount: u64 = migration_base_amount.try_into().unwrap();
 
-        let initial_liquidity = calculate_concentrated_initial_liquidity(migration_base_amount, migration_quote_amount, sqrt_price).unwrap();
+        let initial_liquidity = calculate_concentrated_liquidity(migration_base_amount, migration_quote_amount, sqrt_price).unwrap();
 
         if initial_liquidity == 0 {
             return Ok(());
@@ -47,7 +47,7 @@ proptest! {
         let excluced_fee_migration_base_amount = migration_base_amount.checked_sub(base_fee_amount).unwrap();
         let excluced_fee_migration_quote_amount = migration_quote_amount.checked_sub(quote_fee_amount).unwrap();
 
-        let excluded_fee_initial_liquidity = calculate_concentrated_initial_liquidity(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount, sqrt_price).unwrap();
+        let excluded_fee_initial_liquidity = calculate_concentrated_liquidity(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount, sqrt_price).unwrap();
 
         let fee_liquidity = initial_liquidity.checked_sub(excluded_fee_initial_liquidity).unwrap();
 
