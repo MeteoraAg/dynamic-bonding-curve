@@ -809,6 +809,8 @@ pub(crate) fn get_liquidity_delta_for_add_liquidity(
     }
 }
 
+// calculate liquidity for concentrated pool
+// https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/rust-sdk/src/tests/test_calculate_concentrated_initial_sqrt_price.rs#L44-L62
 pub(crate) fn calculate_concentrated_liquidity(
     base_amount: u64,
     quote_amount: u64,
@@ -827,6 +829,8 @@ pub(crate) fn calculate_concentrated_liquidity(
     }
 }
 
+// calculates initial sqrt price and liquidity for compounding pool
+// https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/rust-sdk/src/calculate_initial_sqrt_price.rs#L44-L71
 pub(crate) fn calculate_compounding_initial_sqrt_price_and_liquidity(
     base_amount: u64,
     quote_amount: u64,
@@ -869,6 +873,11 @@ pub(crate) fn calculate_compounding_initial_sqrt_price_and_liquidity(
     Ok((sqrt_price_1, liquidity))
 }
 
+// Calculates liquidity delta when adding liquidity to compounding pool
+// derived from https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/programs/cp-amm/src/liquidity_handler/compounding_liquidity.rs#L46-L65
+// Δa = ΔL * a / L
+// Δa * L = ΔL * a
+// Δa * L / a = ΔL
 pub(crate) fn calculate_compounding_liquidity_for_add_liquidity(
     base_amount: u64,
     quote_amount: u64,
