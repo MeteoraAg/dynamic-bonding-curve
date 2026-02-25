@@ -20,7 +20,10 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
     damm_v2_utils, flash_rent,
-    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
+    params::{
+        fee_parameters::to_bps,
+        liquidity_distribution::{get_migration_token_amounts, get_protocol_migration_fee},
+    },
     safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
@@ -543,17 +546,41 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
     let migration_sqrt_price = config.migration_sqrt_price;
-
-    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
-    // Migration base threshold + buffer
-    let excluded_fee_base_reserve =
-        initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
-
     let migrated_collect_fee_mode = config.migrated_collect_fee_mode.safe_cast()?;
 
+    let (migration_base_amount_before_protocol_fee, migration_quote_amount_before_protocol_fee) =
+        if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
+            // Compounding: recalculate from config to ensure correct price derivation
+            let (base_amount, quote_amount) = get_migration_token_amounts(
+                config.migration_quote_threshold,
+                config.migration_fee_percentage,
+                migration_sqrt_price,
+                MigrationOption::DammV2,
+                migrated_collect_fee_mode,
+            )?;
+
+            let excluded_fee_base_reserve =
+                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
+
+            require!(
+                excluded_fee_base_reserve >= base_amount,
+                PoolError::InsufficientLiquidityForMigration
+            );
+
+            (base_amount, quote_amount)
+        } else {
+            // Concentrated: use vault balance for base (price is predetermined)
+            let MigrationAmount { quote_amount, .. } =
+                config.get_migration_quote_amount_for_config()?;
+            let excluded_fee_base_reserve =
+                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
+            (excluded_fee_base_reserve, quote_amount)
+        };
+
+    // Calculate protocol migration fees (common for both modes)
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
-        excluded_fee_base_reserve,
-        quote_amount,
+        migration_base_amount_before_protocol_fee,
+        migration_quote_amount_before_protocol_fee,
         migration_sqrt_price,
         virtual_pool.protocol_liquidity_migration_fee_bps,
         MigrationOption::DammV2,
@@ -565,8 +592,10 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         protocol_migration_quote_fee,
     );
 
-    let migration_base_amount = excluded_fee_base_reserve.safe_sub(protocol_migration_base_fee)?;
-    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
+    let migration_base_amount =
+        migration_base_amount_before_protocol_fee.safe_sub(protocol_migration_base_fee)?;
+    let migration_quote_amount =
+        migration_quote_amount_before_protocol_fee.safe_sub(protocol_migration_quote_fee)?;
 
     // calculate initial liquidity
     let InitialPoolInformation {
