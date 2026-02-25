@@ -9,7 +9,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE},
+        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS},
         MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
@@ -22,7 +22,7 @@ use crate::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{
             get_base_token_for_swap, get_migration_threshold_price, get_migration_token_amounts,
-            LiquidityDistributionParameters,
+            get_protocol_migration_fee, LiquidityDistributionParameters,
         },
     },
     safe_math::{SafeCast, SafeMath},
@@ -630,10 +630,25 @@ pub fn handle_create_config(
     );
 
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
+        let (protocol_migration_base_fee, protocol_migration_quote_fee) =
+            get_protocol_migration_fee(
+                migration_base_amount,
+                migration_quote_amount,
+                sqrt_migration_price,
+                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
+                migration_option_enum,
+                migrated_collect_fee_mode,
+            )?;
+
+        let migration_base_amount_after_fee =
+            migration_base_amount.safe_sub(protocol_migration_base_fee)?;
+        let migration_quote_amount_after_fee =
+            migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
+
         let InitialPoolInformation { sqrt_price, .. } = get_initial_pool_information(
             migrated_collect_fee_mode,
-            migration_base_amount,
-            migration_quote_amount,
+            migration_base_amount_after_fee,
+            migration_quote_amount_after_fee,
             sqrt_migration_price,
         )?;
         // Verify compounding-derived sqrt price is within 1% of curve-derived sqrt price:
