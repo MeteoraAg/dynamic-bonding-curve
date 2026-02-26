@@ -1,11 +1,10 @@
 use crate::{
     constants::MAX_SQRT_PRICE,
+    damm_v2_utils::CompoundingLiquidity,
     params::liquidity_distribution::{
-        get_base_token_for_swap, get_migration_threshold_price, get_migration_token_amounts,
-        LiquidityDistributionParameters,
+        get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
     },
-    state::{MigrationOption, PoolConfig},
-    MigratedCollectFeeMode,
+    state::PoolConfig,
 };
 
 use super::price_math::get_price_from_id;
@@ -27,14 +26,14 @@ fn test_create_config() {
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
     let swap_base_amount =
         get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve).unwrap();
-    let (migration_base_amount, migration_quote_amount) = get_migration_token_amounts(
-        migration_quote_threshold,
-        0,
-        sqrt_migration_price,
-        MigrationOption::MeteoraDamm,
-        MigratedCollectFeeMode::OutputToken,
-    )
-    .unwrap();
+
+    let (migration_base_amount, migration_quote_amount) =
+        CompoundingLiquidity::get_migrate_amounts(
+            migration_quote_threshold,
+            0,
+            sqrt_migration_price,
+        )
+        .unwrap();
 
     println!(
         "{} {} {}",

@@ -3,8 +3,9 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
-    safe_math::{SafeCast, SafeMath},
+    damm_v2_utils::CompoundingLiquidity,
+    params::fee_parameters::to_bps,
+    safe_math::SafeMath,
     state::{
         MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
         VirtualPool,
@@ -241,14 +242,21 @@ pub fn handle_migrate_meteora_damm<'info>(
     let base_reserve = config.migration_base_threshold;
     let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
 
-    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
-        base_reserve,
-        quote_amount,
-        config.migration_sqrt_price,
-        virtual_pool.protocol_liquidity_migration_fee_bps,
-        MigrationOption::MeteoraDamm,
-        config.migrated_collect_fee_mode.safe_cast()?,
-    )?;
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) =
+        CompoundingLiquidity::get_migration_protocol_fees(
+            base_reserve,
+            quote_amount,
+            virtual_pool.protocol_liquidity_migration_fee_bps,
+        )?;
+
+    // let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
+    //     base_reserve,
+    //     quote_amount,
+    //     config.migration_sqrt_price,
+    //     virtual_pool.protocol_liquidity_migration_fee_bps,
+    //     MigrationOption::MeteoraDamm,
+    //     config.migrated_collect_fee_mode.safe_cast()?,
+    // )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
         protocol_migration_base_fee,

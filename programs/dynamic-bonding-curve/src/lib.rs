@@ -23,6 +23,7 @@ pub mod access_control;
 pub use access_control::*;
 pub mod base_fee;
 pub mod curve;
+pub mod damm_v2_utils;
 pub mod tests;
 
 pub mod params;

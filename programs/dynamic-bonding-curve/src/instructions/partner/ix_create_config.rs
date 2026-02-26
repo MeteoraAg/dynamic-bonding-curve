@@ -14,15 +14,15 @@ use crate::{
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
-    damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode,
-    instructions::migration::dynamic_amm_v2::{
-        get_initial_pool_information, InitialPoolInformation,
+    damm_v2_utils::{
+        get_liquidity_handler, validate_vesting_parameters, BaseFeeMode as DammV2BaseFeeMode,
+        CompoundingLiquidity, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
+        LiquidityHandler, MigratedCollectFeeMode,
     },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{
-            get_base_token_for_swap, get_migration_threshold_price, get_migration_token_amounts,
-            get_protocol_migration_fee, LiquidityDistributionParameters,
+            get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
         },
     },
     safe_math::{SafeCast, SafeMath},
@@ -33,8 +33,7 @@ use crate::{
     token::{get_token_program_flags, is_supported_quote_mint},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
-    validate_vesting_parameters, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
-    EvtCreateConfig, EvtCreateConfigV2, MigratedCollectFeeMode, PoolError,
+    EvtCreateConfig, EvtCreateConfigV2, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -615,12 +614,11 @@ pub fn handle_create_config(
         .map_err(|_| PoolError::InvalidMigrationOption)?;
     let migrated_collect_fee_mode = migrated_pool_fee.collect_fee_mode.safe_cast()?;
 
-    let (migration_base_amount, migration_quote_amount) = get_migration_token_amounts(
+    let liquidity_handler = get_liquidity_handler(migration_option_enum, migrated_collect_fee_mode);
+    let (migration_base_amount, migration_quote_amount) = liquidity_handler.get_migrate_amounts(
         migration_quote_threshold,
         migration_fee.fee_percentage,
         sqrt_migration_price,
-        migration_option_enum,
-        migrated_collect_fee_mode,
     )?;
 
     require!(
@@ -629,15 +627,16 @@ pub fn handle_create_config(
         PoolError::InvalidCurve
     );
 
-    if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
-        let (protocol_migration_base_fee, protocol_migration_quote_fee) =
-            get_protocol_migration_fee(
+    if migration_option_enum == MigrationOption::DammV2
+        && migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding
+    {
+        let compounding_liquidity = CompoundingLiquidity {};
+        let (protocol_migration_base_fee, protocol_migration_quote_fee) = compounding_liquidity
+            .get_migration_protocol_fees(
                 migration_base_amount,
                 migration_quote_amount,
-                sqrt_migration_price,
                 PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-                migration_option_enum,
-                migrated_collect_fee_mode,
+                sqrt_migration_price,
             )?;
 
         let migration_base_amount_after_fee =
@@ -645,20 +644,11 @@ pub fn handle_create_config(
         let migration_quote_amount_after_fee =
             migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-        let InitialPoolInformation { sqrt_price, .. } = get_initial_pool_information(
-            migrated_collect_fee_mode,
+        CompoundingLiquidity::validate_initial_pool_information(
             migration_base_amount_after_fee,
             migration_quote_amount_after_fee,
             sqrt_migration_price,
         )?;
-        // Verify compounding-derived sqrt price is within 1% of curve-derived sqrt price:
-        // abs_diff / max <= 1 / 100
-        // abs_diff       <= max / 100
-        // abs_diff * 100 <= max
-        require!(
-            sqrt_migration_price.abs_diff(sqrt_price) * 100 <= sqrt_migration_price.max(sqrt_price),
-            PoolError::InvalidCurve
-        );
     }
 
     let (fixed_token_supply_flag, pre_migration_token_supply, post_migration_token_supply) =

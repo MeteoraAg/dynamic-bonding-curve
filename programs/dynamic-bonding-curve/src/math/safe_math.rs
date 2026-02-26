@@ -2,7 +2,7 @@ use anchor_lang::solana_program::msg;
 use ruint::aliases::{U256, U512};
 use std::panic::Location;
 
-use crate::{token::TokenProgramFlags, MigratedCollectFeeMode, PoolError};
+use crate::{damm_v2_utils::MigratedCollectFeeMode, token::TokenProgramFlags, PoolError};
 
 pub trait SafeMath<T>: Sized {
     fn safe_add(self, rhs: Self) -> Result<Self, PoolError>;

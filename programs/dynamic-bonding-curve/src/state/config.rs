@@ -5,7 +5,6 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
-    calculate_dynamic_fee_params,
     constants::{
         fee::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR,
@@ -13,7 +12,10 @@ use crate::{
         },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
-    damm_v2_utils, get_max_unlocked_liquidity_at_current_point,
+    damm_v2_utils::{
+        self, calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
+        DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
+    },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
@@ -22,8 +24,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler, LockedVestingParams,
-    MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
+    LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
 };
 use damm_v2::types::BaseFeeParameters as DammV2BaseFeeParameters;
 use damm_v2::types::BorshFeeMarketCapScheduler as DammV2BorshFeeMarketCapScheduler;
