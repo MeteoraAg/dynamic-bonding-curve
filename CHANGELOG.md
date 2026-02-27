@@ -24,14 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
 
 ### Added
+
 - Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
 - Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
 - Add new endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
+- Add support for damm-v2 Compounding `collect_fee_mode`. This can be enabled through the `create_config` endpoint by passing `migrated_pool_fee.collect_fee_mode: 2` and `compounding_fee_bps: 1-10_000` field in `ConfigParameters`
 
 ### Changed
+
 - When migrate to damm-v2, instead of using external accounts for vesting, now we will use position itself, that would save 2 accounts for damm-v2 migration instruction.
 
 ### Removed
+
 - Removed the `create_claim_protocol_fee_operator` endpoint in favor of `create_operator_account`, which can create an operator account configured with permissions, including claiming protocol fees.
 
 ## dynamic_bonding_curve [0.1.9] [PR #165](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/165)
