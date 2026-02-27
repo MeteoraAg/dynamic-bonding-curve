@@ -1,6 +1,6 @@
 use crate::{
     constants::{BASIS_POINT_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    damm_v2_utils::{InitialPoolInformation, LiquidityHandler},
+    damm_v2_utils::{InitialPoolInformation, MigrationHandler},
     safe_math::SafeMath,
     state::{MigrationAmount, PoolConfig},
     u128x128_math::Rounding,
@@ -69,7 +69,7 @@ impl CompoundingLiquidity {
     }
 }
 
-impl LiquidityHandler for CompoundingLiquidity {
+impl MigrationHandler for CompoundingLiquidity {
     fn get_initial_pool_information(
         &self,
         base_amount: u64,

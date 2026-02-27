@@ -1,6 +1,6 @@
 use crate::{
     constants::MAX_SQRT_PRICE,
-    damm_v2_utils::{CompoundingLiquidity, LiquidityHandler},
+    damm_v2_utils::{CompoundingLiquidity, MigrationHandler},
     params::liquidity_distribution::{
         get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
     },

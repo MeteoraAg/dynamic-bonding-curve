@@ -17,7 +17,7 @@ use crate::{
     const_pda::{self, pool_authority::BUMP},
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    damm_v2_utils::{self, get_liquidity_handler, InitialPoolInformation},
+    damm_v2_utils::{self, get_migration_handler, InitialPoolInformation},
     flash_rent,
     params::fee_parameters::to_bps,
     safe_math::{SafeCast, SafeMath},
@@ -541,7 +541,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let migrated_collect_fee_mode: MigratedCollectFeeMode =
         config.migrated_collect_fee_mode.safe_cast()?;
 
-    let liquidity_handler = get_liquidity_handler(
+    let liquidity_handler = get_migration_handler(
         MigrationOption::DammV2,
         migrated_collect_fee_mode,
         config.migration_sqrt_price,

@@ -17,12 +17,11 @@ pub struct InitialPoolInformation {
     pub dead_liquidity: u128,
 }
 
-pub trait LiquidityHandler {
+pub trait MigrationHandler {
     fn get_initial_pool_information(
         &self,
         base_amount: u64,
         quote_amount: u64,
-        // migration_sqrt_price: u128,
     ) -> Result<InitialPoolInformation>;
 
     fn get_migration_protocol_fees(
@@ -30,13 +29,11 @@ pub trait LiquidityHandler {
         deposit_base_amount: u64,
         deposit_quote_amount: u64,
         migration_fee_bps: u16,
-        // migration_sqrt_price: u128,
     ) -> Result<(u64, u64)>;
     fn calculate_liquidity_delta(
         &self,
         base_amount: u64,
         quote_amount: u64,
-        // migration_sqrt_price: u128,
         pool_base_reserve: u64,
         pool_quote_reserve: u64,
         pool_liquidity: u128,
@@ -47,7 +44,6 @@ pub trait LiquidityHandler {
         &self,
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
-        // sqrt_migration_price: u128,
     ) -> Result<(u64, u64)>;
 
     // we use this in in migration
@@ -60,11 +56,11 @@ pub trait LiquidityHandler {
     ) -> Result<(u64, u64)>;
 }
 
-pub fn get_liquidity_handler(
+pub fn get_migration_handler(
     migration_option: MigrationOption,
     migrated_collect_fee_mode: MigratedCollectFeeMode,
     migration_sqrt_price: u128,
-) -> Box<dyn LiquidityHandler> {
+) -> Box<dyn MigrationHandler> {
     // if damm v1
     if migration_option == MigrationOption::MeteoraDamm {
         return Box::new(CompoundingLiquidity {

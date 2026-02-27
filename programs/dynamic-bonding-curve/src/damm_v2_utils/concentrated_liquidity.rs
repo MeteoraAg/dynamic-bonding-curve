@@ -1,7 +1,7 @@
 use crate::{
     constants::{BASIS_POINT_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256},
-    damm_v2_utils::{InitialPoolInformation, LiquidityHandler},
+    damm_v2_utils::{InitialPoolInformation, MigrationHandler},
     safe_math::SafeMath,
     state::{MigrationAmount, PoolConfig},
     u128x128_math::Rounding,
@@ -15,7 +15,7 @@ pub struct ConcentratedLiquidity {
     pub migration_sqrt_price: u128,
 }
 
-impl LiquidityHandler for ConcentratedLiquidity {
+impl MigrationHandler for ConcentratedLiquidity {
     fn get_initial_pool_information(
         &self,
         base_amount: u64,

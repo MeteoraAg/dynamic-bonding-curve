@@ -1,10 +1,10 @@
 use crate::damm_v2_utils::calculate_concentrated_initial_liquidity;
-use crate::damm_v2_utils::get_liquidity_handler;
+use crate::damm_v2_utils::get_migration_handler;
 use crate::damm_v2_utils::CompoundingLiquidity;
 use crate::damm_v2_utils::ConcentratedLiquidity;
 use crate::damm_v2_utils::InitialPoolInformation;
-use crate::damm_v2_utils::LiquidityHandler;
 use crate::damm_v2_utils::MigratedCollectFeeMode;
+use crate::damm_v2_utils::MigrationHandler;
 use crate::utils_math::safe_mul_div_cast_u128;
 use crate::{
     constants::{
@@ -119,7 +119,7 @@ proptest! {
             Rounding::Down,
         ).unwrap();
 
-        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
+        let liquidity_handler = get_migration_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
         let (computed_protocol_base_fee_amount, _protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS).unwrap();
 
         assert!(computed_protocol_base_fee_amount <= protocol_fee_base_amount);
@@ -154,7 +154,7 @@ proptest! {
             .safe_div(U256::from(migration_base_amount)).unwrap();
 
 
-        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
+        let liquidity_handler = get_migration_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
         let (protocol_fee_base_amount, protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS).unwrap();
 
         let excluded_fee_base_amount = migration_base_amount.safe_sub(protocol_fee_base_amount).unwrap();

@@ -4,7 +4,7 @@ use crate::{
     constants::MAX_SQRT_PRICE,
     damm_v2_utils::{
         get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote,
-        get_liquidity_handler, MigratedCollectFeeMode,
+        get_migration_handler, MigratedCollectFeeMode,
     },
     params::liquidity_distribution::{
         get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
@@ -82,7 +82,7 @@ fn get_constant_product_curve(
     let migration_price = (migration_quote_threshold as f64) / (migration_amount as f64);
     let migration_sqrt_price = get_sqrt_price_from_price(migration_price);
 
-    let liquidity_handler = get_liquidity_handler(
+    let liquidity_handler = get_migration_handler(
         migration_option,
         MigratedCollectFeeMode::OutputToken,
         migration_sqrt_price,
@@ -157,7 +157,7 @@ fn get_total_supply_from_curve(
         PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, &curve)
             .unwrap();
 
-    let liquidity_handler = get_liquidity_handler(
+    let liquidity_handler = get_migration_handler(
         migration_option,
         MigratedCollectFeeMode::Compounding,
         migration_sqrt_price,

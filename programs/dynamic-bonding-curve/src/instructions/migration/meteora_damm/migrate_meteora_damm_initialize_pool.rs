@@ -1,4 +1,4 @@
-use crate::damm_v2_utils::LiquidityHandler;
+use crate::damm_v2_utils::MigrationHandler;
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
