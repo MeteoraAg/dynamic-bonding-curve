@@ -1,17 +1,14 @@
-use anchor_spl::token::{Burn, Token, TokenAccount};
-
+use crate::damm_v2_utils::LiquidityHandler;
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     damm_v2_utils::CompoundingLiquidity,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{
-        MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
-        VirtualPool,
-    },
+    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
+use anchor_spl::token::{Burn, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammCtx<'info> {
@@ -239,36 +236,40 @@ pub fn handle_migrate_meteora_damm<'info>(
         PoolError::InvalidMigrationOption
     );
 
-    let base_reserve = config.migration_base_threshold;
-    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
+    let liquidity_handler = Box::new(CompoundingLiquidity {
+        migration_sqrt_price: config.migration_sqrt_price,
+    });
 
-    let (protocol_migration_base_fee, protocol_migration_quote_fee) =
-        CompoundingLiquidity::get_migration_protocol_fees(
-            base_reserve,
-            quote_amount,
-            virtual_pool.protocol_liquidity_migration_fee_bps,
+    let initial_base_vault_amount = ctx.accounts.base_vault.amount;
+    let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
+    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
+        liquidity_handler.get_included_protocol_fee_migration_amounts_2(
+            config.migration_base_threshold,
+            config.migration_quote_threshold,
+            config.migration_fee_percentage,
+            initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
         )?;
 
-    // let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
-    //     base_reserve,
-    //     quote_amount,
-    //     config.migration_sqrt_price,
-    //     virtual_pool.protocol_liquidity_migration_fee_bps,
-    //     MigrationOption::MeteoraDamm,
-    //     config.migrated_collect_fee_mode.safe_cast()?,
-    // )?;
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
+        .get_migration_protocol_fees(
+            included_protocol_fee_migration_base_amount,
+            included_protocol_fee_migration_quote_amount,
+            virtual_pool.protocol_liquidity_migration_fee_bps,
+        )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
         protocol_migration_base_fee,
         protocol_migration_quote_fee,
     );
 
-    let migration_base_amount = base_reserve.safe_sub(protocol_migration_base_fee)?;
-    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
+    let excluded_protocol_fee_migration_base_amount =
+        included_protocol_fee_migration_base_amount.safe_sub(protocol_migration_base_fee)?;
+    let excluded_protocol_fee_migration_quote_amount =
+        included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     ctx.accounts.create_pool(
-        migration_base_amount,
-        migration_quote_amount,
+        excluded_protocol_fee_migration_base_amount,
+        excluded_protocol_fee_migration_quote_amount,
         const_pda::pool_authority::BUMP,
     )?;
 

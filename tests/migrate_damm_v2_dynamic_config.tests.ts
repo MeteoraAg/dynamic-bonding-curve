@@ -149,12 +149,12 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     );
 
     const marketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams =
-      {
-        schedulerExpirationDuration: 86400,
-        sqrtPriceStepBps: 100,
-        reductionFactor: new BN(900000),
-        numberOfPeriod: 100,
-      };
+    {
+      schedulerExpirationDuration: 86400,
+      sqrtPriceStepBps: 100,
+      reductionFactor: new BN(900000),
+      numberOfPeriod: 100,
+    };
 
     const { pool, poolConfig } = await fullFlow(
       svm,

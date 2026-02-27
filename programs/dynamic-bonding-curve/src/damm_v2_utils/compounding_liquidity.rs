@@ -12,7 +12,9 @@ use ruint::aliases::U256;
 
 // https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/programs/cp-amm/src/liquidity_handler/compounding_liquidity.rs#L13
 pub const DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY: u128 = 100 << 64;
-pub struct CompoundingLiquidity {}
+pub struct CompoundingLiquidity {
+    pub migration_sqrt_price: u128,
+}
 
 impl CompoundingLiquidity {
     pub fn validate_initial_pool_information(
@@ -23,6 +25,11 @@ impl CompoundingLiquidity {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
                 .ok_or_else(|| PoolError::MathOverflow)?;
+
+        require!(
+            sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+            PoolError::InvalidCompoundingParameters
+        );
 
         require!(
             total_liquidity > DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
@@ -60,20 +67,6 @@ impl CompoundingLiquidity {
         )?;
         Ok((base_fee_amount, quote_fee_amount))
     }
-
-    pub fn get_migrate_amounts(
-        migration_quote_threshold: u64,
-        migration_fee_percentage: u8,
-        sqrt_migration_price: u128,
-    ) -> Result<(u64, u64)> {
-        let MigrationAmount { quote_amount, .. } = PoolConfig::get_migration_quote_amount(
-            migration_quote_threshold,
-            migration_fee_percentage,
-        )?;
-
-        let base_amount = get_constant_product_base_from_quote(quote_amount, sqrt_migration_price)?;
-        Ok((base_amount, quote_amount))
-    }
 }
 
 impl LiquidityHandler for CompoundingLiquidity {
@@ -81,7 +74,7 @@ impl LiquidityHandler for CompoundingLiquidity {
         &self,
         base_amount: u64,
         quote_amount: u64,
-        _migration_sqrt_price: u128,
+        // _migration_sqrt_price: u128,
     ) -> Result<InitialPoolInformation> {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
@@ -101,7 +94,6 @@ impl LiquidityHandler for CompoundingLiquidity {
         deposit_base_amount: u64,
         deposit_quote_amount: u64,
         migration_fee_bps: u16,
-        _migration_sqrt_price: u128,
     ) -> Result<(u64, u64)> {
         Self::get_migration_protocol_fees(
             deposit_base_amount,
@@ -114,7 +106,6 @@ impl LiquidityHandler for CompoundingLiquidity {
         &self,
         base_amount: u64,
         quote_amount: u64,
-        _sqrt_price: u128,
         pool_base_reserve: u64,
         pool_quote_reserve: u64,
         pool_liquidity: u128,
@@ -135,17 +126,42 @@ impl LiquidityHandler for CompoundingLiquidity {
 
         Ok(liquidity_from_base.min(liquidity_from_quote))
     }
-    fn get_migrate_amounts(
+    fn get_included_protocol_fee_migration_amounts_1(
         &self,
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
-        sqrt_migration_price: u128,
     ) -> Result<(u64, u64)> {
-        Self::get_migrate_amounts(
+        let MigrationAmount { quote_amount, .. } = PoolConfig::get_migration_quote_amount(
             migration_quote_threshold,
             migration_fee_percentage,
-            sqrt_migration_price,
-        )
+        )?;
+
+        let base_amount =
+            get_constant_product_base_from_quote(quote_amount, self.migration_sqrt_price)?;
+
+        Ok((base_amount, quote_amount))
+    }
+
+    fn get_included_protocol_fee_migration_amounts_2(
+        &self,
+        migration_base_threshold: u64,
+        migration_quote_threshold: u64,
+        migration_fee_percentage: u8,
+        excluded_fee_base_reserve: u64,
+    ) -> Result<(u64, u64)> {
+        // just add a check to debug
+        require!(
+            excluded_fee_base_reserve >= migration_base_threshold,
+            PoolError::UndeterminedError
+        );
+        let MigrationAmount {
+            quote_amount,
+            fee: _,
+        } = PoolConfig::get_migration_quote_amount(
+            migration_quote_threshold,
+            migration_fee_percentage,
+        )?;
+        Ok((migration_base_threshold, quote_amount))
     }
 }
 

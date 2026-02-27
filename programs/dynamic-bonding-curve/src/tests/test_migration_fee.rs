@@ -1,4 +1,4 @@
-use crate::damm_v2_utils::calculate_concentrated_liquidity;
+use crate::damm_v2_utils::calculate_concentrated_initial_liquidity;
 use crate::damm_v2_utils::get_liquidity_handler;
 use crate::damm_v2_utils::CompoundingLiquidity;
 use crate::damm_v2_utils::ConcentratedLiquidity;
@@ -23,10 +23,10 @@ proptest! {
     #[test]
     fn test_damm_v2_protocol_migration_fee(
         migration_quote_amount in 100_000_000u64..u64::MAX,
-        sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
+        migration_sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
     ) {
-         let price = U256::from(sqrt_price)
-            .safe_mul(U256::from(sqrt_price))
+         let price = U256::from(migration_sqrt_price)
+            .safe_mul(U256::from(migration_sqrt_price))
             .unwrap();
 
         let (migration_base_amount, _rem) =
@@ -34,24 +34,23 @@ proptest! {
         let  migration_base_amount: u64 = migration_base_amount.try_into().unwrap();
 
 
-        let initial_liquidity = calculate_concentrated_liquidity(migration_base_amount, migration_quote_amount, sqrt_price).unwrap();
+        let initial_liquidity = calculate_concentrated_initial_liquidity(migration_base_amount, migration_quote_amount, migration_sqrt_price).unwrap();
 
         if initial_liquidity == 0 {
             return Ok(());
         }
 
-        let liquidity_handler = ConcentratedLiquidity{};
+        let liquidity_handler = ConcentratedLiquidity{migration_sqrt_price};
         let (base_fee_amount, quote_fee_amount) = liquidity_handler.get_migration_protocol_fees(
              migration_base_amount,
             migration_quote_amount,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
-            sqrt_price
           ).unwrap();
 
         let excluced_fee_migration_base_amount = migration_base_amount.checked_sub(base_fee_amount).unwrap();
         let excluced_fee_migration_quote_amount = migration_quote_amount.checked_sub(quote_fee_amount).unwrap();
 
-        let excluded_fee_initial_liquidity = calculate_concentrated_liquidity(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount, sqrt_price).unwrap();
+        let excluded_fee_initial_liquidity = calculate_concentrated_initial_liquidity(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount, migration_sqrt_price).unwrap();
 
         let fee_liquidity = initial_liquidity.checked_sub(excluded_fee_initial_liquidity).unwrap();
 
@@ -66,15 +65,16 @@ proptest! {
     #[test]
     fn test_compounding_protocol_migration_fee(
         migration_quote_amount in 1_000_000_000u64..u64::MAX,
-        sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
+        migration_sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
     ) {
-        let liquidity_handler = CompoundingLiquidity{};
-        let (migrate_base_amount, migrate_quote_amount) = liquidity_handler.get_migrate_amounts(migration_quote_amount, 0, sqrt_price).unwrap();
+        let liquidity_handler = CompoundingLiquidity{
+                migration_sqrt_price
+        };
+        let (migrate_base_amount, migrate_quote_amount) = liquidity_handler.get_included_protocol_fee_migration_amounts_1(migration_quote_amount, 0).unwrap();
         let (base_fee_amount, quote_fee_amount) = liquidity_handler.get_migration_protocol_fees(
             migrate_base_amount,
             migration_quote_amount,
             PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
-            sqrt_price,
         ).unwrap();
 
         let excluced_fee_migration_base_amount = migrate_base_amount.checked_sub(base_fee_amount).unwrap();
@@ -83,7 +83,7 @@ proptest! {
         let InitialPoolInformation{
             distributable_liquidity: initial_liquidity,
             ..
-        } = liquidity_handler.get_initial_pool_information(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount, sqrt_price).unwrap();
+        } = liquidity_handler.get_initial_pool_information(excluced_fee_migration_base_amount, excluced_fee_migration_quote_amount).unwrap();
 
         assert!(initial_liquidity > 0);
     }
@@ -93,10 +93,10 @@ proptest! {
     #[test]
     fn test_damm_v1_protocol_base_amount_computed_from_protocol_quote_amount_always_lesser(
         quote_amount in 10_000_000_000_000u64..u64::MAX,
-        sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
+        migration_sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
     ) {
-         let price = U256::from(sqrt_price)
-            .safe_mul(U256::from(sqrt_price))
+         let price = U256::from(migration_sqrt_price)
+            .safe_mul(U256::from(migration_sqrt_price))
             .unwrap();
 
         let (migration_base_amount, rem) =
@@ -119,8 +119,8 @@ proptest! {
             Rounding::Down,
         ).unwrap();
 
-        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken);
-        let (computed_protocol_base_fee_amount, _protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS, sqrt_price).unwrap();
+        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
+        let (computed_protocol_base_fee_amount, _protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS).unwrap();
 
         assert!(computed_protocol_base_fee_amount <= protocol_fee_base_amount);
     }
@@ -130,10 +130,10 @@ proptest! {
     #[test]
     fn test_damm_v1_protocol_fee_rounding_avoid_price_increment(
         quote_amount in 10_000_000_000_000u64..u64::MAX,
-        sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
+        migration_sqrt_price in MIN_SQRT_PRICE..MAX_SQRT_PRICE
     ) {
-        let price_0 = U256::from(sqrt_price)
-            .safe_mul(U256::from(sqrt_price))
+        let price_0 = U256::from(migration_sqrt_price)
+            .safe_mul(U256::from(migration_sqrt_price))
             .unwrap();
 
         let (migration_base_amount, rem) =
@@ -154,8 +154,8 @@ proptest! {
             .safe_div(U256::from(migration_base_amount)).unwrap();
 
 
-        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken);
-        let (protocol_fee_base_amount, protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS, sqrt_price).unwrap();
+        let liquidity_handler = get_liquidity_handler(  MigrationOption::MeteoraDamm, MigratedCollectFeeMode::OutputToken, migration_sqrt_price);
+        let (protocol_fee_base_amount, protocol_fee_quote_amount) = liquidity_handler.get_migration_protocol_fees(migration_base_amount, quote_amount, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS).unwrap();
 
         let excluded_fee_base_amount = migration_base_amount.safe_sub(protocol_fee_base_amount).unwrap();
         let excluded_fee_quote_amount = quote_amount.safe_sub(protocol_fee_quote_amount).unwrap();

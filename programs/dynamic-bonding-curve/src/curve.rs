@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use ruint::aliases::{U256, U512};
+use ruint::aliases::U256;
 
 use crate::{
     safe_math::SafeMath,

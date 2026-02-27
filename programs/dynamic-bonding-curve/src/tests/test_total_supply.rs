@@ -82,10 +82,13 @@ fn get_constant_product_curve(
     let migration_price = (migration_quote_threshold as f64) / (migration_amount as f64);
     let migration_sqrt_price = get_sqrt_price_from_price(migration_price);
 
-    let liquidity_handler =
-        get_liquidity_handler(migration_option, MigratedCollectFeeMode::OutputToken);
+    let liquidity_handler = get_liquidity_handler(
+        migration_option,
+        MigratedCollectFeeMode::OutputToken,
+        migration_sqrt_price,
+    );
     let (migration_base_amount, _) = liquidity_handler
-        .get_migrate_amounts(migration_quote_threshold, 0, migration_sqrt_price)
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
         .unwrap();
 
     let swap_amount = total_supply
@@ -144,20 +147,23 @@ fn get_total_supply_from_curve(
     locked_vesting: LockedVestingParams,
     migration_option: MigrationOption,
 ) -> u64 {
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
 
     let swap_base_amount_256 =
-        get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve).unwrap();
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve).unwrap();
     let swap_base_amount: u64 = swap_base_amount_256.try_into().unwrap();
     let swap_base_amount_buffer =
         PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, &curve)
             .unwrap();
 
-    let liquidity_handler =
-        get_liquidity_handler(migration_option, MigratedCollectFeeMode::Compounding);
+    let liquidity_handler = get_liquidity_handler(
+        migration_option,
+        MigratedCollectFeeMode::Compounding,
+        migration_sqrt_price,
+    );
     let (migration_base_amount, _) = liquidity_handler
-        .get_migrate_amounts(migration_quote_threshold, 0, sqrt_migration_price)
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
         .unwrap();
 
     let minimum_base_supply_with_buffer = PoolConfig::get_total_token_supply(

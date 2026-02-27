@@ -22,8 +22,8 @@ use crate::{
     params::fee_parameters::to_bps,
     safe_math::{SafeCast, SafeMath},
     state::{
-        LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
-        MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
+        LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
+        MigrationProgress, PoolConfig, VirtualPool,
     },
     PoolError,
 };
@@ -537,46 +537,29 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
-    let migration_sqrt_price = config.migration_sqrt_price;
 
     let migrated_collect_fee_mode: MigratedCollectFeeMode =
         config.migrated_collect_fee_mode.safe_cast()?;
 
-    let excluded_fee_base_reserve =
-        initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
-    let liquidity_handler =
-        get_liquidity_handler(MigrationOption::DammV2, migrated_collect_fee_mode);
-    let (migration_base_amount_before_protocol_fee, migration_quote_amount_before_protocol_fee) =
-        if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
-            let (base_amount, quote_amount) = liquidity_handler.get_migrate_amounts(
-                config.migration_quote_threshold,
-                config.migration_fee_percentage,
-                migration_sqrt_price,
-            )?;
+    let liquidity_handler = get_liquidity_handler(
+        MigrationOption::DammV2,
+        migrated_collect_fee_mode,
+        config.migration_sqrt_price,
+    );
 
-            // just add a check to debug
-            require!(
-                excluded_fee_base_reserve >= base_amount,
-                PoolError::UndeterminedError
-            );
-
-            (base_amount, quote_amount)
-        } else {
-            let MigrationAmount { quote_amount, .. } =
-                config.get_migration_quote_amount_for_config()?;
-
-            // we use base vault balance for backward-compatible
-            let excluded_fee_base_reserve =
-                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
-            (excluded_fee_base_reserve, quote_amount)
-        };
+    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
+        liquidity_handler.get_included_protocol_fee_migration_amounts_2(
+            config.migration_base_threshold,
+            config.migration_quote_threshold,
+            config.migration_fee_percentage,
+            initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
+        )?;
 
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
         .get_migration_protocol_fees(
-            migration_base_amount_before_protocol_fee,
-            migration_quote_amount_before_protocol_fee,
+            included_protocol_fee_migration_base_amount,
+            included_protocol_fee_migration_quote_amount,
             virtual_pool.protocol_liquidity_migration_fee_bps,
-            migration_sqrt_price,
         )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
@@ -584,19 +567,18 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         protocol_migration_quote_fee,
     );
 
-    let migration_base_amount =
-        migration_base_amount_before_protocol_fee.safe_sub(protocol_migration_base_fee)?;
-    let migration_quote_amount =
-        migration_quote_amount_before_protocol_fee.safe_sub(protocol_migration_quote_fee)?;
+    let excluded_protocol_fee_migration_base_amount =
+        included_protocol_fee_migration_base_amount.safe_sub(protocol_migration_base_fee)?;
+    let excluded_protocol_fee_migration_quote_amount =
+        included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
     let InitialPoolInformation {
         sqrt_price: pool_sqrt_price,
         distributable_liquidity,
         dead_liquidity,
     } = liquidity_handler.get_initial_pool_information(
-        migration_base_amount,
-        migration_quote_amount,
-        migration_sqrt_price,
+        excluded_protocol_fee_migration_base_amount,
+        excluded_protocol_fee_migration_quote_amount,
     )?;
 
     let LiquidityDistribution {
@@ -629,14 +611,12 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     };
 
     // create pool
-    let first_position_liquidity = first_position_liquidity_distribution
-        .get_total_liquidity()?
-        .safe_add(dead_liquidity)?;
-
     msg!("create pool");
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
-        first_position_liquidity,
+        first_position_liquidity_distribution
+            .get_total_liquidity()?
+            .safe_add(dead_liquidity)?, // we add dead liquidity in first position liquidity
         pool_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
@@ -670,10 +650,11 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
+    let leftover_migration_base_amount =
+        excluded_protocol_fee_migration_base_amount.safe_sub(deposited_base_amount)?;
 
     let leftover_migration_quote_amount =
-        migration_quote_amount.safe_sub(deposited_quote_amount)?;
+        excluded_protocol_fee_migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
     let liquidity_for_second_position = {
         let damm_pool_loader: AccountLoader<'_, damm_v2::accounts::Pool> =
@@ -682,7 +663,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         liquidity_handler.calculate_liquidity_delta(
             leftover_migration_base_amount,
             leftover_migration_quote_amount,
-            migration_sqrt_price,
             damm_pool.token_a_amount,
             damm_pool.token_b_amount,
             damm_pool.liquidity,

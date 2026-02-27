@@ -1,6 +1,6 @@
 use crate::{
     constants::MAX_SQRT_PRICE,
-    damm_v2_utils::CompoundingLiquidity,
+    damm_v2_utils::{CompoundingLiquidity, LiquidityHandler},
     params::liquidity_distribution::{
         get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
     },
@@ -22,17 +22,16 @@ fn test_create_config() {
             .checked_shl(64)
             .unwrap(),
     }];
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
     let swap_base_amount =
-        get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve).unwrap();
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve).unwrap();
 
-    let (migration_base_amount, migration_quote_amount) =
-        CompoundingLiquidity::get_migrate_amounts(
-            migration_quote_threshold,
-            0,
-            sqrt_migration_price,
-        )
+    let liquidity_handler = CompoundingLiquidity {
+        migration_sqrt_price,
+    };
+    let (migration_base_amount, migration_quote_amount) = liquidity_handler
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
         .unwrap();
 
     println!(
@@ -55,9 +54,9 @@ fn test_get_swap_buffer() {
             liquidity: 1,
         },
     ];
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
-    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve)
+    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve)
         .unwrap()
         .try_into()
         .unwrap();

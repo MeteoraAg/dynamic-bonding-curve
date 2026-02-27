@@ -597,16 +597,16 @@ pub fn handle_create_config(
         ..
     } = config_parameters.clone();
 
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
     // migration price must be smaller than max sqrt price
     require!(
-        sqrt_migration_price < MAX_SQRT_PRICE,
+        migration_sqrt_price < MAX_SQRT_PRICE,
         PoolError::InvalidCurve
     );
 
     let swap_base_amount_256 =
-        get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve)?;
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve)?;
     let swap_base_amount: u64 = swap_base_amount_256
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
@@ -614,40 +614,45 @@ pub fn handle_create_config(
         .map_err(|_| PoolError::InvalidMigrationOption)?;
     let migrated_collect_fee_mode = migrated_pool_fee.collect_fee_mode.safe_cast()?;
 
-    let liquidity_handler = get_liquidity_handler(migration_option_enum, migrated_collect_fee_mode);
-    let (migration_base_amount, migration_quote_amount) = liquidity_handler.get_migrate_amounts(
-        migration_quote_threshold,
-        migration_fee.fee_percentage,
-        sqrt_migration_price,
-    )?;
+    let liquidity_handler = get_liquidity_handler(
+        migration_option_enum,
+        migrated_collect_fee_mode,
+        migration_sqrt_price,
+    );
+    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
+        liquidity_handler.get_included_protocol_fee_migration_amounts_1(
+            migration_quote_threshold,
+            migration_fee.fee_percentage,
+        )?;
 
     require!(
         // this is fine to add redundant check
-        migration_base_amount > 0 && swap_base_amount > 0,
+        included_protocol_fee_migration_base_amount > 0 && swap_base_amount > 0,
         PoolError::InvalidCurve
     );
 
     if migration_option_enum == MigrationOption::DammV2
         && migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding
     {
-        let compounding_liquidity = CompoundingLiquidity {};
+        let compounding_liquidity = CompoundingLiquidity {
+            migration_sqrt_price,
+        };
         let (protocol_migration_base_fee, protocol_migration_quote_fee) = compounding_liquidity
             .get_migration_protocol_fees(
-                migration_base_amount,
-                migration_quote_amount,
+                included_protocol_fee_migration_base_amount,
+                included_protocol_fee_migration_quote_amount,
                 PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
-                sqrt_migration_price,
             )?;
 
-        let migration_base_amount_after_fee =
-            migration_base_amount.safe_sub(protocol_migration_base_fee)?;
-        let migration_quote_amount_after_fee =
-            migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
+        let excluded_protocol_fee_migration_base_amount =
+            included_protocol_fee_migration_base_amount.safe_sub(protocol_migration_base_fee)?;
+        let excluded_protocol_fee_migration_quote_amount =
+            included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
         CompoundingLiquidity::validate_initial_pool_information(
-            migration_base_amount_after_fee,
-            migration_quote_amount_after_fee,
-            sqrt_migration_price,
+            excluded_protocol_fee_migration_base_amount,
+            excluded_protocol_fee_migration_quote_amount,
+            migration_sqrt_price,
         )?;
     }
 
@@ -665,13 +670,13 @@ pub fn handle_create_config(
 
             let minimum_base_supply_with_buffer = PoolConfig::get_total_token_supply(
                 swap_base_amount_buffer,
-                migration_base_amount,
+                included_protocol_fee_migration_base_amount,
                 &locked_vesting,
             )?;
 
             let minimum_base_supply_without_buffer = PoolConfig::get_total_token_supply(
                 swap_base_amount,
-                migration_base_amount,
+                included_protocol_fee_migration_base_amount,
                 &locked_vesting,
             )?;
 
@@ -719,8 +724,8 @@ pub fn handle_create_config(
         migration_fee_option,
         swap_base_amount,
         migration_quote_threshold,
-        migration_base_amount,
-        sqrt_migration_price,
+        included_protocol_fee_migration_base_amount,
+        migration_sqrt_price,
         sqrt_start_price,
         fixed_token_supply_flag,
         pre_migration_token_supply,
@@ -762,7 +767,7 @@ pub fn handle_create_config(
         creator_liquidity_percentage,
         swap_base_amount,
         migration_quote_threshold,
-        migration_base_amount,
+        migration_base_amount: included_protocol_fee_migration_base_amount,
         sqrt_start_price,
         fixed_token_supply_flag,
         pre_migration_token_supply,

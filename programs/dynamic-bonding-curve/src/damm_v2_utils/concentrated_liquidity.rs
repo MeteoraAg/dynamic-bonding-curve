@@ -11,19 +11,23 @@ use crate::{
 use anchor_lang::prelude::*;
 use ruint::aliases::{U256, U512};
 
-pub struct ConcentratedLiquidity {}
+pub struct ConcentratedLiquidity {
+    pub migration_sqrt_price: u128,
+}
 
 impl LiquidityHandler for ConcentratedLiquidity {
     fn get_initial_pool_information(
         &self,
         base_amount: u64,
         quote_amount: u64,
-        migration_sqrt_price: u128,
     ) -> Result<InitialPoolInformation> {
-        let liquidity =
-            calculate_concentrated_liquidity(base_amount, quote_amount, migration_sqrt_price)?;
+        let liquidity = calculate_concentrated_initial_liquidity(
+            base_amount,
+            quote_amount,
+            self.migration_sqrt_price,
+        )?;
         Ok(InitialPoolInformation {
-            sqrt_price: migration_sqrt_price,
+            sqrt_price: self.migration_sqrt_price,
             distributable_liquidity: liquidity,
             dead_liquidity: 0,
         })
@@ -34,7 +38,6 @@ impl LiquidityHandler for ConcentratedLiquidity {
         _deposit_base_amount: u64,
         deposit_quote_amount: u64,
         migration_fee_bps: u16,
-        migration_sqrt_price: u128,
     ) -> Result<(u64, u64)> {
         let quote_fee_amount = safe_mul_div_cast_u64(
             deposit_quote_amount,
@@ -45,11 +48,11 @@ impl LiquidityHandler for ConcentratedLiquidity {
         let fee_liquidity = get_initial_liquidity_from_delta_quote(
             quote_fee_amount,
             MIN_SQRT_PRICE,
-            migration_sqrt_price,
+            self.migration_sqrt_price,
         )?;
 
         let base_fee_amount = get_delta_amount_base_unsigned(
-            migration_sqrt_price,
+            self.migration_sqrt_price,
             MAX_SQRT_PRICE,
             fee_liquidity,
             Rounding::Down,
@@ -61,15 +64,20 @@ impl LiquidityHandler for ConcentratedLiquidity {
         &self,
         base_amount: u64,
         quote_amount: u64,
-        sqrt_price: u128,
         _pool_base_reserve: u64,
         _pool_quote_reserve: u64,
         _pool_liquidity: u128,
     ) -> Result<u128> {
-        let liquidity_from_base =
-            get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, sqrt_price)?;
-        let liquidity_from_quote =
-            get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, sqrt_price)?;
+        let liquidity_from_base = get_initial_liquidity_from_delta_base(
+            base_amount,
+            MAX_SQRT_PRICE,
+            self.migration_sqrt_price,
+        )?;
+        let liquidity_from_quote = get_initial_liquidity_from_delta_quote(
+            quote_amount,
+            MIN_SQRT_PRICE,
+            self.migration_sqrt_price,
+        )?;
         if liquidity_from_base > U512::from(liquidity_from_quote) {
             Ok(liquidity_from_quote)
         } else {
@@ -79,11 +87,10 @@ impl LiquidityHandler for ConcentratedLiquidity {
         }
     }
 
-    fn get_migrate_amounts(
+    fn get_included_protocol_fee_migration_amounts_1(
         &self,
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
-        sqrt_migration_price: u128,
     ) -> Result<(u64, u64)> {
         let MigrationAmount { quote_amount, .. } = PoolConfig::get_migration_quote_amount(
             migration_quote_threshold,
@@ -94,11 +101,11 @@ impl LiquidityHandler for ConcentratedLiquidity {
         let liquidity = get_initial_liquidity_from_delta_quote(
             quote_amount,
             MIN_SQRT_PRICE,
-            sqrt_migration_price,
+            self.migration_sqrt_price,
         )?;
         // calculate base threshold
         let base_amount = get_delta_amount_base_unsigned_256(
-            sqrt_migration_price,
+            self.migration_sqrt_price,
             MAX_SQRT_PRICE,
             liquidity,
             Rounding::Up,
@@ -116,7 +123,7 @@ impl LiquidityHandler for ConcentratedLiquidity {
             let (_initial_base_amount, initial_quote_amount) = get_initialize_amounts(
                 MIN_SQRT_PRICE,
                 MAX_SQRT_PRICE,
-                sqrt_migration_price,
+                self.migration_sqrt_price,
                 liquidity,
             )?;
             // TODO no need to validate for _initial_base_amount?
@@ -128,18 +135,36 @@ impl LiquidityHandler for ConcentratedLiquidity {
         }
         Ok((base_amount, quote_amount))
     }
+
+    fn get_included_protocol_fee_migration_amounts_2(
+        &self,
+        _migration_base_threshold: u64,
+        migration_quote_threshold: u64,
+        migration_fee_percentage: u8,
+        excluded_fee_base_reserve: u64,
+    ) -> Result<(u64, u64)> {
+        let MigrationAmount {
+            quote_amount,
+            fee: _,
+        } = PoolConfig::get_migration_quote_amount(
+            migration_quote_threshold,
+            migration_fee_percentage,
+        )?;
+        // we use base vault balance for backward-compatible
+        Ok((excluded_fee_base_reserve, quote_amount))
+    }
 }
 // calculate liquidity for concentrated pool
 // https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/rust-sdk/src/tests/test_calculate_concentrated_initial_sqrt_price.rs#L44-L62
-pub fn calculate_concentrated_liquidity(
+pub fn calculate_concentrated_initial_liquidity(
     base_amount: u64,
     quote_amount: u64,
-    sqrt_price: u128,
+    migration_sqrt_price: u128,
 ) -> Result<u128> {
     let liquidity_from_base =
-        get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, sqrt_price)?;
+        get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, migration_sqrt_price)?;
     let liquidity_from_quote =
-        get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, sqrt_price)?;
+        get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, migration_sqrt_price)?;
     if liquidity_from_base > U512::from(liquidity_from_quote) {
         Ok(liquidity_from_quote)
     } else {

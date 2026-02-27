@@ -206,6 +206,9 @@ pub enum PoolError {
 
     #[msg("Invalid zap accounts")]
     InvalidZapAccounts,
+
+    #[msg("Invalid compounding parameters")]
+    InvalidCompoundingParameters,
 }
 
 impl From<ProtozolZapError> for PoolError {
