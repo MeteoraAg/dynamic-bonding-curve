@@ -1,10 +1,10 @@
-use crate::damm_v2_utils::calculate_concentrated_initial_liquidity;
-use crate::damm_v2_utils::get_migration_handler;
-use crate::damm_v2_utils::CompoundingLiquidity;
-use crate::damm_v2_utils::ConcentratedLiquidity;
-use crate::damm_v2_utils::InitialPoolInformation;
-use crate::damm_v2_utils::MigratedCollectFeeMode;
-use crate::damm_v2_utils::MigrationHandler;
+use crate::migration_handler::calculate_concentrated_initial_liquidity;
+use crate::migration_handler::get_migration_handler;
+use crate::migration_handler::CompoundingLiquidity;
+use crate::migration_handler::ConcentratedLiquidity;
+use crate::migration_handler::InitialPoolInformation;
+use crate::migration_handler::MigratedCollectFeeMode;
+use crate::migration_handler::MigrationHandler;
 use crate::utils_math::safe_mul_div_cast_u128;
 use crate::{
     constants::{

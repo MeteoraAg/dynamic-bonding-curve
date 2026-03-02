@@ -1,8 +1,8 @@
-use crate::damm_v2_utils::MigrationHandler;
+use crate::migration_handler::MigrationHandler;
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    damm_v2_utils::CompoundingLiquidity,
+    migration_handler::CompoundingLiquidity,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
     state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},

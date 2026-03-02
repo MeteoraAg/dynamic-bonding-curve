@@ -3,6 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
+use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
@@ -13,7 +14,7 @@ use crate::{
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     damm_v2_utils::{
-        self, calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
+        calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
         DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
     },
     params::{
@@ -32,7 +33,6 @@ use damm_v2::types::BorshFeeTimeScheduler as DammV2BorshFeeTimeScheduler;
 use damm_v2::types::DynamicFeeParameters as DammV2DynamicFeeParameters;
 use damm_v2::types::PoolFeeParameters as DammV2PoolFeeParameters;
 use damm_v2::types::VestingParameters as DammV2VestingParameters;
-use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 

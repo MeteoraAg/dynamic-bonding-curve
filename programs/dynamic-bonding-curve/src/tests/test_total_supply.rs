@@ -2,7 +2,7 @@ use std::ops::Shl;
 
 use crate::{
     constants::MAX_SQRT_PRICE,
-    damm_v2_utils::{
+    migration_handler::{
         get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote,
         get_migration_handler, MigratedCollectFeeMode,
     },

@@ -15,9 +15,11 @@ use crate::{
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
     },
     damm_v2_utils::{
-        get_migration_handler, validate_vesting_parameters, BaseFeeMode as DammV2BaseFeeMode,
-        CompoundingLiquidity, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
-        MigratedCollectFeeMode, MigrationHandler,
+        validate_vesting_parameters, BaseFeeMode as DammV2BaseFeeMode, DammV2DynamicFee,
+        DammV2PodAlignedFeeMarketCapScheduler,
+    },
+    migration_handler::{
+        get_migration_handler, CompoundingLiquidity, MigratedCollectFeeMode, MigrationHandler,
     },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},

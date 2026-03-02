@@ -12,13 +12,14 @@ use damm_v2::{
 };
 use unchecked_account::unchecked_account::UncheckedAccount;
 
+use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    damm_v2_utils::{self, get_migration_handler, InitialPoolInformation},
     flash_rent,
+    migration_handler::{self, get_migration_handler, InitialPoolInformation},
     params::fee_parameters::to_bps,
     safe_math::{SafeCast, SafeMath},
     state::{
@@ -27,8 +28,7 @@ use crate::{
     },
     PoolError,
 };
-use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
-use damm_v2_utils::MigratedCollectFeeMode;
+use migration_handler::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {

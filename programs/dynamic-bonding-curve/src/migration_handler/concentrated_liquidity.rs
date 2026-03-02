@@ -1,7 +1,7 @@
 use crate::{
     constants::{BASIS_POINT_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_delta_amount_base_unsigned, get_delta_amount_base_unsigned_256},
-    damm_v2_utils::{InitialPoolInformation, MigrationHandler},
+    migration_handler::{InitialPoolInformation, MigrationHandler},
     safe_math::SafeMath,
     state::{MigrationAmount, PoolConfig},
     u128x128_math::Rounding,

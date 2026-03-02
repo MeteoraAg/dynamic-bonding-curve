@@ -14,9 +14,6 @@ use crate::{
     PoolError,
 };
 
-#[cfg(feature = "local")]
-use crate::curve::get_initialize_amounts;
-
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct LiquidityDistributionParameters {
     pub sqrt_price: u128,

@@ -1,4 +1,5 @@
 use crate::{
+    calculate_dynamic_fee_params,
     constants::{
         dynamic_fee::{
             BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, MAX_DYNAMIC_FEE_PERCENT,
@@ -7,7 +8,6 @@ use crate::{
         fee::FEE_DENOMINATOR,
         BASIS_POINT_MAX, ONE_Q64,
     },
-    damm_v2_utils::calculate_dynamic_fee_params,
     params::fee_parameters::to_numerator,
     state::{fee::VolatilityTracker, DynamicFeeConfig},
     PoolError,

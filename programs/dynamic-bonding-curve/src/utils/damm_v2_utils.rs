@@ -26,39 +26,6 @@ pub enum DammV2DynamicFee {
     Enable,
 }
 
-/// Collect fee mode for migrated DAMM v2 pools.
-/// Separate from DBC's own CollectFeeMode (which only supports QuoteToken/OutputToken)
-#[repr(u8)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    IntoPrimitive,
-    TryFromPrimitive,
-    AnchorDeserialize,
-    AnchorSerialize,
-)]
-pub enum MigratedCollectFeeMode {
-    QuoteToken,
-    OutputToken,
-    Compounding, // Compounding mode is only supported in DAMM v2, not in DBC collect fee mode
-}
-
-impl MigratedCollectFeeMode {
-    pub fn to_dammv2_collect_fee_mode(&self) -> Result<u8> {
-        // DBC: 0 | QuoteToken is as the same as Damm v2: 1 : OnlyB
-        // DBC: 1 | OutputToken is as the same as Damm v2: 0 : BothToken
-        // DBC: 2 | Compounding is as the same as Damm v2: 2 : Compounding
-        // https://github.com/MeteoraAg/damm-v2/blob/main/programs/cp-amm/src/state/pool.rs#L41-L46
-        match self {
-            MigratedCollectFeeMode::QuoteToken => Ok(1),
-            MigratedCollectFeeMode::OutputToken => Ok(0),
-            MigratedCollectFeeMode::Compounding => Ok(2),
-        }
-    }
-}
-
 // https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
 pub fn calculate_dynamic_fee_params(base_fee_numerator: u64) -> Result<DynamicFeeParameters> {
     let max_dynamic_fee_numerator = u128::from(base_fee_numerator)
