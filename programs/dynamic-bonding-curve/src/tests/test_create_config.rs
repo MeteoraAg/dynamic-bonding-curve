@@ -1,10 +1,10 @@
 use crate::{
     constants::MAX_SQRT_PRICE,
+    migration_handler::{CompoundingLiquidity, MigrationHandler},
     params::liquidity_distribution::{
-        get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
-        LiquidityDistributionParameters,
+        get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
     },
-    state::{MigrationOption, PoolConfig},
+    state::PoolConfig,
 };
 
 use super::price_math::get_price_from_id;
@@ -22,19 +22,22 @@ fn test_create_config() {
             .checked_shl(64)
             .unwrap(),
     }];
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
     let swap_base_amount =
-        get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve).unwrap();
-    let migration_base_amount = get_migration_base_token(
-        migration_quote_threshold,
-        0,
-        sqrt_migration_price,
-        MigrationOption::MeteoraDamm,
-    )
-    .unwrap();
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve).unwrap();
 
-    println!("{} {}", swap_base_amount, migration_base_amount);
+    let liquidity_handler = CompoundingLiquidity {
+        migration_sqrt_price,
+    };
+    let (migration_base_amount, migration_quote_amount) = liquidity_handler
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
+        .unwrap();
+
+    println!(
+        "{} {} {}",
+        swap_base_amount, migration_base_amount, migration_quote_amount
+    );
 }
 
 #[test]
@@ -51,9 +54,9 @@ fn test_get_swap_buffer() {
             liquidity: 1,
         },
     ];
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
-    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve)
+    let swap_base_amount = get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve)
         .unwrap()
         .try_into()
         .unwrap();

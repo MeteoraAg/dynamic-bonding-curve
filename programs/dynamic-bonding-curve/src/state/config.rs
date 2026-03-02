@@ -3,9 +3,9 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
+use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
-    calculate_dynamic_fee_params,
     constants::{
         fee::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR,
@@ -13,7 +13,10 @@ use crate::{
         },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
-    damm_v2_utils, get_max_unlocked_liquidity_at_current_point,
+    damm_v2_utils::{
+        calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
+        DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
+    },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
@@ -22,8 +25,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler, LockedVestingParams,
-    MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
+    LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
 };
 use damm_v2::types::BaseFeeParameters as DammV2BaseFeeParameters;
 use damm_v2::types::BorshFeeMarketCapScheduler as DammV2BorshFeeMarketCapScheduler;
@@ -31,7 +33,6 @@ use damm_v2::types::BorshFeeTimeScheduler as DammV2BorshFeeTimeScheduler;
 use damm_v2::types::DynamicFeeParameters as DammV2DynamicFeeParameters;
 use damm_v2::types::PoolFeeParameters as DammV2PoolFeeParameters;
 use damm_v2::types::VestingParameters as DammV2VestingParameters;
-use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
@@ -558,11 +559,11 @@ pub struct PoolConfig {
     pub migrated_pool_fee_bps: u16,
     pub migrated_pool_base_fee_mode: u8,
     pub enable_first_swap_with_min_fee: u8,
-    /// padding 1
-    pub _padding_1: [u8; 2],
+    /// compounding fee bps for migrated DAMM v2 pool, should only be non-zero if migrated_collect_fee_mode is 2 (Compounding)
+    pub migrated_compounding_fee_bps: u16,
     /// pool creation fee in lamports value
     pub pool_creation_fee: u64,
-    /// padding 2
+    /// serialized MigratedPoolMarketCapFeeSchedulerParams, only used when migrated_pool_base_fee_mode is market cap scheduler
     pub migrated_pool_base_fee_bytes: [u8; 16],
     /// minimum price
     pub sqrt_start_price: u128,
@@ -728,6 +729,7 @@ impl PoolConfig {
         partner_liquidity_vesting_info: LiquidityVestingInfo,
         creator_liquidity_vesting_info: LiquidityVestingInfo,
         migrated_pool_base_fee_mode: u8,
+        migrated_compounding_fee_bps: u16,
         migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
@@ -769,6 +771,7 @@ impl PoolConfig {
         self.migrated_pool_fee_bps = migrated_pool_fee_bps;
         self.migrated_collect_fee_mode = migrated_collect_fee_mode;
         self.migrated_dynamic_fee = migrated_dynamic_fee;
+        self.migrated_compounding_fee_bps = migrated_compounding_fee_bps;
         self.pool_creation_fee = pool_creation_fee;
 
         self.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
@@ -1085,7 +1088,6 @@ impl PoolConfig {
                     sqrt_price_step_bps: sqrt_price_step_bps.into(),
                     scheduler_expiration_duration,
                     reduction_factor,
-                    padding: [0; 3],
                 }
                 .serialize(&mut data)?;
             }
@@ -1161,6 +1163,8 @@ impl PoolConfig {
         let pool_fees = DammV2PoolFeeParameters {
             base_fee,
             dynamic_fee,
+            compounding_fee_bps: self.migrated_compounding_fee_bps,
+            padding: 0,
         };
 
         Ok(pool_fees)

@@ -133,6 +133,7 @@ async function createPartnerConfig(
     poolCreationFee: new BN(0),
     curve: curves,
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer,

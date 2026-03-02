@@ -484,7 +484,6 @@ export async function createDammV2Config(
     reductionFactor: new BN(0),
     periodFrequency: new BN(0),
     baseFeeMode: 0,
-    padding: Array(3).fill(0),
   };
 
   const baseFeeData = program.coder.types.encode(
@@ -498,9 +497,8 @@ export async function createDammV2Config(
       baseFee: {
         data: Array.from(baseFeeData),
       },
-      protocolFeePercent: 10,
-      partnerFeePercent: 0,
-      referralFeePercent: 0,
+      compoundingFeeBps: 0,
+      padding: 0,
       dynamicFee: null,
     },
     sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -641,6 +639,7 @@ export async function createDbcConfig(
     dynamicFee: number;
   },
   partner: Keypair,
+  compoundingFeeBps: number = 0,
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
     cliffFeeNumerator: new BN(2_500_000),
@@ -717,6 +716,7 @@ export async function createDbcConfig(
     migratedPoolBaseFeeMode: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps,
   };
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,

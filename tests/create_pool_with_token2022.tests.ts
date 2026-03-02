@@ -142,6 +142,7 @@ describe("Create pool with token2022", () => {
       },
       poolCreationFee: new BN(0),
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
