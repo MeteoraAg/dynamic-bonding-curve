@@ -297,11 +297,20 @@ impl LockedVestingParams {
     pub fn has_vesting(&self) -> bool {
         *self != LockedVestingParams::default()
     }
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, max_vesting_duration: u64) -> Result<()> {
         if self.has_vesting() {
             let total_amount = self.get_total_amount()?;
             require!(
                 self.frequency != 0 && total_amount != 0,
+                PoolError::InvalidVestingParameters
+            );
+
+            let vesting_duration = self
+                .cliff_duration_from_migration_time
+                .safe_add(self.frequency.safe_mul(self.number_of_period)?)?;
+
+            require!(
+                vesting_duration <= max_vesting_duration,
                 PoolError::InvalidVestingParameters
             );
         }
@@ -489,7 +498,7 @@ impl ConfigParameters {
         );
 
         // validate vesting params
-        self.locked_vesting.validate()?;
+        self.locked_vesting.validate(MAX_LOCK_DURATION_IN_SECONDS)?;
 
         // validate pool creation fee
         if self.pool_creation_fee > 0 {
