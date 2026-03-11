@@ -13,6 +13,7 @@ import {
   expectThrowsAsync,
   generateAndFund,
   getDbcProgramErrorCodeHexString,
+  MAX_LOCK_DURATION_IN_SECONDS,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   startSvm,
@@ -126,6 +127,54 @@ describe("Create config", () => {
     };
 
     await createConfig(svm, program, params);
+  });
+
+  it("Fail to create config with locked vesting duration exceeding max", async () => {
+    instructionParams.lockedVesting = {
+      amountPerPeriod: new BN(1),
+      cliffDurationFromMigrationTime: MAX_LOCK_DURATION_IN_SECONDS,
+      frequency: new BN(1),
+      numberOfPeriod: new BN(1),
+      cliffUnlockAmount: new BN(0),
+    };
+
+    const params: CreateConfigParams<ConfigParameters> = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: NATIVE_MINT,
+      instructionParams,
+    };
+
+    const errorCode =
+      getDbcProgramErrorCodeHexString("InvalidVestingParameters");
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, errorCode);
+  });
+
+  it("Fail to create config with locked vesting cliff duration overflow", async () => {
+    instructionParams.lockedVesting = {
+      amountPerPeriod: new BN(1),
+      cliffDurationFromMigrationTime: U64_MAX,
+      frequency: new BN(1),
+      numberOfPeriod: new BN(1),
+      cliffUnlockAmount: new BN(0),
+    };
+
+    const params: CreateConfigParams<ConfigParameters> = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: NATIVE_MINT,
+      instructionParams,
+    };
+
+    const errorCode =
+      getDbcProgramErrorCodeHexString("MathOverflow");
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, errorCode);
   });
 
   it("Fail to create config less than min base fee (25 bps)", async () => {
