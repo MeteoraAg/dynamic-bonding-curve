@@ -1040,7 +1040,13 @@ impl PoolConfig {
         match migrated_dynamic_fee {
             DammV2DynamicFee::Disable => Ok(None),
             DammV2DynamicFee::Enable => {
-                Ok(calculate_dynamic_fee_params(min_base_fee_numerator).ok())
+                if let Ok(params) = calculate_dynamic_fee_params(min_base_fee_numerator) {
+                    Ok(Some(params))
+                } else {
+                    // log could be truncated
+                    msg!("Undetermined Issues, fall back to none dynamic fee, min_base_fee_numerator: {}", min_base_fee_numerator);
+                    Ok(None)
+                }
             }
         }
     }

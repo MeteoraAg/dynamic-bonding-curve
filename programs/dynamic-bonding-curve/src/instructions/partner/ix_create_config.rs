@@ -274,7 +274,7 @@ impl LockedVestingParams {
         finish_curve_timestamp: u64,
     ) -> Result<CreateVestingEscrowParameters> {
         let cliff_time =
-            finish_curve_timestamp.safe_add(self.cliff_duration_from_migration_time)?;
+            finish_curve_timestamp.saturating_add(self.cliff_duration_from_migration_time);
         Ok(CreateVestingEscrowParameters {
             vesting_start_time: finish_curve_timestamp,
             cliff_time,
