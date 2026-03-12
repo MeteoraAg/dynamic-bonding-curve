@@ -68,23 +68,12 @@ impl MigrationHandler for ConcentratedLiquidity {
         _pool_quote_reserve: u64,
         _pool_liquidity: u128,
     ) -> Result<u128> {
-        let liquidity_from_base = get_initial_liquidity_from_delta_base(
+        // same as initial liquidity calculation
+        calculate_concentrated_initial_liquidity(
             base_amount,
-            MAX_SQRT_PRICE,
-            self.migration_sqrt_price,
-        )?;
-        let liquidity_from_quote = get_initial_liquidity_from_delta_quote(
             quote_amount,
-            MIN_SQRT_PRICE,
             self.migration_sqrt_price,
-        )?;
-        if liquidity_from_base > U512::from(liquidity_from_quote) {
-            Ok(liquidity_from_quote)
-        } else {
-            Ok(liquidity_from_base
-                .try_into()
-                .map_err(|_| PoolError::TypeCastFailed)?)
-        }
+        )
     }
 
     fn get_included_protocol_fee_migration_amounts_1(
