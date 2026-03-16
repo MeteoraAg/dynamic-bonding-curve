@@ -150,6 +150,7 @@ describe("Fixed token supply", () => {
       },
       migratedPoolBaseFeeMode: 0,
       enableFirstSwapWithMinFee: false,
+      compoundingFeeBps: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
     };
     const params: CreateConfigParams<ConfigParameters> = {

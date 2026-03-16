@@ -3,6 +3,7 @@ import { DynamicVault as Vault } from "./idl/dynamic_vault";
 import { DynamicAmm } from "../utils/idl/dynamic_amm";
 import { IdlAccounts, IdlTypes, Program } from "@coral-xyz/anchor";
 import { CpAmm as DammV2 } from "./idl/damm_v2";
+import { DynamicAmm as DammV1 } from "./idl/dynamic_amm";
 
 export type VirtualCurveProgram = Program<DynamicBondingCurve>;
 
@@ -17,6 +18,7 @@ export type ClaimFeeOperator =
 export type MeteoraDammMigrationMetadata =
   IdlAccounts<DynamicBondingCurve>["meteoraDammMigrationMetadata"];
 export type LockEscrow = IdlAccounts<DynamicAmm>["lockEscrow"];
+export type DammV1Pool = IdlAccounts<DammV1>["pool"];
 export type DammV2Pool = IdlAccounts<DammV2>["pool"];
 export type DynamicVault = IdlAccounts<Vault>["vault"];
 export type BorshFeeTimeScheduler = IdlTypes<DammV2>["borshFeeTimeScheduler"];

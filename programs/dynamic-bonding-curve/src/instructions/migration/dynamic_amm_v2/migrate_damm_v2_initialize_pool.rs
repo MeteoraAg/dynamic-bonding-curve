@@ -10,25 +10,25 @@ use damm_v2::{
         AddLiquidityParameters, InitializeCustomizablePoolParameters, InitializePoolParameters,
     },
 };
-use ruint::aliases::U512;
+use unchecked_account::unchecked_account::UncheckedAccount;
 
+use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
-    constants::{seeds::POSITION_VESTING_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    convert_collect_fee_mode_to_dammv2,
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
-    damm_v2_utils, flash_rent,
-    params::{fee_parameters::to_bps, liquidity_distribution::get_protocol_migration_fee},
-    safe_math::SafeMath,
+    flash_rent,
+    migration_handler::{self, get_migration_handler, InitialPoolInformation},
+    params::fee_parameters::to_bps,
+    safe_math::{SafeCast, SafeMath},
     state::{
-        LiquidityDistribution, LiquidityDistributionItem, MigrationAmount, MigrationFeeOption,
-        MigrationOption, MigrationProgress, PoolConfig, VirtualPool,
+        LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
+        MigrationProgress, PoolConfig, VirtualPool,
     },
     PoolError,
 };
-use damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
+use migration_handler::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
@@ -126,8 +126,6 @@ pub struct MigrateDammV2Ctx<'info> {
     pub system_program: Program<'info, System>,
     // Remaining accounts:
     // 0. [READ-ONLY] damm v2 config account
-    // 1. [OPTIONAL, WRITE] vesting account for first position
-    // 2. [OPTIONAL, WRITE] vesting account for second position
 }
 
 impl<'info> MigrateDammV2Ctx<'info> {
@@ -138,6 +136,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         sqrt_price: u128,
         bump: u8,
         migration_fee_option: MigrationFeeOption,
+        migrate_collect_fee_mode: MigratedCollectFeeMode,
         config: &PoolConfig,
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
@@ -151,9 +150,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     if migration_fee_option == MigrationFeeOption::Customizable {
                         let pool_fees = config.build_damm_v2_pool_fee_params()?;
 
-                        let collect_fee_mode =
-                            convert_collect_fee_mode_to_dammv2(config.migrated_collect_fee_mode)?;
-
                         let initialize_pool_params = InitializeCustomizablePoolParameters {
                             pool_fees,
                             sqrt_min_price: MIN_SQRT_PRICE,
@@ -162,7 +158,8 @@ impl<'info> MigrateDammV2Ctx<'info> {
                             liquidity,
                             sqrt_price,
                             activation_type: 1, // timestamp
-                            collect_fee_mode,
+                            collect_fee_mode: migrate_collect_fee_mode
+                                .to_dammv2_collect_fee_mode()?,
                             activation_point: None,
                         };
                         damm_v2::cpi::initialize_pool_with_dynamic_config(
@@ -255,7 +252,6 @@ impl<'info> MigrateDammV2Ctx<'info> {
         liquidity_distribution: &LiquidityDistributionItem,
         position: &AccountInfo<'info>,
         position_nft_account: &AccountInfo<'info>,
-        vesting_account: Option<&AccountInfo<'info>>,
         current_timestamp: u64,
     ) -> Result<()> {
         let mut called_functions: Vec<Box<dyn Fn() -> Result<()>>> = vec![];
@@ -284,45 +280,20 @@ impl<'info> MigrateDammV2Ctx<'info> {
             let vesting_params =
                 liquidity_distribution.get_damm_v2_vesting_parameters(current_timestamp)?;
 
-            let Some(vesting_account) = vesting_account.as_ref().map(|acc| acc.to_account_info())
-            else {
-                return Err(PoolError::InvalidAccount.into());
-            };
-
-            let position_key = position.key();
-            let (vesting_key, bump) = Pubkey::find_program_address(
-                &[POSITION_VESTING_PREFIX, position_key.as_ref()],
-                &crate::ID,
-            );
-
-            require!(
-                vesting_account.key.eq(&vesting_key),
-                PoolError::InvalidAccount
-            );
-
             called_functions.push(Box::new(move || {
                 let pool_authority_seeds = pool_authority_seeds!(BUMP);
-
-                let vesting_seeds = &[
-                    POSITION_VESTING_PREFIX.as_ref(),
-                    position_key.as_ref(),
-                    &[bump],
-                ];
-                damm_v2::cpi::lock_position(
+                damm_v2::cpi::lock_inner_position(
                     CpiContext::new_with_signer(
                         self.amm_program.to_account_info(),
-                        damm_v2::cpi::accounts::LockPosition {
+                        damm_v2::cpi::accounts::LockInnerPosition {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
                             position_nft_account: position_nft_account.clone(),
                             owner: self.pool_authority.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
                             program: self.amm_program.to_account_info(),
-                            payer: self.pool_authority.to_account_info(),
-                            system_program: self.system_program.to_account_info(),
-                            vesting: vesting_account.clone(),
                         },
-                        &[&pool_authority_seeds[..], &vesting_seeds[..]],
+                        &[&pool_authority_seeds[..]],
                     ),
                     vesting_params,
                 )
@@ -491,11 +462,6 @@ fn validate_config_key(
             migration_fee_option.validate_base_fee(base_fee_bps)?;
 
             require!(
-                damm_config.pool_fees.partner_fee_percent == 0,
-                PoolError::InvalidConfigAccount
-            );
-
-            require!(
                 damm_config.sqrt_min_price == MIN_SQRT_PRICE,
                 PoolError::InvalidConfigAccount
             );
@@ -571,40 +537,54 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
-    let migration_sqrt_price = config.migration_sqrt_price;
 
-    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
-    // Migration base threshold + buffer
-    let excluded_fee_base_reserve =
-        initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
+    let migrated_collect_fee_mode: MigratedCollectFeeMode =
+        config.migrated_collect_fee_mode.safe_cast()?;
 
-    let (protocol_migration_base_fee, protocol_migration_quote_fee) = get_protocol_migration_fee(
-        excluded_fee_base_reserve,
-        quote_amount,
-        migration_sqrt_price,
-        virtual_pool.protocol_liquidity_migration_fee_bps,
+    let liquidity_handler = get_migration_handler(
         MigrationOption::DammV2,
-    )?;
+        migrated_collect_fee_mode,
+        config.migration_sqrt_price,
+    );
+
+    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
+        liquidity_handler.get_included_protocol_fee_migration_amounts_2(
+            config.migration_base_threshold,
+            config.migration_quote_threshold,
+            config.migration_fee_percentage,
+            initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
+        )?;
+
+    let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
+        .get_migration_protocol_fees(
+            included_protocol_fee_migration_base_amount,
+            included_protocol_fee_migration_quote_amount,
+            virtual_pool.protocol_liquidity_migration_fee_bps,
+        )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
         protocol_migration_base_fee,
         protocol_migration_quote_fee,
     );
 
-    let migration_base_amount = excluded_fee_base_reserve.safe_sub(protocol_migration_base_fee)?;
-    let migration_quote_amount = quote_amount.safe_sub(protocol_migration_quote_fee)?;
+    let excluded_protocol_fee_migration_base_amount =
+        included_protocol_fee_migration_base_amount.safe_sub(protocol_migration_base_fee)?;
+    let excluded_protocol_fee_migration_quote_amount =
+        included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-    // calculate initial liquidity
-    let initial_liquidity = get_liquidity_for_adding_liquidity(
-        migration_base_amount,
-        migration_quote_amount,
-        migration_sqrt_price,
+    let InitialPoolInformation {
+        sqrt_price: pool_sqrt_price,
+        distributable_liquidity,
+        dead_liquidity,
+    } = liquidity_handler.get_initial_pool_information(
+        excluded_protocol_fee_migration_base_amount,
+        excluded_protocol_fee_migration_quote_amount,
     )?;
 
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
         creator: creator_liquidity_distribution,
-    } = config.get_liquidity_distribution(initial_liquidity)?;
+    } = config.get_liquidity_distribution(distributable_liquidity)?;
 
     let (
         first_position_liquidity_distribution,
@@ -634,10 +614,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     msg!("create pool");
     ctx.accounts.create_pool(
         ctx.remaining_accounts[0].clone(),
-        first_position_liquidity_distribution.get_total_liquidity()?,
-        config.migration_sqrt_price,
+        first_position_liquidity_distribution
+            .get_total_liquidity()?
+            .safe_add(dead_liquidity)?, // we add dead liquidity in first position liquidity
+        pool_sqrt_price,
         const_pda::pool_authority::BUMP,
         migration_fee_option,
+        migrated_collect_fee_mode,
         &config,
     )?;
 
@@ -647,7 +630,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             &first_position_liquidity_distribution,
             &ctx.accounts.first_position.to_account_info(),
             &ctx.accounts.first_position_nft_account.to_account_info(),
-            ctx.remaining_accounts.get(1),
             current_timestamp,
         )?;
     }
@@ -668,16 +650,24 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
+    let leftover_migration_base_amount =
+        excluded_protocol_fee_migration_base_amount.safe_sub(deposited_base_amount)?;
 
     let leftover_migration_quote_amount =
-        migration_quote_amount.safe_sub(deposited_quote_amount)?;
+        excluded_protocol_fee_migration_quote_amount.safe_sub(deposited_quote_amount)?;
 
-    let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
-        leftover_migration_base_amount,
-        leftover_migration_quote_amount,
-        migration_sqrt_price,
-    )?;
+    let liquidity_for_second_position = {
+        let damm_pool_loader: AccountLoader<'_, damm_v2::accounts::Pool> =
+            AccountLoader::try_from(ctx.accounts.pool.account_info())?;
+        let damm_pool = damm_pool_loader.load()?;
+        liquidity_handler.calculate_liquidity_delta(
+            leftover_migration_base_amount,
+            leftover_migration_quote_amount,
+            damm_pool.token_a_amount,
+            damm_pool.token_b_amount,
+            damm_pool.liquidity,
+        )?
+    };
 
     if liquidity_for_second_position > 0 {
         second_position_liquidity_distribution.adjust_liquidity(liquidity_for_second_position)?;
@@ -710,7 +700,6 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
                 &second_position_liquidity_distribution,
                 &second_position,
                 &second_position_nft_account,
-                ctx.remaining_accounts.get(2),
                 current_timestamp,
             )?;
         }
@@ -761,22 +750,4 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     // TODO emit event
 
     Ok(())
-}
-
-pub(crate) fn get_liquidity_for_adding_liquidity(
-    base_amount: u64,
-    quote_amount: u64,
-    sqrt_price: u128,
-) -> Result<u128> {
-    let liquidity_from_base =
-        get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, sqrt_price)?;
-    let liquidity_from_quote =
-        get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, sqrt_price)?;
-    if liquidity_from_base > U512::from(liquidity_from_quote) {
-        Ok(liquidity_from_quote)
-    } else {
-        Ok(liquidity_from_base
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?)
-    }
 }

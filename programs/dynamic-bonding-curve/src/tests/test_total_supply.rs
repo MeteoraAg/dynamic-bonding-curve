@@ -2,10 +2,12 @@ use std::ops::Shl;
 
 use crate::{
     constants::MAX_SQRT_PRICE,
-    curve::{get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote},
+    migration_handler::{
+        get_initial_liquidity_from_delta_base, get_initial_liquidity_from_delta_quote,
+        get_migration_handler, MigratedCollectFeeMode,
+    },
     params::liquidity_distribution::{
-        get_base_token_for_swap, get_migration_base_token, get_migration_threshold_price,
-        LiquidityDistributionParameters,
+        get_base_token_for_swap, get_migration_threshold_price, LiquidityDistributionParameters,
     },
     state::{MigrationOption, PoolConfig},
     LockedVestingParams,
@@ -78,14 +80,16 @@ fn get_constant_product_curve(
     locked_vesting: LockedVestingParams,
 ) -> ConstantProductParams {
     let migration_price = (migration_quote_threshold as f64) / (migration_amount as f64);
-    let migration_sqrt_price = get_sqrt_price_from_price(migration_price); //round up to reduce base token
-    let migration_base_amount = get_migration_base_token(
-        migration_quote_threshold,
-        0,
-        migration_sqrt_price,
+    let migration_sqrt_price = get_sqrt_price_from_price(migration_price);
+
+    let liquidity_handler = get_migration_handler(
         migration_option,
-    )
-    .unwrap();
+        MigratedCollectFeeMode::OutputToken,
+        migration_sqrt_price,
+    );
+    let (migration_base_amount, _) = liquidity_handler
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
+        .unwrap();
 
     let swap_amount = total_supply
         .checked_sub(migration_base_amount)
@@ -143,23 +147,24 @@ fn get_total_supply_from_curve(
     locked_vesting: LockedVestingParams,
     migration_option: MigrationOption,
 ) -> u64 {
-    let sqrt_migration_price =
+    let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
 
     let swap_base_amount_256 =
-        get_base_token_for_swap(sqrt_start_price, sqrt_migration_price, &curve).unwrap();
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve).unwrap();
     let swap_base_amount: u64 = swap_base_amount_256.try_into().unwrap();
     let swap_base_amount_buffer =
         PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, &curve)
             .unwrap();
 
-    let migration_base_amount = get_migration_base_token(
-        migration_quote_threshold,
-        0,
-        sqrt_migration_price,
+    let liquidity_handler = get_migration_handler(
         migration_option,
-    )
-    .unwrap();
+        MigratedCollectFeeMode::Compounding,
+        migration_sqrt_price,
+    );
+    let (migration_base_amount, _) = liquidity_handler
+        .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
+        .unwrap();
 
     let minimum_base_supply_with_buffer = PoolConfig::get_total_token_supply(
         swap_base_amount_buffer,

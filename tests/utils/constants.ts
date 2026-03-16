@@ -29,6 +29,18 @@ export const LOCKER_PROGRAM_ID = new PublicKey(
   "LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn"
 );
 
+export const ZAP_PROGRAM_ID = new PublicKey(
+  "zapvX9M3uf5pvy4wRPAbQgdQsM1xmuiFnkfHKPvwMiz"
+);
+
+export const JUPITER_V6_PROGRAM_ID = new PublicKey(
+  "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+);
+
+export const JUP_V6_EVENT_AUTHORITY = new PublicKey(
+  "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"
+);
+
 export const BASIS_POINT_MAX = 10_000;
 export const OFFSET = 64;
 export const U64_MAX = new BN("18446744073709551615");

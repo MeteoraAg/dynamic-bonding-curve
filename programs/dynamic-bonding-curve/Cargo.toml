@@ -1,6 +1,6 @@
 [package]
 name = "dynamic-bonding-curve"
-version = "0.1.9"
+version = "0.1.10"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -32,6 +32,8 @@ spl-token-metadata-interface = "0.6"
 dynamic-amm = { path = "../../libs/dynamic-amm" }
 damm-v2 = { path = "../../libs/damm-v2" }
 locker = { path = "../../libs/locker" }
+protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58b317b9a85f212c0de72caea286fc72fdb4" }
+unchecked_account = { git = "https://github.com/MeteoraAg/anchor-patches.git", rev = "ed053964b49b2832beb9891be0f5b353e2317777" }
 
 [dev-dependencies]
 proptest = "1.2.0"

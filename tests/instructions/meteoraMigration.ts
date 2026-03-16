@@ -71,7 +71,7 @@ export async function migrateToMeteoraDamm(
 ): Promise<any> {
   const { payer, virtualPool, dammConfig } = params;
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault)!;
   const poolAuthority = derivePoolAuthority();
   const migrationMetadata = deriveMigrationMetadataAddress(virtualPool);
 
@@ -173,7 +173,7 @@ export async function lockLpForCreatorDamm(
 ): Promise<PublicKey> {
   const { payer, virtualPool, dammConfig } = params;
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault)!;
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,
@@ -273,7 +273,7 @@ export async function lockLpForPartnerDamm(
 ): Promise<PublicKey> {
   const { payer, virtualPool, dammConfig } = params;
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault);
+  const quoteMintInfo = getTokenAccount(svm, virtualPoolState.quoteVault)!;
   const dammPool = deriveDammPoolAddress(
     dammConfig,
     virtualPoolState.baseMint,

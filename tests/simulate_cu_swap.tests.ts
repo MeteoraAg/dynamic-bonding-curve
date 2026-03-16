@@ -108,6 +108,7 @@ describe("Simulate CU swap", () => {
           frequency: 0,
         },
         enableFirstSwapWithMinFee: false,
+        compoundingFeeBps: 0,
         migratedPoolBaseFeeMode: 0,
         migratedPoolMarketCapFeeSchedulerParams: null,
       };

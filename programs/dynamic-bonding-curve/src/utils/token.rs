@@ -18,7 +18,7 @@ use anchor_spl::{
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
-use crate::safe_math::SafeMath;
+use crate::safe_math::{SafeCast, SafeMath};
 use crate::state::VirtualPool;
 use crate::PoolError;
 
@@ -40,6 +40,14 @@ pub fn get_token_program_flags<'a, 'info>(
         TokenProgramFlags::TokenProgram
     } else {
         TokenProgramFlags::TokenProgram2022
+    }
+}
+
+pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
+    let token_program_flag: TokenProgramFlags = token_program_flag.safe_cast()?;
+    match token_program_flag {
+        TokenProgramFlags::TokenProgram => Ok(anchor_spl::token::ID),
+        TokenProgramFlags::TokenProgram2022 => Ok(anchor_spl::token_2022::ID),
     }
 }
 
