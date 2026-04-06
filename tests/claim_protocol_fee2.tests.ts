@@ -1,23 +1,23 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { expect } from "chai";
 import {
   claimProtocolFee2,
-  createOperatorAccount,
-  OperatorPermission,
+  createPoolWithSplToken,
+  swap,
+  SwapMode,
 } from "./instructions";
 import {
-  createDammV2Operator,
   createDbcConfig,
-  createPoolAndSwapForMigration,
   createVirtualCurveProgram,
-  dammV2Migration,
-  DammV2OperatorPermission,
-  encodePermissions,
   expectThrowsAsync,
   generateAndFund,
   getOrCreateAta,
   startSvm,
 } from "./utils";
-import { getConfig } from "./utils/fetcher";
+import { wrapSOL } from "./utils/token";
+import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { VirtualCurveProgram } from "./utils/types";
 
 import { LiteSVM } from "litesvm";
@@ -32,7 +32,7 @@ describe("Claim protocol fee 2", () => {
   let poolCreator: Keypair;
   let program: VirtualCurveProgram;
   let config: PublicKey;
-  let virtualPoolAddress: PublicKey;
+  let virtualPool: PublicKey;
 
   before(async () => {
     svm = startSvm();
@@ -42,53 +42,61 @@ describe("Claim protocol fee 2", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    const fullPermissions = Object.values(OperatorPermission).filter(
-      (v): v is OperatorPermission => typeof v === "number"
-    );
-
-    await createOperatorAccount(svm, program, {
-      admin,
-      whitelistedAddress: operator.publicKey,
-      permissions: fullPermissions,
-    });
-
-    await createDammV2Operator(svm, {
-      whitelistAddress: admin.publicKey,
-      admin,
-      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
-    });
-
-    const migrationOptionDammV2 = 1;
-    const customizableMigrationFeeOption = 6;
-
     config = await createDbcConfig(
       svm,
       program,
-      migrationOptionDammV2,
-      customizableMigrationFeeOption,
-      {
-        poolFeeBps: 100,
-        collectFeeMode: 0,
-        dynamicFee: 0,
-      },
+      1,
+      6,
+      { poolFeeBps: 100, collectFeeMode: 0, dynamicFee: 0 },
       partner
     );
 
-    virtualPoolAddress = await createPoolAndSwapForMigration(
-      svm,
-      program,
-      config,
-      poolCreator
-    );
-
-    await dammV2Migration(
-      svm,
-      program,
+    virtualPool = await createPoolWithSplToken(svm, program, {
+      payer: poolCreator,
       poolCreator,
-      admin,
-      virtualPoolAddress,
-      config
-    );
+      quoteMint: NATIVE_MINT,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+
+    const baseMint = getVirtualPool(svm, program, virtualPool).baseMint;
+
+    wrapSOL(svm, poolCreator, new BN(LAMPORTS_PER_SOL * 10));
+
+    const swapBuy = {
+      config,
+      payer: poolCreator,
+      pool: virtualPool,
+      inputTokenMint: NATIVE_MINT,
+      outputTokenMint: baseMint,
+      amountIn: new BN(LAMPORTS_PER_SOL * 2),
+      minimumAmountOut: new BN(0),
+      swapMode: SwapMode.PartialFill,
+      referralTokenAccount: null,
+    };
+
+    const swapSell = {
+      config,
+      payer: poolCreator,
+      pool: virtualPool,
+      inputTokenMint: baseMint,
+      outputTokenMint: NATIVE_MINT,
+      amountIn: new BN(1_000_000),
+      minimumAmountOut: new BN(0),
+      swapMode: SwapMode.PartialFill,
+      referralTokenAccount: null,
+    };
+
+    await swap(svm, program, swapBuy);
+    await swap(svm, program, swapSell);
+
+    const poolState = getVirtualPool(svm, program, virtualPool);
+    expect(poolState.protocolBaseFee.gtn(0)).to.be.true;
+    expect(poolState.protocolQuoteFee.gtn(0)).to.be.true;
   });
 
   it("rejects when signed by operator (not protocol_fee_authority)", async () => {
@@ -105,7 +113,7 @@ describe("Claim protocol fee 2", () => {
       () =>
         claimProtocolFee2(svm, program, {
           signerKP: operator,
-          pool: virtualPoolAddress,
+          pool: virtualPool,
           isTokenBase: false,
           receiverTokenAccount,
         }),
@@ -127,8 +135,8 @@ describe("Claim protocol fee 2", () => {
       () =>
         claimProtocolFee2(svm, program, {
           signerKP: admin,
-          pool: virtualPoolAddress,
-          isTokenBase: false,
+          pool: virtualPool,
+          isTokenBase: true,
           receiverTokenAccount,
         }),
       ANCHOR_CONSTRAINT_ADDRESS_ERROR
