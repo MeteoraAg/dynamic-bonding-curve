@@ -47,5 +47,9 @@ export const U64_MAX = new BN("18446744073709551615");
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
+export const PROTOCOL_FEE_PROGRAM_ID = new PublicKey(
+  "pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA"
+);
+
 export const FEE_DENOMINATOR = new BN(1_000_000_000);
 export const FLASH_RENT_FUND = 1e9;

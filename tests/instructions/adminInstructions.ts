@@ -1,9 +1,7 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
-  getClaimFeeOperator,
   getConfig,
   getOrCreateAssociatedTokenAccount,
   getTokenAccount,
@@ -12,11 +10,7 @@ import {
   TREASURY,
   U64_MAX,
 } from "../utils";
-import {
-  deriveClaimFeeOperatorAddress,
-  deriveOperatorAddress,
-  derivePoolAuthority,
-} from "../utils/accounts";
+import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
 import { VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
 
@@ -123,21 +117,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        poolState.baseMint,
-        TREASURY,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        quoteMintInfo.mint,
-        TREASURY,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      poolState.baseMint,
+      TREASURY,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      quoteMintInfo.mint,
+      TREASURY,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -162,4 +156,51 @@ export async function claimProtocolFee(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export type ClaimProtocolFee2Params = {
+  signerKP: Keypair;
+  pool: PublicKey;
+  isTokenBase: boolean;
+  receiverTokenAccount: PublicKey;
+  maxAmount?: BN;
+};
+
+export async function claimProtocolFee2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimProtocolFee2Params
+) {
+  const { signerKP, pool, isTokenBase, receiverTokenAccount } = params;
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
+  const poolAuthority = derivePoolAuthority();
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  const tokenQuoteProgram =
+    configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const maxAmount =
+    params.maxAmount ??
+    (isTokenBase ? poolState.protocolBaseFee : poolState.protocolQuoteFee);
+
+  const transaction = await program.methods
+    .claimProtocolFee2(maxAmount)
+    .accountsPartial({
+      poolAuthority,
+      config: poolState.config,
+      pool,
+      receiverTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint: configState.quoteMint,
+      signer: signerKP.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [signerKP]);
 }
