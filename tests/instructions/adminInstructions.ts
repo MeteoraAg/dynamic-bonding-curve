@@ -11,7 +11,7 @@ import {
   U64_MAX,
 } from "../utils";
 import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
-import { VirtualCurveProgram } from "../utils/types";
+import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
 
 export enum OperatorPermission {
@@ -158,6 +158,32 @@ export async function claimProtocolFee(
   sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
+const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80;
+
+function getClaimableProtocolAmount(
+  pool: Pool,
+  config: PoolConfig,
+  isTokenBase: boolean
+): BN {
+  if (isTokenBase) {
+    return pool.protocolBaseFee.add(pool.protocolMigrationBaseFeeAmount);
+  }
+
+  let amount = pool.protocolQuoteFee.add(pool.protocolMigrationQuoteFeeAmount);
+
+  const isCurveComplete = pool.quoteReserve.gte(config.migrationQuoteThreshold);
+  if (pool.isProtocolWithdrawSurplus === 0 && isCurveComplete) {
+    const totalSurplus = pool.quoteReserve.sub(config.migrationQuoteThreshold);
+    const partnerAndCreatorSurplus = totalSurplus
+      .muln(PARTNER_AND_CREATOR_SURPLUS_SHARE)
+      .divn(100);
+    const protocolSurplus = totalSurplus.sub(partnerAndCreatorSurplus);
+    amount = amount.add(protocolSurplus);
+  }
+
+  return amount;
+}
+
 export type ClaimProtocolFee2Params = {
   signerKP: Keypair;
   pool: PublicKey;
@@ -183,7 +209,7 @@ export async function claimProtocolFee2(
 
   const maxAmount =
     params.maxAmount ??
-    (isTokenBase ? poolState.protocolBaseFee : poolState.protocolQuoteFee);
+    getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
   const transaction = await program.methods
     .claimProtocolFee2(maxAmount)
