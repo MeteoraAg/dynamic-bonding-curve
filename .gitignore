@@ -9,3 +9,5 @@ test-ledger
 proptest-regressions
 
 deploy.sh
+
+.notes
