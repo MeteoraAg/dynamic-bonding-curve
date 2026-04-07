@@ -1,4 +1,5 @@
-#![allow(unexpected_cfgs)]
+// Ignored due to https://github.com/solana-foundation/anchor/issues/4378
+#![allow(deprecated)]
 
 use anchor_lang::prelude::*;
 
@@ -125,15 +126,15 @@ pub mod dynamic_bonding_curve {
     }
 
     /// POOL CREATOR FUNCTIONS ////
-    pub fn initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
+    pub fn initialize_virtual_pool_with_spl_token<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_virtual_pool_with_spl_token(ctx, params)
     }
 
-    pub fn initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
+    pub fn initialize_virtual_pool_with_token2022<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
@@ -163,9 +164,7 @@ pub mod dynamic_bonding_curve {
     }
 
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
-    pub fn transfer_pool_creator<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, TransferPoolCreatorCtx>,
-    ) -> Result<()> {
+    pub fn transfer_pool_creator<'info>(ctx: Context<'info, TransferPoolCreatorCtx>) -> Result<()> {
         instructions::handle_transfer_pool_creator(ctx)
     }
 
@@ -175,10 +174,7 @@ pub mod dynamic_bonding_curve {
     }
 
     /// TRADING BOTS FUNCTIONS ////
-    pub fn swap<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
-        params: SwapParameters,
-    ) -> Result<()> {
+    pub fn swap<'info>(ctx: Context<'info, SwapCtx<'info>>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap_wrapper(
             ctx,
             SwapParameters2 {
@@ -189,8 +185,8 @@ pub mod dynamic_bonding_curve {
         )
     }
 
-    pub fn swap2<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+    pub fn swap2<'info>(
+        ctx: Context<'info, SwapCtx<'info>>,
         params: SwapParameters2,
     ) -> Result<()> {
         instructions::handle_swap_wrapper(ctx, params)
@@ -208,26 +204,26 @@ pub mod dynamic_bonding_curve {
     }
 
     /// migrate damm v1
-    pub fn migration_meteora_damm_create_metadata<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrationMeteoraDammCreateMetadataCtx<'info>>,
+    pub fn migration_meteora_damm_create_metadata<'info>(
+        ctx: Context<'info, MigrationMeteoraDammCreateMetadataCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migration_meteora_damm_create_metadata(ctx)
     }
 
-    pub fn migrate_meteora_damm<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammCtx<'info>>,
+    pub fn migrate_meteora_damm<'info>(
+        ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migrate_meteora_damm(ctx)
     }
 
-    pub fn migrate_meteora_damm_lock_lp_token<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
+    pub fn migrate_meteora_damm_lock_lp_token<'info>(
+        ctx: Context<'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migrate_meteora_damm_lock_lp_token(ctx)
     }
 
-    pub fn migrate_meteora_damm_claim_lp_token<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
+    pub fn migrate_meteora_damm_claim_lp_token<'info>(
+        ctx: Context<'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migrate_meteora_damm_claim_lp_token(ctx)
     }
@@ -237,15 +233,13 @@ pub mod dynamic_bonding_curve {
         since = "0.1.7",
         note = "It's unneeded. Will be removed in next release version"
     )]
-    pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrationDammV2CreateMetadataCtx<'info>>,
+    pub fn migration_damm_v2_create_metadata<'info>(
+        ctx: Context<'info, MigrationDammV2CreateMetadataCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migration_damm_v2_create_metadata(ctx)
     }
 
-    pub fn migration_damm_v2<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, MigrateDammV2Ctx<'info>>,
-    ) -> Result<()> {
+    pub fn migration_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
         instructions::handle_migrate_damm_v2(ctx)
     }
 }

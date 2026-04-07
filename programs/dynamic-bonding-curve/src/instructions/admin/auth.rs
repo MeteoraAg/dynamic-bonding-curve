@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 pub mod admin {
-    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
+    use anchor_lang::prelude::*;
 
     pub const ADMINS: [Pubkey; 2] = [
         pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
@@ -10,7 +10,7 @@ pub mod admin {
 }
 
 pub mod treasury {
-    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
+    use anchor_lang::prelude::*;
 
     // https://app.squads.so/squads/6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm/treasury
     pub const ID: Pubkey = pubkey!("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm");

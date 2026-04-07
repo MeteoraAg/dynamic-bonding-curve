@@ -83,7 +83,7 @@ impl<'info> MigrateMeteoraDammLockLpTokenCtx<'info> {
             || {
                 dynamic_amm::cpi::lock(
                     CpiContext::new_with_signer(
-                        self.amm_program.to_account_info(),
+                        *self.amm_program.key,
                         dynamic_amm::cpi::accounts::Lock {
                             pool: self.pool.to_account_info(),
                             lp_mint: self.lp_mint.to_account_info(),
@@ -111,7 +111,7 @@ impl<'info> MigrateMeteoraDammLockLpTokenCtx<'info> {
     }
 }
 pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
-    ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
+    ctx: Context<'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
 ) -> Result<()> {
     let virtual_pool = ctx.accounts.virtual_pool.load()?;
 

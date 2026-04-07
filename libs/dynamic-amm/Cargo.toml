@@ -7,5 +7,11 @@ edition = "2021"
 [lib]
 doctest = false
 
+[lints]
+workspace = true
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+
 [dependencies]
 anchor-lang = { workspace = true }

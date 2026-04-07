@@ -23,7 +23,7 @@ import {
 import { getVirtualPool } from "./utils/fetcher";
 import { PoolConfig, VirtualCurveProgram } from "./utils/types";
 
-import { BN, IdlAccounts } from "@coral-xyz/anchor";
+import { BN, IdlAccounts } from "@anchor-lang/core";
 import { expect } from "chai";
 import Decimal from "decimal.js";
 import { LiteSVM } from "litesvm";

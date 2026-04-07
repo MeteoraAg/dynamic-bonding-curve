@@ -1,17 +1,18 @@
 {
+  "type": "module",
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "test": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/*.tests.ts",
-    "ctest": "anchor build -p dynamic_bonding_curve -- --features local && yarn run ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/backwards_compatibility/*.tests.ts"
+    "test": "anchor build -p dynamic_bonding_curve --ignore-keys -- --features local && bunx ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/*.tests.ts",
+    "ctest": "anchor build -p dynamic_bonding_curve --ignore-keys -- --features local && bunx ts-mocha --runInBand -p ./tsconfig.json -t 1000000 tests/backwards_compatibility/*.tests.ts",
+    "ixdata": "bunx tsx --tsconfig ./tsconfig.json ./scripts/generate_ix_data_for_tests.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.0",
+    "@anchor-lang/core": "^1.0.0",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0"
   },
   "devDependencies": {
-    "@coral-xyz/borsh": "^0.31.0",
-    "@coral-xyz/anchor-errors": "^0.31.0",
+    "@anchor-lang/borsh": "^1.0.0",
     "@solana/spl-token": "^0.4.8",
     "@solana/spl-token-metadata": "^0.1.6",
     "@solana/web3.js": "^1.98.2",

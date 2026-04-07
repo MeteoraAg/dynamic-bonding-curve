@@ -57,7 +57,7 @@ impl<'info> MigrateMeteoraDammClaimLpTokenCtx<'info> {
 
         transfer(
             CpiContext::new_with_signer(
-                self.token_program.to_account_info(),
+                *self.token_program.key,
                 Transfer {
                     from: self.source_token.to_account_info(),
                     to: self.destination_token.to_account_info(),
@@ -72,7 +72,7 @@ impl<'info> MigrateMeteoraDammClaimLpTokenCtx<'info> {
     }
 }
 pub fn handle_migrate_meteora_damm_claim_lp_token<'info>(
-    ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
+    ctx: Context<'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
 ) -> Result<()> {
     let virtual_pool = ctx.accounts.virtual_pool.load()?;
 
