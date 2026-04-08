@@ -9,12 +9,17 @@ use crate::{
 };
 
 /// Accounts for claiming protocol fees via protocol_fee program
-#[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolFee2Ctx<'info> {
-    /// CHECK: pool authority
-    #[account(address = const_pda::pool_authority::ID)]
-    pub pool_authority: UncheckedAccount<'info>,
+    /// receiver token account for the claimed token. validated through the protocol_fee program
+    #[account(mut)]
+    pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    pub token_base_program: Interface<'info, TokenInterface>,
+    pub token_quote_program: Interface<'info, TokenInterface>,
 
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
@@ -28,23 +33,17 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     )]
     pub pool: AccountLoader<'info, VirtualPool>,
 
-    /// receiver token account for the claimed token. validated through the protocol_fee program
-    #[account(mut)]
-    pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
     #[account(mut)]
     pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut)]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
-    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
+    /// CHECK: pool authority
+    #[account(address = const_pda::pool_authority::ID)]
+    pub pool_authority: UncheckedAccount<'info>,
 
     #[account(address = const_pda::protocol_fee_authority::ID)]
     pub signer: Signer<'info>,
-
-    pub token_base_program: Interface<'info, TokenInterface>,
-    pub token_quote_program: Interface<'info, TokenInterface>,
 }
 
 fn get_claim_direction_and_validate_accounts(
@@ -103,9 +102,6 @@ pub fn handle_claim_protocol_fee2(
         return Ok(());
     }
 
-    drop(pool);
-    drop(config);
-
     let (token_vault, token_mint, token_program) = if is_claiming_base {
         (
             &ctx.accounts.base_vault,
@@ -129,7 +125,7 @@ pub fn handle_claim_protocol_fee2(
         amount,
     )?;
 
-    emit_cpi!(EvtClaimProtocolFee2 {
+    emit!(EvtClaimProtocolFee2 {
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
         token_mint: token_mint.key(),
