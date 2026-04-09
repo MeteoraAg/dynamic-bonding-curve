@@ -1,11 +1,11 @@
-use std::u128;
-
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::token_interface::Mint;
 use damm_v2::constants::MAX_BASIS_POINT;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
 
+#[allow(deprecated)]
+use crate::event::*;
 use crate::{
     activation_handler::ActivationType,
     constants::{
@@ -35,7 +35,7 @@ use crate::{
     token::{get_token_program_flags, is_supported_quote_mint},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
-    EvtCreateConfig, EvtCreateConfigV2, PoolError,
+    PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -752,39 +752,42 @@ pub fn handle_create_config(
         PoolError::InvalidMigrationLockedLiquidity
     );
 
-    emit_cpi!(EvtCreateConfig {
-        config: ctx.accounts.config.key(),
-        fee_claimer: ctx.accounts.fee_claimer.key(),
-        quote_mint: ctx.accounts.quote_mint.key(),
-        owner: ctx.accounts.leftover_receiver.key(),
-        pool_fees,
-        collect_fee_mode,
-        migration_option,
-        activation_type,
-        token_decimal,
-        token_type,
-        partner_permanent_locked_liquidity_percentage,
-        partner_liquidity_percentage,
-        creator_permanent_locked_liquidity_percentage,
-        creator_liquidity_percentage,
-        swap_base_amount,
-        migration_quote_threshold,
-        migration_base_amount: included_protocol_fee_migration_base_amount,
-        sqrt_start_price,
-        fixed_token_supply_flag,
-        pre_migration_token_supply,
-        post_migration_token_supply,
-        locked_vesting,
-        migration_fee_option,
-        curve
-    });
+    #[allow(deprecated)]
+    {
+        emit_cpi!(EvtCreateConfig {
+            config: ctx.accounts.config.key(),
+            fee_claimer: ctx.accounts.fee_claimer.key(),
+            quote_mint: ctx.accounts.quote_mint.key(),
+            owner: ctx.accounts.leftover_receiver.key(),
+            pool_fees,
+            collect_fee_mode,
+            migration_option,
+            activation_type,
+            token_decimal,
+            token_type,
+            partner_permanent_locked_liquidity_percentage,
+            partner_liquidity_percentage,
+            creator_permanent_locked_liquidity_percentage,
+            creator_liquidity_percentage,
+            swap_base_amount,
+            migration_quote_threshold,
+            migration_base_amount: included_protocol_fee_migration_base_amount,
+            sqrt_start_price,
+            fixed_token_supply_flag,
+            pre_migration_token_supply,
+            post_migration_token_supply,
+            locked_vesting,
+            migration_fee_option,
+            curve
+        });
+    }
 
     emit_cpi!(EvtCreateConfigV2 {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
-        config_parameters: config_parameters
+        config_parameters
     });
 
     Ok(())

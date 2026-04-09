@@ -1,7 +1,7 @@
 import { DynamicBondingCurve } from "../../target/types/dynamic_bonding_curve";
 import { DynamicVault as Vault } from "./idl/dynamic_vault";
 import { DynamicAmm } from "../utils/idl/dynamic_amm";
-import { IdlAccounts, IdlTypes, Program } from "@coral-xyz/anchor";
+import { IdlAccounts, IdlTypes, Program } from "@anchor-lang/core";
 import { CpAmm as DammV2 } from "./idl/damm_v2";
 import { DynamicAmm as DammV1 } from "./idl/dynamic_amm";
 

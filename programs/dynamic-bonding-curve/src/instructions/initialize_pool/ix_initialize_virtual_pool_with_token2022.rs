@@ -7,10 +7,11 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    event::EvtInitializePool,
     state::fee::VolatilityTracker,
     state::{PoolConfig, PoolType, TokenType, VirtualPool},
     token::update_account_lamports_to_minimum_balance,
-    EvtInitializePool, PoolError,
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
@@ -35,7 +36,7 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     #[account(
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 
@@ -116,8 +117,8 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
+pub fn handle_initialize_virtual_pool_with_token2022<'info>(
+    ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
@@ -150,11 +151,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     };
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     let signer_seeds = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
 
     // transfer minimum rent to mint account
@@ -171,7 +169,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.pool_authority.to_account_info(),
                 account_or_mint: ctx.accounts.base_mint.to_account_info(),
@@ -188,7 +186,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     token_metadata_update_authority(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::TokenMetadataUpdateAuthority {
                 program_id: ctx.accounts.token_program.to_account_info(),
                 metadata: ctx.accounts.base_mint.to_account_info(),
@@ -210,7 +208,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     mint_to(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             MintTo {
                 mint: ctx.accounts.base_mint.to_account_info(),
                 to: ctx.accounts.base_vault.to_account_info(),
@@ -227,7 +225,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.pool_authority.to_account_info(),
                 account_or_mint: ctx.accounts.base_mint.to_account_info(),

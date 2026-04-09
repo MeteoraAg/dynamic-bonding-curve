@@ -48,8 +48,8 @@ import {
 } from "./utils/fetcher";
 import { DammV1Pool, DammV2Pool, VirtualCurveProgram } from "./utils/types";
 
-import * as borsh from "@coral-xyz/borsh";
-import { BN } from "@coral-xyz/anchor";
+import * as borsh from "@anchor-lang/borsh";
+import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import { getOrCreateAssociatedTokenAccount } from "./utils/token";

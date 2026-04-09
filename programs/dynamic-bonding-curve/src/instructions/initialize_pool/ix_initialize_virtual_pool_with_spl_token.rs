@@ -17,10 +17,11 @@ use crate::{
         MIN_LOCKED_LIQUIDITY_BPS,
     },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
+    event::EvtInitializePool,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
     token::transfer_lamports_from_user,
-    EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
+    PoolError, ProcessCreateTokenMetadataParams,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -50,7 +51,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 
@@ -137,8 +138,8 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
+pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
+    ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
@@ -190,7 +191,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     anchor_spl::token::mint_to(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             MintTo {
                 mint: ctx.accounts.base_mint.to_account_info(),
                 to: ctx.accounts.base_vault.to_account_info(),
@@ -207,7 +208,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.pool_authority.to_account_info(),
                 account_or_mint: ctx.accounts.base_mint.to_account_info(),

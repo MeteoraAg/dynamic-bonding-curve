@@ -10,10 +10,13 @@ description = "dynamic bonding curve sdk"
 crate-type = ["cdylib", "lib"]
 name = "dynamic_bonding_curve_sdk"
 
+[lints]
+workspace = true
+
 [dependencies]
-anyhow = "1.0.71"
-dynamic-bonding-curve = { path = "../programs/dynamic-bonding-curve" }
-ruint =  { workspace = true }
+anyhow = { workspace = true }
+dynamic-bonding-curve = { workspace = true }
+ruint = { workspace = true }
 
 [dev-dependencies]
 bytemuck = { workspace = true }

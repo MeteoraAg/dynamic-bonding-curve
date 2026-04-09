@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
 
+### Changed
+
+- Update anchor to 1.0.0
+
 ## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
 
 ### Added

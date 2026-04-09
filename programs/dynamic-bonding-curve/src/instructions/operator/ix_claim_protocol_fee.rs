@@ -3,9 +3,10 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
+    event::EvtClaimProtocolFee,
     state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
-    treasury, EvtClaimProtocolFee,
+    treasury,
 };
 
 /// Accounts for withdraw protocol fees
@@ -16,7 +17,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     #[account(has_one=quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,

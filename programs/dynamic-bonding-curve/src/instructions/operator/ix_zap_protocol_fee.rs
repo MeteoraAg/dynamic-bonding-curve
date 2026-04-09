@@ -5,12 +5,12 @@ use crate::{
     treasury, PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use protocol_zap::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, utils::validate_zap_out_to_treasury};
+use solana_instructions_sysvar::ID as SYSVAR_IX_ID;
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
@@ -46,7 +46,7 @@ pub struct ZapProtocolFee<'info> {
     #[account(
         address = SYSVAR_IX_ID,
     )]
-    pub sysvar_instructions: AccountInfo<'info>,
+    pub sysvar_instructions: UncheckedAccount<'info>,
 }
 
 fn validate_accounts_and_return_withdraw_direction<'info>(

@@ -20,7 +20,7 @@ pub struct CreateLockerCtx<'info> {
         mut,
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
     /// CHECK: base_vault
     #[account(
         mut,
@@ -99,7 +99,7 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
                 msg!("create vesting escrow for creator");
                 locker::cpi::create_vesting_escrow_v2(
                     CpiContext::new_with_signer(
-                        ctx.accounts.locker_program.to_account_info(),
+                        ctx.accounts.locker_program.key(),
                         CreateVestingEscrowV2 {
                             base: ctx.accounts.base.to_account_info(), // use payer token account for base key, unique
                             escrow: ctx.accounts.escrow.to_account_info(),

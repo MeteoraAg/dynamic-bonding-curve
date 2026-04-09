@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 
 use crate::{
+    event::EvtUpdatePoolCreator,
     state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
-    EvtUpdatePoolCreator, MeteoraDammMigrationMetadata, PoolError,
+    MeteoraDammMigrationMetadata, PoolError,
 };
 
 /// Accounts for transfer pool creator
@@ -26,8 +27,8 @@ pub struct TransferPoolCreatorCtx<'info> {
     pub new_creator: UncheckedAccount<'info>,
 }
 
-pub fn handle_transfer_pool_creator<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, TransferPoolCreatorCtx>,
+pub fn handle_transfer_pool_creator<'info>(
+    ctx: Context<'info, TransferPoolCreatorCtx>,
 ) -> Result<()> {
     let mut pool = ctx.accounts.virtual_pool.load_mut()?;
 
