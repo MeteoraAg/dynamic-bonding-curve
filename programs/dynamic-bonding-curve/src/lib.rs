@@ -54,6 +54,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
+    #[deprecated(
+        since = "0.1.11",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_fee(
         ctx: Context<ClaimProtocolFeesCtx>,
@@ -70,9 +74,17 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
+    #[deprecated(
+        since = "0.1.11",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
     pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
+    }
+
+    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount)
     }
 
     /// PARTNER FUNCTIONS ///
@@ -173,7 +185,6 @@ pub mod dynamic_bonding_curve {
                 amount_0: params.amount_in,
                 amount_1: params.minimum_amount_out,
                 swap_mode: SwapMode::ExactIn.into(),
-                ..Default::default()
             },
         )
     }

@@ -39,3 +39,12 @@ mod test_operator_permission;
 
 #[cfg(test)]
 mod test_safe_math;
+
+#[cfg(test)]
+mod test_const_pda;
+
+#[cfg(test)]
+mod test_fee_mode;
+
+#[cfg(test)]
+mod test_activation_handler;
