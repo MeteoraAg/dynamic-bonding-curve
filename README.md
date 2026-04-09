@@ -90,7 +90,7 @@ anchor build -p dynamic_bonding_curve --ignore-keys
 
 ```
 bun install
-bun run test
+bun run build-local-test
 ```
 
 ### Program Address

@@ -114,7 +114,7 @@ jobs:
       - run: bun install
         shell: bash
       # Run tests
-      - run: bun run test
+      - run: bun run build-local-test
         shell: bash
 
   backwards_compatibility_tests:
@@ -147,5 +147,5 @@ jobs:
       - run: bun install
         shell: bash
       # Run tests
-      - run: bun run ctest
+      - run: bun run build-local-ctest
         shell: bash
