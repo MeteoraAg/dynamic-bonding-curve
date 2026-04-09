@@ -127,7 +127,7 @@ pub mod seeds {
 }
 
 pub mod protocol_fee_program {
-    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
+    use anchor_lang::{prelude::Pubkey, pubkey};
 
     pub const ID: Pubkey = pubkey!("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA");
 
