@@ -10,7 +10,7 @@ use crate::{
     state::fee::VolatilityTracker,
     state::{PoolConfig, PoolType, TokenType, VirtualPool},
     token::update_account_lamports_to_minimum_balance,
-    EvtInitializePool, PoolError,
+    event::EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;

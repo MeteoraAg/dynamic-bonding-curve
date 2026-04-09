@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::{
     const_pda,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,

@@ -9,7 +9,7 @@ use crate::{
         PARTNER_MIGRATION_FEE_MASK,
     },
     token::transfer_token_from_pool_authority,
-    EvtWithdrawMigrationFee, PoolError,
+    event::EvtWithdrawMigrationFee, PoolError,
 };
 
 /// Accounts for creator withdraw migration fee

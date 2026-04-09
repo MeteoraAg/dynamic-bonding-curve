@@ -1,4 +1,4 @@
-use crate::{state::*, token::transfer_lamports_from_pool_account, *};
+use crate::{event::EvtPartnerClaimPoolCreationFee, state::*, token::transfer_lamports_from_pool_account, *};
 
 /// Accounts for partner withdraw creation fees
 #[event_cpi]

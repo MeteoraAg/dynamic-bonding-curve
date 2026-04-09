@@ -11,8 +11,8 @@ pub mod error;
 pub mod state;
 pub use error::*;
 pub use state::operator::OperatorPermission;
+#[allow(deprecated)]
 pub mod event;
-pub use event::*;
 pub mod utils;
 pub use utils::*;
 pub mod math;

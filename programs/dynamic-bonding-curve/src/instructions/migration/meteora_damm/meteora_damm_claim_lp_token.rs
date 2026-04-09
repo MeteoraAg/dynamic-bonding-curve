@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::{
     const_pda,
     state::{MigrationProgress, VirtualPool},

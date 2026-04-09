@@ -6,7 +6,7 @@ use crate::{
     safe_math::SafeMath,
     state::{MigrationProgress, PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
-    EvtWithdrawLeftover, PoolError,
+    event::EvtWithdrawLeftover, PoolError,
 };
 
 /// Accounts for withdraw leftover

@@ -1,6 +1,6 @@
 use crate::constants::seeds::VIRTUAL_POOL_METADATA_PREFIX;
 use crate::state::{VirtualPool, VirtualPoolMetadata};
-use crate::EvtVirtualPoolMetadata;
+use crate::event::EvtVirtualPoolMetadata;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

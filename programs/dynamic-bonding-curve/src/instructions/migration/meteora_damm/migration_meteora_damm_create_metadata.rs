@@ -4,7 +4,7 @@ use crate::state::{MigrationOption, PoolConfig};
 use crate::PoolError;
 use crate::{
     constants::seeds::METEORA_METADATA_PREFIX, state::VirtualPool,
-    EvtCreateMeteoraMigrationMetadata,
+    event::EvtCreateMeteoraMigrationMetadata,
 };
 
 use super::MeteoraDammMigrationMetadata;

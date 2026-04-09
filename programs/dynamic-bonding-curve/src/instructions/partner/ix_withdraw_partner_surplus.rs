@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     state::{PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
-    EvtPartnerWithdrawSurplus, PoolError,
+    event::EvtPartnerWithdrawSurplus, PoolError,
 };
 
 /// Accounts for partner withdraw surplus

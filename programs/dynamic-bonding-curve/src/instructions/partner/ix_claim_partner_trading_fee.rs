@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     state::{PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
-    EvtClaimTradingFee,
+    event::EvtClaimTradingFee,
 };
 
 /// Accounts for partner to claim fees

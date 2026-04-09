@@ -17,9 +17,9 @@ use crate::{
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
-    EvtSwap, PoolError,
+    event::EvtSwap, PoolError,
 };
-use crate::{EvtCurveComplete, EvtSwap2};
+use crate::event::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};

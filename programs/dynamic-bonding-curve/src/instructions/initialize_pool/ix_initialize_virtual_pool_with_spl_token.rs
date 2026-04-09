@@ -20,7 +20,8 @@ use crate::{
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
     token::transfer_lamports_from_user,
-    EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
+    event::EvtInitializePool,
+    PoolError, ProcessCreateTokenMetadataParams,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

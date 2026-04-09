@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
-    treasury, EvtClaimProtocolFee,
+    event::EvtClaimProtocolFee, treasury,
 };
 
 /// Accounts for withdraw protocol fees
