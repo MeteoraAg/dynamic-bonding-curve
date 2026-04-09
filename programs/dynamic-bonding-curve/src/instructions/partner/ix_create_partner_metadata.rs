@@ -1,6 +1,6 @@
 use crate::constants::seeds::PARTNER_METADATA_PREFIX;
-use crate::state::PartnerMetadata;
 use crate::event::EvtPartnerMetadata;
+use crate::state::PartnerMetadata;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

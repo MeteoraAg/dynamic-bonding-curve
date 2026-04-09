@@ -3,8 +3,8 @@ use anchor_lang::prelude::*;
 use crate::state::{MigrationOption, PoolConfig};
 use crate::PoolError;
 use crate::{
-    constants::seeds::METEORA_METADATA_PREFIX, state::VirtualPool,
-    event::EvtCreateMeteoraMigrationMetadata,
+    constants::seeds::METEORA_METADATA_PREFIX, event::EvtCreateMeteoraMigrationMetadata,
+    state::VirtualPool,
 };
 
 use super::MeteoraDammMigrationMetadata;

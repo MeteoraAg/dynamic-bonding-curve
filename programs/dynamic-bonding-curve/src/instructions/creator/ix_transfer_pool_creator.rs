@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 
 use crate::{
+    event::EvtUpdatePoolCreator,
     state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
-    event::EvtUpdatePoolCreator, MeteoraDammMigrationMetadata, PoolError,
+    MeteoraDammMigrationMetadata, PoolError,
 };
 
 /// Accounts for transfer pool creator

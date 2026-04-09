@@ -17,10 +17,10 @@ use crate::{
         MIN_LOCKED_LIQUIDITY_BPS,
     },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
+    event::EvtInitializePool,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
     token::transfer_lamports_from_user,
-    event::EvtInitializePool,
     PoolError, ProcessCreateTokenMetadataParams,
 };
 

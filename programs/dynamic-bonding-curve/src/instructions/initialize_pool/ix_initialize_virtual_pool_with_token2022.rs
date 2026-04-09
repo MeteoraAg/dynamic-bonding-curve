@@ -7,10 +7,11 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    event::EvtInitializePool,
     state::fee::VolatilityTracker,
     state::{PoolConfig, PoolType, TokenType, VirtualPool},
     token::update_account_lamports_to_minimum_balance,
-    event::EvtInitializePool, PoolError,
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;

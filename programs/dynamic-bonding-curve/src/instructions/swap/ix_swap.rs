@@ -1,5 +1,6 @@
 use std::u64;
 
+use crate::event::{EvtCurveComplete, EvtSwap2};
 use crate::instruction::InitializeVirtualPoolWithSplToken;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::Swap as SwapInstruction;
@@ -13,13 +14,13 @@ use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
+    event::EvtSwap,
     params::swap::TradeDirection,
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
-    event::EvtSwap, PoolError,
+    PoolError,
 };
-use crate::event::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};

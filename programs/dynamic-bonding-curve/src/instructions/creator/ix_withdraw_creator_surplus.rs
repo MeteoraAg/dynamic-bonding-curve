@@ -3,9 +3,10 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
+    event::EvtCreatorWithdrawSurplus,
     state::{PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
-    event::EvtCreatorWithdrawSurplus, PoolError,
+    PoolError,
 };
 
 /// Accounts for creator withdraw surplus
