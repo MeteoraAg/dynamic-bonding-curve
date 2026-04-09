@@ -162,7 +162,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                         };
                         damm_v2::cpi::initialize_pool_with_dynamic_config(
                             CpiContext::new_with_signer(
-                                *self.amm_program.key,
+                                self.amm_program.key(),
                                 damm_v2::cpi::accounts::InitializePoolWithDynamicConfig {
                                     creator: self.pool_authority.to_account_info(),
                                     position_nft_mint: self
@@ -197,7 +197,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     } else {
                         damm_v2::cpi::initialize_pool(
                             CpiContext::new_with_signer(
-                                *self.amm_program.key,
+                                self.amm_program.key(),
                                 damm_v2::cpi::accounts::InitializePool {
                                     creator: self.pool_authority.to_account_info(),
                                     position_nft_mint: self
@@ -259,7 +259,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 let pool_authority_seeds = pool_authority_seeds!(BUMP);
                 damm_v2::cpi::permanent_lock_position(
                     CpiContext::new_with_signer(
-                        *self.amm_program.key,
+                        self.amm_program.key(),
                         damm_v2::cpi::accounts::PermanentLockPosition {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
@@ -282,7 +282,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 let pool_authority_seeds = pool_authority_seeds!(BUMP);
                 damm_v2::cpi::lock_inner_position(
                     CpiContext::new_with_signer(
-                        *self.amm_program.key,
+                        self.amm_program.key(),
                         damm_v2::cpi::accounts::LockInnerPosition {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
@@ -329,7 +329,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
         set_authority(
             CpiContext::new_with_signer(
-                *self.token_2022_program.key,
+                self.token_2022_program.key(),
                 SetAuthority {
                     current_authority: self.pool_authority.to_account_info(),
                     account_or_mint: position_nft_account.clone(),
@@ -346,7 +346,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         let pool_authority_seeds = pool_authority_seeds!(BUMP);
         msg!("create position");
         damm_v2::cpi::create_position(CpiContext::new(
-            *self.amm_program.key,
+            self.amm_program.key(),
             damm_v2::cpi::accounts::CreatePosition {
                 owner: self.pool_authority.to_account_info(),
                 pool: self.pool.to_account_info(),
@@ -375,7 +375,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             || {
                 damm_v2::cpi::add_liquidity(
                     CpiContext::new_with_signer(
-                        *self.amm_program.key,
+                        self.amm_program.key(),
                         damm_v2::cpi::accounts::AddLiquidity {
                             pool: self.pool.to_account_info(),
                             position: self.second_position.clone().unwrap().to_account_info(),
@@ -729,7 +729,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
         anchor_spl::token_interface::burn(
             CpiContext::new_with_signer(
-                *ctx.accounts.token_base_program.key,
+                ctx.accounts.token_base_program.key(),
                 anchor_spl::token_interface::Burn {
                     mint: ctx.accounts.base_mint.to_account_info(),
                     from: ctx.accounts.base_vault.to_account_info(),

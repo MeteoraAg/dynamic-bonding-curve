@@ -151,7 +151,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     let signer_seeds = &[&seeds[..]];
     let cpi_ctx =
-        CpiContext::new_with_signer(*ctx.accounts.token_program.key, cpi_accounts, signer_seeds);
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
 
     // transfer minimum rent to mint account
@@ -168,7 +168,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            *ctx.accounts.token_program.key,
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.pool_authority.to_account_info(),
                 account_or_mint: ctx.accounts.base_mint.to_account_info(),
@@ -185,7 +185,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
 
     token_metadata_update_authority(
         CpiContext::new_with_signer(
-            *ctx.accounts.token_program.key,
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::TokenMetadataUpdateAuthority {
                 program_id: ctx.accounts.token_program.to_account_info(),
                 metadata: ctx.accounts.base_mint.to_account_info(),
@@ -207,7 +207,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
     mint_to(
         CpiContext::new_with_signer(
-            *ctx.accounts.token_program.key,
+            ctx.accounts.token_program.key(),
             MintTo {
                 mint: ctx.accounts.base_mint.to_account_info(),
                 to: ctx.accounts.base_vault.to_account_info(),
@@ -224,7 +224,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            *ctx.accounts.token_program.key,
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.pool_authority.to_account_info(),
                 account_or_mint: ctx.accounts.base_mint.to_account_info(),

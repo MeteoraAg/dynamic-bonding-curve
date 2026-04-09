@@ -83,7 +83,7 @@ impl<'info> MigrateMeteoraDammLockLpTokenCtx<'info> {
             || {
                 dynamic_amm::cpi::lock(
                     CpiContext::new_with_signer(
-                        *self.amm_program.key,
+                        self.amm_program.key(),
                         dynamic_amm::cpi::accounts::Lock {
                             pool: self.pool.to_account_info(),
                             lp_mint: self.lp_mint.to_account_info(),

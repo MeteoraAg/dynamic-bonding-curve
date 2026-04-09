@@ -57,7 +57,7 @@ impl<'info> MigrateMeteoraDammClaimLpTokenCtx<'info> {
 
         transfer(
             CpiContext::new_with_signer(
-                *self.token_program.key,
+                self.token_program.key(),
                 Transfer {
                     from: self.source_token.to_account_info(),
                     to: self.destination_token.to_account_info(),

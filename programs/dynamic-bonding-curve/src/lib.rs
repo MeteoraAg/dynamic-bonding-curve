@@ -1,6 +1,3 @@
-// Ignored due to https://github.com/solana-foundation/anchor/issues/4378
-#![allow(deprecated)]
-
 use anchor_lang::prelude::*;
 
 #[macro_use]

@@ -40,3 +40,6 @@ protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(target_os, values("solana"))',
 ] }
+
+[patch.crates-io]
+anchor-lang = { git = "https://github.com/MeteoraAg/anchor", branch = "v1.0.0-patch-emit-cpi-warning" }
