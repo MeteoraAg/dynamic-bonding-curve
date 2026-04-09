@@ -16,7 +16,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     #[account(has_one=quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,

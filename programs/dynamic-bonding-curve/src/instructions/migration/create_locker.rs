@@ -20,7 +20,7 @@ pub struct CreateLockerCtx<'info> {
         mut,
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
     /// CHECK: base_vault
     #[account(
         mut,

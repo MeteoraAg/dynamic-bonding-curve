@@ -71,7 +71,7 @@ pub struct SwapCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// config key
     pub config: AccountLoader<'info, PoolConfig>,

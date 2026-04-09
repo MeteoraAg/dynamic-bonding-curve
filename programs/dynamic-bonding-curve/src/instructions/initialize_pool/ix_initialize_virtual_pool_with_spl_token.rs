@@ -50,7 +50,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 

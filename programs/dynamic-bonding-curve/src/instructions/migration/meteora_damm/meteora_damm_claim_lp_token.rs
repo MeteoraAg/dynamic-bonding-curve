@@ -20,7 +20,7 @@ pub struct MigrateMeteoraDammClaimLpTokenCtx<'info> {
         mut,
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// CHECK: lp_mint
     pub lp_mint: UncheckedAccount<'info>,
