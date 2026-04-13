@@ -4,12 +4,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
+    event::EvtWithdrawMigrationFee,
     state::{
         MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK,
         PARTNER_MIGRATION_FEE_MASK,
     },
     token::transfer_token_from_pool_authority,
-    EvtWithdrawMigrationFee, PoolError,
+    PoolError,
 };
 
 /// Accounts for creator withdraw migration fee

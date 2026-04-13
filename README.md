@@ -29,7 +29,7 @@ Partner can specify these parameters when they create a configuration on all the
 
 - `pool_fees`: include `base_fee` and `dynamic_fee` (optional). Partner can add fee scheduler or rate limiter in `base_fee` or just a fixed fee. `pool_fees` defines the trading fee for any pool that is created from this configuration.
 - `collect_fee_mode` (`0 | 1`): `0` means the virtual pool will only collect fee in quote token, `1` means virtual pool will collect fee in both tokens.
-- `migration_option` (`0 | 1`):  `0` means DammV1 and `1` means DammV2
+- `migration_option` (`0 | 1`): `0` means DammV1 and `1` means DammV2
 - `activation_type` (`0 | 1`): `0` means slot, `1` means timestamp, this field indicates the time unit that pool will work with, mostly in calculating fee scheduler/ rate limiter and dynamic fee.
 - `token_type` (`0 | 1`): `0` means SPL Token, `1` means Token2022.
 - `token_decimal`: the token decimals that the token will use when user creates the virtual pool with this configuration, we only support token decimals from 6 to 9.
@@ -74,23 +74,23 @@ Then the bonding curve will function of 2 price ranges: `(l = 100, pa = 1, pb = 
 
 ### Dependencies
 
-- anchor 0.31.0
-- solana 2.1.0
-- rust 1.79.0
+- anchor 1.0.0
+- solana 3.1.10
+- rust 1.93.0
 
 ### Build
 
 Program
 
 ```
-anchor build -p dynamic_bonding_curve
+anchor build -p dynamic_bonding_curve --ignore-keys
 ```
 
 ### Test
 
 ```
-pnpm install
-pnpm test
+bun install
+bun run build-local-test
 ```
 
 ### Program Address
@@ -98,10 +98,10 @@ pnpm test
 - Mainnet-beta: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
 - Devnet: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
 
-
-### Config key for migration 
+### Config key for migration
 
 #### Meteora damm (v1):
+
 - migration_fee_option == 0: 8f848CEy8eY6PhJ3VcemtBDzPPSD4Vq7aJczLZ3o8MmX
 - migration_fee_option == 1: HBxB8Lf14Yj8pqeJ8C4qDb5ryHL7xwpuykz31BLNYr7S
 - migration_fee_option == 2: 7v5vBdUQHTNeqk1HnduiXcgbvCyVEZ612HLmYkQoAkik
@@ -110,6 +110,7 @@ pnpm test
 - migration_fee_option == 5: 8cdKo87jZU2R12KY1BUjjRPwyjgdNjLGqSGQyrDshhud
 
 #### Damm v2:
+
 - migration_fee_option == 0: 7F6dnUcRuyM2TwR8myT1dYypFXpPSxqwKNSFNkxyNESd
 - migration_fee_option == 1: 2nHK1kju6XjphBLbNxpM5XRGFj7p9U8vvNzyZiha1z6k
 - migration_fee_option == 2: Hv8Lmzmnju6m7kcokVKvwqz7QPmdX9XfKjJsXz8RXcjp
@@ -117,7 +118,6 @@ pnpm test
 - migration_fee_option == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
 - migration_fee_option == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
 - migration_fee_option == 6: A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
-
 
 ## Audits
 

@@ -126,4 +126,14 @@ pub mod seeds {
     pub const OPERATOR_PREFIX: &[u8] = b"operator";
 }
 
+pub mod protocol_fee_program {
+    use anchor_lang::{prelude::Pubkey, pubkey};
+
+    pub const ID: Pubkey = pubkey!("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA");
+
+    pub mod seeds {
+        pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
+    }
+}
+
 pub const MAX_OPERATION: u8 = 2; // Check OperatorPermission enum variants count

@@ -1,6 +1,6 @@
 use crate::{
-    safe_math::SafeMath, state::*, token::transfer_lamports_from_pool_account,
-    EvtClaimPoolCreationFee, *,
+    event::EvtClaimPoolCreationFee, safe_math::SafeMath, state::*,
+    token::transfer_lamports_from_pool_account, *,
 };
 
 // Move the constant here, because the fixed fee logic is removed

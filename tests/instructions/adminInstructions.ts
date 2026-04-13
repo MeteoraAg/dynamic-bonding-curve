@@ -1,9 +1,7 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
-  getClaimFeeOperator,
   getConfig,
   getOrCreateAssociatedTokenAccount,
   getTokenAccount,
@@ -12,12 +10,8 @@ import {
   TREASURY,
   U64_MAX,
 } from "../utils";
-import {
-  deriveClaimFeeOperatorAddress,
-  deriveOperatorAddress,
-  derivePoolAuthority,
-} from "../utils/accounts";
-import { VirtualCurveProgram } from "../utils/types";
+import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
+import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
 
 export enum OperatorPermission {
@@ -123,21 +117,21 @@ export async function claimProtocolFee(
     { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
     { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        poolState.baseMint,
-        TREASURY,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        operator,
-        quoteMintInfo.mint,
-        TREASURY,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      poolState.baseMint,
+      TREASURY,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      operator,
+      quoteMintInfo.mint,
+      TREASURY,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -162,4 +156,77 @@ export async function claimProtocolFee(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80;
+
+function getClaimableProtocolAmount(
+  pool: Pool,
+  config: PoolConfig,
+  isTokenBase: boolean
+): BN {
+  if (isTokenBase) {
+    return pool.protocolBaseFee.add(pool.protocolMigrationBaseFeeAmount);
+  }
+
+  let amount = pool.protocolQuoteFee.add(pool.protocolMigrationQuoteFeeAmount);
+
+  const isCurveComplete = pool.quoteReserve.gte(config.migrationQuoteThreshold);
+  if (pool.isProtocolWithdrawSurplus === 0 && isCurveComplete) {
+    const totalSurplus = pool.quoteReserve.sub(config.migrationQuoteThreshold);
+    const partnerAndCreatorSurplus = totalSurplus
+      .muln(PARTNER_AND_CREATOR_SURPLUS_SHARE)
+      .divn(100);
+    const protocolSurplus = totalSurplus.sub(partnerAndCreatorSurplus);
+    amount = amount.add(protocolSurplus);
+  }
+
+  return amount;
+}
+
+export type ClaimProtocolFee2Params = {
+  signerKP: Keypair;
+  pool: PublicKey;
+  isTokenBase: boolean;
+  receiverTokenAccount: PublicKey;
+  maxAmount?: BN;
+};
+
+export async function claimProtocolFee2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimProtocolFee2Params
+) {
+  const { signerKP, pool, isTokenBase, receiverTokenAccount } = params;
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
+  const poolAuthority = derivePoolAuthority();
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  const tokenQuoteProgram =
+    configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const maxAmount =
+    params.maxAmount ??
+    getClaimableProtocolAmount(poolState, configState, isTokenBase);
+
+  const transaction = await program.methods
+    .claimProtocolFee2(maxAmount)
+    .accountsPartial({
+      poolAuthority,
+      config: poolState.config,
+      pool,
+      receiverTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint: configState.quoteMint,
+      signer: signerKP.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [signerKP]);
 }

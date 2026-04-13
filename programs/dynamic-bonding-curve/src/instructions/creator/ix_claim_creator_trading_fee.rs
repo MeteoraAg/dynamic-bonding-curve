@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda, state::VirtualPool, token::transfer_token_from_pool_authority,
-    EvtClaimCreatorTradingFee,
+    const_pda, event::EvtClaimCreatorTradingFee, state::VirtualPool,
+    token::transfer_token_from_pool_authority,
 };
 
 /// Accounts for creator to claim trading fees

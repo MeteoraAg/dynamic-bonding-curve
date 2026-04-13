@@ -32,7 +32,7 @@ import {
 } from "./utils";
 import { VirtualCurveProgram } from "./utils/types";
 
-import { BN } from "@coral-xyz/anchor";
+import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { wrapSOL } from "./utils/token";

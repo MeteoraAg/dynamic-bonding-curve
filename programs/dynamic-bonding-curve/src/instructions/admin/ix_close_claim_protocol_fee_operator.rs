@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{state::ClaimFeeOperator, EvtCloseClaimFeeOperator};
+use crate::{event::EvtCloseClaimFeeOperator, state::ClaimFeeOperator};
 
 #[event_cpi]
 #[derive(Accounts)]
