@@ -163,6 +163,11 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     )?;
 
     let token_authority = config.get_token_authority()?;
+    // mint authority option are deprecated and no longer allowed for new pools
+    require!(
+        !token_authority.has_mint_authority(),
+        PoolError::InvalidTokenAuthorityOption
+    );
 
     let token_update_authority =
         token_authority.get_update_authority(ctx.accounts.creator.key(), config.fee_claimer.key());
@@ -219,10 +224,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         initial_base_supply,
     )?;
 
-    // update mint authority
-    let token_mint_authority =
-        token_authority.get_mint_authority(ctx.accounts.creator.key(), config.fee_claimer.key());
-
+    // revoke mint authority
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.key(),
@@ -233,7 +235,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
             &[&seeds[..]],
         ),
         AuthorityType::MintTokens,
-        token_mint_authority,
+        None,
     )?;
 
     // charge pool creation fee
