@@ -460,8 +460,11 @@ impl ConfigParameters {
         }
 
         // validate token update authority
+        let token_authority_option = TokenAuthorityOption::try_from(self.token_update_authority)
+            .map_err(|_| PoolError::InvalidTokenAuthorityOption)?;
+        // mint authority variants are deprecated and no longer allowed for new configs
         require!(
-            TokenAuthorityOption::try_from(self.token_update_authority).is_ok(),
+            !token_authority_option.has_mint_authority(),
             PoolError::InvalidTokenAuthorityOption
         );
 

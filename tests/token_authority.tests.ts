@@ -5,7 +5,6 @@ import {
   ExtensionType,
   getExtensionData,
   MetadataPointerLayout,
-  MintLayout,
   NATIVE_MINT,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
@@ -24,7 +23,9 @@ import {
 import {
   createVirtualCurveProgram,
   deriveMetadataAccount,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getMint,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -160,80 +161,42 @@ describe("Token authority with token2022", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
-  it("Token2022: Creator can update update_authority and as mint authority", async () => {
+  it("Token2022: CreatorUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 3;
     const tokenType = 1;
 
-    const virtualPool = await createPool(
-      svm,
-      program,
-      partner,
-      poolCreator,
-      tokenUpdateAuthority,
-      tokenType
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "InvalidTokenAuthorityOption"
     );
-    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-    const tlvData = svm
-      .getAccount(virtualPoolState.baseMint)
-      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
-    const dataDecoded = MintLayout.decode(Buffer.from(tlvData));
-    expect(dataDecoded.mintAuthority.toString()).eq(
-      poolCreator.publicKey.toString()
-    );
-    expect(dataDecoded.mintAuthorityOption).not.eq(0);
-
-    const metadataPointer = MetadataPointerLayout.decode(
-      getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
-    );
-    expect(metadataPointer.authority.toString()).eq(
-      poolCreator.publicKey.toString()
-    );
-    // validate token metadata update authority
-    const tokenMetadata = unpack(
-      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
-    );
-    expect(tokenMetadata.updateAuthority.toString()).eq(
-      poolCreator.publicKey.toString()
-    );
+    await expectThrowsAsync(async () => {
+      await createPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        tokenUpdateAuthority,
+        tokenType
+      );
+    }, errorCode);
   });
 
-  it("Token2022: partner can update update_authority and as mint authority", async () => {
+  it("Token2022: PartnerUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 4;
     const tokenType = 1;
 
-    const virtualPool = await createPool(
-      svm,
-      program,
-      partner,
-      poolCreator,
-      tokenUpdateAuthority,
-      tokenType
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "InvalidTokenAuthorityOption"
     );
-    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-    const tlvData = svm
-      .getAccount(virtualPoolState.baseMint)
-      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
-    const dataDecoded = MintLayout.decode(Buffer.from(tlvData));
-    expect(dataDecoded.mintAuthority.toString()).eq(
-      partner.publicKey.toString()
-    );
-    expect(dataDecoded.mintAuthorityOption).not.eq(0);
-
-    const metadataPointer = MetadataPointerLayout.decode(
-      getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
-    );
-    expect(metadataPointer.authority.toString()).eq(
-      partner.publicKey.toString()
-    );
-    // validate token metadata update authority
-    const tokenMetadata = unpack(
-      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
-    );
-    expect(tokenMetadata.updateAuthority.toString()).eq(
-      partner.publicKey.toString()
-    );
+    await expectThrowsAsync(async () => {
+      await createPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        tokenUpdateAuthority,
+        tokenType
+      );
+    }, errorCode);
   });
 });
 
@@ -361,80 +324,42 @@ describe("Token authority with spl token", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
-  it("Spl token: creator can update update_authority and mint authority", async () => {
+  it("Spl token: CreatorUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 3;
     const tokenType = 0;
 
-    const virtualPool = await createPool(
-      svm,
-      program,
-      partner,
-      poolCreator,
-      tokenUpdateAuthority,
-      tokenType
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "InvalidTokenAuthorityOption"
     );
-    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-    const data = svm.getAccount(virtualPoolState.baseMint).data;
-    const dataDecoded = MintLayout.decode(Buffer.from(data));
-    expect(dataDecoded.mintAuthority.toString()).eq(
-      poolCreator.publicKey.toString()
-    );
-    expect(dataDecoded.mintAuthorityOption).not.eq(0);
-
-    const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
-
-    let metadataAccount = svm.getAccount(metadataAddress);
-
-    const dataDecode = {
-      executable: metadataAccount.executable,
-      owner: metadataAccount.owner,
-      lamports: metadataAccount.lamports,
-      rentEpoch: metadataAccount.rentEpoch,
-      data: metadataAccount.data,
-      publicKey: metadataAddress,
-    };
-    const metadata = deserializeMetadata(dataDecode as any);
-
-    expect(metadata.updateAuthority).eq(poolCreator.publicKey.toString());
+    await expectThrowsAsync(async () => {
+      await createPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        tokenUpdateAuthority,
+        tokenType
+      );
+    }, errorCode);
   });
 
-  it("Spl token: partner can update update_authority and mint authority", async () => {
+  it("Spl token: PartnerUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 4;
     const tokenType = 0;
 
-    const virtualPool = await createPool(
-      svm,
-      program,
-      partner,
-      poolCreator,
-      tokenUpdateAuthority,
-      tokenType
+    const errorCode = getDbcProgramErrorCodeHexString(
+      "InvalidTokenAuthorityOption"
     );
-    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-    const data = svm.getAccount(virtualPoolState.baseMint).data;
-    const dataDecoded = MintLayout.decode(Buffer.from(data));
-    expect(dataDecoded.mintAuthority.toString()).eq(
-      partner.publicKey.toString()
-    );
-    expect(dataDecoded.mintAuthorityOption).not.eq(0);
-
-    const metadataAddress = deriveMetadataAccount(virtualPoolState.baseMint);
-
-    let metadataAccount = svm.getAccount(metadataAddress);
-
-    const dataDecode = {
-      executable: metadataAccount.executable,
-      owner: metadataAccount.owner,
-      lamports: metadataAccount.lamports,
-      rentEpoch: metadataAccount.rentEpoch,
-      data: metadataAccount.data,
-      publicKey: metadataAddress,
-    };
-    const metadata = deserializeMetadata(dataDecode as any);
-
-    expect(metadata.updateAuthority).eq(partner.publicKey.toString());
+    await expectThrowsAsync(async () => {
+      await createPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        tokenUpdateAuthority,
+        tokenType
+      );
+    }, errorCode);
   });
 });
 
