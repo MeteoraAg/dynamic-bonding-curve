@@ -57,8 +57,8 @@ pub mod dynamic_bonding_curve {
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
-    pub fn claim_protocol_fee<'info>(
-        ctx: Context<'info, ClaimProtocolFeesCtx<'info>>,
+    pub fn claim_protocol_fee(
+        ctx: Context<ClaimProtocolFeesCtx>,
         max_base_amount: u64,
         max_quote_amount: u64,
     ) -> Result<()> {
@@ -77,10 +77,7 @@ pub mod dynamic_bonding_curve {
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee<'info>(
-        ctx: Context<'info, ZapProtocolFee<'info>>,
-        max_amount: u64,
-    ) -> Result<()> {
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
