@@ -20,12 +20,6 @@ pub struct TransferHookAccountsInfo {
     pub slices: Vec<RemainingAccountsSlice>,
 }
 
-impl TransferHookAccountsInfo {
-    pub fn has_accounts(&self) -> bool {
-        self.slices.iter().any(|s| s.length > 0)
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct ParsedRemainingAccounts<'a, 'info> {
     pub transfer_hook_base: Option<&'a [AccountInfo<'info>]>,
