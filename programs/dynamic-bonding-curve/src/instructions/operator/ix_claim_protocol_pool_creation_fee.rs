@@ -1,6 +1,9 @@
 use crate::{
-    event::EvtClaimPoolCreationFee, safe_math::SafeMath, state::*,
-    token::transfer_lamports_from_pool_account, *,
+    event::{EvtClaimPoolCreationFee, EvtClaimPoolCreationFeeWithTransferHook},
+    safe_math::SafeMath,
+    state::*,
+    token::transfer_lamports_from_pool_account,
+    *,
 };
 
 // Move the constant here, because the fixed fee logic is removed
@@ -55,11 +58,19 @@ pub fn handle_claim_protocol_pool_creation_fee(
         )?;
     }
 
-    emit_cpi!(EvtClaimPoolCreationFee {
-        pool: ctx.accounts.pool.key(),
-        receiver: ctx.accounts.treasury.key(),
-        creation_fee: protocol_fee,
-    });
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtClaimPoolCreationFeeWithTransferHook {
+            pool: ctx.accounts.pool.key(),
+            receiver: ctx.accounts.treasury.key(),
+            creation_fee: protocol_fee,
+        });
+    } else {
+        emit_cpi!(EvtClaimPoolCreationFee {
+            pool: ctx.accounts.pool.key(),
+            receiver: ctx.accounts.treasury.key(),
+            creation_fee: protocol_fee,
+        });
+    }
 
     Ok(())
 }

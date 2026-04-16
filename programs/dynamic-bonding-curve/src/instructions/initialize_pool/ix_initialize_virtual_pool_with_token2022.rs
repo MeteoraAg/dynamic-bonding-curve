@@ -121,6 +121,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
         params,
+        PoolType::Token2022,
     )?;
 
     emit_cpi!(EvtInitializePool {

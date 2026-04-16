@@ -135,7 +135,7 @@ pub fn handle_claim_protocol_fee2<'info>(
         transfer_hook_accounts,
     )?;
 
-    if transfer_hook_accounts_info.has_accounts() {
+    if pool.is_transfer_hook_pool()? {
         emit!(EvtClaimProtocolFee2WithTransferHook {
             pool: ctx.accounts.pool.key(),
             receiver_token_account: ctx.accounts.receiver_token_account.key(),

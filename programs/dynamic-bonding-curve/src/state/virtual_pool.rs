@@ -16,7 +16,7 @@ use crate::{
         get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
     },
     params::swap::TradeDirection,
-    safe_math::SafeMath,
+    safe_math::{SafeCast, SafeMath},
     state::{
         fee::{FeeMode, FeeOnAmountResult, VolatilityTracker},
         PoolConfig,
@@ -61,6 +61,7 @@ pub enum CollectFeeMode {
 pub enum PoolType {
     SplToken,
     Token2022,
+    Token2022WithTransferHook,
 }
 
 // Pool state transition flows:
@@ -995,6 +996,11 @@ impl VirtualPool {
 
     pub fn is_first_swap(&self) -> bool {
         self.has_swap == 0
+    }
+
+    pub fn is_transfer_hook_pool(&self) -> Result<bool> {
+        let pool_type: PoolType = self.pool_type.safe_cast()?;
+        Ok(pool_type == PoolType::Token2022WithTransferHook)
     }
 
     pub fn claim_protocol_base_fee(&mut self, max_amount: u64) -> Result<u64> {

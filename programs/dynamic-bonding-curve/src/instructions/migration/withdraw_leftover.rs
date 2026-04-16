@@ -101,7 +101,7 @@ pub fn handle_withdraw_leftover<'info>(
     // update partner withdraw leftover
     virtual_pool.update_withdraw_leftover();
 
-    if transfer_hook_accounts_info.has_accounts() {
+    if virtual_pool.is_transfer_hook_pool()? {
         emit_cpi!(EvtWithdrawLeftoverWithTransferHook {
             pool: ctx.accounts.virtual_pool.key(),
             leftover_receiver: ctx.accounts.leftover_receiver.key(),

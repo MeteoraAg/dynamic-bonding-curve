@@ -151,6 +151,7 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
         params,
+        PoolType::Token2022WithTransferHook,
     )?;
 
     emit_cpi!(EvtInitializePoolWithTransferHook {
@@ -158,7 +159,7 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
         config: ctx.accounts.config.key(),
         creator: ctx.accounts.creator.key(),
         base_mint: ctx.accounts.base_mint.key(),
-        pool_type: PoolType::Token2022.into(),
+        pool_type: PoolType::Token2022WithTransferHook.into(),
         activation_point,
     });
     Ok(())

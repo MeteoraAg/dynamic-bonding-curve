@@ -93,7 +93,7 @@ pub fn handle_claim_creator_trading_fee<'info>(
         None,
     )?;
 
-    if transfer_hook_accounts_info.has_accounts() {
+    if pool.is_transfer_hook_pool()? {
         emit_cpi!(EvtClaimCreatorTradingFeeWithTransferHook {
             pool: ctx.accounts.pool.key(),
             token_base_amount,

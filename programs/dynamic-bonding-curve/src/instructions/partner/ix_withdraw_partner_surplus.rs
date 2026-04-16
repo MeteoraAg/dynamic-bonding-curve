@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    event::EvtPartnerWithdrawSurplus,
+    event::{EvtPartnerWithdrawSurplus, EvtPartnerWithdrawSurplusWithTransferHook},
     state::{PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
     PoolError,
@@ -77,9 +77,16 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
     // update partner withdraw surplus
     pool.update_partner_withdraw_surplus();
 
-    emit_cpi!(EvtPartnerWithdrawSurplus {
-        pool: ctx.accounts.virtual_pool.key(),
-        surplus_amount: partner_surplus_amount
-    });
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtPartnerWithdrawSurplusWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: partner_surplus_amount
+        });
+    } else {
+        emit_cpi!(EvtPartnerWithdrawSurplus {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: partner_surplus_amount
+        });
+    }
     Ok(())
 }

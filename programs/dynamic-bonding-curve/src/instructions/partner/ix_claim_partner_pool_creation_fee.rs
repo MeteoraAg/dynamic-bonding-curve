@@ -1,5 +1,8 @@
 use crate::{
-    event::EvtPartnerClaimPoolCreationFee, state::*, token::transfer_lamports_from_pool_account, *,
+    event::{EvtPartnerClaimPoolCreationFee, EvtPartnerClaimPoolCreationFeeWithTransferHook},
+    state::*,
+    token::transfer_lamports_from_pool_account,
+    *,
 };
 
 /// Accounts for partner withdraw creation fees
@@ -43,12 +46,21 @@ pub fn handle_claim_partner_pool_creation_fee(
         partner_fee,
     )?;
 
-    emit_cpi!(EvtPartnerClaimPoolCreationFee {
-        pool: ctx.accounts.pool.key(),
-        partner: ctx.accounts.fee_claimer.key(),
-        creation_fee: partner_fee,
-        fee_receiver: ctx.accounts.fee_receiver.key(),
-    });
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtPartnerClaimPoolCreationFeeWithTransferHook {
+            pool: ctx.accounts.pool.key(),
+            partner: ctx.accounts.fee_claimer.key(),
+            creation_fee: partner_fee,
+            fee_receiver: ctx.accounts.fee_receiver.key(),
+        });
+    } else {
+        emit_cpi!(EvtPartnerClaimPoolCreationFee {
+            pool: ctx.accounts.pool.key(),
+            partner: ctx.accounts.fee_claimer.key(),
+            creation_fee: partner_fee,
+            fee_receiver: ctx.accounts.fee_receiver.key(),
+        });
+    }
 
     Ok(())
 }

@@ -330,7 +330,7 @@ pub fn handle_swap_wrapper<'info>(
         }
     }
 
-    if transfer_hook_accounts_info.has_accounts() {
+    if pool.is_transfer_hook_pool()? {
         emit_cpi!(EvtSwap2WithTransferHook {
             pool: ctx.accounts.pool.key(),
             config: ctx.accounts.config.key(),
@@ -397,7 +397,7 @@ pub fn handle_swap_wrapper<'info>(
             pool.set_migration_progress(MigrationProgress::LockedVesting.into());
         }
 
-        if transfer_hook_accounts_info.has_accounts() {
+        if pool.is_transfer_hook_pool()? {
             emit_cpi!(EvtCurveCompleteWithTransferHook {
                 pool: ctx.accounts.pool.key(),
                 config: ctx.accounts.config.key(),

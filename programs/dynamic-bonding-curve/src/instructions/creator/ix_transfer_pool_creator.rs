@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    event::EvtUpdatePoolCreator,
+    event::{EvtUpdatePoolCreator, EvtUpdatePoolCreatorWithTransferHook},
     state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     MeteoraDammMigrationMetadata, PoolError,
 };
@@ -85,10 +85,18 @@ pub fn handle_transfer_pool_creator<'info>(
 
     pool.creator = ctx.accounts.new_creator.key();
 
-    emit_cpi!(EvtUpdatePoolCreator {
-        pool: ctx.accounts.virtual_pool.key(),
-        creator: ctx.accounts.creator.key(),
-        new_creator: ctx.accounts.new_creator.key(),
-    });
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtUpdatePoolCreatorWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            creator: ctx.accounts.creator.key(),
+            new_creator: ctx.accounts.new_creator.key(),
+        });
+    } else {
+        emit_cpi!(EvtUpdatePoolCreator {
+            pool: ctx.accounts.virtual_pool.key(),
+            creator: ctx.accounts.creator.key(),
+            new_creator: ctx.accounts.new_creator.key(),
+        });
+    }
     Ok(())
 }

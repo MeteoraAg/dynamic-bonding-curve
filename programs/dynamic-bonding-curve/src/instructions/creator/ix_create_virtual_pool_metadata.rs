@@ -1,5 +1,5 @@
 use crate::constants::seeds::VIRTUAL_POOL_METADATA_PREFIX;
-use crate::event::EvtVirtualPoolMetadata;
+use crate::event::{EvtVirtualPoolMetadata, EvtVirtualPoolMetadataWithTransferHook};
 use crate::state::{VirtualPool, VirtualPoolMetadata};
 use anchor_lang::prelude::*;
 
@@ -50,9 +50,17 @@ pub fn handle_create_virtual_pool_metadata(
     virtual_pool_metadata.name = metadata.name;
     virtual_pool_metadata.website = metadata.website;
     virtual_pool_metadata.logo = metadata.logo;
-    emit_cpi!(EvtVirtualPoolMetadata {
-        virtual_pool_metadata: ctx.accounts.virtual_pool_metadata.key(),
-        virtual_pool: ctx.accounts.virtual_pool.key(),
-    });
+    let pool = ctx.accounts.virtual_pool.load()?;
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtVirtualPoolMetadataWithTransferHook {
+            virtual_pool_metadata: ctx.accounts.virtual_pool_metadata.key(),
+            virtual_pool: ctx.accounts.virtual_pool.key(),
+        });
+    } else {
+        emit_cpi!(EvtVirtualPoolMetadata {
+            virtual_pool_metadata: ctx.accounts.virtual_pool_metadata.key(),
+            virtual_pool: ctx.accounts.virtual_pool.key(),
+        });
+    }
     Ok(())
 }

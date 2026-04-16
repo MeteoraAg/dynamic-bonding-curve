@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    event::EvtCreatorWithdrawSurplus,
+    event::{EvtCreatorWithdrawSurplus, EvtCreatorWithdrawSurplusWithTransferHook},
     state::{PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
     PoolError,
@@ -77,9 +77,16 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     // update creator withdraw surplus
     pool.update_creator_withdraw_surplus();
 
-    emit_cpi!(EvtCreatorWithdrawSurplus {
-        pool: ctx.accounts.virtual_pool.key(),
-        surplus_amount: creator_surplus_amount
-    });
+    if pool.is_transfer_hook_pool()? {
+        emit_cpi!(EvtCreatorWithdrawSurplusWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: creator_surplus_amount
+        });
+    } else {
+        emit_cpi!(EvtCreatorWithdrawSurplus {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: creator_surplus_amount
+        });
+    }
     Ok(())
 }

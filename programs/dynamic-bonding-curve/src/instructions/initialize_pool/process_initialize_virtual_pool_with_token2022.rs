@@ -32,6 +32,7 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     token_program: &AccountInfo<'info>,
     system_program: &AccountInfo<'info>,
     params: InitializePoolParameters,
+    pool_type: PoolType,
 ) -> Result<u64> {
     let config_key = config.key();
     let config = config.load()?;
@@ -173,7 +174,7 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
         base_vault.key(),
         quote_vault.key(),
         config.sqrt_start_price,
-        PoolType::Token2022.into(),
+        pool_type.into(),
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
