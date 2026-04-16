@@ -233,6 +233,9 @@ pub enum PoolError {
 
     #[msg("Invalid transfer hook authority")]
     InvalidTransferHookAuthority,
+
+    #[msg("Transfer hook must be revoked before migration")]
+    TransferHookNotRevoked,
 }
 
 impl From<ProtozolZapError> for PoolError {

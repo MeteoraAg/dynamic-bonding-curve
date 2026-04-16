@@ -33,6 +33,7 @@ import {
   DammV2OperatorPermission,
   derivePoolAuthority,
   encodePermissions,
+  expectThrowsAsync,
   generateAndFund,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
@@ -223,9 +224,37 @@ describe("Migrate to damm v2 with transfer hook", () => {
     await swapWithTransferHook(svm, program, params);
   });
 
-  it("Revoke transfer hook and authroity", async () => {
+  it("Create meteora damm v2 metadata", async () => {
+    await createMeteoraDammV2Metadata(svm, program, {
+      payer: admin,
+      virtualPool,
+      config,
+    });
+  });
+
+  it("Migration fails if transfer hook is not revoked", async () => {
+    const poolAuthority = derivePoolAuthority();
+    dammConfig = await createDammV2Config(
+      svm,
+      admin,
+      poolAuthority,
+      1 // Timestamp
+    );
+
+    await expectThrowsAsync(async () => {
+      const migrationParams: MigrateMeteoraDammV2Params = {
+        payer: admin,
+        virtualPool,
+        dammConfig,
+      };
+      await migrateToDammV2(svm, program, migrationParams);
+    }, "Transfer hook must be revoked before migration");
+  });
+
+  it("Migration fails if only program_id is revoked but authority is not", async () => {
     const baseMint = virtualPoolState.baseMint;
 
+    // Only revoke program_id, keep authority
     const updateHookIx = createUpdateTransferHookInstruction(
       baseMint,
       poolCreator.publicKey,
@@ -233,6 +262,21 @@ describe("Migrate to damm v2 with transfer hook", () => {
       [],
       TOKEN_2022_PROGRAM_ID
     );
+
+    const tx = new Transaction().add(updateHookIx);
+    sendTransactionMaybeThrow(svm, tx, [poolCreator]);
+
+    await expectThrowsAsync(async () => {
+      await migrateToDammV2(svm, program, {
+        payer: admin,
+        virtualPool,
+        dammConfig,
+      });
+    }, "Transfer hook must be revoked before migration");
+  });
+
+  it("Revoke transfer hook authority", async () => {
+    const baseMint = virtualPoolState.baseMint;
 
     const revokeAuthorityIx = createSetAuthorityInstruction(
       baseMint,
@@ -243,7 +287,7 @@ describe("Migrate to damm v2 with transfer hook", () => {
       TOKEN_2022_PROGRAM_ID
     );
 
-    const tx = new Transaction().add(updateHookIx, revokeAuthorityIx);
+    const tx = new Transaction().add(revokeAuthorityIx);
     sendTransactionMaybeThrow(svm, tx, [poolCreator]);
 
     const mintState = getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID);
@@ -252,22 +296,7 @@ describe("Migrate to damm v2 with transfer hook", () => {
     expect(transferHook.programId.equals(PublicKey.default)).to.be.true;
   });
 
-  it("Create meteora damm v2 metadata", async () => {
-    await createMeteoraDammV2Metadata(svm, program, {
-      payer: admin,
-      virtualPool,
-      config,
-    });
-  });
-
   it("Migrate to Meteora Damm V2 Pool", async () => {
-    const poolAuthority = derivePoolAuthority();
-    dammConfig = await createDammV2Config(
-      svm,
-      admin,
-      poolAuthority,
-      1 // Timestamp
-    );
     const migrationParams: MigrateMeteoraDammV2Params = {
       payer: admin,
       virtualPool,

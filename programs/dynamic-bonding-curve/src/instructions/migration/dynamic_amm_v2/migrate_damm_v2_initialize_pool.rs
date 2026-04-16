@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
@@ -17,7 +18,16 @@ use crate::{
     PoolError,
 };
 use anchor_spl::{
-    token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
+    token_2022::{
+        set_authority,
+        spl_token_2022::{
+            extension::{
+                transfer_hook::TransferHook, BaseStateWithExtensions, StateWithExtensions,
+            },
+            instruction::AuthorityType,
+        },
+        SetAuthority,
+    },
     token_interface::{TokenAccount, TokenInterface},
 };
 use damm_v2::{
@@ -28,8 +38,6 @@ use damm_v2::{
 };
 use migration_handler::MigratedCollectFeeMode;
 
-/// NOTE: Does not support base mints with active transfer hooks.
-/// The transfer hook program_id and authority must be revoked before migration.
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
     /// virtual pool
@@ -514,6 +522,23 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     }
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+
+    if virtual_pool.is_transfer_hook_pool()? {
+        let base_mint_info = ctx.accounts.base_mint.to_account_info();
+        let base_mint_data = base_mint_info.try_borrow_data()?;
+        let mint_state =
+            StateWithExtensions::<anchor_spl::token_2022::spl_token_2022::state::Mint>::unpack(
+                &base_mint_data,
+            )?;
+        let transfer_hook = mint_state.get_extension::<TransferHook>()?;
+        let transfer_hook_program_id: Option<Pubkey> = transfer_hook.program_id.into();
+        let transfer_hook_authority: Option<Pubkey> = transfer_hook.authority.into();
+
+        require!(
+            transfer_hook_program_id.is_none() && transfer_hook_authority.is_none(),
+            PoolError::TransferHookNotRevoked
+        );
+    }
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
