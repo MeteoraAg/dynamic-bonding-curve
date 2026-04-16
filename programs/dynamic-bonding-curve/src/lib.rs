@@ -262,6 +262,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_withdraw_leftover(ctx, Default::default())
     }
 
+    // withdraw leftover with transfer hook on base token, can only call after pool is initialized
     pub fn withdraw_leftover_with_transfer_hook<'info>(
         ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
         transfer_hook_accounts_info: TransferHookAccountsInfo,
