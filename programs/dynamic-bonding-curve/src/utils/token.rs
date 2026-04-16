@@ -19,7 +19,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::{SafeCast, SafeMath};
-use crate::state::VirtualPool;
+use crate::state::{PoolType, VirtualPool};
 use crate::PoolError;
 
 #[derive(
@@ -48,6 +48,14 @@ pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
     match token_program_flag {
         TokenProgramFlags::TokenProgram => Ok(anchor_spl::token::ID),
         TokenProgramFlags::TokenProgram2022 => Ok(anchor_spl::token_2022::ID),
+    }
+}
+
+pub fn get_token_program_from_pool_type(pool_type: u8) -> Result<Pubkey> {
+    let pool_type: PoolType = pool_type.safe_cast()?;
+    match pool_type {
+        PoolType::SplToken => Ok(anchor_spl::token::ID),
+        PoolType::Token2022 | PoolType::Token2022WithTransferHook => Ok(anchor_spl::token_2022::ID),
     }
 }
 

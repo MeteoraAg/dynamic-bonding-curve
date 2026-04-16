@@ -6,7 +6,7 @@ use crate::{
     event::EvtClaimProtocolFee,
     state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
-    treasury,
+    treasury, PoolError,
 };
 
 /// Accounts for withdraw protocol fees
@@ -66,6 +66,11 @@ pub fn handle_claim_protocol_fee(
     max_quote_amount: u64,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
+
+    require!(
+        !pool.is_transfer_hook_pool()?,
+        PoolError::NotPermitToDoThisAction
+    );
 
     let token_base_amount = pool.claim_protocol_base_fee(max_base_amount)?;
     if token_base_amount > 0 {

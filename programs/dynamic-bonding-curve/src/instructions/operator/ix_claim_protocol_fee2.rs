@@ -135,6 +135,7 @@ pub fn handle_claim_protocol_fee2<'info>(
         transfer_hook_accounts,
     )?;
 
+    // emit! log could be truncated. should not rely on this
     if pool.is_transfer_hook_pool()? {
         emit!(EvtClaimProtocolFee2WithTransferHook {
             pool: ctx.accounts.pool.key(),

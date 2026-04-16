@@ -198,7 +198,7 @@ export async function getExtraAccountMetasForTransferHook(
   const mintState = getMint(svm, mint, TOKEN_2022_PROGRAM_ID);
   const transferHook = getTransferHook(mintState);
 
-  if (!transferHook) {
+  if (!transferHook || transferHook.programId.equals(PublicKey.default)) {
     return [];
   } else {
     const transferWithHookIx =

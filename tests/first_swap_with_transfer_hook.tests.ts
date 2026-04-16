@@ -323,7 +323,7 @@ async function createSwapIx(
       quoteMint,
       tokenBaseProgram: TOKEN_2022_PROGRAM_ID,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
-      referralTokenAccount: program.programId,
+      referralTokenAccount: null,
     })
     .remainingAccounts([
       ...(includeSysvar

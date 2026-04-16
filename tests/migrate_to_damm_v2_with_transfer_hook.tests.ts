@@ -306,10 +306,12 @@ describe("Migrate to damm v2 with transfer hook", () => {
     await migrateToDammV2(svm, program, migrationParams);
   });
 
-  it("Operator claim protocol fee", async () => {
-    await claimProtocolFee(svm, program, {
-      pool: virtualPool,
-      operator: operator,
-    });
+  it("Deprecated claim_protocol_fee rejects transfer hook pool", async () => {
+    await expectThrowsAsync(async () => {
+      await claimProtocolFee(svm, program, {
+        pool: virtualPool,
+        operator: operator,
+      });
+    }, "Not permit to do this action");
   });
 });
