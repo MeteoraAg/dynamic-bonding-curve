@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Only one of the pool tokens can be claimed per instruction call.
+- Added an endpoint `initialize_virtual_pool_with_token2022_transfer_hook` that allows a partner to create a virtual pool with a base mint using the Token-2022 program that supports transfer hooks.
+- Added transfer-hook-aware endpoints: `swap2_with_transfer_hook`, `claim_protocol_fee2_with_transfer_hook`, `claim_trading_fee_with_transfer_hook`, `claim_creator_trading_fee_with_transfer_hook`, `withdraw_leftover_with_transfer_hook`, `claim_protocol_fee_with_transfer_hook`, and `zap_protocol_fee_with_transfer_hook`. These accept a `remaining_accounts_info` parameter for transfer hook support on the base mint.
+- The original endpoints (`swap`, `swap2`, `claim_protocol_fee`, `zap_protocol_fee`, `claim_protocol_fee2`, `claim_trading_fee`, `claim_creator_trading_fee`, `withdraw_leftover`) remain unchanged for backwards compatibility with non-transfer-hook pools.
 
 ### Changed
 

@@ -57,8 +57,8 @@ pub mod dynamic_bonding_curve {
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
-    pub fn claim_protocol_fee(
-        ctx: Context<ClaimProtocolFeesCtx>,
+    pub fn claim_protocol_fee<'info>(
+        ctx: Context<'info, ClaimProtocolFeesCtx<'info>>,
         max_base_amount: u64,
         max_quote_amount: u64,
     ) -> Result<()> {
@@ -77,12 +77,26 @@ pub mod dynamic_bonding_curve {
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+    pub fn zap_protocol_fee<'info>(
+        ctx: Context<'info, ZapProtocolFee<'info>>,
+        max_amount: u64,
+    ) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
-    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
-        instructions::handle_claim_protocol_fee2(ctx, max_amount)
+    pub fn claim_protocol_fee2<'info>(
+        ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
+        max_amount: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount, Default::default())
+    }
+
+    pub fn claim_protocol_fee2_with_transfer_hook<'info>(
+        ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
+        max_amount: u64,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount, transfer_hook_accounts_info)
     }
 
     /// PARTNER FUNCTIONS ///
@@ -101,12 +115,27 @@ pub mod dynamic_bonding_curve {
     }
 
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
-    pub fn claim_trading_fee(
-        ctx: Context<ClaimTradingFeesCtx>,
+    pub fn claim_trading_fee<'info>(
+        ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
         max_amount_a: u64,
         max_amount_b: u64,
     ) -> Result<()> {
-        instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b)
+        instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b, Default::default())
+    }
+
+    #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
+    pub fn claim_trading_fee_with_transfer_hook<'info>(
+        ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
+        max_amount_a: u64,
+        max_amount_b: u64,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_trading_fee(
+            ctx,
+            max_amount_a,
+            max_amount_b,
+            transfer_hook_accounts_info,
+        )
     }
 
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
@@ -137,6 +166,13 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
     }
 
+    pub fn initialize_virtual_pool_with_token2022_transfer_hook(
+        ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
+        params: InitializePoolParameters,
+    ) -> Result<()> {
+        instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook(ctx, params)
+    }
+
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn create_virtual_pool_metadata(
         ctx: Context<CreateVirtualPoolMetadataCtx>,
@@ -146,12 +182,32 @@ pub mod dynamic_bonding_curve {
     }
 
     #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
-    pub fn claim_creator_trading_fee(
-        ctx: Context<ClaimCreatorTradingFeesCtx>,
+    pub fn claim_creator_trading_fee<'info>(
+        ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
         max_base_amount: u64,
         max_quote_amount: u64,
     ) -> Result<()> {
-        instructions::handle_claim_creator_trading_fee(ctx, max_base_amount, max_quote_amount)
+        instructions::handle_claim_creator_trading_fee(
+            ctx,
+            max_base_amount,
+            max_quote_amount,
+            Default::default(),
+        )
+    }
+
+    #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
+    pub fn claim_creator_trading_fee_with_transfer_hook<'info>(
+        ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
+        max_base_amount: u64,
+        max_quote_amount: u64,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_creator_trading_fee(
+            ctx,
+            max_base_amount,
+            max_quote_amount,
+            transfer_hook_accounts_info,
+        )
     }
 
     // withdraw surplus on quote token
@@ -179,6 +235,7 @@ pub mod dynamic_bonding_curve {
                 amount_1: params.minimum_amount_out,
                 swap_mode: SwapMode::ExactIn.into(),
             },
+            Default::default(),
         )
     }
 
@@ -186,7 +243,15 @@ pub mod dynamic_bonding_curve {
         ctx: Context<'info, SwapCtx<'info>>,
         params: SwapParameters2,
     ) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params)
+        instructions::handle_swap_wrapper(ctx, params, Default::default())
+    }
+
+    pub fn swap2_with_transfer_hook<'info>(
+        ctx: Context<'info, SwapCtx<'info>>,
+        params: SwapParameters2,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_swap_wrapper(ctx, params, transfer_hook_accounts_info)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///
@@ -196,8 +261,15 @@ pub mod dynamic_bonding_curve {
     }
 
     // withdraw leftover on base token, can only call after pool is initialized
-    pub fn withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()> {
-        instructions::handle_withdraw_leftover(ctx)
+    pub fn withdraw_leftover<'info>(ctx: Context<'info, WithdrawLeftoverCtx<'info>>) -> Result<()> {
+        instructions::handle_withdraw_leftover(ctx, Default::default())
+    }
+
+    pub fn withdraw_leftover_with_transfer_hook<'info>(
+        ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_withdraw_leftover(ctx, transfer_hook_accounts_info)
     }
 
     /// migrate damm v1

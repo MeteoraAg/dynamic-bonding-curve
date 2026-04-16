@@ -4,13 +4,18 @@ import {
   createInitializeMint2Instruction,
   createMintToInstruction,
   createSyncNativeInstruction,
+  createTransferCheckedWithTransferHookInstruction,
   getAssociatedTokenAddressSync,
+  getTransferHook,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  unpackMint,
 } from "@solana/spl-token";
 import {
+  Connection,
   Keypair,
   PublicKey,
   SystemProgram,
@@ -19,6 +24,12 @@ import {
 import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
+import {
+  AccountsType,
+  TransferHookAccountsInfo,
+  VirtualCurveProgram,
+} from "./types";
+import { getVirtualPool } from "./fetcher";
 
 export function getOrCreateAssociatedTokenAccount(
   svm: LiteSVM,
@@ -137,14 +148,109 @@ export function mintSplTokenTo(
   svm.sendTransaction(transaction);
 }
 
-export function getMint(svm: LiteSVM, mint: PublicKey) {
-  const account = svm.getAccount(mint);
-  const mintState = MintLayout.decode(account.data);
+export function getMint(
+  svm: LiteSVM,
+  mint: PublicKey,
+  programId: PublicKey = TOKEN_PROGRAM_ID
+) {
+  const mintInfo = svm.getAccount(mint);
+  if (!mintInfo || !mintInfo.data.length) throw new Error("Invalid mint");
+
+  const mintState = unpackMint(
+    mint,
+    {
+      ...mintInfo,
+      data: Buffer.from(mintInfo.data),
+    },
+    programId
+  );
+
   return mintState;
 }
-
 export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
   const account = svm.getAccount(key);
   const tokenAccountState = AccountLayout.decode(account.data);
   return tokenAccountState;
+}
+
+export async function getExtraAccountMetasForTransferHook(
+  svm: LiteSVM,
+  mint: PublicKey
+) {
+  const connection: {
+    getAccountInfo: Connection["getAccountInfo"];
+    commitment: Connection["commitment"];
+  } = {
+    getAccountInfo: async (publicKey) => {
+      const info = svm.getAccount(publicKey);
+      if (!info) return null;
+      return { ...info, data: Buffer.from(info.data) };
+    },
+    commitment: "confirmed",
+  };
+
+  const mintInfo = svm.getAccount(mint);
+  if (!mintInfo) throw new Error("Invalid mint");
+  if (mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+    return [];
+  }
+
+  const mintState = getMint(svm, mint, TOKEN_2022_PROGRAM_ID);
+  const transferHook = getTransferHook(mintState);
+
+  if (!transferHook) {
+    return [];
+  } else {
+    const transferWithHookIx =
+      await createTransferCheckedWithTransferHookInstruction(
+        connection as Connection,
+        PublicKey.default,
+        mint,
+        PublicKey.default,
+        PublicKey.default,
+        BigInt(0),
+        mintState.decimals,
+        [],
+        connection.commitment,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+    // Only 4 keys needed if it's single signer. https://github.com/solana-labs/solana-program-library/blob/d72289c79a04411c69a8bf1054f7156b6196f9b3/token/js/src/extensions/transferFee/instructions.ts#L251
+    return transferWithHookIx.keys.slice(4);
+  }
+}
+
+export async function getRemainingAccountsForTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  pool: PublicKey,
+  accountTypes: (typeof AccountsType)[keyof typeof AccountsType][] = [
+    AccountsType.TransferHookBase,
+  ]
+): Promise<{
+  info: TransferHookAccountsInfo;
+  accounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[];
+}> {
+  const account = svm.getAccount(pool);
+  if (!account) {
+    return { info: { slices: [] }, accounts: [] };
+  }
+  const poolState = getVirtualPool(svm, program, pool);
+  const transferHookAccounts = await getExtraAccountMetasForTransferHook(
+    svm,
+    poolState.baseMint
+  );
+
+  if (transferHookAccounts.length === 0) {
+    return { info: { slices: [] }, accounts: [] };
+  }
+
+  const slices = accountTypes.map((accountsType) => ({
+    accountsType,
+    length: transferHookAccounts.length,
+  }));
+
+  const accounts = accountTypes.flatMap(() => transferHookAccounts);
+
+  return { info: { slices }, accounts };
 }

@@ -1,8 +1,11 @@
 use std::u64;
 
-use crate::event::{EvtCurveComplete, EvtSwap2};
+use crate::event::{
+    EvtCurveComplete, EvtCurveCompleteWithTransferHook, EvtSwap2, EvtSwap2WithTransferHook,
+};
 use crate::instruction::InitializeVirtualPoolWithSplToken;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
+use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
 use crate::math::safe_math::SafeMath;
@@ -16,6 +19,7 @@ use crate::{
     const_pda,
     event::EvtSwap,
     params::swap::TradeDirection,
+    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
@@ -38,7 +42,7 @@ pub struct SwapParameters {
 }
 
 // can be used for different swap_mode
-#[derive(AnchorSerialize, AnchorDeserialize, Default)]
+#[derive(AnchorSerialize, AnchorDeserialize, Default, Copy, Clone)]
 pub struct SwapParameters2 {
     /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
     pub amount_0: u64,
@@ -130,6 +134,7 @@ impl<'info> SwapCtx<'info> {
 pub fn handle_swap_wrapper<'info>(
     ctx: Context<'info, SwapCtx<'info>>,
     params: SwapParameters2,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
     let SwapParameters2 {
         amount_0,
@@ -169,6 +174,30 @@ pub fn handle_swap_wrapper<'info>(
 
     require!(amount_0 > 0, PoolError::AmountIsZero);
 
+    let transfer_hook_account_count: usize = transfer_hook_accounts_info
+        .slices
+        .iter()
+        .map(|s| s.length as usize)
+        .sum();
+    let extra_remaining_account_count = ctx
+        .remaining_accounts
+        .len()
+        .safe_sub(transfer_hook_account_count)?;
+    require!(
+        extra_remaining_account_count <= 1,
+        PoolError::InvalidRemainingAccountsLength
+    );
+    let instruction_sysvar_account_info = if extra_remaining_account_count == 1 {
+        let account = &ctx.remaining_accounts[0];
+        require!(
+            account.key.eq(&instructions_sysvar::ID),
+            PoolError::InvalidInstructionsSysvar
+        );
+        Some(account)
+    } else {
+        None
+    };
+
     let has_referral = ctx.accounts.referral_token_account.is_some();
 
     let config = ctx.accounts.config.load()?;
@@ -185,7 +214,10 @@ pub fn handle_swap_wrapper<'info>(
             pool.activation_point,
             trade_direction,
         )? {
-            validate_single_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
+            validate_single_swap_instruction(
+                &ctx.accounts.pool.key(),
+                instruction_sysvar_account_info,
+            )?;
         }
     }
 
@@ -194,7 +226,7 @@ pub fn handle_swap_wrapper<'info>(
         && validate_contain_initialize_pool_ix_and_no_cpi(
             &ctx.accounts.pool.key(),
             &ctx.accounts.referral_token_account,
-            ctx.remaining_accounts,
+            instruction_sysvar_account_info,
         )
         .is_ok();
 
@@ -239,6 +271,16 @@ pub fn handle_swap_wrapper<'info>(
         current_timestamp,
     )?;
 
+    let mut remaining_accounts = &ctx.remaining_accounts[extra_remaining_account_count..];
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+    let transfer_hook_base_accounts = parsed_transfer_hook_accounts.transfer_hook_base;
+
+    let (transfer_hook_in, transfer_hook_out) = match trade_direction {
+        TradeDirection::BaseToQuote => (transfer_hook_base_accounts, None),
+        TradeDirection::QuoteToBase => (None, transfer_hook_base_accounts),
+    };
+
     // send to reserve
     transfer_token_from_user(
         &ctx.accounts.payer,
@@ -247,6 +289,7 @@ pub fn handle_swap_wrapper<'info>(
         input_vault_account,
         input_program,
         swap_result_2.included_fee_input_amount,
+        transfer_hook_in,
     )?;
 
     // send to user
@@ -257,11 +300,14 @@ pub fn handle_swap_wrapper<'info>(
         ctx.accounts.output_token_account.to_account_info(),
         output_program,
         swap_result.output_amount,
+        transfer_hook_out,
     )?;
 
     // send to referral
     if let Some(referral_token_account) = ctx.accounts.referral_token_account.as_ref() {
         if fee_mode.fees_on_base_token {
+            let transfer_hook_base_referral_accounts =
+                parsed_transfer_hook_accounts.transfer_hook_base_referral;
             transfer_token_from_pool_authority(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.base_mint,
@@ -269,6 +315,7 @@ pub fn handle_swap_wrapper<'info>(
                 referral_token_account.to_account_info(),
                 &ctx.accounts.token_base_program,
                 swap_result.referral_fee,
+                transfer_hook_base_referral_accounts,
             )?;
         } else {
             transfer_token_from_pool_authority(
@@ -278,32 +325,47 @@ pub fn handle_swap_wrapper<'info>(
                 referral_token_account.to_account_info(),
                 &ctx.accounts.token_quote_program,
                 swap_result.referral_fee,
+                None,
             )?;
         }
     }
 
-    emit_cpi!(EvtSwap {
-        pool: ctx.accounts.pool.key(),
-        config: ctx.accounts.config.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        params: swap_in_parameters,
-        swap_result,
-        amount_in: swap_result_2.included_fee_input_amount,
-        current_timestamp,
-    });
+    if transfer_hook_accounts_info.has_accounts() {
+        emit_cpi!(EvtSwap2WithTransferHook {
+            pool: ctx.accounts.pool.key(),
+            config: ctx.accounts.config.key(),
+            trade_direction: trade_direction.into(),
+            has_referral,
+            swap_parameters: params,
+            swap_result: swap_result_2,
+            quote_reserve_amount: pool.quote_reserve,
+            migration_threshold: config.migration_quote_threshold,
+            current_timestamp,
+        });
+    } else {
+        emit_cpi!(EvtSwap {
+            pool: ctx.accounts.pool.key(),
+            config: ctx.accounts.config.key(),
+            trade_direction: trade_direction.into(),
+            has_referral,
+            params: swap_in_parameters,
+            swap_result,
+            amount_in: swap_result_2.included_fee_input_amount,
+            current_timestamp,
+        });
 
-    emit_cpi!(EvtSwap2 {
-        pool: ctx.accounts.pool.key(),
-        config: ctx.accounts.config.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        swap_parameters: params,
-        swap_result: swap_result_2,
-        quote_reserve_amount: pool.quote_reserve,
-        migration_threshold: config.migration_quote_threshold,
-        current_timestamp,
-    });
+        emit_cpi!(EvtSwap2 {
+            pool: ctx.accounts.pool.key(),
+            config: ctx.accounts.config.key(),
+            trade_direction: trade_direction.into(),
+            has_referral,
+            swap_parameters: params,
+            swap_result: swap_result_2,
+            quote_reserve_amount: pool.quote_reserve,
+            migration_threshold: config.migration_quote_threshold,
+            current_timestamp,
+        });
+    }
 
     if pool.is_curve_complete(config.migration_quote_threshold) {
         ctx.accounts.base_vault.reload()?;
@@ -335,23 +397,31 @@ pub fn handle_swap_wrapper<'info>(
             pool.set_migration_progress(MigrationProgress::LockedVesting.into());
         }
 
-        emit_cpi!(EvtCurveComplete {
-            pool: ctx.accounts.pool.key(),
-            config: ctx.accounts.config.key(),
-            base_reserve: pool.base_reserve,
-            quote_reserve: pool.quote_reserve,
-        })
+        if transfer_hook_accounts_info.has_accounts() {
+            emit_cpi!(EvtCurveCompleteWithTransferHook {
+                pool: ctx.accounts.pool.key(),
+                config: ctx.accounts.config.key(),
+                base_reserve: pool.base_reserve,
+                quote_reserve: pool.quote_reserve,
+            })
+        } else {
+            emit_cpi!(EvtCurveComplete {
+                pool: ctx.accounts.pool.key(),
+                config: ctx.accounts.config.key(),
+                base_reserve: pool.base_reserve,
+                quote_reserve: pool.quote_reserve,
+            })
+        }
     }
 
     Ok(())
 }
 
-pub fn validate_single_swap_instruction<'c, 'info>(
+pub fn validate_single_swap_instruction<'info>(
     pool: &Pubkey,
-    remaining_accounts: &'c [AccountInfo<'info>],
+    instruction_sysvar_account_info: Option<&AccountInfo<'info>>,
 ) -> Result<()> {
-    let instruction_sysvar_account_info = remaining_accounts
-        .get(0)
+    let instruction_sysvar_account_info = instruction_sysvar_account_info
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
 
     // get current index of instruction
@@ -418,7 +488,7 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
 pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
     pool: &Pubkey,
     referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
-    remaining_accounts: &[AccountInfo<'info>],
+    instruction_sysvar_account_info: Option<&AccountInfo<'info>>,
 ) -> Result<()> {
     // just use a random error
     // not allow user to bypass referral fee
@@ -426,16 +496,9 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
         referral_token_account.is_none(),
         PoolError::UndeterminedError
     );
-    let instruction_sysvar_account_info = remaining_accounts
-        .get(0)
-        .ok_or_else(|| PoolError::UndeterminedError)?;
 
-    require!(
-        instruction_sysvar_account_info
-            .key
-            .eq(&instructions_sysvar::ID),
-        PoolError::UndeterminedError
-    );
+    let instruction_sysvar_account_info =
+        instruction_sysvar_account_info.ok_or_else(|| PoolError::UndeterminedError)?;
 
     let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
 
@@ -455,6 +518,7 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
 
             if disc.eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
                 || disc.eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR)
+                || disc.eq(InitializeVirtualPoolWithToken2022TransferHook::DISCRIMINATOR)
             {
                 const VIRTUAL_POOL_ACCOUNT_INDEX: usize = 5;
                 let Some(account) = instruction.accounts.get(VIRTUAL_POOL_ACCOUNT_INDEX) else {

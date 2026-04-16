@@ -40,6 +40,7 @@ damm-v2 = { workspace = true }
 locker = { workspace = true }
 protocol-zap = { workspace = true }
 mpl-token-metadata = { workspace = true }
+spl-transfer-hook-interface = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

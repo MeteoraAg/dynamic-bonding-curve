@@ -155,6 +155,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         receiver_token_ai,
         &ctx.accounts.token_program,
         amount,
+        None,
     )?;
 
     Ok(())

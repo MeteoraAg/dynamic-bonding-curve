@@ -3,7 +3,8 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    event::EvtWithdrawLeftover,
+    event::{EvtWithdrawLeftover, EvtWithdrawLeftoverWithTransferHook},
+    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     safe_math::SafeMath,
     state::{MigrationProgress, PoolConfig, VirtualPool},
     token::transfer_token_from_pool_authority,
@@ -53,7 +54,10 @@ pub struct WithdrawLeftoverCtx<'info> {
     pub token_base_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()> {
+pub fn handle_withdraw_leftover<'info>(
+    ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
+) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
@@ -80,6 +84,10 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?
         .safe_sub(virtual_pool.protocol_migration_base_fee_amount)?;
 
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,
@@ -87,15 +95,25 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         ctx.accounts.token_base_account.to_account_info(),
         &ctx.accounts.token_base_program,
         leftover_amount,
+        parsed_transfer_hook_accounts.transfer_hook_base,
     )?;
 
     // update partner withdraw leftover
     virtual_pool.update_withdraw_leftover();
 
-    emit_cpi!(EvtWithdrawLeftover {
-        pool: ctx.accounts.virtual_pool.key(),
-        leftover_receiver: ctx.accounts.leftover_receiver.key(),
-        leftover_amount,
-    });
+    if transfer_hook_accounts_info.has_accounts() {
+        emit_cpi!(EvtWithdrawLeftoverWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            leftover_receiver: ctx.accounts.leftover_receiver.key(),
+            leftover_amount,
+        });
+    } else {
+        emit_cpi!(EvtWithdrawLeftover {
+            pool: ctx.accounts.virtual_pool.key(),
+            leftover_receiver: ctx.accounts.leftover_receiver.key(),
+            leftover_amount,
+        });
+    }
+
     Ok(())
 }

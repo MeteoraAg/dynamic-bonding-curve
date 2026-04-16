@@ -71,6 +71,7 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         creator_surplus_amount,
+        None,
     )?;
 
     // update creator withdraw surplus

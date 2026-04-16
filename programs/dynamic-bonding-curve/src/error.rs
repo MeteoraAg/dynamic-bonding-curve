@@ -212,6 +212,27 @@ pub enum PoolError {
 
     #[msg("Invalid claim protocol fee accounts")]
     InvalidClaimProtocolFeeAccounts,
+
+    #[msg("Invalid instructions sysvar account")]
+    InvalidInstructionsSysvar,
+
+    #[msg("Invalid remaining accounts length")]
+    InvalidRemainingAccountsLength,
+
+    #[msg("Missing remaining account for transfer hook")]
+    MissingRemainingAccountForTransferHook,
+
+    #[msg("No transfer hook program")]
+    NoTransferHookProgram,
+
+    #[msg("Duplicated remaining account types")]
+    DuplicatedRemainingAccountTypes,
+
+    #[msg("Invalid transfer hook program")]
+    InvalidTransferHookProgram,
+
+    #[msg("Invalid transfer hook authority")]
+    InvalidTransferHookAuthority,
 }
 
 impl From<ProtozolZapError> for PoolError {

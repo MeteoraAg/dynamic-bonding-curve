@@ -13,6 +13,7 @@ import {
 import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
 import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
 
 export enum OperatorPermission {
   ClaimProtocolFee,

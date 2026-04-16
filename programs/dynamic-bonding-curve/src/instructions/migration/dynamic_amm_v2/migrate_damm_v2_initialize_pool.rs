@@ -28,6 +28,8 @@ use damm_v2::{
 };
 use migration_handler::MigratedCollectFeeMode;
 
+/// NOTE: Does not support base mints with active transfer hooks.
+/// The transfer hook program_id and authority must be revoked before migration.
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
     /// virtual pool

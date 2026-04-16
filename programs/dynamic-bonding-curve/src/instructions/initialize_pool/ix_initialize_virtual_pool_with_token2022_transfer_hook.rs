@@ -1,11 +1,13 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
+use crate::constants::seeds::POOL_PREFIX;
 use crate::process_initialize_virtual_pool_with_token2022;
 use crate::{
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    event::EvtInitializePool,
+    constants::seeds::TOKEN_VAULT_PREFIX,
+    event::EvtInitializePoolWithTransferHook,
     state::{PoolConfig, PoolType, VirtualPool},
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -13,9 +15,11 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
+/// DAMM v2 do not support mints with active transfer hooks.
+/// The transfer hook program_id and authority must be revoked before migration.
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
+pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     /// Which config the pool belongs to.
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
@@ -38,6 +42,8 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
         mint::authority = pool_authority,
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = base_mint,
+        extensions::transfer_hook::authority = transfer_hook_authority,
+        extensions::transfer_hook::program_id = transfer_hook_program,
     )]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
@@ -93,6 +99,12 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
+    /// CHECK: transfer hook program for the base mint
+    pub transfer_hook_program: UncheckedAccount<'info>,
+
+    /// CHECK: transfer hook authority for the base mint
+    pub transfer_hook_authority: UncheckedAccount<'info>,
+
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -105,10 +117,28 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_token2022<'info>(
-    ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
+pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
+    ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    require!(
+        ctx.accounts
+            .transfer_hook_authority
+            .key()
+            .ne(&Pubkey::default()),
+        PoolError::InvalidTransferHookAuthority
+    );
+
+    let transfer_hook_program = &ctx.accounts.transfer_hook_program;
+    require!(
+        transfer_hook_program.executable
+            && transfer_hook_program.key().ne(&crate::ID)
+            && transfer_hook_program
+                .key()
+                .ne(&ctx.accounts.token_program.key()),
+        PoolError::InvalidTransferHookProgram
+    );
+
     let activation_point = process_initialize_virtual_pool_with_token2022(
         &ctx.accounts.config,
         &ctx.accounts.pool_authority,
@@ -123,7 +153,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         params,
     )?;
 
-    emit_cpi!(EvtInitializePool {
+    emit_cpi!(EvtInitializePoolWithTransferHook {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         creator: ctx.accounts.creator.key(),

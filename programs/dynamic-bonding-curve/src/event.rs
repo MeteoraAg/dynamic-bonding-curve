@@ -86,6 +86,16 @@ pub struct EvtInitializePool {
 }
 
 #[event]
+pub struct EvtInitializePoolWithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub creator: Pubkey,
+    pub base_mint: Pubkey,
+    pub pool_type: u8,
+    pub activation_point: u64,
+}
+
+#[event]
 pub struct EvtSwap {
     pub pool: Pubkey,
     pub config: Pubkey,
@@ -111,7 +121,28 @@ pub struct EvtSwap2 {
 }
 
 #[event]
+pub struct EvtSwap2WithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub swap_parameters: SwapParameters2,
+    pub swap_result: SwapResult2,
+    pub quote_reserve_amount: u64,
+    pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
 pub struct EvtCurveComplete {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub base_reserve: u64,
+    pub quote_reserve: u64,
+}
+
+#[event]
+pub struct EvtCurveCompleteWithTransferHook {
     pub pool: Pubkey,
     pub config: Pubkey,
     pub base_reserve: u64,
@@ -134,6 +165,14 @@ pub struct EvtClaimProtocolFee2 {
 }
 
 #[event]
+pub struct EvtClaimProtocolFee2WithTransferHook {
+    pub pool: Pubkey,
+    pub receiver_token_account: Pubkey,
+    pub token_mint: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
 pub struct EvtClaimTradingFee {
     pub pool: Pubkey,
     pub token_base_amount: u64,
@@ -141,7 +180,21 @@ pub struct EvtClaimTradingFee {
 }
 
 #[event]
+pub struct EvtClaimTradingFeeWithTransferHook {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
+}
+
+#[event]
 pub struct EvtClaimCreatorTradingFee {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
+}
+
+#[event]
+pub struct EvtClaimCreatorTradingFeeWithTransferHook {
     pub pool: Pubkey,
     pub token_base_amount: u64,
     pub token_quote_amount: u64,
@@ -166,6 +219,13 @@ pub struct EvtCreatorWithdrawSurplus {
 
 #[event]
 pub struct EvtWithdrawLeftover {
+    pub pool: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub leftover_amount: u64,
+}
+
+#[event]
+pub struct EvtWithdrawLeftoverWithTransferHook {
     pub pool: Pubkey,
     pub leftover_receiver: Pubkey,
     pub leftover_amount: u64,

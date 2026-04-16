@@ -16,6 +16,7 @@ import {
   unwrapSOLInstruction,
 } from "../utils";
 import { getConfig, getVirtualPool } from "../utils/fetcher";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
 import { VirtualCurveProgram } from "../utils/types";
 
 export type ClaimCreatorTradeFeeParams = {
@@ -48,21 +49,21 @@ export async function claimCreatorTradingFee(
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        creator,
-        poolState.baseMint,
-        creator.publicKey,
-        tokenBaseProgram
-      ),
-      getOrCreateAssociatedTokenAccount(
-        svm,
-        creator,
-        quoteMintInfo.mint,
-        creator.publicKey,
-        tokenQuoteProgram
-      ),
-    ];
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      creator,
+      poolState.baseMint,
+      creator.publicKey,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      creator,
+      quoteMintInfo.mint,
+      creator.publicKey,
+      tokenQuoteProgram
+    ),
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -86,6 +87,75 @@ export async function claimCreatorTradingFee(
       tokenBaseProgram,
       tokenQuoteProgram,
     })
+    .preInstructions(preInstructions)
+    .postInstructions(postInstructions)
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [creator]);
+}
+
+export async function claimCreatorTradingFeeWithTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimCreatorTradeFeeParams
+): Promise<any> {
+  const { creator, pool, maxBaseAmount, maxQuoteAmount } = params;
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
+  const poolAuthority = derivePoolAuthority();
+
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const tokenQuoteProgram =
+    configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const preInstructions: TransactionInstruction[] = [];
+  const postInstructions: TransactionInstruction[] = [];
+  const [
+    { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
+    { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
+  ] = [
+    getOrCreateAssociatedTokenAccount(
+      svm, creator, poolState.baseMint, creator.publicKey, tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm, creator, quoteMintInfo.mint, creator.publicKey, tokenQuoteProgram
+    ),
+  ];
+  createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
+  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
+
+  if (configState.quoteMint == NATIVE_MINT) {
+    const unrapSOLIx = unwrapSOLInstruction(creator.publicKey);
+    unrapSOLIx && postInstructions.push(unrapSOLIx);
+  }
+
+  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+    await getRemainingAccountsForTransferHook(svm, program, pool);
+
+  const transaction = await program.methods
+    .claimCreatorTradingFeeWithTransferHook(
+      maxBaseAmount,
+      maxQuoteAmount,
+      transferHookAccountsInfo
+    )
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      tokenAAccount: baseTokenAccount,
+      tokenBAccount: quoteTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint: quoteMintInfo.mint,
+      creator: creator.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram,
+    })
+    .remainingAccounts(transferHookAccounts)
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
     .transaction();

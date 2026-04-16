@@ -123,6 +123,7 @@ pub fn handle_withdraw_migration_fee(
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         fee,
+        None,
     )?;
 
     emit_cpi!(EvtWithdrawMigrationFee {

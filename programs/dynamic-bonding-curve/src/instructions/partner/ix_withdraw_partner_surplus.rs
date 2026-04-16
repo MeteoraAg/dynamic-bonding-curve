@@ -71,6 +71,7 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         partner_surplus_amount,
+        None,
     )?;
 
     // update partner withdraw surplus
