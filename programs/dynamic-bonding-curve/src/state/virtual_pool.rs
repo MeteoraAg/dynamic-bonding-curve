@@ -119,7 +119,7 @@ pub struct VirtualPool {
     pub sqrt_price: u128,
     /// Activation point
     pub activation_point: u64,
-    /// pool type, spl token or token2022
+    /// pool type, spl token, token2022 or token2022 with transfer hook
     pub pool_type: u8,
     /// is migrated
     pub is_migrated: u8,
