@@ -1,9 +1,14 @@
 use crate::{
-    const_pda, constants::seeds::BASE_LOCKER_PREFIX,
-    cpi_checker::cpi_with_account_lamport_and_owner_checking, state::MigrationProgress, *,
+    const_pda,
+    constants::seeds::BASE_LOCKER_PREFIX,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking,
+    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
+    state::MigrationProgress,
+    *,
 };
 use anchor_spl::token_interface::{TokenAccount, TokenInterface};
 use locker::cpi::accounts::CreateVestingEscrowV2;
+use locker::types as locker_types;
 
 #[derive(Accounts)]
 pub struct CreateLockerCtx<'info> {
@@ -67,7 +72,10 @@ pub struct CreateLockerCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
+pub fn handle_create_locker<'info>(
+    ctx: Context<'info, CreateLockerCtx<'info>>,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
+) -> Result<()> {
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut virtual_pool = pool_loader.load_mut()?;
 
@@ -106,6 +114,25 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
 
     let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
 
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+
+    let (locker_remaining_accounts_info, cpi_remaining_accounts) =
+        if let Some(transfer_hook_accounts) = parsed_transfer_hook_accounts.transfer_hook_base {
+            (
+                Some(locker_types::RemainingAccountsInfo {
+                    slices: vec![locker_types::RemainingAccountsSlice {
+                        accounts_type: locker_types::AccountsType::TransferHookEscrow,
+                        length: transfer_hook_accounts.len() as u8,
+                    }],
+                }),
+                transfer_hook_accounts.to_vec(),
+            )
+        } else {
+            (None, vec![])
+        };
+
     let create_locker_fn = || {
         flash_rent(
             ctx.accounts.pool_authority.to_account_info(),
@@ -117,7 +144,7 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
                     CpiContext::new_with_signer(
                         ctx.accounts.locker_program.key(),
                         CreateVestingEscrowV2 {
-                            base: ctx.accounts.base.to_account_info(), // use payer token account for base key, unique
+                            base: ctx.accounts.base.to_account_info(),
                             escrow: ctx.accounts.escrow.to_account_info(),
                             escrow_token: ctx.accounts.escrow_token.to_account_info(),
                             token_mint: ctx.accounts.base_mint.to_account_info(),
@@ -130,9 +157,10 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
                             program: ctx.accounts.locker_program.to_account_info(),
                         },
                         &[&base_seeds[..], &pool_authority_seeds[..]],
-                    ),
+                    )
+                    .with_remaining_accounts(cpi_remaining_accounts.clone()),
                     vesting_params,
-                    None,
+                    locker_remaining_accounts_info.clone(),
                 )?;
 
                 Ok(())

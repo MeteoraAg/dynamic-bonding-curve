@@ -253,8 +253,15 @@ pub mod dynamic_bonding_curve {
 
     /// PERMISSIONLESS FUNCTIONS ///
     /// create locker
-    pub fn create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
-        instructions::handle_create_locker(ctx)
+    pub fn create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) -> Result<()> {
+        instructions::handle_create_locker(ctx, Default::default())
+    }
+
+    pub fn create_locker_with_transfer_hook<'info>(
+        ctx: Context<'info, CreateLockerCtx<'info>>,
+        transfer_hook_accounts_info: TransferHookAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_create_locker(ctx, transfer_hook_accounts_info)
     }
 
     // withdraw leftover on base token, can only call after pool is initialized
