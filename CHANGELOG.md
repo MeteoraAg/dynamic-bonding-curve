@@ -23,9 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.0]
 
-- Added an endpoint `initialize_virtual_pool_with_token2022_transfer_hook` that allows a creator to create a virtual pool with a token-2022 base mint that has a transfer hooks. The transfer hook's authority is set to the `pool_authority`. These pools are assigned a `Token2022WithTransferHook` pool type.
-- Added endpoints with transfer hook support: `swap2_with_transfer_hook`, `claim_trading_fee_with_transfer_hook`, and `claim_creator_trading_fee_with_transfer_hook`. These accept a `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for transfer hook support on the base mint. The original endpoints are unchanged for backwards compatibility with non-transfer-hook pools.
-- Added `WithTransferHook` event variants for all pool-touching events.
+### Added
+
+- Added endpoint `create_config_with_transfer_hook` that creates a `ConfigWithTransferHook` account storing the transfer hook program alongside the pool config. Only valid for `token_type: Token2022`. The transfer hook program must be executable and cannot be the program itself.
+- Added endpoint `initialize_virtual_pool_with_token2022_transfer_hook` for creating virtual pools with token-2022 base mints that have transfer hooks. The transfer hook program is sourced from the `ConfigWithTransferHook` account and the transfer hook authority is set to the `pool_authority`.
+- Added endpoints with transfer hook support: `swap2_with_transfer_hook`, `claim_trading_fee_with_transfer_hook`, `claim_creator_trading_fee_with_transfer_hook` and `create_locker_with_transfer_hook`. These accept a `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for passing transfer hook extra accounts via remaining accounts. The original endpoints are unchanged for backwards compatibility with non-transfer-hook pools.
+- Added `WithTransferHook` event variants for all pool-touching events (e.g. `EvtSwap2WithTransferHook`, `EvtCurveCompleteWithTransferHook`, `EvtClaimTradingFeeWithTransferHook`, etc.) to differentiate between transfer-hook and non-transfer-hook pool operations.
+
+### Breaking Changes
+
+- `claim_protocol_fee2` now requires `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for transfer hook support on the base mint. Existing callers must pass an empty/default `TransferHookAccountsInfo` for non-transfer-hook pools.
 
 ## dynamic_bonding_curve [0.1.11] [PR #188](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/188)
 
