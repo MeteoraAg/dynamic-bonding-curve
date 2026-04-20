@@ -17,16 +17,7 @@ use crate::{
     PoolError,
 };
 use anchor_spl::{
-    token_2022::{
-        set_authority,
-        spl_token_2022::{
-            extension::{
-                transfer_hook::TransferHook, BaseStateWithExtensions, StateWithExtensions,
-            },
-            instruction::AuthorityType,
-        },
-        SetAuthority,
-    },
+    token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
     token_interface::{TokenAccount, TokenInterface},
 };
 use damm_v2::{
@@ -523,20 +514,37 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
 
     if virtual_pool.is_transfer_hook_pool()? {
-        let base_mint_info = ctx.accounts.base_mint.to_account_info();
-        let base_mint_data = base_mint_info.try_borrow_data()?;
-        let mint_state =
-            StateWithExtensions::<anchor_spl::token_2022::spl_token_2022::state::Mint>::unpack(
-                &base_mint_data,
-            )?;
-        let transfer_hook = mint_state.get_extension::<TransferHook>()?;
-        let transfer_hook_program_id: Option<Pubkey> = transfer_hook.program_id.into();
-        let transfer_hook_authority: Option<Pubkey> = transfer_hook.authority.into();
+        let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
 
-        require!(
-            transfer_hook_program_id.is_none() && transfer_hook_authority.is_none(),
-            PoolError::TransferHookNotRevoked
-        );
+        let update_hook_ix =
+            anchor_spl::token_2022::spl_token_2022::extension::transfer_hook::instruction::update(
+                &ctx.accounts.token_base_program.key(),
+                &ctx.accounts.base_mint.key(),
+                &ctx.accounts.pool_authority.key(),
+                &[],
+                None,
+            )?;
+        anchor_lang::solana_program::program::invoke_signed(
+            &update_hook_ix,
+            &[
+                ctx.accounts.base_mint.to_account_info(),
+                ctx.accounts.pool_authority.to_account_info(),
+            ],
+            &[&pool_authority_seeds[..]],
+        )?;
+
+        set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_base_program.key(),
+                SetAuthority {
+                    current_authority: ctx.accounts.pool_authority.to_account_info(),
+                    account_or_mint: ctx.accounts.base_mint.to_account_info(),
+                },
+                &[&pool_authority_seeds[..]],
+            ),
+            AuthorityType::TransferHookProgramId,
+            None,
+        )?;
     }
 
     require!(

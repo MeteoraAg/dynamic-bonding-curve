@@ -484,7 +484,6 @@ async function createInitializePoolWithTransferHookIx(
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
       transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      transferHookAuthority: poolCreator.publicKey,
     })
     .instruction();
 

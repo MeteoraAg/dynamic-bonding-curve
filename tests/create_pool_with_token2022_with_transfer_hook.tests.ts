@@ -174,7 +174,6 @@ describe("Create pool with token2022 transfer hook", () => {
       quoteMint: NATIVE_MINT,
       config,
       transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      transferHookAuthority: poolCreator.publicKey,
       instructionParams: {
         name,
         symbol,

@@ -74,13 +74,6 @@ pub struct EvtCreatorWithdrawSurplusWithTransferHook {
 }
 
 #[event]
-pub struct EvtWithdrawLeftoverWithTransferHook {
-    pub pool: Pubkey,
-    pub leftover_receiver: Pubkey,
-    pub leftover_amount: u64,
-}
-
-#[event]
 pub struct EvtUpdatePoolCreatorWithTransferHook {
     pub pool: Pubkey,
     pub creator: Pubkey,

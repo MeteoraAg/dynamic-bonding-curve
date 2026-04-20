@@ -1,9 +1,5 @@
 import {
-  AuthorityType,
-  createSetAuthorityInstruction,
-  createUpdateTransferHookInstruction,
   getAssociatedTokenAddressSync,
-  getTransferHook,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -11,7 +7,6 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  Transaction,
 } from "@solana/web3.js";
 import { BN } from "bn.js";
 import {
@@ -23,7 +18,7 @@ import {
   swapWithTransferHook,
   SwapMode,
   SwapParams,
-  withdrawLeftoverWithTransferHook,
+  withdrawLeftover,
 } from "./instructions";
 import {
   createDammV2Config,
@@ -36,7 +31,6 @@ import {
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  sendTransactionMaybeThrow,
   startSvm,
   U64_MAX,
 } from "./utils";
@@ -186,7 +180,6 @@ describe("Fixed token supply with transfer hook", () => {
       quoteMint: NATIVE_MINT,
       config,
       transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      transferHookAuthority: poolCreator.publicKey,
       instructionParams: {
         name: "test token 2022 with transfer hook",
         symbol: "TEST",
@@ -226,35 +219,6 @@ describe("Fixed token supply with transfer hook", () => {
       referralTokenAccount: null,
     };
     await swapWithTransferHook(svm, program, params);
-  });
-
-  it("Revoke transfer hook and authority before dammv2 migration", async () => {
-    const baseMint = virtualPoolState.baseMint;
-
-    const updateHookIx = createUpdateTransferHookInstruction(
-      baseMint,
-      poolCreator.publicKey,
-      PublicKey.default,
-      [],
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    const revokeAuthorityIx = createSetAuthorityInstruction(
-      baseMint,
-      poolCreator.publicKey,
-      AuthorityType.TransferHookProgramId,
-      null,
-      [],
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    const tx = new Transaction().add(updateHookIx, revokeAuthorityIx);
-    sendTransactionMaybeThrow(svm, tx, [poolCreator]);
-
-    const mintState = getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID);
-    const transferHook = getTransferHook(mintState);
-    expect(transferHook.authority.equals(PublicKey.default)).to.be.true;
-    expect(transferHook.programId.equals(PublicKey.default)).to.be.true;
   });
 
   it("Create meteora damm v2 metadata", async () => {
@@ -305,7 +269,7 @@ describe("Fixed token supply with transfer hook", () => {
       ? BigInt(getTokenAccount(svm, leftoverReceiverAta).amount.toString())
       : BigInt(0);
 
-    await withdrawLeftoverWithTransferHook(svm, program, {
+    await withdrawLeftover(svm, program, {
       payer: admin,
       virtualPool,
     });

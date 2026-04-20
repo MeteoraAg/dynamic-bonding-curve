@@ -55,7 +55,6 @@ export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
 
 export type CreatePoolToken2022TransferHookParams = CreatePoolSplTokenParams & {
   transferHookProgram: PublicKey;
-  transferHookAuthority: PublicKey;
 };
 
 export async function createInitializePoolWithSplTokenIx(
@@ -183,7 +182,6 @@ export async function createPoolWithToken2022TransferHook(
     instructionParams,
     poolCreator,
     transferHookProgram,
-    transferHookAuthority,
   } = params;
 
   const poolAuthority = derivePoolAuthority();
@@ -206,7 +204,6 @@ export async function createPoolWithToken2022TransferHook(
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
       transferHookProgram,
-      transferHookAuthority,
     })
     .transaction();
 

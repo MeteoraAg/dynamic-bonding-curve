@@ -213,7 +213,7 @@ export async function claimProtocolFee2(
     getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
   const transaction = await program.methods
-    .claimProtocolFee2(maxAmount)
+    .claimProtocolFee2(maxAmount, { slices: [] })
     .accountsPartial({
       poolAuthority,
       config: poolState.config,

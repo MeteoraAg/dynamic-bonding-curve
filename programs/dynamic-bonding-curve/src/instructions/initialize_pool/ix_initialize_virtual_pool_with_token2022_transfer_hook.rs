@@ -42,7 +42,7 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
         mint::authority = pool_authority,
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = base_mint,
-        extensions::transfer_hook::authority = transfer_hook_authority,
+        extensions::transfer_hook::authority = pool_authority,
         extensions::transfer_hook::program_id = transfer_hook_program,
     )]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -102,9 +102,6 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     /// CHECK: transfer hook program for the base mint
     pub transfer_hook_program: UncheckedAccount<'info>,
 
-    /// CHECK: transfer hook authority for the base mint
-    pub transfer_hook_authority: UncheckedAccount<'info>,
-
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -121,14 +118,6 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    require!(
-        ctx.accounts
-            .transfer_hook_authority
-            .key()
-            .ne(&Pubkey::default()),
-        PoolError::InvalidTransferHookAuthority
-    );
-
     let transfer_hook_program = &ctx.accounts.transfer_hook_program;
     require!(
         transfer_hook_program.executable

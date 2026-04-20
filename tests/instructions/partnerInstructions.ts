@@ -473,55 +473,6 @@ export async function withdrawLeftover(
   sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
 
-export async function withdrawLeftoverWithTransferHook(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: {
-    payer: Keypair;
-    virtualPool: PublicKey;
-  }
-) {
-  const { payer, virtualPool } = params;
-  const poolState = getVirtualPool(svm, program, virtualPool);
-  const configState = getConfig(svm, program, poolState.config);
-  const poolAuthority = derivePoolAuthority();
-
-  const tokenBaseProgram =
-    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-
-  const preInstructions: TransactionInstruction[] = [];
-  const { ata: tokenBaseAccount, ix: createBaseTokenAccountIx } =
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      payer,
-      poolState.baseMint,
-      configState.leftoverReceiver,
-      tokenBaseProgram
-    );
-  createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
-
-  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
-    await getRemainingAccountsForTransferHook(svm, program, virtualPool);
-
-  const transaction = await program.methods
-    .withdrawLeftoverWithTransferHook(transferHookAccountsInfo)
-    .accountsPartial({
-      poolAuthority,
-      config: poolState.config,
-      virtualPool,
-      tokenBaseAccount,
-      baseVault: poolState.baseVault,
-      baseMint: poolState.baseMint,
-      leftoverReceiver: configState.leftoverReceiver,
-      tokenBaseProgram,
-    })
-    .remainingAccounts(transferHookAccounts)
-    .preInstructions(preInstructions)
-    .transaction();
-
-  sendTransactionMaybeThrow(svm, transaction, [payer]);
-}
-
 export type PartnerWithdrawMigrationFeeParams = {
   partner: Keypair;
   virtualPool: PublicKey;

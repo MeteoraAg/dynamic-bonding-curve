@@ -84,13 +84,6 @@ pub mod dynamic_bonding_curve {
     pub fn claim_protocol_fee2<'info>(
         ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
         max_amount: u64,
-    ) -> Result<()> {
-        instructions::handle_claim_protocol_fee2(ctx, max_amount, Default::default())
-    }
-
-    pub fn claim_protocol_fee2_with_transfer_hook<'info>(
-        ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
-        max_amount: u64,
         transfer_hook_accounts_info: TransferHookAccountsInfo,
     ) -> Result<()> {
         instructions::handle_claim_protocol_fee2(ctx, max_amount, transfer_hook_accounts_info)
@@ -259,15 +252,7 @@ pub mod dynamic_bonding_curve {
 
     // withdraw leftover on base token, can only call after pool is initialized
     pub fn withdraw_leftover<'info>(ctx: Context<'info, WithdrawLeftoverCtx<'info>>) -> Result<()> {
-        instructions::handle_withdraw_leftover(ctx, Default::default())
-    }
-
-    // withdraw leftover with transfer hook on base token, can only call after pool is initialized
-    pub fn withdraw_leftover_with_transfer_hook<'info>(
-        ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
-        transfer_hook_accounts_info: TransferHookAccountsInfo,
-    ) -> Result<()> {
-        instructions::handle_withdraw_leftover(ctx, transfer_hook_accounts_info)
+        instructions::handle_withdraw_leftover(ctx)
     }
 
     /// migrate damm v1
