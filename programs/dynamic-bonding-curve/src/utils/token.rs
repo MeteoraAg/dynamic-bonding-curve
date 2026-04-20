@@ -19,7 +19,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::{SafeCast, SafeMath};
-use crate::state::{PoolType, VirtualPool};
+use crate::state::{PoolState, PoolType};
 use crate::PoolError;
 
 #[derive(
@@ -55,7 +55,7 @@ pub fn get_token_program_from_pool_type(pool_type: u8) -> Result<Pubkey> {
     let pool_type: PoolType = pool_type.safe_cast()?;
     match pool_type {
         PoolType::SplToken => Ok(anchor_spl::token::ID),
-        PoolType::Token2022 | PoolType::Token2022WithTransferHook => Ok(anchor_spl::token_2022::ID),
+        PoolType::Token2022 => Ok(anchor_spl::token_2022::ID),
     }
 }
 
@@ -246,7 +246,7 @@ pub fn transfer_lamports_from_pool_account<'info>(
     pool.sub_lamports(lamports)?;
     to.add_lamports(lamports)?;
 
-    let minimum_balance = Rent::get()?.minimum_balance(8 + VirtualPool::INIT_SPACE);
+    let minimum_balance = Rent::get()?.minimum_balance(8 + PoolState::INIT_SPACE);
 
     require!(
         pool.get_lamports() >= minimum_balance,

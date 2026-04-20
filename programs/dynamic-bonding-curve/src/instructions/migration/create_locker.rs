@@ -2,7 +2,7 @@ use crate::{
     const_pda,
     constants::seeds::BASE_LOCKER_PREFIX,
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    state::{MigrationProgress, PoolConfig, VirtualPool},
+    state::{MigrationProgress, PoolConfig},
     *,
 };
 use anchor_spl::token_interface::{TokenAccount, TokenInterface};
@@ -10,9 +10,9 @@ use locker::cpi::accounts::CreateVestingEscrowV2;
 
 #[derive(Accounts)]
 pub struct CreateLockerCtx<'info> {
-    /// Virtual pool
-    #[account(mut, has_one = config, has_one = creator, has_one = base_vault, has_one = base_mint)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
     /// Config
     pub config: AccountLoader<'info, PoolConfig>,
     /// CHECK: pool authority
@@ -71,7 +71,25 @@ pub struct CreateLockerCtx<'info> {
 }
 
 pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.creator.eq(&ctx.accounts.creator.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        PoolError::InvalidAccount
+    );
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::PostBondingCurve,

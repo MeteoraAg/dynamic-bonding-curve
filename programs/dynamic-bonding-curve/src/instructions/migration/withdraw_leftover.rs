@@ -5,9 +5,9 @@ use crate::{
     const_pda,
     event::EvtWithdrawLeftover,
     safe_math::SafeMath,
-    state::{MigrationProgress, PoolConfig, VirtualPool},
+    state::{MigrationProgress, PoolConfig},
     token::transfer_token_from_pool_authority,
-    PoolError,
+    PoolAccountLoader, PoolError,
 };
 
 /// Accounts for withdraw leftover
@@ -23,13 +23,9 @@ pub struct WithdrawLeftoverCtx<'info> {
     #[account(has_one=leftover_receiver)]
     pub config: AccountLoader<'info, PoolConfig>,
 
-    #[account(
-        mut,
-        has_one = base_mint,
-        has_one = base_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account, withdraw to ATA
     #[account(mut,
@@ -58,7 +54,22 @@ pub fn handle_withdraw_leftover<'info>(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+
+    require!(
+        virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
+
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::CreatedPool,
         PoolError::NotPermitToDoThisAction

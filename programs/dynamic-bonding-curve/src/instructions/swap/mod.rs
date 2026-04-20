@@ -6,7 +6,7 @@ mod swap_partial_fill;
 
 use crate::{
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, PoolState, SwapResult2},
 };
 
 struct ProcessSwapResult {
@@ -15,7 +15,7 @@ struct ProcessSwapResult {
 }
 
 struct ProcessSwapParams<'a> {
-    pool: &'a mut VirtualPool,
+    pool: &'a mut PoolState,
     config: &'a PoolConfig,
     fee_mode: &'a FeeMode,
     trade_direction: TradeDirection,

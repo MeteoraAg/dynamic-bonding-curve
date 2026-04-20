@@ -21,9 +21,9 @@ use crate::{
     params::swap::TradeDirection,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::fee::FeeMode,
-    state::{PoolConfig, VirtualPool},
+    state::PoolConfig,
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
-    PoolError,
+    PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
@@ -81,9 +81,9 @@ pub struct SwapCtx<'info> {
     /// config key
     pub config: AccountLoader<'info, PoolConfig>,
 
-    /// Pool account
-    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader - owner + discriminator (VirtualPool or TransferHookPool)
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     /// The user token account for input token
     #[account(mut)]
@@ -201,7 +201,21 @@ pub fn handle_swap_wrapper<'info>(
     let has_referral = ctx.accounts.referral_token_account.is_some();
 
     let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
 
     let current_point = get_current_point(config.activation_type)?;
 
@@ -243,7 +257,7 @@ pub fn handle_swap_wrapper<'info>(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
     let process_swap_params = ProcessSwapParams {
-        pool: &mut pool,
+        pool: &mut *pool,
         config: &config,
         fee_mode,
         trade_direction,
@@ -330,7 +344,7 @@ pub fn handle_swap_wrapper<'info>(
         }
     }
 
-    if pool.is_transfer_hook_pool()? {
+    if pool_loader.is_transfer_hook_pool() {
         emit_cpi!(EvtSwap2WithTransferHook {
             pool: ctx.accounts.pool.key(),
             config: ctx.accounts.config.key(),
@@ -397,7 +411,7 @@ pub fn handle_swap_wrapper<'info>(
             pool.set_migration_progress(MigrationProgress::LockedVesting.into());
         }
 
-        if pool.is_transfer_hook_pool()? {
+        if pool_loader.is_transfer_hook_pool() {
             emit_cpi!(EvtCurveCompleteWithTransferHook {
                 pool: ctx.accounts.pool.key(),
                 config: ctx.accounts.config.key(),

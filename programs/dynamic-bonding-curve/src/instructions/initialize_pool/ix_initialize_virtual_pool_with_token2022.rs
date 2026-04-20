@@ -1,6 +1,8 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
-use crate::process_initialize_virtual_pool_with_token2022;
+use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::{
+    initialize_pool_state, process_initialize_virtual_pool_with_token2022,
+};
 use crate::{
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
@@ -109,20 +111,29 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    let activation_point = process_initialize_virtual_pool_with_token2022(
+    let init_data = process_initialize_virtual_pool_with_token2022(
         &ctx.accounts.config,
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,
-        &ctx.accounts.pool,
+        ctx.accounts.pool.to_account_info(),
         &ctx.accounts.base_vault,
-        &ctx.accounts.quote_vault,
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
         params,
-        PoolType::Token2022,
     )?;
+
+    let mut pool = ctx.accounts.pool.load_init()?;
+    initialize_pool_state(
+        &mut pool,
+        &init_data,
+        ctx.accounts.creator.key(),
+        ctx.accounts.base_mint.key(),
+        ctx.accounts.base_vault.key(),
+        ctx.accounts.quote_vault.key(),
+        PoolType::Token2022,
+    );
 
     emit_cpi!(EvtInitializePool {
         pool: ctx.accounts.pool.key(),
@@ -130,7 +141,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         creator: ctx.accounts.creator.key(),
         base_mint: ctx.accounts.base_mint.key(),
         pool_type: PoolType::Token2022.into(),
-        activation_point,
+        activation_point: init_data.activation_point,
     });
     Ok(())
 }

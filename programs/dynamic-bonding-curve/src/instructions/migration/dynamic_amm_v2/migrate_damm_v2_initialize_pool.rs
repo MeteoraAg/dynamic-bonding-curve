@@ -12,9 +12,9 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
-        MigrationProgress, PoolConfig, VirtualPool,
+        MigrationProgress, PoolConfig,
     },
-    PoolError,
+    PoolAccountLoader, PoolError,
 };
 use anchor_spl::{
     token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
@@ -30,9 +30,9 @@ use migration_handler::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
-    /// virtual pool
-    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// CHECK: Deprecated. Unused anymore.
     #[deprecated]
@@ -511,9 +511,23 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         validate_config_key(&damm_config, migration_fee_option)?;
     }
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
 
-    if virtual_pool.is_transfer_hook_pool()? {
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
+
+    if pool_loader.is_transfer_hook_pool() {
         let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
 
         let update_hook_ix =

@@ -1,12 +1,14 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
 use crate::constants::seeds::POOL_PREFIX;
-use crate::process_initialize_virtual_pool_with_token2022;
+use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::{
+    initialize_pool_state, process_initialize_virtual_pool_with_token2022,
+};
 use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
-    state::{PoolConfig, PoolType, VirtualPool},
+    state::{PoolConfig, PoolType, TransferHookPool},
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -63,9 +65,9 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
         ],
         bump,
         payer = payer,
-        space = 8 + VirtualPool::INIT_SPACE
+        space = 8 + TransferHookPool::INIT_SPACE
     )]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    pub pool: AccountLoader<'info, TransferHookPool>,
 
     /// CHECK: Token base vault for the pool
     #[account(
@@ -128,28 +130,37 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
         PoolError::InvalidTransferHookProgram
     );
 
-    let activation_point = process_initialize_virtual_pool_with_token2022(
+    let init_data = process_initialize_virtual_pool_with_token2022(
         &ctx.accounts.config,
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,
-        &ctx.accounts.pool,
+        ctx.accounts.pool.to_account_info(),
         &ctx.accounts.base_vault,
-        &ctx.accounts.quote_vault,
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
         params,
-        PoolType::Token2022WithTransferHook,
     )?;
+
+    let mut pool = ctx.accounts.pool.load_init()?;
+    initialize_pool_state(
+        &mut pool,
+        &init_data,
+        ctx.accounts.creator.key(),
+        ctx.accounts.base_mint.key(),
+        ctx.accounts.base_vault.key(),
+        ctx.accounts.quote_vault.key(),
+        PoolType::Token2022,
+    );
 
     emit_cpi!(EvtInitializePoolWithTransferHook {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         creator: ctx.accounts.creator.key(),
         base_mint: ctx.accounts.base_mint.key(),
-        pool_type: PoolType::Token2022WithTransferHook.into(),
-        activation_point,
+        pool_type: PoolType::Token2022.into(),
+        activation_point: init_data.activation_point,
     });
     Ok(())
 }

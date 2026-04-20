@@ -6,7 +6,7 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     state::fee::VolatilityTracker,
-    state::{PoolConfig, PoolType, TokenType, VirtualPool},
+    state::{PoolConfig, PoolState, PoolType, TokenType},
     token::update_account_lamports_to_minimum_balance,
     PoolError,
 };
@@ -20,20 +20,25 @@ use anchor_spl::token_interface::{
     TokenMetadataInitialize,
 };
 
+pub struct InitPoolData {
+    pub activation_point: u64,
+    pub initial_base_supply: u64,
+    pub config_key: Pubkey,
+    pub sqrt_start_price: u128,
+}
+
 pub fn process_initialize_virtual_pool_with_token2022<'info>(
     config: &AccountLoader<'info, PoolConfig>,
     pool_authority: &AccountInfo<'info>,
     creator: &AccountInfo<'info>,
     base_mint: &InterfaceAccount<'info, Mint>,
-    pool: &AccountLoader<'info, VirtualPool>,
+    pool_info: AccountInfo<'info>,
     base_vault: &InterfaceAccount<'info, TokenAccount>,
-    quote_vault: &InterfaceAccount<'info, TokenAccount>,
     payer: &AccountInfo<'info>,
     token_program: &AccountInfo<'info>,
     system_program: &AccountInfo<'info>,
     params: InitializePoolParameters,
-    pool_type: PoolType,
-) -> Result<u64> {
+) -> Result<InitPoolData> {
     let config_key = config.key();
     let config = config.load()?;
 
@@ -155,30 +160,42 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     if config.pool_creation_fee > 0 {
         transfer_lamports_from_user(
             payer.to_account_info(),
-            pool.to_account_info(),
+            pool_info,
             system_program.to_account_info(),
             config.pool_creation_fee,
         )?;
     }
 
-    // init pool
-    let mut pool = pool.load_init()?;
-
     let activation_point = get_current_point(config.activation_type)?;
 
-    pool.initialize(
-        VolatilityTracker::default(),
-        config_key,
-        creator.key(),
-        base_mint.key(),
-        base_vault.key(),
-        quote_vault.key(),
-        config.sqrt_start_price,
-        pool_type.into(),
+    Ok(InitPoolData {
         activation_point,
         initial_base_supply,
+        config_key,
+        sqrt_start_price: config.sqrt_start_price,
+    })
+}
+
+pub fn initialize_pool_state(
+    pool: &mut PoolState,
+    data: &InitPoolData,
+    creator: Pubkey,
+    base_mint: Pubkey,
+    base_vault: Pubkey,
+    quote_vault: Pubkey,
+    pool_type: PoolType,
+) {
+    pool.initialize(
+        VolatilityTracker::default(),
+        data.config_key,
+        creator,
+        base_mint,
+        base_vault,
+        quote_vault,
+        data.sqrt_start_price,
+        pool_type.into(),
+        data.activation_point,
+        data.initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
-
-    Ok(activation_point)
 }

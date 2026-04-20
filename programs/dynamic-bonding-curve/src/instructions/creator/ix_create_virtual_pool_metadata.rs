@@ -1,6 +1,7 @@
 use crate::constants::seeds::VIRTUAL_POOL_METADATA_PREFIX;
 use crate::event::{EvtVirtualPoolMetadata, EvtVirtualPoolMetadataWithTransferHook};
-use crate::state::{VirtualPool, VirtualPoolMetadata};
+use crate::state::VirtualPoolMetadata;
+use crate::PoolAccountLoader;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -16,8 +17,8 @@ pub struct CreateVirtualPoolMetadataParameters {
 #[derive(Accounts)]
 #[instruction(metadata: CreateVirtualPoolMetadataParameters)]
 pub struct CreateVirtualPoolMetadataCtx<'info> {
-    #[account(mut)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    pub virtual_pool: UncheckedAccount<'info>,
     /// Virtual pool metadata
     #[account(
         init,
@@ -50,8 +51,8 @@ pub fn handle_create_virtual_pool_metadata(
     virtual_pool_metadata.name = metadata.name;
     virtual_pool_metadata.website = metadata.website;
     virtual_pool_metadata.logo = metadata.logo;
-    let pool = ctx.accounts.virtual_pool.load()?;
-    if pool.is_transfer_hook_pool()? {
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    if pool_loader.is_transfer_hook_pool() {
         emit_cpi!(EvtVirtualPoolMetadataWithTransferHook {
             virtual_pool_metadata: ctx.accounts.virtual_pool_metadata.key(),
             virtual_pool: ctx.accounts.virtual_pool.key(),

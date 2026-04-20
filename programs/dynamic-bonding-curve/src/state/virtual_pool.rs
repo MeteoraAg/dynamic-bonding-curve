@@ -1,5 +1,5 @@
 use std::{
-    ops::{BitAnd, BitXor},
+    ops::{BitAnd, BitXor, Deref, DerefMut},
     u128,
 };
 
@@ -16,7 +16,7 @@ use crate::{
         get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
     },
     params::swap::TradeDirection,
-    safe_math::{SafeCast, SafeMath},
+    safe_math::SafeMath,
     state::{
         fee::{FeeMode, FeeOnAmountResult, VolatilityTracker},
         PoolConfig,
@@ -61,7 +61,6 @@ pub enum CollectFeeMode {
 pub enum PoolType {
     SplToken,
     Token2022,
-    Token2022WithTransferHook,
 }
 
 // Pool state transition flows:
@@ -88,9 +87,9 @@ pub enum MigrationProgress {
     CreatedPool,
 }
 
-#[account(zero_copy)]
+#[zero_copy]
 #[derive(InitSpace, Debug, Default)]
-pub struct VirtualPool {
+pub struct PoolState {
     /// volatility tracker
     pub volatility_tracker: VolatilityTracker,
     /// config key
@@ -119,7 +118,7 @@ pub struct VirtualPool {
     pub sqrt_price: u128,
     /// Activation point
     pub activation_point: u64,
-    /// pool type, spl token, token2022 or token2022 with transfer hook
+    /// pool type, spl token or token2022
     pub pool_type: u8,
     /// is migrated
     pub is_migrated: u8,
@@ -161,7 +160,48 @@ pub struct VirtualPool {
     pub _padding_2: [u64; 3],
 }
 
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct VirtualPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for VirtualPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for VirtualPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct TransferHookPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for TransferHookPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for TransferHookPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+// all three should be the same size
+const_assert_eq!(PoolState::INIT_SPACE, 416);
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
+const_assert_eq!(TransferHookPool::INIT_SPACE, 416);
 
 pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
 pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
@@ -202,7 +242,7 @@ impl PoolMetrics {
     }
 }
 
-impl VirtualPool {
+impl PoolState {
     pub fn initialize(
         &mut self,
         volatility_tracker: VolatilityTracker,
@@ -996,11 +1036,6 @@ impl VirtualPool {
 
     pub fn is_first_swap(&self) -> bool {
         self.has_swap == 0
-    }
-
-    pub fn is_transfer_hook_pool(&self) -> Result<bool> {
-        let pool_type: PoolType = self.pool_type.safe_cast()?;
-        Ok(pool_type == PoolType::Token2022WithTransferHook)
     }
 
     pub fn claim_protocol_base_fee(&mut self, max_amount: u64) -> Result<u64> {

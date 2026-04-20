@@ -1,3 +1,4 @@
+use crate::PoolAccountLoader;
 use crate::{
     event::{EvtPartnerClaimPoolCreationFee, EvtPartnerClaimPoolCreationFeeWithTransferHook},
     state::*,
@@ -11,8 +12,9 @@ use crate::{
 pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
     pub config: AccountLoader<'info, PoolConfig>,
 
-    #[account(mut, has_one = config)]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     pub fee_claimer: Signer<'info>,
 
@@ -30,7 +32,12 @@ pub fn handle_claim_partner_pool_creation_fee(
 
     require!(partner_fee > 0, PoolError::ZeroPoolCreationFee);
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
 
     require!(
         pool.eligible_to_claim_partner_pool_creation_fee(),
@@ -46,7 +53,7 @@ pub fn handle_claim_partner_pool_creation_fee(
         partner_fee,
     )?;
 
-    if pool.is_transfer_hook_pool()? {
+    if pool_loader.is_transfer_hook_pool() {
         emit_cpi!(EvtPartnerClaimPoolCreationFeeWithTransferHook {
             pool: ctx.accounts.pool.key(),
             partner: ctx.accounts.fee_claimer.key(),

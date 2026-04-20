@@ -7,7 +7,7 @@ import { DynamicAmm as DammV1 } from "./idl/dynamic_amm";
 
 export type VirtualCurveProgram = Program<DynamicBondingCurve>;
 
-export type Pool = IdlAccounts<DynamicBondingCurve>["virtualPool"];
+export type Pool = IdlAccounts<DynamicBondingCurve>["virtualPool"]["poolState"];
 export type PoolConfig = IdlAccounts<DynamicBondingCurve>["poolConfig"];
 export type PartnerMetadata =
   IdlAccounts<DynamicBondingCurve>["partnerMetadata"];

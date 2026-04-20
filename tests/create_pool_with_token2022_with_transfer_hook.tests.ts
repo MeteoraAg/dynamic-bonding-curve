@@ -29,6 +29,7 @@ import {
 } from "./instructions";
 import {
   createVirtualCurveProgram,
+  derivePoolAuthority,
   generateAndFund,
   getMint,
   getTokenAccount,
@@ -207,7 +208,7 @@ describe("Create pool with token2022 transfer hook", () => {
     expect(hookProgramId.toString()).eq(
       TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
     );
-    expect(hookAuthority.toString()).eq(poolCreator.publicKey.toString());
+    expect(hookAuthority.toString()).eq(derivePoolAuthority().toString());
 
     // validate freeze authority
     const baseMintData = getMint(svm, virtualPoolState.baseMint);

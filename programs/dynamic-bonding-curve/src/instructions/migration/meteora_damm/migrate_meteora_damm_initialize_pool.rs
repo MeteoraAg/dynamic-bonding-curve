@@ -5,16 +5,16 @@ use crate::{
     migration_handler::CompoundingLiquidity,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
+    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig},
     *,
 };
 use anchor_spl::token::{Burn, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammCtx<'info> {
-    /// virtual pool
-    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     #[account(mut, has_one = virtual_pool)]
     pub migration_metadata: AccountLoader<'info, MeteoraDammMigrationMetadata>,
@@ -216,7 +216,20 @@ pub fn handle_migrate_meteora_damm<'info>(
     ctx.accounts
         .validate_config_key(config.migration_fee_option)?;
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction

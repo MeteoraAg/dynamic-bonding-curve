@@ -1,5 +1,6 @@
 use crate::assert_eq_admin;
-use crate::state::{ClaimFeeOperator, Operator, OperatorPermission, PoolConfig, VirtualPool};
+use crate::state::{ClaimFeeOperator, Operator, OperatorPermission, PoolConfig};
+use crate::PoolAccountLoader;
 use crate::PoolError;
 use anchor_lang::prelude::*;
 
@@ -30,11 +31,9 @@ pub fn is_partner_fee_claimer<'info>(
     Ok(())
 }
 
-pub fn is_pool_creator<'info>(
-    pool: &AccountLoader<'info, VirtualPool>,
-    creator: &Pubkey,
-) -> Result<()> {
-    let pool = pool.load()?;
+pub fn is_pool_creator<'info>(pool: &AccountInfo<'info>, creator: &Pubkey) -> Result<()> {
+    let loader = PoolAccountLoader::try_from(pool)?;
+    let pool = loader.load()?;
     require!(pool.creator.eq(creator), PoolError::Unauthorized);
     Ok(())
 }

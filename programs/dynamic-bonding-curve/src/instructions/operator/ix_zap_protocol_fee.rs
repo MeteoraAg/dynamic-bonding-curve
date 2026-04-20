@@ -1,11 +1,11 @@
 use crate::{
     const_pda,
-    state::{Operator, PoolConfig, VirtualPool},
+    state::{Operator, PoolConfig, PoolState},
     token::{
         get_token_program_from_flag, get_token_program_from_pool_type,
         transfer_token_from_pool_authority, validate_ata_token,
     },
-    treasury, PoolError,
+    treasury, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -24,8 +24,9 @@ pub struct ZapProtocolFee<'info> {
 
     pub config: AccountLoader<'info, PoolConfig>,
 
-    #[account(mut, has_one = config)]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -54,7 +55,7 @@ pub struct ZapProtocolFee<'info> {
 
 fn validate_accounts_and_return_withdraw_direction<'info>(
     config: &PoolConfig,
-    pool: &VirtualPool,
+    pool: &PoolState,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_program: &Interface<'info, TokenInterface>,
@@ -92,10 +93,16 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 // 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
 
     require!(
-        !pool.is_transfer_hook_pool()?,
+        pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
+
+    require!(
+        !pool_loader.is_transfer_hook_pool(),
         PoolError::NotPermitToDoThisAction
     );
 

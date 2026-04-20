@@ -5,8 +5,8 @@ use crate::{
     const_pda,
     event::{EvtClaimCreatorTradingFee, EvtClaimCreatorTradingFeeWithTransferHook},
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
-    state::VirtualPool,
     token::transfer_token_from_pool_authority,
+    PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator to claim trading fees
@@ -19,13 +19,9 @@ pub struct ClaimCreatorTradingFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = base_vault,
-        has_one = quote_vault,
-        has_one = base_mint,
-    )]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     /// The treasury token a account
     #[account(mut)]
@@ -69,7 +65,21 @@ pub fn handle_claim_creator_trading_fee<'info>(
     let parsed_transfer_hook_accounts =
         parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        PoolError::InvalidAccount
+    );
     let (token_base_amount, token_quote_amount) =
         pool.claim_creator_trading_fee(max_base_amount, max_quote_amount)?;
 
@@ -93,7 +103,7 @@ pub fn handle_claim_creator_trading_fee<'info>(
         None,
     )?;
 
-    if pool.is_transfer_hook_pool()? {
+    if pool_loader.is_transfer_hook_pool() {
         emit_cpi!(EvtClaimCreatorTradingFeeWithTransferHook {
             pool: ctx.accounts.pool.key(),
             token_base_amount,

@@ -1,13 +1,10 @@
-use crate::{
-    const_pda,
-    state::{MigrationProgress, VirtualPool},
-    *,
-};
+use crate::{const_pda, state::MigrationProgress, *};
 use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammClaimLpTokenCtx<'info> {
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// migration metadata
     #[account(mut, has_one = lp_mint, has_one = virtual_pool)]
@@ -72,7 +69,8 @@ impl<'info> MigrateMeteoraDammClaimLpTokenCtx<'info> {
 pub fn handle_migrate_meteora_damm_claim_lp_token<'info>(
     ctx: Context<'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
 ) -> Result<()> {
-    let virtual_pool = ctx.accounts.virtual_pool.load()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let virtual_pool = pool_loader.load()?;
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::CreatedPool,

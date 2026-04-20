@@ -5,3 +5,5 @@ pub mod token;
 pub use damm_v2_utils::*;
 pub mod remaining_accounts;
 pub use remaining_accounts::*;
+pub mod pool_account_loader;
+pub use pool_account_loader::*;

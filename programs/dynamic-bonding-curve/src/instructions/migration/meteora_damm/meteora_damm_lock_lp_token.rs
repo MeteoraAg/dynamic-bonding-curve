@@ -1,7 +1,5 @@
 use crate::{
-    const_pda,
-    cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    state::{MigrationProgress, VirtualPool},
+    const_pda, cpi_checker::cpi_with_account_lamport_and_owner_checking, state::MigrationProgress,
     *,
 };
 use anchor_spl::token::{Token, TokenAccount};
@@ -10,7 +8,8 @@ use dynamic_amm::accounts::LockEscrow;
 /// create lock escrow must be before that transaction
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammLockLpTokenCtx<'info> {
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: Validated by PoolAccountLoader
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// migration_metadata
     #[account(mut, has_one = lp_mint, has_one = virtual_pool)]
@@ -111,7 +110,8 @@ impl<'info> MigrateMeteoraDammLockLpTokenCtx<'info> {
 pub fn handle_migrate_meteora_damm_lock_lp_token<'info>(
     ctx: Context<'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
 ) -> Result<()> {
-    let virtual_pool = ctx.accounts.virtual_pool.load()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let virtual_pool = pool_loader.load()?;
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::CreatedPool,

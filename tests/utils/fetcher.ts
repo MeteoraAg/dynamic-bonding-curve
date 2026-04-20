@@ -27,10 +27,14 @@ export function getVirtualPool(
   pool: PublicKey
 ): Pool {
   const account = svm.getAccount(pool);
-  return program.coder.accounts.decode(
-    "virtualPool",
-    Buffer.from(account.data)
-  );
+  const data = Buffer.from(account.data);
+  try {
+    const decoded = program.coder.accounts.decode("virtualPool", data);
+    return decoded.poolState;
+  } catch {
+    const decoded = program.coder.accounts.decode("transferHookPool", data);
+    return decoded.poolState;
+  }
 }
 
 export function getConfig(
