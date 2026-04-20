@@ -5,7 +5,7 @@ use crate::{
     migration_handler::CompoundingLiquidity,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig},
+    state::{MigrationFeeOption, MigrationOption, MigrationProgress},
     *,
 };
 use anchor_spl::token::{Burn, Token, TokenAccount};
@@ -19,7 +19,8 @@ pub struct MigrateMeteoraDammCtx<'info> {
     #[account(mut, has_one = virtual_pool)]
     pub migration_metadata: AccountLoader<'info, MeteoraDammMigrationMetadata>,
 
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: pool authority
     #[account(
@@ -212,7 +213,8 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     ctx.accounts
         .validate_config_key(config.migration_fee_option)?;
 

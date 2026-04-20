@@ -8,3 +8,5 @@ pub mod ix_create_partner_metadata;
 pub use ix_create_partner_metadata::*;
 pub mod ix_claim_partner_pool_creation_fee;
 pub use ix_claim_partner_pool_creation_fee::*;
+pub mod ix_create_transfer_hook_config;
+pub use ix_create_transfer_hook_config::*;

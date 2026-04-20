@@ -112,7 +112,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let init_data = process_initialize_virtual_pool_with_token2022(
-        &ctx.accounts.config,
+        &ctx.accounts.config.to_account_info(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,

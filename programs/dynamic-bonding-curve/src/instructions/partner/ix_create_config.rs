@@ -562,15 +562,13 @@ pub struct CreateConfigCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_config(
-    ctx: Context<CreateConfigCtx>,
-    config_parameters: ConfigParameters,
+pub fn process_create_config(
+    config: &mut PoolConfig,
+    config_parameters: &ConfigParameters,
+    quote_mint: &InterfaceAccount<'_, Mint>,
+    fee_claimer: &Pubkey,
+    leftover_receiver: &Pubkey,
 ) -> Result<()> {
-    config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        Clock::get()?.unix_timestamp as u64,
-    )?;
-
     let ConfigParameters {
         pool_fees,
         collect_fee_mode,
@@ -604,7 +602,6 @@ pub fn handle_create_config(
 
     let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
-    // migration price must be smaller than max sqrt price
     require!(
         migration_sqrt_price < MAX_SQRT_PRICE,
         PoolError::InvalidCurve
@@ -631,7 +628,6 @@ pub fn handle_create_config(
         )?;
 
     require!(
-        // this is fine to add redundant check
         included_protocol_fee_migration_base_amount > 0 && swap_base_amount > 0,
         PoolError::InvalidCurve
     );
@@ -686,7 +682,7 @@ pub fn handle_create_config(
             )?;
 
             require!(
-                ctx.accounts.leftover_receiver.key() != Pubkey::default(),
+                *leftover_receiver != Pubkey::default(),
                 PoolError::InvalidLeftoverAddress
             );
             require!(
@@ -706,11 +702,10 @@ pub fn handle_create_config(
         dynamic_fee: migrated_dynamic_fee,
     } = migrated_pool_fee;
 
-    let mut config = ctx.accounts.config.load_init()?;
     config.init(
-        &ctx.accounts.quote_mint.key(),
-        ctx.accounts.fee_claimer.key,
-        ctx.accounts.leftover_receiver.key,
+        &quote_mint.key(),
+        fee_claimer,
+        leftover_receiver,
         &pool_fees,
         creator_trading_fee_percentage,
         token_update_authority,
@@ -720,7 +715,7 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
-        get_token_program_flags(&ctx.accounts.quote_mint).into(),
+        get_token_program_flags(quote_mint).into(),
         partner_permanent_locked_liquidity_percentage,
         partner_liquidity_percentage,
         creator_permanent_locked_liquidity_percentage,
@@ -748,49 +743,39 @@ pub fn handle_create_config(
         enable_first_swap_with_min_fee.into(),
     )?;
 
-    // re-validate total locked liquidity
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
             >= MIN_LOCKED_LIQUIDITY_BPS,
         PoolError::InvalidMigrationLockedLiquidity
     );
 
-    #[allow(deprecated)]
-    {
-        emit_cpi!(EvtCreateConfig {
-            config: ctx.accounts.config.key(),
-            fee_claimer: ctx.accounts.fee_claimer.key(),
-            quote_mint: ctx.accounts.quote_mint.key(),
-            owner: ctx.accounts.leftover_receiver.key(),
-            pool_fees,
-            collect_fee_mode,
-            migration_option,
-            activation_type,
-            token_decimal,
-            token_type,
-            partner_permanent_locked_liquidity_percentage,
-            partner_liquidity_percentage,
-            creator_permanent_locked_liquidity_percentage,
-            creator_liquidity_percentage,
-            swap_base_amount,
-            migration_quote_threshold,
-            migration_base_amount: included_protocol_fee_migration_base_amount,
-            sqrt_start_price,
-            fixed_token_supply_flag,
-            pre_migration_token_supply,
-            post_migration_token_supply,
-            locked_vesting,
-            migration_fee_option,
-            curve
-        });
-    }
+    Ok(())
+}
+
+pub fn handle_create_config(
+    ctx: Context<CreateConfigCtx>,
+    config_parameters: ConfigParameters,
+) -> Result<()> {
+    config_parameters.validate(
+        &ctx.accounts.quote_mint,
+        Clock::get()?.unix_timestamp as u64,
+    )?;
+
+    let mut config = ctx.accounts.config.load_init()?;
+    process_create_config(
+        &mut config,
+        &config_parameters,
+        &ctx.accounts.quote_mint,
+        ctx.accounts.fee_claimer.key,
+        ctx.accounts.leftover_receiver.key,
+    )?;
 
     emit_cpi!(EvtCreateConfigV2 {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
-        config_parameters
+        config_parameters,
     });
 
     Ok(())

@@ -9,8 +9,8 @@ import {
   BaseFee,
   claimProtocolFee,
   ConfigParameters,
-  createConfig,
-  CreateConfigParams,
+  createConfigWithTransferHook,
+  CreateConfigWithTransferHookParams,
   createOperatorAccount,
   createPoolWithToken2022TransferHook,
   OperatorPermission,
@@ -165,14 +165,15 @@ describe("Migrate to damm v2 with transfer hook", () => {
       migratedPoolBaseFeeMode: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
     };
-    const params: CreateConfigParams<ConfigParameters> = {
+    const params: CreateConfigWithTransferHookParams = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint: NATIVE_MINT,
       instructionParams,
+      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     };
-    config = await createConfig(svm, program, params);
+    config = await createConfigWithTransferHook(svm, program, params);
   });
 
   it("Create token2022 pool with transfer hook", async () => {

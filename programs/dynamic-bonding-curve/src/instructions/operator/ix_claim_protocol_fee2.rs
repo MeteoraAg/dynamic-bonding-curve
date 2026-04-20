@@ -7,7 +7,7 @@ use crate::{
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::{PoolConfig, PoolState},
     token::transfer_token_from_pool_authority,
-    PoolAccountLoader, PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for claiming protocol fees via protocol_fee program
@@ -23,8 +23,8 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     pub token_base_program: Interface<'info, TokenInterface>,
     pub token_quote_program: Interface<'info, TokenInterface>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -83,7 +83,12 @@ pub fn handle_claim_protocol_fee2<'info>(
     let parsed_transfer_hook_accounts =
         parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        PoolError::InvalidAccount
+    );
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 

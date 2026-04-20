@@ -2,12 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda,
-    event::EvtWithdrawLeftover,
-    safe_math::SafeMath,
-    state::{MigrationProgress, PoolConfig},
-    token::transfer_token_from_pool_authority,
-    PoolAccountLoader, PoolError,
+    const_pda, event::EvtWithdrawLeftover, safe_math::SafeMath, state::MigrationProgress,
+    token::transfer_token_from_pool_authority, ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for withdraw leftover
@@ -20,8 +16,8 @@ pub struct WithdrawLeftoverCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one=leftover_receiver)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -52,7 +48,15 @@ pub struct WithdrawLeftoverCtx<'info> {
 pub fn handle_withdraw_leftover<'info>(
     ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config
+            .leftover_receiver
+            .eq(&ctx.accounts.leftover_receiver.key()),
+        PoolError::InvalidAccount
+    );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut virtual_pool = pool_loader.load_mut()?;

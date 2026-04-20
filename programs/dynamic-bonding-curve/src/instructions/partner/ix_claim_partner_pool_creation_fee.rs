@@ -10,7 +10,8 @@ use crate::{
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -26,7 +27,8 @@ pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
 pub fn handle_claim_partner_pool_creation_fee(
     ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
 
     let (_, partner_fee) = config.split_pool_creation_fee()?;
 

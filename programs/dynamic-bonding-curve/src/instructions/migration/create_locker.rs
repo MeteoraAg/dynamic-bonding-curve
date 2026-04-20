@@ -1,9 +1,6 @@
 use crate::{
-    const_pda,
-    constants::seeds::BASE_LOCKER_PREFIX,
-    cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    state::{MigrationProgress, PoolConfig},
-    *,
+    const_pda, constants::seeds::BASE_LOCKER_PREFIX,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking, state::MigrationProgress, *,
 };
 use anchor_spl::token_interface::{TokenAccount, TokenInterface};
 use locker::cpi::accounts::CreateVestingEscrowV2;
@@ -13,8 +10,8 @@ pub struct CreateLockerCtx<'info> {
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
-    /// Config
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
     /// CHECK: pool authority
     #[account(
         mut,
@@ -96,7 +93,8 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
         PoolError::NotPermitToDoThisAction
     );
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
 
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
 

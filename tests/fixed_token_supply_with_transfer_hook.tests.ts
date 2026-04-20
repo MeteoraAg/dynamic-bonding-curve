@@ -3,17 +3,13 @@ import {
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import {
   BaseFee,
   ConfigParameters,
-  createConfig,
-  CreateConfigParams,
+  createConfigWithTransferHook,
+  CreateConfigWithTransferHookParams,
   createPoolWithToken2022TransferHook,
   swapWithTransferHook,
   SwapMode,
@@ -163,14 +159,15 @@ describe("Fixed token supply with transfer hook", () => {
       compoundingFeeBps: 0,
       migratedPoolMarketCapFeeSchedulerParams: null,
     };
-    const params: CreateConfigParams<ConfigParameters> = {
+    const params: CreateConfigWithTransferHookParams = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint: NATIVE_MINT,
       instructionParams,
+      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     };
-    config = await createConfig(svm, program, params);
+    config = await createConfigWithTransferHook(svm, program, params);
   });
 
   it("Create token2022 pool with transfer hook", async () => {

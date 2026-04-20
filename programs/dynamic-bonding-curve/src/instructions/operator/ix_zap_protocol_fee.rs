@@ -5,7 +5,7 @@ use crate::{
         get_token_program_from_flag, get_token_program_from_pool_type,
         transfer_token_from_pool_authority, validate_ata_token,
     },
-    treasury, PoolAccountLoader, PoolError,
+    treasury, ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -22,7 +22,8 @@ pub struct ZapProtocolFee<'info> {
     #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -92,7 +93,8 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 // 1. If the token mint is SOL or USDC, then must withdraw to treasury using `claim_protocol_fee` endpoint. No zap out allowed.
 // 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 

@@ -4,9 +4,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimProtocolFee,
-    state::{Operator, PoolConfig},
+    state::Operator,
     token::{transfer_token_from_pool_authority, validate_ata_token},
-    treasury, PoolAccountLoader, PoolError,
+    treasury, ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for withdraw protocol fees
@@ -19,8 +19,8 @@ pub struct ClaimProtocolFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one=quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -110,7 +110,12 @@ pub fn handle_claim_protocol_fee(
         )?;
     }
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        PoolError::InvalidAccount
+    );
     let token_quote_amount = pool
         .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
 

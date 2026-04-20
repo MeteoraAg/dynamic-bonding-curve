@@ -8,7 +8,7 @@ use crate::{
     state::fee::VolatilityTracker,
     state::{PoolConfig, PoolState, PoolType, TokenType},
     token::update_account_lamports_to_minimum_balance,
-    PoolError,
+    ConfigAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;
@@ -28,7 +28,7 @@ pub struct InitPoolData {
 }
 
 pub fn process_initialize_virtual_pool_with_token2022<'info>(
-    config: &AccountLoader<'info, PoolConfig>,
+    config_info: &AccountInfo<'info>,
     pool_authority: &AccountInfo<'info>,
     creator: &AccountInfo<'info>,
     base_mint: &InterfaceAccount<'info, Mint>,
@@ -39,8 +39,9 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     system_program: &AccountInfo<'info>,
     params: InitializePoolParameters,
 ) -> Result<InitPoolData> {
-    let config_key = config.key();
-    let config = config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(config_info)?;
+    let config_key = config_loader.key();
+    let config = config_loader.load()?;
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

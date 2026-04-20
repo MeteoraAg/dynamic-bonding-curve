@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::{
     event::{EvtUpdatePoolCreator, EvtUpdatePoolCreatorWithTransferHook},
-    state::{MigrationOption, MigrationProgress, PoolConfig},
-    MeteoraDammMigrationMetadata, PoolAccountLoader, PoolError,
+    state::{MigrationOption, MigrationProgress},
+    ConfigAccountLoader, MeteoraDammMigrationMetadata, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for transfer pool creator
@@ -14,7 +14,8 @@ pub struct TransferPoolCreatorCtx<'info> {
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
 
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 
@@ -37,7 +38,8 @@ pub fn handle_transfer_pool_creator<'info>(
     );
 
     let migration_progress = pool.get_migration_progress()?;
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     match migration_progress {
         MigrationProgress::PreBondingCurve => {
             // always work

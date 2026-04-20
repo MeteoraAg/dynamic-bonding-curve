@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{state::SwapResult2, SwapParameters2};
+use crate::{instructions::partner::ConfigParameters, state::SwapResult2, SwapParameters2};
 
 #[event]
 pub struct EvtInitializePoolWithTransferHook {
@@ -100,4 +100,14 @@ pub struct EvtPartnerClaimPoolCreationFeeWithTransferHook {
     pub partner: Pubkey,
     pub creation_fee: u64,
     pub fee_receiver: Pubkey,
+}
+
+#[event]
+pub struct EvtCreateConfigV2WithTransferHook {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_hook_program: Pubkey,
 }

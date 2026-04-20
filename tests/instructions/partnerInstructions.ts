@@ -184,6 +184,58 @@ export async function createConfig(
   return config.publicKey;
 }
 
+export type CreateConfigWithTransferHookParams =
+  CreateConfigParams<ConfigParameters> & {
+    transferHookProgram: PublicKey;
+  };
+
+export async function createConfigWithTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigWithTransferHookParams
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferHookProgram,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfigWithTransferHook({
+      ...instructionParams,
+      padding: new Array(2).fill(0),
+    })
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      transferHookProgram,
+      payer: payer.publicKey,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+
+  return config.publicKey;
+}
+
 export async function createPartnerMetadata(
   svm: LiteSVM,
   program: VirtualCurveProgram,

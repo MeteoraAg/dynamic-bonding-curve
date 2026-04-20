@@ -19,8 +19,8 @@ import {
   claimTradingFeeWithTransferHook,
   ConfigParameters,
   createOperatorAccount,
-  createConfig,
-  CreateConfigParams,
+  createConfigWithTransferHook,
+  CreateConfigWithTransferHookParams,
   createPoolWithToken2022TransferHook,
   swapWithTransferHook,
   SwapMode,
@@ -154,14 +154,15 @@ describe("Create pool with token2022 transfer hook", () => {
       migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
     };
-    const params: CreateConfigParams<ConfigParameters> = {
+    const params: CreateConfigWithTransferHookParams = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint: NATIVE_MINT,
       instructionParams,
+      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     };
-    config = await createConfig(svm, program, params);
+    config = await createConfigWithTransferHook(svm, program, params);
   });
 
   it("Create token2022 pool with transfer hook", async () => {

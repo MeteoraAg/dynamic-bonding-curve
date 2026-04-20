@@ -5,12 +5,9 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::{
     const_pda,
     event::{EvtWithdrawMigrationFee, EvtWithdrawMigrationFeeWithTransferHook},
-    state::{
-        MigrationFeeDistribution, PoolConfig, CREATOR_MIGRATION_FEE_MASK,
-        PARTNER_MIGRATION_FEE_MASK,
-    },
+    state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
     token::transfer_token_from_pool_authority,
-    PoolAccountLoader, PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator withdraw migration fee
@@ -23,8 +20,8 @@ pub struct WithdrawMigrationFeeCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -69,7 +66,14 @@ pub fn handle_withdraw_migration_fee(
     ctx: Context<WithdrawMigrationFeeCtx>,
     flag: u8, // 0 as partner and 1 as creator
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        PoolError::InvalidAccount
+    );
+
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut pool = pool_loader.load_mut()?;
 

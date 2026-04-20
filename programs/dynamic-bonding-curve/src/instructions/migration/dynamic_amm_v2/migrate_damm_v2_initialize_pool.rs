@@ -14,7 +14,7 @@ use crate::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
         MigrationProgress, PoolConfig,
     },
-    PoolAccountLoader, PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_spl::{
     token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
@@ -38,8 +38,8 @@ pub struct MigrateDammV2Ctx<'info> {
     #[deprecated]
     pub migration_metadata: UncheckedAccount<'info>,
 
-    /// virtual pool config key
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: pool authority
     #[account(
@@ -495,7 +495,8 @@ fn validate_config_key(
 pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
     let current_timestamp = Clock::get()?.unix_timestamp as u64;
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 

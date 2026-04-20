@@ -201,9 +201,9 @@ export async function createPoolWithToken2022TransferHook(
       poolAuthority,
       baseVault,
       quoteVault,
+      transferHookProgram,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
-      transferHookProgram,
     })
     .transaction();
 

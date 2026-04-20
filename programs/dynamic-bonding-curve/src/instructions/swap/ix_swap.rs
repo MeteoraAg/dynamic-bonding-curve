@@ -21,9 +21,8 @@ use crate::{
     params::swap::TradeDirection,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::fee::FeeMode,
-    state::PoolConfig,
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
-    PoolAccountLoader, PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
@@ -78,8 +77,8 @@ pub struct SwapCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// config key
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader - owner + discriminator (VirtualPool or TransferHookPool)
     #[account(mut)]
@@ -200,7 +199,8 @@ pub fn handle_swap_wrapper<'info>(
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 

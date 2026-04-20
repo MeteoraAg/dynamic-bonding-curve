@@ -5,9 +5,8 @@ use crate::PoolAccountLoader;
 use crate::{
     const_pda,
     event::{EvtPartnerWithdrawSurplus, EvtPartnerWithdrawSurplusWithTransferHook},
-    state::PoolConfig,
     token::transfer_token_from_pool_authority,
-    PoolError,
+    ConfigAccountLoader, PoolError,
 };
 
 /// Accounts for partner withdraw surplus
@@ -20,8 +19,8 @@ pub struct PartnerWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -45,7 +44,13 @@ pub struct PartnerWithdrawSurplusCtx<'info> {
 }
 
 pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        PoolError::InvalidAccount
+    );
+
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut pool = pool_loader.load_mut()?;
     require!(

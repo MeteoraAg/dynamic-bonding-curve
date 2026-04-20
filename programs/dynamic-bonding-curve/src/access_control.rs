@@ -1,7 +1,7 @@
 use crate::assert_eq_admin;
-use crate::state::{ClaimFeeOperator, Operator, OperatorPermission, PoolConfig};
-use crate::PoolAccountLoader;
+use crate::state::{ClaimFeeOperator, Operator, OperatorPermission};
 use crate::PoolError;
+use crate::{ConfigAccountLoader, PoolAccountLoader};
 use anchor_lang::prelude::*;
 
 // check whether the signer is in admin list
@@ -23,10 +23,11 @@ pub fn is_claim_fee_operator<'info>(
 }
 
 pub fn is_partner_fee_claimer<'info>(
-    config: &AccountLoader<'info, PoolConfig>,
+    config: &AccountInfo<'info>,
     fee_claimer: &Pubkey,
 ) -> Result<()> {
-    let config = config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(config)?;
+    let config = config_loader.load()?;
     require!(config.fee_claimer.eq(fee_claimer), PoolError::Unauthorized);
     Ok(())
 }

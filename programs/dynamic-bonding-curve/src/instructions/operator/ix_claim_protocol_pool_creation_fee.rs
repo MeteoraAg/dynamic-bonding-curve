@@ -13,7 +13,8 @@ const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: Validated by PoolAccountLoader
     #[account(mut)]
@@ -35,7 +36,8 @@ pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
 pub fn handle_claim_protocol_pool_creation_fee(
     ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 

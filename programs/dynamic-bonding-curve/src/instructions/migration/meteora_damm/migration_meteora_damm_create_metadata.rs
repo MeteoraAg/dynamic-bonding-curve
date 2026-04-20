@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{MigrationOption, PoolConfig};
+use crate::state::MigrationOption;
+use crate::ConfigAccountLoader;
 use crate::PoolAccountLoader;
 use crate::PoolError;
 use crate::{constants::seeds::METEORA_METADATA_PREFIX, event::EvtCreateMeteoraMigrationMetadata};
@@ -13,7 +14,8 @@ pub struct MigrationMeteoraDammCreateMetadataCtx<'info> {
     /// CHECK: Validated by PoolAccountLoader
     pub virtual_pool: UncheckedAccount<'info>,
 
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: Validated by ConfigAccountLoader
+    pub config: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -44,7 +46,8 @@ pub fn handle_migration_meteora_damm_create_metadata(
     );
     drop(pool);
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let migration_option = MigrationOption::try_from(config.migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
     require!(

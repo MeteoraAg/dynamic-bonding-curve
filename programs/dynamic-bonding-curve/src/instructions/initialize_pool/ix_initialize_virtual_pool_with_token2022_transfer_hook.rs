@@ -8,7 +8,7 @@ use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
-    state::{PoolConfig, PoolType, TransferHookPool},
+    state::{ConfigWithTransferHook, PoolType, TransferHookPool},
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -22,14 +22,12 @@ use anchor_spl::{
 #[event_cpi]
 #[derive(Accounts)]
 pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
-    /// Which config the pool belongs to.
+    /// Transfer hook config — contains the transfer hook program set by partner
     #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    pub config: AccountLoader<'info, ConfigWithTransferHook>,
 
     /// CHECK: pool authority
-    #[account(
-        address = const_pda::pool_authority::ID
-    )]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
@@ -45,16 +43,13 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = base_mint,
         extensions::transfer_hook::authority = pool_authority,
-        extensions::transfer_hook::program_id = transfer_hook_program,
+        extensions::transfer_hook::program_id = config.load()?.transfer_hook_program,
     )]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(
-        mint::token_program = token_quote_program,
-    )]
+    #[account(mint::token_program = token_quote_program)]
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// Initialize an account to store the pool state
     #[account(
         init,
         seeds = [
@@ -85,7 +80,6 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     )]
     pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token quote vault for the pool
     #[account(
         init,
         seeds = [
@@ -101,18 +95,14 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// CHECK: transfer hook program for the base mint
+    /// CHECK: transfer hook program — validated against config in handler
     pub transfer_hook_program: UncheckedAccount<'info>,
 
-    /// Address paying to create the pool. Can be anyone
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// Program to create mint account and mint tokens
     pub token_quote_program: Interface<'info, TokenInterface>,
-    /// token program for base mint
     pub token_program: Program<'info, Token2022>,
-    // Sysvar for program account
     pub system_program: Program<'info, System>,
 }
 
@@ -120,18 +110,19 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    let config_data = ctx.accounts.config.load()?;
     let transfer_hook_program = &ctx.accounts.transfer_hook_program;
     require!(
-        transfer_hook_program.executable
-            && transfer_hook_program.key().ne(&crate::ID)
-            && transfer_hook_program
-                .key()
-                .ne(&ctx.accounts.token_program.key()),
+        transfer_hook_program
+            .key()
+            .eq(&config_data.transfer_hook_program)
+            && transfer_hook_program.executable,
         PoolError::InvalidTransferHookProgram
     );
+    drop(config_data);
 
     let init_data = process_initialize_virtual_pool_with_token2022(
-        &ctx.accounts.config,
+        &ctx.accounts.config.to_account_info(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,

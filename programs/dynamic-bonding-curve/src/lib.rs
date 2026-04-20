@@ -104,6 +104,13 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
+    pub fn create_config_with_transfer_hook(
+        ctx: Context<CreateConfigWithTransferHookCtx>,
+        config_parameters: ConfigParameters,
+    ) -> Result<()> {
+        instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
+    }
+
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee<'info>(
         ctx: Context<'info, ClaimTradingFeesCtx<'info>>,

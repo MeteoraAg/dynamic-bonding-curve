@@ -18,7 +18,8 @@ import { BN } from "@anchor-lang/core";
 import {
   BaseFee,
   ConfigParameters,
-  createConfig,
+  createConfigWithTransferHook,
+  CreateConfigWithTransferHookParams,
   InitializePoolParameters,
 } from "./instructions";
 import {
@@ -449,13 +450,15 @@ async function createInitializePoolWithTransferHookIx(
   };
 
   const quoteMint = NATIVE_MINT;
-  const config = await createConfig(svm, program, {
+  const params: CreateConfigWithTransferHookParams = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
     feeClaimer: partner.publicKey,
     quoteMint,
     instructionParams,
-  });
+    transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+  };
+  const config = await createConfigWithTransferHook(svm, program, params);
 
   const poolAuthority = derivePoolAuthority();
   const baseMintKP = Keypair.generate();
@@ -481,9 +484,9 @@ async function createInitializePoolWithTransferHookIx(
       poolAuthority,
       baseVault,
       quoteVault,
+      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
-      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     })
     .instruction();
 
