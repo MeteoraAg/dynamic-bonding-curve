@@ -2,11 +2,8 @@ use super::InitializePoolParameters;
 use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
 use crate::token::transfer_lamports_from_user;
 use crate::{
-    activation_handler::get_current_point,
-    const_pda,
-    state::TokenType,
-    token::update_account_lamports_to_minimum_balance,
-    ConfigAccountLoader, PoolError,
+    activation_handler::get_current_point, const_pda, state::TokenType,
+    token::update_account_lamports_to_minimum_balance, ConfigAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::SECONDS_PER_DAY;

@@ -254,6 +254,6 @@ describe("Migrate to damm v2 with transfer hook", () => {
         pool: virtualPool,
         operator: operator,
       });
-    }, "Not permit to do this action");
+    }, "Account discriminator did not match what was expected");
   });
 });

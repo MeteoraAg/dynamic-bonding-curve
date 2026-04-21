@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{token_2022, token_interface::Mint};
+use anchor_spl::{token, token_2022, token_interface::Mint};
 
 #[allow(deprecated)]
 use crate::event::{EvtCreateConfig, EvtCreateConfigV2WithTransferHook};
-#[allow(deprecated)]
 use crate::{
     state::{ConfigWithTransferHook, TokenType},
     CreateConfigResult, PoolError,
@@ -57,6 +56,7 @@ pub fn handle_create_config_with_transfer_hook(
     require!(
         transfer_hook_program.executable
             && transfer_hook_program.key().ne(&crate::ID)
+            && transfer_hook_program.key().ne(&token::ID)
             && transfer_hook_program.key().ne(&token_2022::ID),
         PoolError::InvalidTransferHookProgram
     );

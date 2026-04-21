@@ -231,12 +231,6 @@ pub enum PoolError {
     #[msg("Invalid transfer hook program")]
     InvalidTransferHookProgram,
 
-    #[msg("Invalid transfer hook authority")]
-    InvalidTransferHookAuthority,
-
-    #[msg("Transfer hook must be revoked before migration")]
-    TransferHookNotRevoked,
-
     #[msg("Invalid pool account")]
     InvalidPoolAccount,
 }

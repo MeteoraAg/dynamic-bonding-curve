@@ -1,11 +1,11 @@
 use crate::{
     const_pda,
-    state::{Operator, PoolConfig, PoolState},
+    state::{Operator, PoolConfig, VirtualPool},
     token::{
         get_token_program_from_flag, get_token_program_from_pool_type,
         transfer_token_from_pool_authority, validate_ata_token,
     },
-    treasury, ConfigAccountLoader, PoolAccountLoader, PoolError,
+    treasury, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -22,12 +22,10 @@ pub struct ZapProtocolFee<'info> {
     #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: config account
-    pub config: UncheckedAccount<'info>,
+    pub config: AccountLoader<'info, PoolConfig>,
 
-    /// CHECK: pool account
-    #[account(mut)]
-    pub pool: UncheckedAccount<'info>,
+    #[account(mut, has_one = config)]
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     #[account(mut)]
     pub token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -56,7 +54,7 @@ pub struct ZapProtocolFee<'info> {
 
 fn validate_accounts_and_return_withdraw_direction<'info>(
     config: &PoolConfig,
-    pool: &PoolState,
+    pool: &VirtualPool,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_program: &Interface<'info, TokenInterface>,
@@ -93,21 +91,8 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 // 1. If the token mint is SOL or USDC, then must withdraw to treasury using `claim_protocol_fee` endpoint. No zap out allowed.
 // 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
-
-    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
-    let mut pool = pool_loader.load_mut()?;
-
-    require!(
-        pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
-    );
-
-    require!(
-        !pool_loader.is_transfer_hook_pool(),
-        PoolError::NotPermitToDoThisAction
-    );
+    let config = ctx.accounts.config.load()?;
+    let mut pool = ctx.accounts.pool.load_mut()?;
 
     let is_withdrawing_base = validate_accounts_and_return_withdraw_direction(
         &config,

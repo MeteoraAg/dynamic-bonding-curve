@@ -4,9 +4,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimProtocolFee,
-    state::Operator,
+    state::{Operator, PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, validate_ata_token},
-    treasury, ConfigAccountLoader, PoolAccountLoader, PoolError,
+    treasury,
 };
 
 /// Accounts for withdraw protocol fees
@@ -19,12 +19,11 @@ pub struct ClaimProtocolFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: config account
-    pub config: UncheckedAccount<'info>,
+    #[account(has_one = quote_mint)]
+    pub config: AccountLoader<'info, PoolConfig>,
 
-    /// CHECK: pool account
-    #[account(mut)]
-    pub pool: UncheckedAccount<'info>,
+    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = base_mint, has_one = config)]
+    pub pool: AccountLoader<'info, VirtualPool>,
 
     /// The vault token account for input token
     #[account(mut, token::token_program = token_base_program, token::mint = base_mint)]
@@ -66,38 +65,7 @@ pub fn handle_claim_protocol_fee(
     // note: max_quote_amount is just a cap of total trading fee and migration fee, if pool has surplus we could withdraw more than max_quote_amount
     max_quote_amount: u64,
 ) -> Result<()> {
-    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
-    let mut pool = pool_loader.load_mut()?;
-
-    require!(
-        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
-    );
-
-    require!(
-        !pool_loader.is_transfer_hook_pool(),
-        PoolError::NotPermitToDoThisAction
-    );
-
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
-
-    require!(
-        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
-        PoolError::InvalidAccount
-    );
+    let mut pool = ctx.accounts.pool.load_mut()?;
 
     let token_base_amount = pool.claim_protocol_base_fee(max_base_amount)?;
     if token_base_amount > 0 {
@@ -118,6 +86,7 @@ pub fn handle_claim_protocol_fee(
         )?;
     }
 
+    let config = ctx.accounts.config.load()?;
     let token_quote_amount = pool
         .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
 

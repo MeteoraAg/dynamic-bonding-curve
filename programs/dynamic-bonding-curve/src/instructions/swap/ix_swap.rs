@@ -135,6 +135,25 @@ pub fn handle_swap_wrapper<'info>(
     params: SwapParameters2,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        PoolError::InvalidAccount
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        PoolError::InvalidAccount
+    );
+
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -198,24 +217,6 @@ pub fn handle_swap_wrapper<'info>(
     };
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
-
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
-    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
-    let mut pool = pool_loader.load_mut()?;
-
-    require!(
-        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
-    );
 
     let current_point = get_current_point(config.activation_type)?;
 

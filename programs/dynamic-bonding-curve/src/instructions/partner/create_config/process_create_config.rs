@@ -612,8 +612,8 @@ pub fn process_create_config(
             migration_fee.fee_percentage,
         )?;
 
-    // this is fine to add redundant check
     require!(
+        // this is fine to add redundant check
         included_protocol_fee_migration_base_amount > 0 && swap_base_amount > 0,
         PoolError::InvalidCurve
     );

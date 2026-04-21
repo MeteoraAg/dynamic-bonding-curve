@@ -1,21 +1,21 @@
 use anchor_lang::prelude::*;
 
-use crate::state::MigrationOption;
-use crate::ConfigAccountLoader;
-use crate::PoolAccountLoader;
+use crate::state::{MigrationOption, PoolConfig};
 use crate::PoolError;
-use crate::{constants::seeds::METEORA_METADATA_PREFIX, event::EvtCreateMeteoraMigrationMetadata};
+use crate::{
+    constants::seeds::METEORA_METADATA_PREFIX, event::EvtCreateMeteoraMigrationMetadata,
+    state::VirtualPool,
+};
 
 use super::MeteoraDammMigrationMetadata;
 
 #[event_cpi]
 #[derive(Accounts)]
 pub struct MigrationMeteoraDammCreateMetadataCtx<'info> {
-    /// CHECK: pool account
-    pub virtual_pool: UncheckedAccount<'info>,
+    #[account(has_one=config)]
+    pub virtual_pool: AccountLoader<'info, VirtualPool>,
 
-    /// CHECK: config account
-    pub config: UncheckedAccount<'info>,
+    pub config: AccountLoader<'info, PoolConfig>,
 
     #[account(
         init,
@@ -38,16 +38,7 @@ pub struct MigrationMeteoraDammCreateMetadataCtx<'info> {
 pub fn handle_migration_meteora_damm_create_metadata(
     ctx: Context<MigrationMeteoraDammCreateMetadataCtx>,
 ) -> Result<()> {
-    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
-    let pool = pool_loader.load()?;
-    require!(
-        pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
-    );
-    drop(pool);
-
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
+    let config = ctx.accounts.config.load()?;
     let migration_option = MigrationOption::try_from(config.migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
     require!(

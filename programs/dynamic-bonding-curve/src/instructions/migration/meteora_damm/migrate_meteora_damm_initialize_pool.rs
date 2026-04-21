@@ -5,22 +5,21 @@ use crate::{
     migration_handler::CompoundingLiquidity,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationFeeOption, MigrationOption, MigrationProgress},
+    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
     *,
 };
 use anchor_spl::token::{Burn, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammCtx<'info> {
-    /// CHECK: pool account
-    #[account(mut)]
-    pub virtual_pool: UncheckedAccount<'info>,
+    /// virtual pool
+    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
+    pub virtual_pool: AccountLoader<'info, VirtualPool>,
 
     #[account(mut, has_one = virtual_pool)]
     pub migration_metadata: AccountLoader<'info, MeteoraDammMigrationMetadata>,
 
-    /// CHECK: config account
-    pub config: UncheckedAccount<'info>,
+    pub config: AccountLoader<'info, PoolConfig>,
 
     /// CHECK: pool authority
     #[account(
@@ -213,25 +212,11 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
+    let config = ctx.accounts.config.load()?;
     ctx.accounts
         .validate_config_key(config.migration_fee_option)?;
 
-    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
-    let mut virtual_pool = pool_loader.load_mut()?;
-    require!(
-        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
-    );
-    require!(
-        virtual_pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
-    );
+    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction
