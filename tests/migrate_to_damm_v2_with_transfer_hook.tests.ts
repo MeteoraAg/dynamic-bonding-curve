@@ -254,6 +254,6 @@ describe("Migrate to damm v2 with transfer hook", () => {
         pool: virtualPool,
         operator: operator,
       });
-    }, "Account discriminator did not match what was expected");
+    }, "Account discriminator did not match what was expected"); // claimProtocolFee does not support transfer hook pool. need to use claimProtocolFee2
   });
 });
