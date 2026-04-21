@@ -582,9 +582,10 @@ const_assert_eq!(PoolConfig::INIT_SPACE, 1040);
 pub struct ConfigWithTransferHook {
     pub config: PoolConfig,
     pub transfer_hook_program: Pubkey,
+    pub padding_0: [u64; 6],
 }
 
-const_assert_eq!(ConfigWithTransferHook::INIT_SPACE, 1072);
+const_assert_eq!(ConfigWithTransferHook::INIT_SPACE, 1120);
 
 impl Deref for ConfigWithTransferHook {
     type Target = PoolConfig;

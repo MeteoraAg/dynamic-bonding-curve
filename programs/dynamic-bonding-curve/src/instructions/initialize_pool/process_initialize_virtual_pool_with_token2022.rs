@@ -6,7 +6,7 @@ use crate::{
     activation_handler::get_current_point,
     const_pda,
     state::fee::VolatilityTracker,
-    state::{PoolConfig, PoolState, PoolType, TokenType},
+    state::{PoolState, PoolType, TokenType},
     token::update_account_lamports_to_minimum_balance,
     ConfigAccountLoader, PoolError,
 };

@@ -1,7 +1,6 @@
 use crate::PoolAccountLoader;
 use crate::{
     event::{EvtPartnerClaimPoolCreationFee, EvtPartnerClaimPoolCreationFeeWithTransferHook},
-    state::*,
     token::transfer_lamports_from_pool_account,
     *,
 };
