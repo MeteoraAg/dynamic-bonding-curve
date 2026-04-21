@@ -1,5 +1,6 @@
 use std::u64;
 
+use crate::constants::SWAP_BUFFER_PERCENTAGE;
 use crate::event::{
     EvtCurveComplete, EvtCurveCompleteWithTransferHook, EvtSwap2, EvtSwap2WithTransferHook,
 };
@@ -8,6 +9,7 @@ use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
+use crate::instruction::Swap2WithTransferHook as Swap2WithTransferHookInstruction;
 use crate::math::safe_math::SafeMath;
 use crate::state::MigrationProgress;
 use crate::swap::swap_exact_in::process_swap_exact_in;
@@ -493,6 +495,7 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
     let instruction_discriminator = &instruction.data[..8];
     if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
         || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
+        || instruction_discriminator.eq(Swap2WithTransferHookInstruction::DISCRIMINATOR)
     {
         return instruction.accounts[2].pubkey.eq(pool);
     }
