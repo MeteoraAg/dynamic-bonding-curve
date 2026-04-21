@@ -10,11 +10,11 @@ use crate::{
 #[event_cpi]
 #[derive(Accounts)]
 pub struct TransferPoolCreatorCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,

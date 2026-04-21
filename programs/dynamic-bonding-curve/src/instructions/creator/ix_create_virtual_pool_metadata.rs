@@ -17,7 +17,7 @@ pub struct CreateVirtualPoolMetadataParameters {
 #[derive(Accounts)]
 #[instruction(metadata: CreateVirtualPoolMetadataParameters)]
 pub struct CreateVirtualPoolMetadataCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     pub virtual_pool: UncheckedAccount<'info>,
     /// Virtual pool metadata
     #[account(

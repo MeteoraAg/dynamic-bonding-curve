@@ -77,10 +77,10 @@ pub struct SwapCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader - owner + discriminator (VirtualPool or TransferHookPool)
+    /// CHECK: pool account - owner + discriminator (VirtualPool or TransferHookPool)
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 

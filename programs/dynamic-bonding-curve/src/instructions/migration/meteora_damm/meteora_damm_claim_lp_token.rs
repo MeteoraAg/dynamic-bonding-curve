@@ -3,7 +3,7 @@ use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammClaimLpTokenCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     pub virtual_pool: UncheckedAccount<'info>,
 
     /// migration metadata

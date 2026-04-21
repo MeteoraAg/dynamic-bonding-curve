@@ -9,10 +9,10 @@ use crate::{
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
@@ -35,6 +35,7 @@ pub fn handle_claim_partner_pool_creation_fee(
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
+
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
         PoolError::InvalidAccount

@@ -12,10 +12,10 @@ use locker::types as locker_types;
 
 #[derive(Accounts)]
 pub struct CreateLockerCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
     /// CHECK: pool authority
     #[account(
@@ -144,7 +144,7 @@ pub fn handle_create_locker<'info>(
                     CpiContext::new_with_signer(
                         ctx.accounts.locker_program.key(),
                         CreateVestingEscrowV2 {
-                            base: ctx.accounts.base.to_account_info(),
+                            base: ctx.accounts.base.to_account_info(), // use payer token account for base key, unique
                             escrow: ctx.accounts.escrow.to_account_info(),
                             escrow_token: ctx.accounts.escrow_token.to_account_info(),
                             token_mint: ctx.accounts.base_mint.to_account_info(),

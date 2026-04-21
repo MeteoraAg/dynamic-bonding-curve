@@ -12,14 +12,14 @@ use anchor_spl::token::{Burn, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
 
     #[account(mut, has_one = virtual_pool)]
     pub migration_metadata: AccountLoader<'info, MeteoraDammMigrationMetadata>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
     /// CHECK: pool authority

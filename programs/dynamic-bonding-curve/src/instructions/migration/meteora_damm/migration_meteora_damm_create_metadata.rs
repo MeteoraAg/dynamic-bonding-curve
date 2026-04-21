@@ -11,10 +11,10 @@ use super::MeteoraDammMigrationMetadata;
 #[event_cpi]
 #[derive(Accounts)]
 pub struct MigrationMeteoraDammCreateMetadataCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     pub virtual_pool: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
     #[account(

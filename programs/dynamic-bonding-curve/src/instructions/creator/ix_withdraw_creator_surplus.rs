@@ -18,10 +18,10 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
 

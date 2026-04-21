@@ -8,7 +8,7 @@ use dynamic_amm::accounts::LockEscrow;
 /// create lock escrow must be before that transaction
 #[derive(Accounts)]
 pub struct MigrateMeteoraDammLockLpTokenCtx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     pub virtual_pool: UncheckedAccount<'info>,
 
     /// migration_metadata

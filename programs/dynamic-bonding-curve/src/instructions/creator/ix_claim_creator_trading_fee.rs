@@ -19,7 +19,7 @@ pub struct ClaimCreatorTradingFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
@@ -61,10 +61,6 @@ pub fn handle_claim_creator_trading_fee<'info>(
     max_quote_amount: u64,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
-
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 
@@ -80,6 +76,11 @@ pub fn handle_claim_creator_trading_fee<'info>(
         pool.base_mint.eq(&ctx.accounts.base_mint.key()),
         PoolError::InvalidAccount
     );
+
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+
     let (token_base_amount, token_quote_amount) =
         pool.claim_creator_trading_fee(max_base_amount, max_quote_amount)?;
 

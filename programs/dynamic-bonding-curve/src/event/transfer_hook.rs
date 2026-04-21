@@ -3,6 +3,16 @@ use anchor_lang::prelude::*;
 use crate::{instructions::partner::ConfigParameters, state::SwapResult2, SwapParameters2};
 
 #[event]
+pub struct EvtCreateConfigV2WithTransferHook {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_hook_program: Pubkey,
+}
+
+#[event]
 pub struct EvtInitializePoolWithTransferHook {
     pub pool: Pubkey,
     pub config: Pubkey,
@@ -37,14 +47,6 @@ pub struct EvtCurveCompleteWithTransferHook {
     pub config: Pubkey,
     pub base_reserve: u64,
     pub quote_reserve: u64,
-}
-
-#[event]
-pub struct EvtClaimProtocolFee2WithTransferHook {
-    pub pool: Pubkey,
-    pub receiver_token_account: Pubkey,
-    pub token_mint: Pubkey,
-    pub amount: u64,
 }
 
 #[event]
@@ -88,26 +90,9 @@ pub struct EvtWithdrawMigrationFeeWithTransferHook {
 }
 
 #[event]
-pub struct EvtClaimPoolCreationFeeWithTransferHook {
-    pub pool: Pubkey,
-    pub receiver: Pubkey,
-    pub creation_fee: u64,
-}
-
-#[event]
 pub struct EvtPartnerClaimPoolCreationFeeWithTransferHook {
     pub pool: Pubkey,
     pub partner: Pubkey,
     pub creation_fee: u64,
     pub fee_receiver: Pubkey,
-}
-
-#[event]
-pub struct EvtCreateConfigV2WithTransferHook {
-    pub config: Pubkey,
-    pub quote_mint: Pubkey,
-    pub fee_claimer: Pubkey,
-    pub leftover_receiver: Pubkey,
-    pub config_parameters: ConfigParameters,
-    pub transfer_hook_program: Pubkey,
 }

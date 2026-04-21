@@ -20,10 +20,10 @@ pub struct ClaimTradingFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
@@ -65,12 +65,9 @@ pub fn handle_claim_trading_fee<'info>(
     max_quote_amount: u64,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
-
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
+
     require!(
         config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
         PoolError::InvalidAccount
@@ -78,6 +75,7 @@ pub fn handle_claim_trading_fee<'info>(
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
+
     require!(
         pool.base_vault.eq(&ctx.accounts.base_vault.key()),
         PoolError::InvalidAccount
@@ -94,6 +92,11 @@ pub fn handle_claim_trading_fee<'info>(
         pool.config.eq(&ctx.accounts.config.key()),
         PoolError::InvalidAccount
     );
+
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+
     let (token_base_amount, token_quote_amount) =
         pool.claim_partner_trading_fee(max_base_amount, max_quote_amount)?;
 

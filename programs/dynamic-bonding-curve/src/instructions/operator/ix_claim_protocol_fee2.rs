@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    event::{EvtClaimProtocolFee2, EvtClaimProtocolFee2WithTransferHook},
+    event::EvtClaimProtocolFee2,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::{PoolConfig, PoolState},
     token::transfer_token_from_pool_authority,
@@ -23,10 +23,10 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     pub token_base_program: Interface<'info, TokenInterface>,
     pub token_quote_program: Interface<'info, TokenInterface>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
@@ -79,16 +79,14 @@ pub fn handle_claim_protocol_fee2<'info>(
     max_amount: u64,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
-
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
+
     require!(
         config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
         PoolError::InvalidAccount
     );
+
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     let mut pool = pool_loader.load_mut()?;
 
@@ -108,6 +106,10 @@ pub fn handle_claim_protocol_fee2<'info>(
         pool.config.eq(&ctx.accounts.config.key()),
         PoolError::InvalidAccount
     );
+
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
 
     let is_claiming_base = get_claim_direction_and_validate_accounts(
         &pool,
@@ -154,21 +156,13 @@ pub fn handle_claim_protocol_fee2<'info>(
     )?;
 
     // emit! log could be truncated. should not rely on this
-    if pool_loader.is_transfer_hook_pool() {
-        emit!(EvtClaimProtocolFee2WithTransferHook {
-            pool: ctx.accounts.pool.key(),
-            receiver_token_account: ctx.accounts.receiver_token_account.key(),
-            token_mint: token_mint.key(),
-            amount,
-        });
-    } else {
-        emit!(EvtClaimProtocolFee2 {
-            pool: ctx.accounts.pool.key(),
-            receiver_token_account: ctx.accounts.receiver_token_account.key(),
-            token_mint: token_mint.key(),
-            amount,
-        });
-    }
+    emit!(EvtClaimProtocolFee2 {
+        // no transfer hook event variant, since this internal operation
+        pool: ctx.accounts.pool.key(),
+        receiver_token_account: ctx.accounts.receiver_token_account.key(),
+        token_mint: token_mint.key(),
+        amount,
+    });
 
     Ok(())
 }

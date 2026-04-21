@@ -1,9 +1,10 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
+use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::constants::seeds::POOL_PREFIX;
-use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::{
-    initialize_pool_state, process_initialize_virtual_pool_with_token2022,
-};
+use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
+use crate::state::fee::VolatilityTracker;
+use crate::InitPoolData;
 use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
@@ -121,7 +122,11 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     );
     drop(config_data);
 
-    let init_data = process_initialize_virtual_pool_with_token2022(
+    let InitPoolData {
+        activation_point,
+        initial_base_supply,
+        sqrt_start_price,
+    } = process_initialize_virtual_pool_with_token2022(
         &ctx.accounts.config.to_account_info(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
@@ -135,14 +140,18 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     )?;
 
     let mut pool = ctx.accounts.pool.load_init()?;
-    initialize_pool_state(
-        &mut pool,
-        &init_data,
+    pool.initialize(
+        VolatilityTracker::default(),
+        ctx.accounts.config.key(),
         ctx.accounts.creator.key(),
         ctx.accounts.base_mint.key(),
         ctx.accounts.base_vault.key(),
         ctx.accounts.quote_vault.key(),
-        PoolType::Token2022,
+        sqrt_start_price,
+        PoolType::Token2022.into(),
+        activation_point,
+        initial_base_supply,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
 
     emit_cpi!(EvtInitializePoolWithTransferHook {
@@ -151,7 +160,7 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
         creator: ctx.accounts.creator.key(),
         base_mint: ctx.accounts.base_mint.key(),
         pool_type: PoolType::Token2022.into(),
-        activation_point: init_data.activation_point,
+        activation_point,
     });
     Ok(())
 }

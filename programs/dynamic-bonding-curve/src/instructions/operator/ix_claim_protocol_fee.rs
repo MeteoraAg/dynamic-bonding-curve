@@ -19,10 +19,10 @@ pub struct ClaimProtocolFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub pool: UncheckedAccount<'info>,
 
@@ -91,6 +91,14 @@ pub fn handle_claim_protocol_fee(
         PoolError::NotPermitToDoThisAction
     );
 
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        PoolError::InvalidAccount
+    );
+
     let token_base_amount = pool.claim_protocol_base_fee(max_base_amount)?;
     if token_base_amount > 0 {
         validate_ata_token(
@@ -110,12 +118,6 @@ pub fn handle_claim_protocol_fee(
         )?;
     }
 
-    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
-    let config = config_loader.load()?;
-    require!(
-        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
-        PoolError::InvalidAccount
-    );
     let token_quote_amount = pool
         .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
 

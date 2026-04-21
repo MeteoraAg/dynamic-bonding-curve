@@ -30,7 +30,7 @@ use migration_handler::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
-    /// CHECK: Validated by PoolAccountLoader
+    /// CHECK: pool account
     #[account(mut)]
     pub virtual_pool: UncheckedAccount<'info>,
 
@@ -38,7 +38,7 @@ pub struct MigrateDammV2Ctx<'info> {
     #[deprecated]
     pub migration_metadata: UncheckedAccount<'info>,
 
-    /// CHECK: Validated by ConfigAccountLoader
+    /// CHECK: config account
     pub config: UncheckedAccount<'info>,
 
     /// CHECK: pool authority
@@ -531,6 +531,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     if pool_loader.is_transfer_hook_pool() {
         let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
 
+        // revoke transfer_hook program
         let update_hook_ix =
             anchor_spl::token_2022::spl_token_2022::extension::transfer_hook::instruction::update(
                 &ctx.accounts.token_base_program.key(),
@@ -548,6 +549,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
             &[&pool_authority_seeds[..]],
         )?;
 
+        // revoke transfer_hook authority
         set_authority(
             CpiContext::new_with_signer(
                 ctx.accounts.token_base_program.key(),

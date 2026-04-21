@@ -602,6 +602,7 @@ pub fn process_create_config(
 
     let migration_sqrt_price =
         get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve)?;
+    // migration price must be smaller than max sqrt price
     require!(
         migration_sqrt_price < MAX_SQRT_PRICE,
         PoolError::InvalidCurve
@@ -627,6 +628,7 @@ pub fn process_create_config(
             migration_fee.fee_percentage,
         )?;
 
+    // this is fine to add redundant check
     require!(
         included_protocol_fee_migration_base_amount > 0 && swap_base_amount > 0,
         PoolError::InvalidCurve
