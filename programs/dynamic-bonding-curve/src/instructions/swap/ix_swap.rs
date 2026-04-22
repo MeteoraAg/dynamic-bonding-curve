@@ -1,5 +1,6 @@
 use std::u64;
 
+use crate::event::{EvtCurveComplete, EvtSwap2};
 use crate::instruction::InitializeVirtualPoolWithSplToken;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::Swap as SwapInstruction;
@@ -13,20 +14,21 @@ use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
     const_pda,
+    event::EvtSwap,
     params::swap::TradeDirection,
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
     token::{transfer_token_from_pool_authority, transfer_token_from_user},
-    EvtSwap, PoolError,
+    PoolError,
 };
-use crate::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{
-    get_processed_sibling_instruction, get_stack_height, Instruction,
-};
-use anchor_lang::solana_program::sysvar;
+use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use solana_instruction::syscalls::get_processed_sibling_instruction;
+use solana_instructions_sysvar::{
+    self as instructions_sysvar, load_current_index_checked, load_instruction_at_checked,
+};
 
 // only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -70,7 +72,7 @@ pub struct SwapCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// config key
     pub config: AccountLoader<'info, PoolConfig>,
@@ -125,8 +127,8 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+pub fn handle_swap_wrapper<'info>(
+    ctx: Context<'info, SwapCtx<'info>>,
     params: SwapParameters2,
 ) -> Result<()> {
     let SwapParameters2 {
@@ -353,12 +355,9 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
 
     // get current index of instruction
-    let current_index =
-        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
-    let current_instruction = sysvar::instructions::load_instruction_at_checked(
-        current_index.into(),
-        instruction_sysvar_account_info,
-    )?;
+    let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
+    let current_instruction =
+        load_instruction_at_checked(current_index.into(), instruction_sysvar_account_info)?;
 
     if current_instruction.program_id != crate::ID {
         // check if current instruction is CPI
@@ -385,10 +384,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         return Ok(());
     }
     for i in 0..current_index {
-        let instruction = sysvar::instructions::load_instruction_at_checked(
-            i.into(),
-            instruction_sysvar_account_info,
-        )?;
+        let instruction = load_instruction_at_checked(i.into(), instruction_sysvar_account_info)?;
 
         if instruction.program_id != crate::ID {
             // we treat any instruction including that pool address is other swap ix
@@ -419,10 +415,10 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
 }
 
 // Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
-pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
+pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
     pool: &Pubkey,
     referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
-    remaining_accounts: &'c [AccountInfo<'info>],
+    remaining_accounts: &[AccountInfo<'info>],
 ) -> Result<()> {
     // just use a random error
     // not allow user to bypass referral fee
@@ -437,17 +433,14 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
     require!(
         instruction_sysvar_account_info
             .key
-            .eq(&sysvar::instructions::ID),
+            .eq(&instructions_sysvar::ID),
         PoolError::UndeterminedError
     );
 
-    let current_index =
-        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
+    let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
 
-    let current_instruction = sysvar::instructions::load_instruction_at_checked(
-        current_index.into(),
-        instruction_sysvar_account_info,
-    )?;
+    let current_instruction =
+        load_instruction_at_checked(current_index.into(), instruction_sysvar_account_info)?;
 
     require!(
         current_instruction.program_id.eq(&crate::ID),
@@ -455,10 +448,7 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'c: 'info, 'info>(
     );
 
     for i in 0..current_index {
-        let instruction = sysvar::instructions::load_instruction_at_checked(
-            i.into(),
-            instruction_sysvar_account_info,
-        )?;
+        let instruction = load_instruction_at_checked(i.into(), instruction_sysvar_account_info)?;
 
         if instruction.program_id == crate::ID {
             let disc = &instruction.data[..8];

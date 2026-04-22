@@ -26,7 +26,7 @@ pub struct MigrateMeteoraDammCtx<'info> {
         mut,
         address = const_pda::pool_authority::ID,
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// CHECK: pool
     #[account(mut)]
@@ -161,7 +161,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
                     msg!("create pool");
                     dynamic_amm::cpi::initialize_permissionless_constant_product_pool_with_config2(
                 CpiContext::new_with_signer(
-                self.amm_program.to_account_info(),
+                self.amm_program.key(),
                 dynamic_amm::cpi::accounts::InitializePermissionlessConstantProductPoolWithConfig2 {
                             pool: self.pool.to_account_info(),
                             config: self.damm_config.to_account_info(),
@@ -210,7 +210,7 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 }
 
 pub fn handle_migrate_meteora_damm<'info>(
-    ctx: Context<'_, '_, '_, 'info, MigrateMeteoraDammCtx<'info>>,
+    ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     ctx.accounts
@@ -293,7 +293,7 @@ pub fn handle_migrate_meteora_damm<'info>(
         let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
         anchor_spl::token::burn(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Burn {
                     mint: ctx.accounts.token_a_mint.to_account_info(),
                     from: ctx.accounts.base_vault.to_account_info(),

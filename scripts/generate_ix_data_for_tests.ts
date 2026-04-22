@@ -1,5 +1,5 @@
 import { writeFile } from "fs/promises";
-import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
 import { clusterApiUrl, Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE, U64_MAX } from "../tests/utils";

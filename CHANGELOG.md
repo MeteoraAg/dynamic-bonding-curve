@@ -21,6 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.1.11] [PR #188](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/188)
+
+### Added
+
+- Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Only one of the pool tokens can be claimed per instruction call.
+
+### Changed
+
+- Update anchor to 1.0.0
+
+### Deprecated
+
+- Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
+- Deprecated `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority`
+
+### Breaking Changes
+
+- `create_config` endpoint now rejects the configs with the following `token_update_authority`: `CreatorUpdateAndMintAuthority` and `PartnerUpdateAndMintAuthority`
+- `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` endpoints now reject configs whose `token_update_authority` is `CreatorUpdateAndMintAuthority` or `PartnerUpdateAndMintAuthority`. Existing configs on-chain that used these variants can no longer initialize new pools.
+- `base_mint` mint authority can no longer be assigned to the creator or partner. It is always revoked at pool initialization.
+
 ## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
 
 ### Added

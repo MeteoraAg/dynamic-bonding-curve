@@ -1,4 +1,4 @@
-import { Program } from "@coral-xyz/anchor";
+import { Program } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
 import { LiteSVM } from "litesvm";
 import {

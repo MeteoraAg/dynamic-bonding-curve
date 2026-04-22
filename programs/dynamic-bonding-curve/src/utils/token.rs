@@ -51,7 +51,7 @@ pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
     }
 }
 
-pub fn transfer_token_from_user<'a, 'c: 'info, 'info>(
+pub fn transfer_token_from_user<'a, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,
     token_owner_account: &'a InterfaceAccount<'info, TokenAccount>,
@@ -84,7 +84,7 @@ pub fn transfer_token_from_user<'a, 'c: 'info, 'info>(
     Ok(())
 }
 
-pub fn transfer_token_from_pool_authority<'c: 'info, 'info>(
+pub fn transfer_token_from_pool_authority<'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,

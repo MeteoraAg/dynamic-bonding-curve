@@ -374,9 +374,9 @@ pub enum TokenAuthorityOption {
     Immutable,
     // Partner has permission to update update_authority
     PartnerUpdateAuthority,
-    // Creator has permission as mint_authority and update_authority
+    // Deprecated. Creating a config or initializing a pool with this option will fail
     CreatorUpdateAndMintAuthority,
-    // Partner has permission as mint_authority and update_authority
+    // Deprecated. Creating a config or initializing a pool with this option will fail
     PartnerUpdateAndMintAuthority,
 }
 
@@ -392,12 +392,12 @@ impl TokenAuthorityOption {
         }
     }
 
-    pub fn get_mint_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
-        match *self {
-            TokenAuthorityOption::CreatorUpdateAndMintAuthority => Some(creator),
-            TokenAuthorityOption::PartnerUpdateAndMintAuthority => Some(partner),
-            _ => None,
-        }
+    pub fn has_mint_authority(&self) -> bool {
+        matches!(
+            *self,
+            TokenAuthorityOption::CreatorUpdateAndMintAuthority
+                | TokenAuthorityOption::PartnerUpdateAndMintAuthority
+        )
     }
 }
 

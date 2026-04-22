@@ -13,8 +13,30 @@ incremental = false
 codegen-units = 1
 
 [workspace.dependencies]
-anchor-lang = "0.31"
-anchor-spl = "0.31"
-anchor-client = "0.31"
-bytemuck = "1.20.0"
+anchor-lang = "1.0.0"
+anchor-spl = "1.0.0"
+anchor-client = "1.0.0"
+anyhow = "1.0.71"
+bytemuck = "1.21"
+const-crypto = "0.3.0"
+# The alpha just version bump https://github.com/metaplex-foundation/mpl-token-metadata/commits/main/clients/rust/Cargo.toml
+mpl-token-metadata = "5.1.2-alpha.2"
+num = "0.4.3"
+num-traits = "0.2.19"
+num_enum = "0.7.0"
+proptest = "1.2.0"
+rand = "0.9.2"
 ruint = "1.14.0"
+solana-instruction = { version = "3.0.0", features = ["syscalls"] }
+solana-instructions-sysvar = "3.0.0"
+static_assertions = "1.1.0"
+dynamic-amm = { path = "libs/dynamic-amm" }
+damm-v2 = { path = "libs/damm-v2" }
+locker = { path = "libs/locker" }
+dynamic-bonding-curve = { path = "programs/dynamic-bonding-curve" }
+protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58b317b9a85f212c0de72caea286fc72fdb4" }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(target_os, values("solana"))',
+] }

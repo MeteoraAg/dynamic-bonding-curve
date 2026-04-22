@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import { BN } from "@anchor-lang/core";
 import {
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,

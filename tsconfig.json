@@ -9,6 +9,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "strict": false
+    "strict": false,
+    "strictNullChecks": false,
+    "noImplicitAny": false
   }
 }
