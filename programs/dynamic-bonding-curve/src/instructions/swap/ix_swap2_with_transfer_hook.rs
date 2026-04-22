@@ -1,6 +1,7 @@
 use crate::{
     const_pda,
-    event::{EvtCurveComplete, EvtSwap, EvtSwap2},
+    event::{EvtCurveCompleteWithTransferHook, EvtSwap2WithTransferHook},
+    remaining_accounts::TransferHookAccountsInfo,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -9,7 +10,7 @@ use super::process_swap::{process_swap, SwapParameters2};
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct SwapCtx<'info> {
+pub struct SwapWithTransferHookCtx<'info> {
     /// CHECK: pool authority
     #[account(
         address = const_pda::pool_authority::ID,
@@ -40,6 +41,7 @@ pub struct SwapCtx<'info> {
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// The mint of base token
+    #[account(mut)]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The mint of quote token
@@ -59,9 +61,10 @@ pub struct SwapCtx<'info> {
     pub referral_token_account: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
 }
 
-pub fn handle_swap_wrapper<'info>(
-    ctx: Context<'info, SwapCtx<'info>>,
+pub fn handle_swap_with_transfer_hook_wrapper<'info>(
+    ctx: Context<'info, SwapWithTransferHookCtx<'info>>,
     params: SwapParameters2,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
     let output_token_account = ctx.accounts.output_token_account.to_account_info();
     let result = process_swap(
@@ -80,20 +83,10 @@ pub fn handle_swap_wrapper<'info>(
         &ctx.accounts.referral_token_account,
         ctx.remaining_accounts,
         params,
-        Default::default(),
+        transfer_hook_accounts_info,
     )?;
 
-    emit_cpi!(EvtSwap {
-        pool: ctx.accounts.pool.key(),
-        config: ctx.accounts.config.key(),
-        trade_direction: result.trade_direction.into(),
-        has_referral: result.has_referral,
-        params: result.swap_in_parameters,
-        swap_result: result.swap_result_2.get_swap_result(),
-        amount_in: result.swap_result_2.included_fee_input_amount,
-        current_timestamp: result.current_timestamp,
-    });
-    emit_cpi!(EvtSwap2 {
+    emit_cpi!(EvtSwap2WithTransferHook {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         trade_direction: result.trade_direction.into(),
@@ -106,7 +99,7 @@ pub fn handle_swap_wrapper<'info>(
     });
 
     if let Some(data) = result.curve_complete {
-        emit_cpi!(EvtCurveComplete {
+        emit_cpi!(EvtCurveCompleteWithTransferHook {
             pool: ctx.accounts.pool.key(),
             config: ctx.accounts.config.key(),
             base_reserve: data.base_reserve,

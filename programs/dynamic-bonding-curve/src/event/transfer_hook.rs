@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::{instructions::partner::ConfigParameters, state::SwapResult2, SwapParameters2};
 
+// The transfer hook events have the same properties but different name to isolate them from the non-transfer hook events
+
 #[event]
 pub struct EvtCreateConfigV2WithTransferHook {
     pub config: Pubkey,

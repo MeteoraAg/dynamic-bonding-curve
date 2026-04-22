@@ -528,42 +528,6 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         PoolError::InvalidAccount
     );
 
-    if pool_loader.is_transfer_hook_pool() {
-        let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
-
-        // revoke transfer_hook program
-        let update_hook_ix =
-            anchor_spl::token_2022::spl_token_2022::extension::transfer_hook::instruction::update(
-                &ctx.accounts.token_base_program.key(),
-                &ctx.accounts.base_mint.key(),
-                &ctx.accounts.pool_authority.key(),
-                &[],
-                None,
-            )?;
-        anchor_lang::solana_program::program::invoke_signed(
-            &update_hook_ix,
-            &[
-                ctx.accounts.base_mint.to_account_info(),
-                ctx.accounts.pool_authority.to_account_info(),
-            ],
-            &[&pool_authority_seeds[..]],
-        )?;
-
-        // revoke transfer_hook authority
-        set_authority(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_base_program.key(),
-                SetAuthority {
-                    current_authority: ctx.accounts.pool_authority.to_account_info(),
-                    account_or_mint: ctx.accounts.base_mint.to_account_info(),
-                },
-                &[&pool_authority_seeds[..]],
-            ),
-            AuthorityType::TransferHookProgramId,
-            None,
-        )?;
-    }
-
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction

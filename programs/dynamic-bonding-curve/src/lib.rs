@@ -232,7 +232,6 @@ pub mod dynamic_bonding_curve {
                 amount_1: params.minimum_amount_out,
                 swap_mode: SwapMode::ExactIn.into(),
             },
-            Default::default(),
         )
     }
 
@@ -240,28 +239,25 @@ pub mod dynamic_bonding_curve {
         ctx: Context<'info, SwapCtx<'info>>,
         params: SwapParameters2,
     ) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params, Default::default())
+        instructions::handle_swap_wrapper(ctx, params)
     }
 
     pub fn swap2_with_transfer_hook<'info>(
-        ctx: Context<'info, SwapCtx<'info>>,
+        ctx: Context<'info, SwapWithTransferHookCtx<'info>>,
         params: SwapParameters2,
         transfer_hook_accounts_info: TransferHookAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params, transfer_hook_accounts_info)
+        instructions::handle_swap_with_transfer_hook_wrapper(
+            ctx,
+            params,
+            transfer_hook_accounts_info,
+        )
     }
 
     /// PERMISSIONLESS FUNCTIONS ///
     /// create locker
     pub fn create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) -> Result<()> {
-        instructions::handle_create_locker(ctx, Default::default())
-    }
-
-    pub fn create_locker_with_transfer_hook<'info>(
-        ctx: Context<'info, CreateLockerCtx<'info>>,
-        transfer_hook_accounts_info: TransferHookAccountsInfo,
-    ) -> Result<()> {
-        instructions::handle_create_locker(ctx, transfer_hook_accounts_info)
+        instructions::handle_create_locker(ctx)
     }
 
     // withdraw leftover on base token, can only call after pool is initialized
