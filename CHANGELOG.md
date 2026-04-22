@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-## dynamic_bonding_curve [0.2.0]
+## dynamic_bonding_curve [0.2.0] [PR #193](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/193)
 
 ### Added
 
@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added endpoint `initialize_virtual_pool_with_token2022_transfer_hook` for creating virtual pools with token-2022 base mints that have transfer hooks. The transfer hook program is sourced from the `ConfigWithTransferHook` account and the transfer hook authority is set to the `pool_authority`. The transfer hook program and authority is revoked after the last swap when the curve completes.
 - Added endpoints with transfer hook support: `swap2_with_transfer_hook`, `claim_trading_fee_with_transfer_hook` and `claim_creator_trading_fee_with_transfer_hook`. These accept a `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for passing transfer hook extra accounts via remaining accounts. The original endpoints are unchanged for backwards compatibility with non-transfer-hook pools.
 - Added `WithTransferHook` event variants for all pool-touching events to differentiate between transfer-hook and non-transfer-hook pool operations.
+
+### Removed
+
+- Removed unused events: `EvtPartnerWithdrawMigrationFee` and `EvtClaimProtocolLiquidityMigrationFee`
 
 ### Breaking Changes
 
