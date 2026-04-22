@@ -41,6 +41,7 @@ pub struct SwapWithTransferHookCtx<'info> {
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// The mint of base token
+    /// must be mutable so we can revoke the transfer hook after the last swap is performed
     #[account(mut)]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 

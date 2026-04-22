@@ -1,8 +1,8 @@
 pub mod ix_swap;
-pub mod ix_swap2_with_transfer_hook;
-pub mod process_swap;
 pub use ix_swap::*;
+pub mod ix_swap2_with_transfer_hook;
 pub use ix_swap2_with_transfer_hook::*;
+pub mod process_swap;
 pub use process_swap::*;
 mod swap_exact_in;
 mod swap_exact_out;
