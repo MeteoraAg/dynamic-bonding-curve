@@ -140,6 +140,7 @@ pub fn process_swap<'a: 'info, 'info>(
         TradeDirection::QuoteToBase
     };
 
+    // Reborrow base_vault as immutable to match quote_vault's type in the match
     let base_vault_ref: &Box<InterfaceAccount<'info, TokenAccount>> = base_vault;
     let (
         token_in_mint,
