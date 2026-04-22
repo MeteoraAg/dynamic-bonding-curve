@@ -27,7 +27,9 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
     pub leftover_receiver: UncheckedAccount<'info>,
     /// quote mint
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-    /// CHECK: transfer hook program — validated in handler
+
+    /// CHECK: transfer hook program
+    #[account(executable)]
     pub transfer_hook_program: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -55,8 +57,7 @@ pub fn handle_create_config_with_transfer_hook(
     let transfer_hook_program = &ctx.accounts.transfer_hook_program;
     // to be safe we disallow programs involved in the transfer chain (DBC, spl token, token 2022)
     require!(
-        transfer_hook_program.executable
-            && transfer_hook_program.key().ne(&crate::ID)
+        transfer_hook_program.key().ne(&crate::ID)
             && transfer_hook_program.key().ne(&token::ID)
             && transfer_hook_program.key().ne(&token_2022::ID),
         PoolError::InvalidTransferHookProgram

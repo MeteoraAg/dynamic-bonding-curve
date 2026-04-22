@@ -84,7 +84,7 @@ pub fn handle_claim_protocol_fee2<'info>(
 
     require!(
         config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
@@ -92,19 +92,19 @@ pub fn handle_claim_protocol_fee2<'info>(
 
     require!(
         pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let mut remaining_accounts = ctx.remaining_accounts;

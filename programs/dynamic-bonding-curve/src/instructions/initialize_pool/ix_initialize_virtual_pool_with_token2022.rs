@@ -117,11 +117,11 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         initial_base_supply,
         sqrt_start_price,
     } = process_initialize_virtual_pool_with_token2022(
-        &ctx.accounts.config.to_account_info(),
+        ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,
-        ctx.accounts.pool.to_account_info(),
+        ctx.accounts.pool.as_ref(),
         &ctx.accounts.base_vault,
         &ctx.accounts.payer,
         &ctx.accounts.token_program,

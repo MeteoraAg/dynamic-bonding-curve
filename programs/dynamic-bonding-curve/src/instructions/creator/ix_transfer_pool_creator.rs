@@ -34,7 +34,7 @@ pub fn handle_transfer_pool_creator<'info>(
 
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let migration_progress = pool.get_migration_progress()?;

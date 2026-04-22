@@ -7,7 +7,7 @@ use crate::{
     event::{EvtClaimTradingFee, EvtClaimTradingFeeWithTransferHook},
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
-    ConfigAccountLoader, PoolError,
+    ConfigAccountLoader,
 };
 
 /// Accounts for partner to claim fees
@@ -70,7 +70,7 @@ pub fn handle_claim_trading_fee<'info>(
 
     require!(
         config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
@@ -78,19 +78,19 @@ pub fn handle_claim_trading_fee<'info>(
 
     require!(
         pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let mut remaining_accounts = ctx.remaining_accounts;

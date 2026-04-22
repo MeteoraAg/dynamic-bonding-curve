@@ -41,7 +41,7 @@ pub fn handle_claim_protocol_pool_creation_fee(
 
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let mut protocol_fee = if pool.eligible_to_claim_protocol_pool_creation_fee() {

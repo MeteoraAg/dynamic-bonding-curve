@@ -517,15 +517,15 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
 
     require!(
         virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     require!(

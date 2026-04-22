@@ -55,7 +55,7 @@ pub fn handle_withdraw_leftover<'info>(
         config
             .leftover_receiver
             .eq(&ctx.accounts.leftover_receiver.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
@@ -63,15 +63,15 @@ pub fn handle_withdraw_leftover<'info>(
 
     require!(
         virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     require!(

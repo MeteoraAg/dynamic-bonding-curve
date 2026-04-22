@@ -26,7 +26,7 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     pool_authority: &AccountInfo<'info>,
     creator: &AccountInfo<'info>,
     base_mint: &InterfaceAccount<'info, Mint>,
-    pool_info: AccountInfo<'info>,
+    pool_info: &AccountInfo<'info>,
     base_vault: &InterfaceAccount<'info, TokenAccount>,
     payer: &AccountInfo<'info>,
     token_program: &AccountInfo<'info>,
@@ -154,7 +154,7 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     if config.pool_creation_fee > 0 {
         transfer_lamports_from_user(
             payer.to_account_info(),
-            pool_info,
+            pool_info.to_account_info(),
             system_program.to_account_info(),
             config.pool_creation_fee,
         )?;

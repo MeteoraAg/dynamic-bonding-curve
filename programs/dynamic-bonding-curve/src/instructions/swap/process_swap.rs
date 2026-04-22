@@ -111,15 +111,15 @@ pub fn process_swap<'a: 'info, 'info>(
 
     require!(
         pool.base_vault.eq(&base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.quote_vault.eq(&quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.config.eq(&config_account.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let config_loader = ConfigAccountLoader::try_from(config_account)?;

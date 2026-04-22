@@ -6,7 +6,7 @@ use crate::{
     event::{EvtClaimCreatorTradingFee, EvtClaimCreatorTradingFeeWithTransferHook},
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
-    PoolAccountLoader, PoolError,
+    PoolAccountLoader,
 };
 
 /// Accounts for creator to claim trading fees
@@ -66,15 +66,15 @@ pub fn handle_claim_creator_trading_fee<'info>(
 
     require!(
         pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let mut remaining_accounts = ctx.remaining_accounts;

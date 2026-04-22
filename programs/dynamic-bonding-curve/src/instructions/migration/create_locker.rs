@@ -73,19 +73,19 @@ pub fn handle_create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) 
 
     require!(
         virtual_pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.creator.eq(&ctx.accounts.creator.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     require!(

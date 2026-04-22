@@ -38,7 +38,7 @@ pub fn handle_claim_partner_pool_creation_fee(
 
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     require!(

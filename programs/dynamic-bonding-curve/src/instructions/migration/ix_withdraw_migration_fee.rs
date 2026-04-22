@@ -71,7 +71,7 @@ pub fn handle_withdraw_migration_fee(
 
     require!(
         config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
@@ -79,11 +79,11 @@ pub fn handle_withdraw_migration_fee(
 
     require!(
         pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
     require!(
         pool.config.eq(&ctx.accounts.config.key()),
-        PoolError::InvalidAccount
+        ErrorCode::ConstraintHasOne
     );
 
     // Make sure pool has been completed

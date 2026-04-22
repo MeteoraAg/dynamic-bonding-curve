@@ -10,7 +10,6 @@ use crate::{
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
-    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -18,7 +17,7 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
-/// DAMM v2 do not support mints with active transfer hooks.
+/// DAMM v2 do not support mints with active transfer hooks. DAMM v1 does not support token 2022 at all
 /// The transfer hook program_id and authority must be revoked before migration.
 #[event_cpi]
 #[derive(Accounts)]
@@ -96,7 +95,8 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// CHECK: transfer hook program — validated against config in handler
+    /// CHECK: transfer hook program
+    #[account(executable, address = config.load()?.transfer_hook_program)]
     pub transfer_hook_program: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -111,27 +111,16 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    let config_data = ctx.accounts.config.load()?;
-    let transfer_hook_program = &ctx.accounts.transfer_hook_program;
-    require!(
-        transfer_hook_program
-            .key()
-            .eq(&config_data.transfer_hook_program)
-            && transfer_hook_program.executable,
-        PoolError::InvalidTransferHookProgram
-    );
-    drop(config_data);
-
     let InitPoolData {
         activation_point,
         initial_base_supply,
         sqrt_start_price,
     } = process_initialize_virtual_pool_with_token2022(
-        &ctx.accounts.config.to_account_info(),
+        ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,
-        ctx.accounts.pool.to_account_info(),
+        ctx.accounts.pool.as_ref(),
         &ctx.accounts.base_vault,
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
