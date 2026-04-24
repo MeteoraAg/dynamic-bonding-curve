@@ -1,12 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
+use crate::PoolAccountLoader;
 use crate::{
     const_pda,
-    event::EvtPartnerWithdrawSurplus,
-    state::{PoolConfig, VirtualPool},
+    event::{EvtPartnerWithdrawSurplus, EvtPartnerWithdrawSurplusWithTransferHook},
     token::transfer_token_from_pool_authority,
-    PoolError,
+    ConfigAccountLoader, PoolError,
 };
 
 /// Accounts for partner withdraw surplus
@@ -19,15 +19,12 @@ pub struct PartnerWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = quote_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account
     #[account(mut)]
@@ -47,8 +44,23 @@ pub struct PartnerWithdrawSurplusCtx<'info> {
 }
 
 pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     // Make sure pool has been completed
     require!(
@@ -71,14 +83,22 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         partner_surplus_amount,
+        None,
     )?;
 
     // update partner withdraw surplus
     pool.update_partner_withdraw_surplus();
 
-    emit_cpi!(EvtPartnerWithdrawSurplus {
-        pool: ctx.accounts.virtual_pool.key(),
-        surplus_amount: partner_surplus_amount
-    });
+    if pool_loader.is_transfer_hook_pool() {
+        emit_cpi!(EvtPartnerWithdrawSurplusWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: partner_surplus_amount
+        });
+    } else {
+        emit_cpi!(EvtPartnerWithdrawSurplus {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: partner_surplus_amount
+        });
+    }
     Ok(())
 }

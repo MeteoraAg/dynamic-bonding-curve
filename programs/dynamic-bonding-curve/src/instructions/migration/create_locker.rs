@@ -1,20 +1,17 @@
 use crate::{
-    const_pda,
-    constants::seeds::BASE_LOCKER_PREFIX,
-    cpi_checker::cpi_with_account_lamport_and_owner_checking,
-    state::{MigrationProgress, PoolConfig, VirtualPool},
-    *,
+    const_pda, constants::seeds::BASE_LOCKER_PREFIX,
+    cpi_checker::cpi_with_account_lamport_and_owner_checking, state::MigrationProgress, *,
 };
 use anchor_spl::token_interface::{TokenAccount, TokenInterface};
 use locker::cpi::accounts::CreateVestingEscrowV2;
 
 #[derive(Accounts)]
 pub struct CreateLockerCtx<'info> {
-    /// Virtual pool
-    #[account(mut, has_one = config, has_one = creator, has_one = base_vault, has_one = base_mint)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
-    /// Config
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
     /// CHECK: pool authority
     #[account(
         mut,
@@ -70,15 +67,34 @@ pub struct CreateLockerCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+pub fn handle_create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) -> Result<()> {
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.creator.eq(&ctx.accounts.creator.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::PostBondingCurve,
         PoolError::NotPermitToDoThisAction
     );
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
 
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
 

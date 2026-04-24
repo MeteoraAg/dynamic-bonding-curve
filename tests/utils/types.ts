@@ -7,7 +7,7 @@ import { DynamicAmm as DammV1 } from "./idl/dynamic_amm";
 
 export type VirtualCurveProgram = Program<DynamicBondingCurve>;
 
-export type Pool = IdlAccounts<DynamicBondingCurve>["virtualPool"];
+export type Pool = IdlAccounts<DynamicBondingCurve>["virtualPool"]["poolState"];
 export type PoolConfig = IdlAccounts<DynamicBondingCurve>["poolConfig"];
 export type PartnerMetadata =
   IdlAccounts<DynamicBondingCurve>["partnerMetadata"];
@@ -17,6 +17,8 @@ export type ClaimFeeOperator =
   IdlAccounts<DynamicBondingCurve>["claimFeeOperator"];
 export type MeteoraDammMigrationMetadata =
   IdlAccounts<DynamicBondingCurve>["meteoraDammMigrationMetadata"];
+export type TransferHookAccountsInfo =
+  IdlTypes<DynamicBondingCurve>["transferHookAccountsInfo"];
 export type LockEscrow = IdlAccounts<DynamicAmm>["lockEscrow"];
 export type DammV1Pool = IdlAccounts<DammV1>["pool"];
 export type DammV2Pool = IdlAccounts<DammV2>["pool"];
@@ -26,3 +28,12 @@ export type PodAlignedFeeTimeScheduler =
   IdlTypes<DammV2>["podAlignedFeeTimeScheduler"];
 export type PodAlignedFeeMarketCapScheduler =
   IdlTypes<DammV2>["podAlignedFeeMarketCapScheduler"];
+
+export const AccountsType = {
+  TransferHookBase: {
+    transferHookBase: {},
+  },
+  TransferHookBaseReferral: {
+    transferHookBaseReferral: {},
+  },
+};

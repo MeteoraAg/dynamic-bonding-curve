@@ -11,6 +11,7 @@ import {
   JUPITER_V6_PROGRAM_ID,
   LOCKER_PROGRAM_ID,
   METAPLEX_PROGRAM_ID,
+  TRANSFER_HOOK_COUNTER_PROGRAM_ID,
   VAULT_PROGRAM_ID,
   ZAP_PROGRAM_ID,
 } from "./constants";
@@ -28,6 +29,9 @@ export function startSvm() {
   const sourceFileMetaplexPath = path.resolve("./tests/fixtures/metaplex.so");
   const sourceFileZapProgramPath = path.resolve("./tests/fixtures/zap.so");
   const sourceFileJupiterPath = path.resolve("./tests/fixtures/jupiter.so");
+  const sourceFileTransferHookCounterPath = path.resolve(
+    "./tests/fixtures/transfer_hook_counter.so"
+  );
   svm.addProgramFromFile(DYNAMIC_BONDING_CURVE_PROGRAM_ID, sourceFileDbcPath);
   svm.addProgramFromFile(DAMM_V2_PROGRAM_ID, sourceFileDammV2Path);
   svm.addProgramFromFile(DAMM_PROGRAM_ID, sourceFileDammV1Path);
@@ -36,6 +40,10 @@ export function startSvm() {
   svm.addProgramFromFile(METAPLEX_PROGRAM_ID, sourceFileMetaplexPath);
   svm.addProgramFromFile(ZAP_PROGRAM_ID, sourceFileZapProgramPath);
   svm.addProgramFromFile(JUPITER_V6_PROGRAM_ID, sourceFileJupiterPath);
+  svm.addProgramFromFile(
+    TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+    sourceFileTransferHookCounterPath
+  );
 
   // set wrap sol mint account
   svm.setAccount(NATIVE_MINT, {

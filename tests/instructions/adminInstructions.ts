@@ -13,6 +13,7 @@ import {
 import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
 import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
 
 export enum OperatorPermission {
   ClaimProtocolFee,
@@ -212,7 +213,7 @@ export async function claimProtocolFee2(
     getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
   const transaction = await program.methods
-    .claimProtocolFee2(maxAmount)
+    .claimProtocolFee2(maxAmount, { slices: [] })
     .accountsPartial({
       poolAuthority,
       config: poolState.config,

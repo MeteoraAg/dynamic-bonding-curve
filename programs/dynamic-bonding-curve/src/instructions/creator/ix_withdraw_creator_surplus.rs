@@ -3,10 +3,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    event::EvtCreatorWithdrawSurplus,
-    state::{PoolConfig, VirtualPool},
+    event::{EvtCreatorWithdrawSurplus, EvtCreatorWithdrawSurplusWithTransferHook},
     token::transfer_token_from_pool_authority,
-    PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator withdraw surplus
@@ -19,15 +18,12 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = quote_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account
     #[account(mut)]
@@ -47,8 +43,24 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
 }
 
 pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     // Make sure pool has been completed
     require!(
@@ -71,14 +83,22 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         creator_surplus_amount,
+        None,
     )?;
 
     // update creator withdraw surplus
     pool.update_creator_withdraw_surplus();
 
-    emit_cpi!(EvtCreatorWithdrawSurplus {
-        pool: ctx.accounts.virtual_pool.key(),
-        surplus_amount: creator_surplus_amount
-    });
+    if pool_loader.is_transfer_hook_pool() {
+        emit_cpi!(EvtCreatorWithdrawSurplusWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: creator_surplus_amount
+        });
+    } else {
+        emit_cpi!(EvtCreatorWithdrawSurplus {
+            pool: ctx.accounts.virtual_pool.key(),
+            surplus_amount: creator_surplus_amount
+        });
+    }
     Ok(())
 }

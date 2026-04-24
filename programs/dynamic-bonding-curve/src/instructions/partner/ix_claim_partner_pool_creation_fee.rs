@@ -1,15 +1,20 @@
+use crate::PoolAccountLoader;
 use crate::{
-    event::EvtPartnerClaimPoolCreationFee, state::*, token::transfer_lamports_from_pool_account, *,
+    event::{EvtPartnerClaimPoolCreationFee, EvtPartnerClaimPoolCreationFeeWithTransferHook},
+    token::transfer_lamports_from_pool_account,
+    *,
 };
 
 /// Accounts for partner withdraw creation fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(mut, has_one = config)]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     pub fee_claimer: Signer<'info>,
 
@@ -21,13 +26,20 @@ pub struct ClaimPartnerPoolCreationFeeCtx<'info> {
 pub fn handle_claim_partner_pool_creation_fee(
     ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
 
     let (_, partner_fee) = config.split_pool_creation_fee()?;
 
     require!(partner_fee > 0, PoolError::ZeroPoolCreationFee);
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     require!(
         pool.eligible_to_claim_partner_pool_creation_fee(),
@@ -43,12 +55,21 @@ pub fn handle_claim_partner_pool_creation_fee(
         partner_fee,
     )?;
 
-    emit_cpi!(EvtPartnerClaimPoolCreationFee {
-        pool: ctx.accounts.pool.key(),
-        partner: ctx.accounts.fee_claimer.key(),
-        creation_fee: partner_fee,
-        fee_receiver: ctx.accounts.fee_receiver.key(),
-    });
+    if pool_loader.is_transfer_hook_pool() {
+        emit_cpi!(EvtPartnerClaimPoolCreationFeeWithTransferHook {
+            pool: ctx.accounts.pool.key(),
+            partner: ctx.accounts.fee_claimer.key(),
+            creation_fee: partner_fee,
+            fee_receiver: ctx.accounts.fee_receiver.key(),
+        });
+    } else {
+        emit_cpi!(EvtPartnerClaimPoolCreationFee {
+            pool: ctx.accounts.pool.key(),
+            partner: ctx.accounts.fee_claimer.key(),
+            creation_fee: partner_fee,
+            fee_receiver: ctx.accounts.fee_receiver.key(),
+        });
+    }
 
     Ok(())
 }

@@ -10,10 +10,12 @@ const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(mut, has_one = config)]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     pub operator: AccountLoader<'info, Operator>,
 
@@ -31,8 +33,17 @@ pub struct ClaimProtocolPoolCreationFeeCtx<'info> {
 pub fn handle_claim_protocol_pool_creation_fee(
     ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
     let mut protocol_fee = if pool.eligible_to_claim_protocol_pool_creation_fee() {
         pool.update_protocol_pool_creation_fee_claimed();
         let (protocol_fee, _) = config.split_pool_creation_fee()?;
@@ -56,6 +67,7 @@ pub fn handle_claim_protocol_pool_creation_fee(
     }
 
     emit_cpi!(EvtClaimPoolCreationFee {
+        // no transfer hook event variant, since this internal operation
         pool: ctx.accounts.pool.key(),
         receiver: ctx.accounts.treasury.key(),
         creation_fee: protocol_fee,

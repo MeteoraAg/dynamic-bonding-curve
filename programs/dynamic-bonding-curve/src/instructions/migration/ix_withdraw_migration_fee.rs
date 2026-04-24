@@ -4,13 +4,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
-    event::EvtWithdrawMigrationFee,
-    state::{
-        MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK,
-        PARTNER_MIGRATION_FEE_MASK,
-    },
+    event::{EvtWithdrawMigrationFee, EvtWithdrawMigrationFeeWithTransferHook},
+    state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
     token::transfer_token_from_pool_authority,
-    PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator withdraw migration fee
@@ -23,15 +20,12 @@ pub struct WithdrawMigrationFeeCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = quote_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account
     #[account(mut)]
@@ -72,8 +66,25 @@ pub fn handle_withdraw_migration_fee(
     ctx: Context<WithdrawMigrationFeeCtx>,
     flag: u8, // 0 as partner and 1 as creator
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     // Make sure pool has been completed
     require!(
@@ -123,12 +134,21 @@ pub fn handle_withdraw_migration_fee(
         ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         fee,
+        None,
     )?;
 
-    emit_cpi!(EvtWithdrawMigrationFee {
-        pool: ctx.accounts.virtual_pool.key(),
-        fee,
-        flag
-    });
+    if pool_loader.is_transfer_hook_pool() {
+        emit_cpi!(EvtWithdrawMigrationFeeWithTransferHook {
+            pool: ctx.accounts.virtual_pool.key(),
+            fee,
+            flag
+        });
+    } else {
+        emit_cpi!(EvtWithdrawMigrationFee {
+            pool: ctx.accounts.virtual_pool.key(),
+            fee,
+            flag
+        });
+    }
     Ok(())
 }

@@ -12,9 +12,9 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
-        MigrationProgress, PoolConfig, VirtualPool,
+        MigrationProgress, PoolConfig,
     },
-    PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_spl::{
     token_2022::{set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority},
@@ -30,16 +30,16 @@ use migration_handler::MigratedCollectFeeMode;
 
 #[derive(Accounts)]
 pub struct MigrateDammV2Ctx<'info> {
-    /// virtual pool
-    #[account(mut, has_one = base_vault, has_one = quote_vault, has_one = config)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// CHECK: Deprecated. Unused anymore.
     #[deprecated]
     pub migration_metadata: UncheckedAccount<'info>,
 
-    /// virtual pool config key
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
     /// CHECK: pool authority
     #[account(
@@ -495,7 +495,8 @@ fn validate_config_key(
 pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
     let current_timestamp = Clock::get()?.unix_timestamp as u64;
 
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
@@ -511,7 +512,21 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         validate_config_key(&damm_config, migration_fee_option)?;
     }
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,

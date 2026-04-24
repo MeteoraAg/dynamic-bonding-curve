@@ -1,11 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
+use crate::PoolAccountLoader;
 use crate::{
     const_pda,
-    event::EvtClaimTradingFee,
-    state::{PoolConfig, VirtualPool},
+    event::{EvtClaimTradingFee, EvtClaimTradingFeeWithTransferHook},
+    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
+    ConfigAccountLoader,
 };
 
 /// Accounts for partner to claim fees
@@ -18,17 +20,12 @@ pub struct ClaimTradingFeesCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one=quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = base_vault,
-        has_one = quote_vault,
-        has_one = base_mint,
-        has_one = config,
-    )]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     /// The treasury token a account
     #[account(mut)]
@@ -62,12 +59,44 @@ pub struct ClaimTradingFeesCtx<'info> {
 }
 
 /// Partner claim fees.
-pub fn handle_claim_trading_fee(
-    ctx: Context<ClaimTradingFeesCtx>,
+pub fn handle_claim_trading_fee<'info>(
+    ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
     max_base_amount: u64,
     max_quote_amount: u64,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+
     let (token_base_amount, token_quote_amount) =
         pool.claim_partner_trading_fee(max_base_amount, max_quote_amount)?;
 
@@ -78,6 +107,7 @@ pub fn handle_claim_trading_fee(
         ctx.accounts.token_a_account.to_account_info(),
         &ctx.accounts.token_base_program,
         token_base_amount,
+        parsed_transfer_hook_accounts.transfer_hook_base,
     )?;
 
     transfer_token_from_pool_authority(
@@ -87,12 +117,22 @@ pub fn handle_claim_trading_fee(
         ctx.accounts.token_b_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         token_quote_amount,
+        None,
     )?;
 
-    emit_cpi!(EvtClaimTradingFee {
-        pool: ctx.accounts.pool.key(),
-        token_base_amount,
-        token_quote_amount
-    });
+    if pool_loader.is_transfer_hook_pool() {
+        emit_cpi!(EvtClaimTradingFeeWithTransferHook {
+            pool: ctx.accounts.pool.key(),
+            token_base_amount,
+            token_quote_amount
+        });
+    } else {
+        emit_cpi!(EvtClaimTradingFee {
+            pool: ctx.accounts.pool.key(),
+            token_base_amount,
+            token_quote_amount
+        });
+    }
+
     Ok(())
 }

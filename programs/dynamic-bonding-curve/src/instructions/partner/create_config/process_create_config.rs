@@ -4,8 +4,6 @@ use damm_v2::constants::MAX_BASIS_POINT;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
 
-#[allow(deprecated)]
-use crate::event::*;
 use crate::{
     activation_handler::ActivationType,
     constants::{
@@ -248,6 +246,7 @@ pub struct TokenSupplyParams {
     /// that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)
     pub post_migration_token_supply: u64,
 }
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct LockedVestingParams {
     pub amount_per_period: u64,
@@ -297,6 +296,7 @@ impl LockedVestingParams {
     pub fn has_vesting(&self) -> bool {
         *self != LockedVestingParams::default()
     }
+
     pub fn validate(&self) -> Result<()> {
         if self.has_vesting() {
             let total_amount = self.get_total_amount()?;
@@ -538,39 +538,21 @@ impl ConfigParameters {
     }
 }
 
-#[event_cpi]
-#[derive(Accounts)]
-pub struct CreateConfigCtx<'info> {
-    #[account(
-        init,
-        signer,
-        payer = payer,
-        space = 8 + PoolConfig::INIT_SPACE
-    )]
-    pub config: AccountLoader<'info, PoolConfig>,
-
-    /// CHECK: fee_claimer
-    pub fee_claimer: UncheckedAccount<'info>,
-    /// CHECK: owner extra base token in case token is fixed supply
-    pub leftover_receiver: UncheckedAccount<'info>,
-    /// quote mint
-    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
+pub struct CreateConfigResult {
+    pub swap_base_amount: u64,
+    pub included_protocol_fee_migration_base_amount: u64,
+    pub fixed_token_supply_flag: u8,
+    pub pre_migration_token_supply: u64,
+    pub post_migration_token_supply: u64,
 }
 
-pub fn handle_create_config(
-    ctx: Context<CreateConfigCtx>,
-    config_parameters: ConfigParameters,
-) -> Result<()> {
-    config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        Clock::get()?.unix_timestamp as u64,
-    )?;
-
+pub fn process_create_config(
+    config: &mut PoolConfig,
+    config_parameters: &ConfigParameters,
+    quote_mint: &InterfaceAccount<'_, Mint>,
+    fee_claimer: &Pubkey,
+    leftover_receiver: &Pubkey,
+) -> Result<CreateConfigResult> {
     let ConfigParameters {
         pool_fees,
         collect_fee_mode,
@@ -686,7 +668,7 @@ pub fn handle_create_config(
             )?;
 
             require!(
-                ctx.accounts.leftover_receiver.key() != Pubkey::default(),
+                *leftover_receiver != Pubkey::default(),
                 PoolError::InvalidLeftoverAddress
             );
             require!(
@@ -706,11 +688,10 @@ pub fn handle_create_config(
         dynamic_fee: migrated_dynamic_fee,
     } = migrated_pool_fee;
 
-    let mut config = ctx.accounts.config.load_init()?;
     config.init(
-        &ctx.accounts.quote_mint.key(),
-        ctx.accounts.fee_claimer.key,
-        ctx.accounts.leftover_receiver.key,
+        &quote_mint.key(),
+        fee_claimer,
+        leftover_receiver,
         &pool_fees,
         creator_trading_fee_percentage,
         token_update_authority,
@@ -720,7 +701,7 @@ pub fn handle_create_config(
         activation_type,
         token_decimal,
         token_type,
-        get_token_program_flags(&ctx.accounts.quote_mint).into(),
+        get_token_program_flags(quote_mint).into(),
         partner_permanent_locked_liquidity_percentage,
         partner_liquidity_percentage,
         creator_permanent_locked_liquidity_percentage,
@@ -748,50 +729,17 @@ pub fn handle_create_config(
         enable_first_swap_with_min_fee.into(),
     )?;
 
-    // re-validate total locked liquidity
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
             >= MIN_LOCKED_LIQUIDITY_BPS,
         PoolError::InvalidMigrationLockedLiquidity
     );
 
-    #[allow(deprecated)]
-    {
-        emit_cpi!(EvtCreateConfig {
-            config: ctx.accounts.config.key(),
-            fee_claimer: ctx.accounts.fee_claimer.key(),
-            quote_mint: ctx.accounts.quote_mint.key(),
-            owner: ctx.accounts.leftover_receiver.key(),
-            pool_fees,
-            collect_fee_mode,
-            migration_option,
-            activation_type,
-            token_decimal,
-            token_type,
-            partner_permanent_locked_liquidity_percentage,
-            partner_liquidity_percentage,
-            creator_permanent_locked_liquidity_percentage,
-            creator_liquidity_percentage,
-            swap_base_amount,
-            migration_quote_threshold,
-            migration_base_amount: included_protocol_fee_migration_base_amount,
-            sqrt_start_price,
-            fixed_token_supply_flag,
-            pre_migration_token_supply,
-            post_migration_token_supply,
-            locked_vesting,
-            migration_fee_option,
-            curve
-        });
-    }
-
-    emit_cpi!(EvtCreateConfigV2 {
-        config: ctx.accounts.config.key(),
-        fee_claimer: ctx.accounts.fee_claimer.key(),
-        quote_mint: ctx.accounts.quote_mint.key(),
-        leftover_receiver: ctx.accounts.leftover_receiver.key(),
-        config_parameters
-    });
-
-    Ok(())
+    Ok(CreateConfigResult {
+        swap_base_amount,
+        included_protocol_fee_migration_base_amount,
+        fixed_token_supply_flag,
+        pre_migration_token_supply,
+        post_migration_token_supply,
+    })
 }

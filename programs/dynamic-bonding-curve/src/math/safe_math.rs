@@ -2,7 +2,9 @@ use anchor_lang::solana_program::msg;
 use ruint::aliases::{U256, U512};
 use std::panic::Location;
 
-use crate::{migration_handler::MigratedCollectFeeMode, token::TokenProgramFlags, PoolError};
+use crate::{
+    migration_handler::MigratedCollectFeeMode, state::PoolType, token::TokenProgramFlags, PoolError,
+};
 
 pub trait SafeMath<T>: Sized {
     fn safe_add(self, rhs: Self) -> Result<Self, PoolError>;
@@ -141,3 +143,4 @@ macro_rules! try_into_impl {
 try_into_impl!(u128, u64);
 try_into_impl!(u8, TokenProgramFlags);
 try_into_impl!(u8, MigratedCollectFeeMode);
+try_into_impl!(u8, PoolType);

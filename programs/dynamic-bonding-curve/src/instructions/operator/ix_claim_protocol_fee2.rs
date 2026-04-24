@@ -4,9 +4,10 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimProtocolFee2,
-    state::{PoolConfig, VirtualPool},
+    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
+    state::{PoolConfig, PoolState},
     token::transfer_token_from_pool_authority,
-    PoolError,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for claiming protocol fees via protocol_fee program
@@ -22,17 +23,12 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     pub token_base_program: Interface<'info, TokenInterface>,
     pub token_quote_program: Interface<'info, TokenInterface>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = base_mint,
-        has_one = base_vault,
-        has_one = quote_vault,
-        has_one = config,
-    )]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub pool: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -48,7 +44,7 @@ pub struct ClaimProtocolFee2Ctx<'info> {
 }
 
 fn get_claim_direction_and_validate_accounts(
-    pool: &VirtualPool,
+    pool: &PoolState,
     config: &PoolConfig,
     receiver_token_account: &InterfaceAccount<TokenAccount>,
     token_base_program: &Interface<TokenInterface>,
@@ -78,12 +74,42 @@ fn get_claim_direction_and_validate_accounts(
 }
 
 /// claim protocol fees. called through the protocol_fee program
-pub fn handle_claim_protocol_fee2(
-    ctx: Context<ClaimProtocolFee2Ctx>,
+pub fn handle_claim_protocol_fee2<'info>(
+    ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
     max_amount: u64,
+    transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts =
+        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
 
     let is_claiming_base = get_claim_direction_and_validate_accounts(
         &pool,
@@ -103,17 +129,19 @@ pub fn handle_claim_protocol_fee2(
         return Ok(());
     }
 
-    let (token_vault, token_mint, token_program) = if is_claiming_base {
+    let (token_vault, token_mint, token_program, transfer_hook_accounts) = if is_claiming_base {
         (
             &ctx.accounts.base_vault,
             &ctx.accounts.base_mint,
             &ctx.accounts.token_base_program,
+            parsed_transfer_hook_accounts.transfer_hook_base,
         )
     } else {
         (
             &ctx.accounts.quote_vault,
             &ctx.accounts.quote_mint,
             &ctx.accounts.token_quote_program,
+            None,
         )
     };
 
@@ -124,9 +152,12 @@ pub fn handle_claim_protocol_fee2(
         ctx.accounts.receiver_token_account.to_account_info(),
         token_program,
         amount,
+        transfer_hook_accounts,
     )?;
 
+    // emit! log could be truncated. should not rely on this
     emit!(EvtClaimProtocolFee2 {
+        // no transfer hook event variant, since this internal operation
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
         token_mint: token_mint.key(),

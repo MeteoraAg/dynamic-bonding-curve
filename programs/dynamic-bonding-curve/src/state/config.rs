@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
@@ -574,6 +576,29 @@ pub struct PoolConfig {
 }
 
 const_assert_eq!(PoolConfig::INIT_SPACE, 1040);
+
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct ConfigWithTransferHook {
+    pub config: PoolConfig,
+    pub transfer_hook_program: Pubkey,
+    pub padding_0: [u64; 6],
+}
+
+const_assert_eq!(ConfigWithTransferHook::INIT_SPACE, 1120);
+
+impl Deref for ConfigWithTransferHook {
+    type Target = PoolConfig;
+    fn deref(&self) -> &Self::Target {
+        &self.config
+    }
+}
+
+impl DerefMut for ConfigWithTransferHook {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.config
+    }
+}
 
 #[zero_copy]
 #[derive(Debug, Default, InitSpace)]

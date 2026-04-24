@@ -10,3 +10,22 @@ macro_rules! base_locker_seeds {
         &[b"base_locker".as_ref(), $virtual_pool.as_ref(), &[$bump]]
     };
 }
+
+/// Defines two event structs with different names but the same properties
+macro_rules! define_event_pair {
+    (
+        $name:ident, $name_pair:ident {
+            $($field:ident : $ty:ty),* $(,)?
+        }
+    ) => {
+        #[event]
+        pub struct $name {
+            $(pub $field: $ty),*
+        }
+
+        #[event]
+        pub struct $name_pair {
+            $(pub $field: $ty),*
+        }
+    };
+}
