@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::PoolAccountLoader;
 use crate::{
     const_pda,
-    event::{EvtClaimTradingFee, EvtClaimTradingFeeWithTransferHook},
+    event::EvtClaimTradingFee,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader,
@@ -120,19 +120,11 @@ pub fn handle_claim_trading_fee<'info>(
         None,
     )?;
 
-    if pool_loader.is_transfer_hook_pool() {
-        emit_cpi!(EvtClaimTradingFeeWithTransferHook {
-            pool: ctx.accounts.pool.key(),
-            token_base_amount,
-            token_quote_amount
-        });
-    } else {
-        emit_cpi!(EvtClaimTradingFee {
-            pool: ctx.accounts.pool.key(),
-            token_base_amount,
-            token_quote_amount
-        });
-    }
+    emit_cpi!(EvtClaimTradingFee {
+        pool: ctx.accounts.pool.key(),
+        token_base_amount,
+        token_quote_amount
+    });
 
     Ok(())
 }

@@ -4,7 +4,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
-    event::{EvtWithdrawMigrationFee, EvtWithdrawMigrationFeeWithTransferHook},
+    event::EvtWithdrawMigrationFee,
     state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
@@ -137,18 +137,10 @@ pub fn handle_withdraw_migration_fee(
         None,
     )?;
 
-    if pool_loader.is_transfer_hook_pool() {
-        emit_cpi!(EvtWithdrawMigrationFeeWithTransferHook {
-            pool: ctx.accounts.virtual_pool.key(),
-            fee,
-            flag
-        });
-    } else {
-        emit_cpi!(EvtWithdrawMigrationFee {
-            pool: ctx.accounts.virtual_pool.key(),
-            fee,
-            flag
-        });
-    }
+    emit_cpi!(EvtWithdrawMigrationFee {
+        pool: ctx.accounts.virtual_pool.key(),
+        fee,
+        flag
+    });
     Ok(())
 }

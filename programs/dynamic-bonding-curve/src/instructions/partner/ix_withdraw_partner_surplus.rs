@@ -3,9 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::PoolAccountLoader;
 use crate::{
-    const_pda,
-    event::{EvtPartnerWithdrawSurplus, EvtPartnerWithdrawSurplusWithTransferHook},
-    token::transfer_token_from_pool_authority,
+    const_pda, event::EvtPartnerWithdrawSurplus, token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolError,
 };
 
@@ -89,16 +87,9 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
     // update partner withdraw surplus
     pool.update_partner_withdraw_surplus();
 
-    if pool_loader.is_transfer_hook_pool() {
-        emit_cpi!(EvtPartnerWithdrawSurplusWithTransferHook {
-            pool: ctx.accounts.virtual_pool.key(),
-            surplus_amount: partner_surplus_amount
-        });
-    } else {
-        emit_cpi!(EvtPartnerWithdrawSurplus {
-            pool: ctx.accounts.virtual_pool.key(),
-            surplus_amount: partner_surplus_amount
-        });
-    }
+    emit_cpi!(EvtPartnerWithdrawSurplus {
+        pool: ctx.accounts.virtual_pool.key(),
+        surplus_amount: partner_surplus_amount
+    });
     Ok(())
 }

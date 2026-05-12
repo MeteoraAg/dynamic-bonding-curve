@@ -1,4 +1,5 @@
 //! Event module includes information about events of the program
+//! Transfer-hook event variants only added for events consumed by external indexers
 use anchor_lang::prelude::*;
 
 use crate::{
@@ -16,13 +17,11 @@ pub struct EvtPartnerMetadata {
     pub fee_claimer: Pubkey,
 }
 
-define_event_pair!(
-    EvtVirtualPoolMetadata,
-    EvtVirtualPoolMetadataWithTransferHook {
-        virtual_pool_metadata: Pubkey,
-        virtual_pool: Pubkey,
-    }
-);
+#[event]
+pub struct EvtVirtualPoolMetadata {
+    pub virtual_pool_metadata: Pubkey,
+    pub virtual_pool: Pubkey,
+}
 
 /// Create config
 #[deprecated(since = "0.1.8")]
@@ -150,44 +149,36 @@ pub struct EvtClaimProtocolFee2 {
     pub amount: u64,
 }
 
-define_event_pair!(
-    EvtClaimTradingFee,
-    EvtClaimTradingFeeWithTransferHook {
-        pool: Pubkey,
-        token_base_amount: u64,
-        token_quote_amount: u64,
-    }
-);
+#[event]
+pub struct EvtClaimTradingFee {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
+}
 
-define_event_pair!(
-    EvtClaimCreatorTradingFee,
-    EvtClaimCreatorTradingFeeWithTransferHook {
-        pool: Pubkey,
-        token_base_amount: u64,
-        token_quote_amount: u64,
-    }
-);
+#[event]
+pub struct EvtClaimCreatorTradingFee {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
+}
 
 #[event]
 pub struct EvtCreateMeteoraMigrationMetadata {
     pub virtual_pool: Pubkey,
 }
 
-define_event_pair!(
-    EvtPartnerWithdrawSurplus,
-    EvtPartnerWithdrawSurplusWithTransferHook {
-        pool: Pubkey,
-        surplus_amount: u64,
-    }
-);
+#[event]
+pub struct EvtPartnerWithdrawSurplus {
+    pub pool: Pubkey,
+    pub surplus_amount: u64,
+}
 
-define_event_pair!(
-    EvtCreatorWithdrawSurplus,
-    EvtCreatorWithdrawSurplusWithTransferHook {
-        pool: Pubkey,
-        surplus_amount: u64,
-    }
-);
+#[event]
+pub struct EvtCreatorWithdrawSurplus {
+    pub pool: Pubkey,
+    pub surplus_amount: u64,
+}
 
 #[event]
 pub struct EvtWithdrawLeftover {
@@ -196,23 +187,19 @@ pub struct EvtWithdrawLeftover {
     pub leftover_amount: u64,
 }
 
-define_event_pair!(
-    EvtUpdatePoolCreator,
-    EvtUpdatePoolCreatorWithTransferHook {
-        pool: Pubkey,
-        creator: Pubkey,
-        new_creator: Pubkey,
-    }
-);
+#[event]
+pub struct EvtUpdatePoolCreator {
+    pub pool: Pubkey,
+    pub creator: Pubkey,
+    pub new_creator: Pubkey,
+}
 
-define_event_pair!(
-    EvtWithdrawMigrationFee,
-    EvtWithdrawMigrationFeeWithTransferHook {
-        pool: Pubkey,
-        fee: u64,
-        flag: u8,
-    }
-);
+#[event]
+pub struct EvtWithdrawMigrationFee {
+    pub pool: Pubkey,
+    pub fee: u64,
+    pub flag: u8,
+}
 
 #[event]
 pub struct EvtClaimPoolCreationFee {
@@ -221,12 +208,10 @@ pub struct EvtClaimPoolCreationFee {
     pub creation_fee: u64,
 }
 
-define_event_pair!(
-    EvtPartnerClaimPoolCreationFee,
-    EvtPartnerClaimPoolCreationFeeWithTransferHook {
-        pool: Pubkey,
-        partner: Pubkey,
-        creation_fee: u64,
-        fee_receiver: Pubkey,
-    }
-);
+#[event]
+pub struct EvtPartnerClaimPoolCreationFee {
+    pub pool: Pubkey,
+    pub partner: Pubkey,
+    pub creation_fee: u64,
+    pub fee_receiver: Pubkey,
+}
