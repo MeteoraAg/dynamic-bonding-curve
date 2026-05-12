@@ -22,7 +22,7 @@ impl<'a, 'info> PoolAccountLoader<'a, 'info> {
         let data = account_info.try_borrow_data()?;
         let data_len = data.len();
         require!(
-            data_len == 8 + std::mem::size_of::<PoolState>(),
+            data_len == 8 + VirtualPool::INIT_SPACE,
             PoolError::InvalidPoolAccount
         );
 
@@ -43,7 +43,7 @@ impl<'a, 'info> PoolAccountLoader<'a, 'info> {
     pub fn load(&self) -> Result<Ref<'_, PoolState>> {
         let data = self.account_info.try_borrow_data()?;
         Ok(Ref::map(data, |d| {
-            let end = 8 + std::mem::size_of::<PoolState>();
+            let end = 8 + VirtualPool::INIT_SPACE;
             from_bytes(&d[8..end])
         }))
     }
@@ -51,7 +51,7 @@ impl<'a, 'info> PoolAccountLoader<'a, 'info> {
     pub fn load_mut(&self) -> Result<RefMut<'_, PoolState>> {
         let data = self.account_info.try_borrow_mut_data()?;
         Ok(RefMut::map(data, |d| {
-            let end = 8 + std::mem::size_of::<PoolState>();
+            let end = 8 + VirtualPool::INIT_SPACE;
             from_bytes_mut(&mut d[8..end])
         }))
     }

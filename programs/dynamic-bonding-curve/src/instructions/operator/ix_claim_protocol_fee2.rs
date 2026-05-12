@@ -4,7 +4,6 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimProtocolFee2,
-    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     state::{PoolConfig, PoolState},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
@@ -77,7 +76,6 @@ fn get_claim_direction_and_validate_accounts(
 pub fn handle_claim_protocol_fee2<'info>(
     ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
     max_amount: u64,
-    transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
@@ -107,10 +105,6 @@ pub fn handle_claim_protocol_fee2<'info>(
         ErrorCode::ConstraintHasOne
     );
 
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
-
     let is_claiming_base = get_claim_direction_and_validate_accounts(
         &pool,
         &config,
@@ -120,6 +114,14 @@ pub fn handle_claim_protocol_fee2<'info>(
     )?;
 
     let amount = if is_claiming_base {
+        if pool_loader.is_transfer_hook_pool() {
+            // transfer hook is revoked on curve completion
+            // only claim after that so the transfer hook cannot block base fee collection
+            require!(
+                pool.is_curve_complete(config.migration_quote_threshold),
+                PoolError::PoolIsIncompleted
+            );
+        }
         pool.claim_protocol_base_fee(max_amount)?
     } else {
         pool.claim_protocol_quote_fee_and_surplus(max_amount, config.migration_quote_threshold)?
@@ -129,19 +131,17 @@ pub fn handle_claim_protocol_fee2<'info>(
         return Ok(());
     }
 
-    let (token_vault, token_mint, token_program, transfer_hook_accounts) = if is_claiming_base {
+    let (token_vault, token_mint, token_program) = if is_claiming_base {
         (
             &ctx.accounts.base_vault,
             &ctx.accounts.base_mint,
             &ctx.accounts.token_base_program,
-            parsed_transfer_hook_accounts.transfer_hook_base,
         )
     } else {
         (
             &ctx.accounts.quote_vault,
             &ctx.accounts.quote_mint,
             &ctx.accounts.token_quote_program,
-            None,
         )
     };
 
@@ -152,7 +152,7 @@ pub fn handle_claim_protocol_fee2<'info>(
         ctx.accounts.receiver_token_account.to_account_info(),
         token_program,
         amount,
-        transfer_hook_accounts,
+        None,
     )?;
 
     // emit! log could be truncated. should not rely on this

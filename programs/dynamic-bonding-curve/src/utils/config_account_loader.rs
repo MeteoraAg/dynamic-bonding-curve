@@ -24,7 +24,7 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
 
         if is_transfer_hook {
             require!(
-                data.len() == 8 + std::mem::size_of::<ConfigWithTransferHook>(),
+                data.len() == 8 + ConfigWithTransferHook::INIT_SPACE,
                 PoolError::InvalidConfigAccount
             );
         } else {
@@ -33,7 +33,7 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
                 PoolError::InvalidConfigAccount
             );
             require!(
-                data.len() == 8 + std::mem::size_of::<PoolConfig>(),
+                data.len() == 8 + PoolConfig::INIT_SPACE,
                 PoolError::InvalidConfigAccount
             );
         }
@@ -44,7 +44,7 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
     pub fn load(&self) -> Result<Ref<'_, PoolConfig>> {
         let data = self.account_info.try_borrow_data()?;
         Ok(Ref::map(data, |d| {
-            let end = 8 + std::mem::size_of::<PoolConfig>();
+            let end = 8 + PoolConfig::INIT_SPACE;
             from_bytes(&d[8..end])
         }))
     }
@@ -52,7 +52,7 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
     pub fn load_mut(&self) -> Result<RefMut<'_, PoolConfig>> {
         let data = self.account_info.try_borrow_mut_data()?;
         Ok(RefMut::map(data, |d| {
-            let end = 8 + std::mem::size_of::<PoolConfig>();
+            let end = 8 + PoolConfig::INIT_SPACE;
             from_bytes_mut(&mut d[8..end])
         }))
     }
