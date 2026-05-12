@@ -45,6 +45,7 @@ pub fn handle_create_config_with_transfer_hook(
     config_parameters.validate(
         &ctx.accounts.quote_mint,
         Clock::get()?.unix_timestamp as u64,
+        true,
     )?;
 
     let token_type = TokenType::try_from(config_parameters.token_type)

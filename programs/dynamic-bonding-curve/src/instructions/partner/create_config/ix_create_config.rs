@@ -38,6 +38,7 @@ pub fn handle_create_config(
     config_parameters.validate(
         &ctx.accounts.quote_mint,
         Clock::get()?.unix_timestamp as u64,
+        false,
     )?;
 
     let mut config = ctx.accounts.config.load_init()?;

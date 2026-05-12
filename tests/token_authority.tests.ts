@@ -17,8 +17,11 @@ import {
   ConfigParameters,
   createConfig,
   CreateConfigParams,
+  createConfigWithTransferHook,
+  CreateConfigWithTransferHookParams,
   createPoolWithSplToken,
   createPoolWithToken2022,
+  createPoolWithToken2022TransferHook,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -34,6 +37,7 @@ import {
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
 import { VirtualCurveProgram } from "./utils/types";
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 
 describe("Token authority with token2022", () => {
   let svm: LiteSVM;
@@ -197,6 +201,116 @@ describe("Token authority with token2022", () => {
         tokenType
       );
     }, errorCode);
+  });
+});
+
+describe("Token authority with transfer-hook token2022", () => {
+  let svm: LiteSVM;
+  let partner: Keypair;
+  let poolCreator: Keypair;
+  let program: VirtualCurveProgram;
+
+  before(async () => {
+    svm = startSvm();
+    partner = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
+    program = createVirtualCurveProgram();
+  });
+
+  it("Transfer hook: revokes mint authority", async () => {
+    const virtualPool = await createTransferHookPool(
+      svm,
+      program,
+      partner,
+      poolCreator,
+      0
+    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const metadataPointer = MetadataPointerLayout.decode(
+      getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
+    );
+    expect(metadataPointer.authority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+    const tokenMetadata = unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
+    expect(baseMintData.mintAuthorityOption).eq(0);
+  });
+
+  it("Transfer hook: creator can update update_authority and as mint authority", async () => {
+    const virtualPool = await createTransferHookPool(
+      svm,
+      program,
+      partner,
+      poolCreator,
+      3
+    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const metadataPointer = MetadataPointerLayout.decode(
+      getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
+    );
+    expect(metadataPointer.authority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+    const tokenMetadata = unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
+    expect(baseMintData.mintAuthorityOption).eq(1);
+    expect(baseMintData.mintAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+  });
+
+  it("Transfer hook: partner can update update_authority and as mint authority", async () => {
+    const virtualPool = await createTransferHookPool(
+      svm,
+      program,
+      partner,
+      poolCreator,
+      4
+    );
+    const virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+    const tlvData = svm
+      .getAccount(virtualPoolState.baseMint)
+      .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+    const metadataPointer = MetadataPointerLayout.decode(
+      getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
+    );
+    expect(metadataPointer.authority.toString()).eq(
+      partner.publicKey.toString()
+    );
+    const tokenMetadata = unpack(
+      getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    );
+    expect(tokenMetadata.updateAuthority.toString()).eq(
+      partner.publicKey.toString()
+    );
+
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
+    expect(baseMintData.mintAuthorityOption).eq(1);
+    expect(baseMintData.mintAuthority.toString()).eq(
+      partner.publicKey.toString()
+    );
   });
 });
 
@@ -490,4 +604,117 @@ async function createPool(
   }
 
   return virtualPool;
+}
+
+async function createTransferHookPool(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  partner: Keypair,
+  user: Keypair,
+  tokenUpdateAuthority: number
+): Promise<PublicKey> {
+  const baseFee: BaseFee = {
+    cliffFeeNumerator: new BN(2_500_000),
+    firstFactor: 0,
+    secondFactor: new BN(0),
+    thirdFactor: new BN(0),
+    baseFeeMode: 0,
+  };
+
+  const curves = [];
+  for (let i = 1; i <= 16; i++) {
+    if (i == 16) {
+      curves.push({
+        sqrtPrice: MAX_SQRT_PRICE,
+        liquidity: U64_MAX.shln(30 + i),
+      });
+    } else {
+      curves.push({
+        sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
+        liquidity: U64_MAX.shln(30 + i),
+      });
+    }
+  }
+
+  const instructionParams: ConfigParameters = {
+    poolFees: {
+      baseFee,
+      dynamicFee: null,
+    },
+    activationType: 0,
+    collectFeeMode: 0,
+    migrationOption: 1,
+    tokenType: 1,
+    tokenDecimal: 6,
+    migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
+    partnerLiquidityPercentage: 0,
+    creatorLiquidityPercentage: 0,
+    partnerPermanentLockedLiquidityPercentage: 95,
+    creatorPermanentLockedLiquidityPercentage: 5,
+    sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
+    lockedVesting: {
+      amountPerPeriod: new BN(0),
+      cliffDurationFromMigrationTime: new BN(0),
+      frequency: new BN(0),
+      numberOfPeriod: new BN(0),
+      cliffUnlockAmount: new BN(0),
+    },
+    migrationFeeOption: 0,
+    tokenSupply: null,
+    migrationFee: {
+      creatorFeePercentage: 0,
+      feePercentage: 0,
+    },
+    creatorTradingFeePercentage: 0,
+    tokenUpdateAuthority,
+    migratedPoolFee: {
+      collectFeeMode: 0,
+      dynamicFee: 0,
+      poolFeeBps: 0,
+    },
+    poolCreationFee: new BN(0),
+    curve: curves,
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
+    migratedPoolBaseFeeMode: 0,
+    migratedPoolMarketCapFeeSchedulerParams: null,
+  };
+
+  const params: CreateConfigWithTransferHookParams = {
+    payer: partner,
+    leftoverReceiver: partner.publicKey,
+    feeClaimer: partner.publicKey,
+    quoteMint: NATIVE_MINT,
+    instructionParams,
+    transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+  };
+
+  const config = await createConfigWithTransferHook(svm, program, params);
+
+  return createPoolWithToken2022TransferHook(svm, program, {
+    payer: user,
+    poolCreator: user,
+    quoteMint: NATIVE_MINT,
+    config,
+    transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+    instructionParams: {
+      name: "test hook",
+      symbol: "HOOK",
+      uri: "hook.com",
+    },
+  });
 }

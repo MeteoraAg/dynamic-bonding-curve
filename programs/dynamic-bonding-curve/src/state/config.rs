@@ -401,6 +401,14 @@ impl TokenAuthorityOption {
                 | TokenAuthorityOption::PartnerUpdateAndMintAuthority
         )
     }
+
+    pub fn get_mint_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
+        match *self {
+            TokenAuthorityOption::CreatorUpdateAndMintAuthority => Some(creator),
+            TokenAuthorityOption::PartnerUpdateAndMintAuthority => Some(partner),
+            _ => None,
+        }
+    }
 }
 
 #[repr(u8)]

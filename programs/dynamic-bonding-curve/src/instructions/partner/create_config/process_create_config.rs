@@ -371,6 +371,7 @@ impl ConfigParameters {
         &self,
         quote_mint: &InterfaceAccount<'info, Mint>,
         current_timestamp: u64,
+        is_transfer_hook: bool,
     ) -> Result<()> {
         // validate quote mint
         require!(
@@ -462,9 +463,9 @@ impl ConfigParameters {
         // validate token update authority
         let token_authority_option = TokenAuthorityOption::try_from(self.token_update_authority)
             .map_err(|_| PoolError::InvalidTokenAuthorityOption)?;
-        // mint authority variants are deprecated and no longer allowed for new configs
+        // mint authority variants are only allowed for transfer-hook configs
         require!(
-            !token_authority_option.has_mint_authority(),
+            is_transfer_hook || !token_authority_option.has_mint_authority(),
             PoolError::InvalidTokenAuthorityOption
         );
 

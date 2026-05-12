@@ -9,6 +9,7 @@ use crate::PoolError;
 
 pub struct ConfigAccountLoader<'a, 'info> {
     account_info: &'a AccountInfo<'info>,
+    is_transfer_hook: bool,
 }
 
 impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
@@ -38,7 +39,14 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
             );
         }
 
-        Ok(Self { account_info })
+        Ok(Self {
+            account_info,
+            is_transfer_hook,
+        })
+    }
+
+    pub fn is_transfer_hook_config(&self) -> bool {
+        self.is_transfer_hook
     }
 
     pub fn load(&self) -> Result<Ref<'_, PoolConfig>> {
