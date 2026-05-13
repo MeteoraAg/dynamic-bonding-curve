@@ -14,9 +14,11 @@ import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ClaimCreatorTradeFeeParams,
-  claimCreatorTradingFeeWithTransferHook,
+  claimCreatorTradingFee,
+  claimCreatorTradingFee2,
   ClaimTradeFeeParams,
-  claimTradingFeeWithTransferHook,
+  claimTradingFee,
+  claimTradingFee2,
   ConfigParameters,
   createOperatorAccount,
   createConfigWithTransferHook,
@@ -30,7 +32,9 @@ import {
 import {
   createVirtualCurveProgram,
   derivePoolAuthority,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getMint,
   getTokenAccount,
   initializeExtraAccountMetaList,
@@ -276,7 +280,7 @@ describe("Create pool with token2022 transfer hook", () => {
       maxBaseAmount: new BN(U64_MAX),
       maxQuoteAmount: new BN(U64_MAX),
     };
-    await claimTradingFeeWithTransferHook(svm, program, claimTradingFeeParams);
+    await claimTradingFee2(svm, program, claimTradingFeeParams);
   });
 
   it("Creator claim trading fee", async () => {
@@ -286,10 +290,30 @@ describe("Create pool with token2022 transfer hook", () => {
       maxBaseAmount: new BN(U64_MAX),
       maxQuoteAmount: new BN(U64_MAX),
     };
-    await claimCreatorTradingFeeWithTransferHook(
-      svm,
-      program,
-      claimCreatorTradingFeeParams
-    );
+    await claimCreatorTradingFee2(svm, program, claimCreatorTradingFeeParams);
+  });
+
+  it("Partner claim trading fee rejects transfer hook pool", async () => {
+    const errorCode = getDbcProgramErrorCodeHexString("PoolTypeMismatch");
+    await expectThrowsAsync(async () => {
+      await claimTradingFee(svm, program, {
+        feeClaimer: partner,
+        pool: virtualPool,
+        maxBaseAmount: new BN(0),
+        maxQuoteAmount: new BN(0),
+      });
+    }, errorCode);
+  });
+
+  it("Creator claim trading fee rejects transfer hook pool", async () => {
+    const errorCode = getDbcProgramErrorCodeHexString("PoolTypeMismatch");
+    await expectThrowsAsync(async () => {
+      await claimCreatorTradingFee(svm, program, {
+        creator: poolCreator,
+        pool: virtualPool,
+        maxBaseAmount: new BN(0),
+        maxQuoteAmount: new BN(0),
+      });
+    }, errorCode);
   });
 });

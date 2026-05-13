@@ -1,13 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-use crate::PoolAccountLoader;
 use crate::{
     const_pda,
     event::EvtClaimTradingFee,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
-    ConfigAccountLoader,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for partner to claim fees
@@ -64,6 +63,7 @@ pub fn handle_claim_trading_fee<'info>(
     max_base_amount: u64,
     max_quote_amount: u64,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
+    is_transfer_hook_supported: bool,
 ) -> Result<()> {
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
@@ -74,6 +74,10 @@ pub fn handle_claim_trading_fee<'info>(
     );
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    require!(
+        is_transfer_hook_supported || !pool_loader.is_transfer_hook_pool(),
+        PoolError::PoolTypeMismatch
+    );
     let mut pool = pool_loader.load_mut()?;
 
     require!(

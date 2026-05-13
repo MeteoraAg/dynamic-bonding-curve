@@ -12,9 +12,13 @@ import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
   BaseFee,
+  ClaimCreatorTradeFeeParams,
+  claimCreatorTradingFee,
+  claimCreatorTradingFee2,
   claimProtocolFee,
   ClaimTradeFeeParams,
   claimTradingFee,
+  claimTradingFee2,
   ConfigParameters,
   createOperatorAccount,
   createConfig,
@@ -220,6 +224,36 @@ describe("Create pool with token2022", () => {
       maxQuoteAmount: new BN(U64_MAX),
     };
     await claimTradingFee(svm, program, claimTradingFeeParams);
+  });
+
+  it("Partner claim trading fee2 accepts virtual pool", async () => {
+    const claimTradingFeeParams: ClaimTradeFeeParams = {
+      feeClaimer: partner,
+      pool: virtualPool,
+      maxBaseAmount: new BN(U64_MAX),
+      maxQuoteAmount: new BN(U64_MAX),
+    };
+    await claimTradingFee2(svm, program, claimTradingFeeParams);
+  });
+
+  it("Creator claim trading fee", async () => {
+    const claimCreatorTradingFeeParams: ClaimCreatorTradeFeeParams = {
+      creator: poolCreator,
+      pool: virtualPool,
+      maxBaseAmount: new BN(U64_MAX),
+      maxQuoteAmount: new BN(U64_MAX),
+    };
+    await claimCreatorTradingFee(svm, program, claimCreatorTradingFeeParams);
+  });
+
+  it("Creator claim trading fee2 accepts virtual pool", async () => {
+    const claimCreatorTradingFeeParams: ClaimCreatorTradeFeeParams = {
+      creator: poolCreator,
+      pool: virtualPool,
+      maxBaseAmount: new BN(U64_MAX),
+      maxQuoteAmount: new BN(U64_MAX),
+    };
+    await claimCreatorTradingFee2(svm, program, claimCreatorTradingFeeParams);
   });
 
   it("Operator claim protocol fee", async () => {

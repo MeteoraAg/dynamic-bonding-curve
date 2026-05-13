@@ -114,19 +114,25 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
     }
 
-    /// Accepts: VirtualPool or TransferHookPool.
+    /// Accepts: VirtualPool only.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee<'info>(
         ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
         max_amount_a: u64,
         max_amount_b: u64,
     ) -> Result<()> {
-        instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b, Default::default())
+        instructions::handle_claim_trading_fee(
+            ctx,
+            max_amount_a,
+            max_amount_b,
+            Default::default(),
+            false,
+        )
     }
 
     /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
-    pub fn claim_trading_fee_with_transfer_hook<'info>(
+    pub fn claim_trading_fee2<'info>(
         ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
         max_amount_a: u64,
         max_amount_b: u64,
@@ -137,6 +143,7 @@ pub mod dynamic_bonding_curve {
             max_amount_a,
             max_amount_b,
             transfer_hook_accounts_info,
+            true,
         )
     }
 
@@ -189,7 +196,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_virtual_pool_metadata(ctx, metadata)
     }
 
-    /// Accepts: VirtualPool or TransferHookPool.
+    /// Accepts: VirtualPool only.
     #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
     pub fn claim_creator_trading_fee<'info>(
         ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
@@ -201,12 +208,13 @@ pub mod dynamic_bonding_curve {
             max_base_amount,
             max_quote_amount,
             Default::default(),
+            false,
         )
     }
 
     /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
-    pub fn claim_creator_trading_fee_with_transfer_hook<'info>(
+    pub fn claim_creator_trading_fee2<'info>(
         ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
         max_base_amount: u64,
         max_quote_amount: u64,
@@ -217,6 +225,7 @@ pub mod dynamic_bonding_curve {
             max_base_amount,
             max_quote_amount,
             transfer_hook_accounts_info,
+            true,
         )
     }
 

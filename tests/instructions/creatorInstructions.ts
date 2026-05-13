@@ -94,7 +94,7 @@ export async function claimCreatorTradingFee(
   sendTransactionMaybeThrow(svm, transaction, [creator]);
 }
 
-export async function claimCreatorTradingFeeWithTransferHook(
+export async function claimCreatorTradingFee2(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   params: ClaimCreatorTradeFeeParams
@@ -137,7 +137,7 @@ export async function claimCreatorTradingFeeWithTransferHook(
     await getRemainingAccountsForTransferHook(svm, program, pool);
 
   const transaction = await program.methods
-    .claimCreatorTradingFeeWithTransferHook(
+    .claimCreatorTradingFee2(
       maxBaseAmount,
       maxQuoteAmount,
       transferHookAccountsInfo

@@ -6,7 +6,7 @@ use crate::{
     event::EvtClaimCreatorTradingFee,
     remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
-    PoolAccountLoader,
+    PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator to claim trading fees
@@ -60,8 +60,13 @@ pub fn handle_claim_creator_trading_fee<'info>(
     max_base_amount: u64,
     max_quote_amount: u64,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
+    is_transfer_hook_supported: bool,
 ) -> Result<()> {
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+    require!(
+        is_transfer_hook_supported || !pool_loader.is_transfer_hook_pool(),
+        PoolError::PoolTypeMismatch
+    );
     let mut pool = pool_loader.load_mut()?;
 
     require!(
