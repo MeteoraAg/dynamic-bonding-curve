@@ -200,19 +200,37 @@ describe("Migrate to damm v2 with transfer hook", () => {
     );
   });
 
-  it("Swap", async () => {
+  it("Swap (curve-completing swap revokes transfer hook)", async () => {
+    const baseMint = virtualPoolState.baseMint;
+
+    // Pre-condition: transfer hook configured on the mint.
+    const hookBefore = getTransferHook(
+      getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID)
+    );
+    expect(hookBefore!.programId.equals(TRANSFER_HOOK_COUNTER_PROGRAM_ID)).to.be
+      .true;
+    expect(hookBefore!.authority.equals(PublicKey.default)).to.be.false;
+
     const params: SwapParams = {
       config,
       payer: user,
       pool: virtualPool,
       inputTokenMint: NATIVE_MINT,
-      outputTokenMint: virtualPoolState.baseMint,
+      outputTokenMint: baseMint,
       amountIn: new BN(LAMPORTS_PER_SOL * 5.5),
       minimumAmountOut: new BN(0),
       swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
     await swapWithTransferHook(svm, program, params);
+
+    // Curve-completing swap fires revoke_transfer_hook (process_swap.rs).
+    // Assert here, before migrate runs, to prove revoke is a swap-time effect.
+    const hookAfter = getTransferHook(
+      getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID)
+    );
+    expect(hookAfter!.programId.equals(PublicKey.default)).to.be.true;
+    expect(hookAfter!.authority.equals(PublicKey.default)).to.be.true;
   });
 
   it("Create meteora damm v2 metadata", async () => {
@@ -223,7 +241,7 @@ describe("Migrate to damm v2 with transfer hook", () => {
     });
   });
 
-  it("Migrate to Meteora Damm V2 Pool (revokes transfer hook)", async () => {
+  it("Migrate to Meteora Damm V2 Pool", async () => {
     const poolAuthority = derivePoolAuthority();
     dammConfig = await createDammV2Config(
       svm,
@@ -240,12 +258,14 @@ describe("Migrate to damm v2 with transfer hook", () => {
 
     await migrateToDammV2(svm, program, migrationParams);
 
+    // Transfer hook was revoked during the curve-completing swap; assert it
+    // stays revoked across migration (no resurrection by migrate path).
     const baseMint = virtualPoolState.baseMint;
-    const mintState = getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID);
-    const transferHook = getTransferHook(mintState);
-    // Verify transfer hook was revoked during migration
-    expect(transferHook.authority.equals(PublicKey.default)).to.be.true;
-    expect(transferHook.programId.equals(PublicKey.default)).to.be.true;
+    const transferHook = getTransferHook(
+      getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID)
+    );
+    expect(transferHook!.authority.equals(PublicKey.default)).to.be.true;
+    expect(transferHook!.programId.equals(PublicKey.default)).to.be.true;
   });
 
   it("Deprecated claim_protocol_fee rejects transfer hook pool", async () => {
