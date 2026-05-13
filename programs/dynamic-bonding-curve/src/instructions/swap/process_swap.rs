@@ -89,7 +89,7 @@ pub struct CurveCompleteEventData {
 
 #[allow(clippy::too_many_arguments)]
 pub fn process_swap<'a: 'info, 'info>(
-    pool_account: &'a UncheckedAccount<'info>,
+    pool_loader: &PoolAccountLoader<'a, 'info>,
     config_account: &'a UncheckedAccount<'info>,
     pool_authority: &'a UncheckedAccount<'info>,
     base_vault: &'a mut Box<InterfaceAccount<'info, TokenAccount>>,
@@ -105,13 +105,7 @@ pub fn process_swap<'a: 'info, 'info>(
     remaining_accounts: &'a [AccountInfo<'info>],
     params: SwapParameters2,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
-    is_transfer_hook: bool,
 ) -> Result<SwapEventData> {
-    let pool_loader = PoolAccountLoader::try_from(pool_account)?;
-    require!(
-        pool_loader.is_transfer_hook_pool() == is_transfer_hook,
-        PoolError::PoolTypeMismatch
-    );
     let mut pool = pool_loader.load_mut()?;
 
     require!(
@@ -211,14 +205,14 @@ pub fn process_swap<'a: 'info, 'info>(
             pool.activation_point,
             trade_direction,
         )? {
-            validate_single_swap_instruction(&pool_account.key(), instruction_sysvar_account_info)?;
+            validate_single_swap_instruction(&pool_loader.key(), instruction_sysvar_account_info)?;
         }
     }
 
     let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
         && pool.is_first_swap()
         && validate_contain_initialize_pool_ix_and_no_cpi(
-            &pool_account.key(),
+            &pool_loader.key(),
             referral_token_account,
             instruction_sysvar_account_info,
         )

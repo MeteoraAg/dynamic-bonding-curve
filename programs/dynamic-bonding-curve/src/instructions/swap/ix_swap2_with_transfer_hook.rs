@@ -2,6 +2,7 @@ use crate::{
     const_pda,
     event::{EvtCurveCompleteWithTransferHook, EvtSwap2WithTransferHook},
     remaining_accounts::TransferHookAccountsInfo,
+    PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -67,9 +68,16 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
     params: SwapParameters2,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<()> {
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
+
+    require!(
+        pool_loader.is_transfer_hook_pool(),
+        PoolError::PoolTypeMismatch
+    );
+
     let output_token_account = ctx.accounts.output_token_account.to_account_info();
     let result = process_swap(
-        &ctx.accounts.pool,
+        &pool_loader,
         &ctx.accounts.config,
         &ctx.accounts.pool_authority,
         &mut ctx.accounts.base_vault,
@@ -85,7 +93,6 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         ctx.remaining_accounts,
         params,
         transfer_hook_accounts_info,
-        true,
     )?;
 
     emit_cpi!(EvtSwap2WithTransferHook {
