@@ -85,6 +85,7 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         ctx.remaining_accounts,
         params,
         transfer_hook_accounts_info,
+        true,
     )?;
 
     emit_cpi!(EvtSwap2WithTransferHook {

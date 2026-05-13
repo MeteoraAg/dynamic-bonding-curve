@@ -233,6 +233,9 @@ pub enum PoolError {
 
     #[msg("Invalid pool account")]
     InvalidPoolAccount,
+
+    #[msg("Pool type does not match instruction")]
+    PoolTypeMismatch,
 }
 
 impl From<ProtozolZapError> for PoolError {

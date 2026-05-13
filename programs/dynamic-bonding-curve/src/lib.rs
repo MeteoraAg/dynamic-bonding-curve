@@ -52,6 +52,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
+    /// Accepts: VirtualPool only.
     #[deprecated(
         since = "0.1.11",
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
@@ -65,6 +66,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_fee(ctx, max_base_amount, max_quote_amount)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_pool_creation_fee(
         ctx: Context<ClaimProtocolPoolCreationFeeCtx>,
@@ -72,6 +74,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
+    /// Accepts: VirtualPool only.
     #[deprecated(
         since = "0.1.11",
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
@@ -81,6 +84,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     pub fn claim_protocol_fee2<'info>(
         ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
         max_amount: u64,
@@ -110,6 +114,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee<'info>(
         ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
@@ -119,6 +124,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b, Default::default())
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_trading_fee_with_transfer_hook<'info>(
         ctx: Context<'info, ClaimTradingFeesCtx<'info>>,
@@ -134,6 +140,7 @@ pub mod dynamic_bonding_curve {
         )
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn claim_partner_pool_creation_fee(
         ctx: Context<ClaimPartnerPoolCreationFeeCtx>,
@@ -142,12 +149,14 @@ pub mod dynamic_bonding_curve {
     }
 
     // withdraw surplus on quote token
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_partner_fee_claimer(&ctx.accounts.config, ctx.accounts.fee_claimer.key))]
     pub fn partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_partner_withdraw_surplus(ctx)
     }
 
     /// POOL CREATOR FUNCTIONS ////
+    /// Accepts: VirtualPool only.
     pub fn initialize_virtual_pool_with_spl_token<'info>(
         ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
         params: InitializePoolParameters,
@@ -155,6 +164,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_spl_token(ctx, params)
     }
 
+    /// Accepts: VirtualPool only.
     pub fn initialize_virtual_pool_with_token2022<'info>(
         ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
         params: InitializePoolParameters,
@@ -162,6 +172,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_token2022(ctx, params)
     }
 
+    /// Accepts: TransferHookPool only.
     pub fn initialize_virtual_pool_with_token2022_transfer_hook(
         ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
         params: InitializePoolParameters,
@@ -169,6 +180,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook(ctx, params)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn create_virtual_pool_metadata(
         ctx: Context<CreateVirtualPoolMetadataCtx>,
@@ -177,6 +189,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_virtual_pool_metadata(ctx, metadata)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
     pub fn claim_creator_trading_fee<'info>(
         ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
@@ -191,6 +204,7 @@ pub mod dynamic_bonding_curve {
         )
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.pool, ctx.accounts.creator.key))]
     pub fn claim_creator_trading_fee_with_transfer_hook<'info>(
         ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
@@ -207,22 +221,26 @@ pub mod dynamic_bonding_curve {
     }
 
     // withdraw surplus on quote token
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) -> Result<()> {
         instructions::handle_creator_withdraw_surplus(ctx)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn transfer_pool_creator<'info>(ctx: Context<'info, TransferPoolCreatorCtx>) -> Result<()> {
         instructions::handle_transfer_pool_creator(ctx)
     }
 
     /// BOTH partner and creator FUNCTIONS ///
+    /// Accepts: VirtualPool or TransferHookPool.
     pub fn withdraw_migration_fee(ctx: Context<WithdrawMigrationFeeCtx>, flag: u8) -> Result<()> {
         instructions::handle_withdraw_migration_fee(ctx, flag)
     }
 
     /// TRADING BOTS FUNCTIONS ////
+    /// Accepts: VirtualPool only.
     pub fn swap<'info>(ctx: Context<'info, SwapCtx<'info>>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap_wrapper(
             ctx,
@@ -234,6 +252,7 @@ pub mod dynamic_bonding_curve {
         )
     }
 
+    /// Accepts: VirtualPool only.
     pub fn swap2<'info>(
         ctx: Context<'info, SwapCtx<'info>>,
         params: SwapParameters2,
@@ -241,6 +260,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_swap_wrapper(ctx, params)
     }
 
+    /// Accepts: TransferHookPool only.
     pub fn swap2_with_transfer_hook<'info>(
         ctx: Context<'info, SwapWithTransferHookCtx<'info>>,
         params: SwapParameters2,
@@ -255,34 +275,40 @@ pub mod dynamic_bonding_curve {
 
     /// PERMISSIONLESS FUNCTIONS ///
     /// create locker
+    /// Accepts: VirtualPool or TransferHookPool.
     pub fn create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) -> Result<()> {
         instructions::handle_create_locker(ctx)
     }
 
     // withdraw leftover on base token, can only call after pool is initialized
+    /// Accepts: VirtualPool or TransferHookPool.
     pub fn withdraw_leftover<'info>(ctx: Context<'info, WithdrawLeftoverCtx<'info>>) -> Result<()> {
         instructions::handle_withdraw_leftover(ctx)
     }
 
-    /// migrate damm v1
+    // migrate damm v1
+    /// Accepts: VirtualPool only.
     pub fn migration_meteora_damm_create_metadata<'info>(
         ctx: Context<'info, MigrationMeteoraDammCreateMetadataCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migration_meteora_damm_create_metadata(ctx)
     }
 
+    /// Accepts: VirtualPool only.
     pub fn migrate_meteora_damm<'info>(
         ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migrate_meteora_damm(ctx)
     }
 
+    /// Accepts: VirtualPool only.
     pub fn migrate_meteora_damm_lock_lp_token<'info>(
         ctx: Context<'info, MigrateMeteoraDammLockLpTokenCtx<'info>>,
     ) -> Result<()> {
         instructions::handle_migrate_meteora_damm_lock_lp_token(ctx)
     }
 
+    /// Accepts: VirtualPool only.
     pub fn migrate_meteora_damm_claim_lp_token<'info>(
         ctx: Context<'info, MigrateMeteoraDammClaimLpTokenCtx<'info>>,
     ) -> Result<()> {
@@ -290,6 +316,7 @@ pub mod dynamic_bonding_curve {
     }
 
     // migrate damm v2
+    /// Accepts: VirtualPool or TransferHookPool.
     #[deprecated(
         since = "0.1.7",
         note = "It's unneeded. Will be removed in next release version"
@@ -300,6 +327,7 @@ pub mod dynamic_bonding_curve {
         instructions::handle_migration_damm_v2_create_metadata(ctx)
     }
 
+    /// Accepts: VirtualPool or TransferHookPool.
     pub fn migration_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
         instructions::handle_migrate_damm_v2(ctx)
     }

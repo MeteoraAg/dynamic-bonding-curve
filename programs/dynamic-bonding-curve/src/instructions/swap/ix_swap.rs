@@ -81,6 +81,7 @@ pub fn handle_swap_wrapper<'info>(
         ctx.remaining_accounts,
         params,
         Default::default(),
+        false,
     )?;
 
     emit_cpi!(EvtSwap {

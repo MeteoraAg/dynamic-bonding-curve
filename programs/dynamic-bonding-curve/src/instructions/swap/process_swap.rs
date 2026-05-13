@@ -105,8 +105,13 @@ pub fn process_swap<'a: 'info, 'info>(
     remaining_accounts: &'a [AccountInfo<'info>],
     params: SwapParameters2,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
+    is_transfer_hook: bool,
 ) -> Result<SwapEventData> {
     let pool_loader = PoolAccountLoader::try_from(pool_account)?;
+    require!(
+        pool_loader.is_transfer_hook_pool() == is_transfer_hook,
+        PoolError::PoolTypeMismatch
+    );
     let mut pool = pool_loader.load_mut()?;
 
     require!(
