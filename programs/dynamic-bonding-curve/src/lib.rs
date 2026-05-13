@@ -121,13 +121,7 @@ pub mod dynamic_bonding_curve {
         max_amount_a: u64,
         max_amount_b: u64,
     ) -> Result<()> {
-        instructions::handle_claim_trading_fee(
-            ctx,
-            max_amount_a,
-            max_amount_b,
-            Default::default(),
-            false,
-        )
+        instructions::handle_claim_trading_fee(ctx, max_amount_a, max_amount_b, None)
     }
 
     /// Accepts: VirtualPool or TransferHookPool.
@@ -142,8 +136,7 @@ pub mod dynamic_bonding_curve {
             ctx,
             max_amount_a,
             max_amount_b,
-            transfer_hook_accounts_info,
-            true,
+            Some(transfer_hook_accounts_info),
         )
     }
 
@@ -203,13 +196,7 @@ pub mod dynamic_bonding_curve {
         max_base_amount: u64,
         max_quote_amount: u64,
     ) -> Result<()> {
-        instructions::handle_claim_creator_trading_fee(
-            ctx,
-            max_base_amount,
-            max_quote_amount,
-            Default::default(),
-            false,
-        )
+        instructions::handle_claim_creator_trading_fee(ctx, max_base_amount, max_quote_amount, None)
     }
 
     /// Accepts: VirtualPool or TransferHookPool.
@@ -224,8 +211,7 @@ pub mod dynamic_bonding_curve {
             ctx,
             max_base_amount,
             max_quote_amount,
-            transfer_hook_accounts_info,
-            true,
+            Some(transfer_hook_accounts_info),
         )
     }
 

@@ -59,14 +59,14 @@ pub fn handle_claim_creator_trading_fee<'info>(
     ctx: Context<'info, ClaimCreatorTradingFeesCtx<'info>>,
     max_base_amount: u64,
     max_quote_amount: u64,
-    transfer_hook_accounts_info: TransferHookAccountsInfo,
-    is_transfer_hook_supported: bool,
+    transfer_hook_accounts_info: Option<TransferHookAccountsInfo>,
 ) -> Result<()> {
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
     require!(
-        is_transfer_hook_supported || !pool_loader.is_transfer_hook_pool(),
+        transfer_hook_accounts_info.is_some() || !pool_loader.is_transfer_hook_pool(),
         PoolError::PoolTypeMismatch
     );
+    let transfer_hook_accounts_info = transfer_hook_accounts_info.unwrap_or_default();
     let mut pool = pool_loader.load_mut()?;
 
     require!(
