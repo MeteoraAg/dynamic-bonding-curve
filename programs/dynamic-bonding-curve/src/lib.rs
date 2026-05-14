@@ -54,7 +54,7 @@ pub mod dynamic_bonding_curve {
 
     /// Accepts: VirtualPool only.
     #[deprecated(
-        since = "0.1.11",
+        since = "0.2.0",
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
@@ -76,7 +76,7 @@ pub mod dynamic_bonding_curve {
 
     /// Accepts: VirtualPool only.
     #[deprecated(
-        since = "0.1.11",
+        since = "0.2.0",
         note = "Use claim_protocol_fee2 through protocol_fee program instead"
     )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
