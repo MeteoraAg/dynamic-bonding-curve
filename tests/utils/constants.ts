@@ -1,8 +1,9 @@
 import { BN } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
+import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 
 export const DYNAMIC_BONDING_CURVE_PROGRAM_ID = new PublicKey(
-  "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN"
+  VirtualCurveIDL.address
 );
 
 export const METAPLEX_PROGRAM_ID = new PublicKey(
@@ -49,6 +50,10 @@ export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
 export const PROTOCOL_FEE_PROGRAM_ID = new PublicKey(
   "pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA"
+);
+
+export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new PublicKey(
+  "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
 );
 
 export const FEE_DENOMINATOR = new BN(1_000_000_000);

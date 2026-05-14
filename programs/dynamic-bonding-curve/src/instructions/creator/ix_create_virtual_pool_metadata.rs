@@ -1,6 +1,6 @@
 use crate::constants::seeds::VIRTUAL_POOL_METADATA_PREFIX;
 use crate::event::EvtVirtualPoolMetadata;
-use crate::state::{VirtualPool, VirtualPoolMetadata};
+use crate::state::VirtualPoolMetadata;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -16,8 +16,8 @@ pub struct CreateVirtualPoolMetadataParameters {
 #[derive(Accounts)]
 #[instruction(metadata: CreateVirtualPoolMetadataParameters)]
 pub struct CreateVirtualPoolMetadataCtx<'info> {
-    #[account(mut)]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    pub virtual_pool: UncheckedAccount<'info>,
     /// Virtual pool metadata
     #[account(
         init,

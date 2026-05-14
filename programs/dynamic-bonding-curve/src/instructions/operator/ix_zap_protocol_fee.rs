@@ -1,7 +1,10 @@
 use crate::{
     const_pda,
     state::{Operator, PoolConfig, VirtualPool},
-    token::{get_token_program_from_flag, transfer_token_from_pool_authority, validate_ata_token},
+    token::{
+        get_token_program_from_flag, get_token_program_from_pool_type,
+        transfer_token_from_pool_authority, validate_ata_token,
+    },
     treasury, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -90,6 +93,7 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
+
     let is_withdrawing_base = validate_accounts_and_return_withdraw_direction(
         &config,
         &pool,
@@ -119,7 +123,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,
             &pool.base_mint,
-            &get_token_program_from_flag(pool.pool_type)?,
+            &get_token_program_from_pool_type(pool.pool_type)?,
         );
         (quote_amount, treasury_token_base_address)
     };
@@ -155,6 +159,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         receiver_token_ai,
         &ctx.accounts.token_program,
         amount,
+        None,
     )?;
 
     Ok(())

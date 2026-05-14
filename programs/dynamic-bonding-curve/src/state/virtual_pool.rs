@@ -1,5 +1,5 @@
 use std::{
-    ops::{BitAnd, BitXor},
+    ops::{BitAnd, BitXor, Deref, DerefMut},
     u128,
 };
 
@@ -87,9 +87,9 @@ pub enum MigrationProgress {
     CreatedPool,
 }
 
-#[account(zero_copy)]
+#[zero_copy]
 #[derive(InitSpace, Debug, Default)]
-pub struct VirtualPool {
+pub struct PoolState {
     /// volatility tracker
     pub volatility_tracker: VolatilityTracker,
     /// config key
@@ -160,7 +160,48 @@ pub struct VirtualPool {
     pub _padding_2: [u64; 3],
 }
 
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct VirtualPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for VirtualPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for VirtualPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct TransferHookPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for TransferHookPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for TransferHookPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+// all three should be the same size
+const_assert_eq!(PoolState::INIT_SPACE, 416);
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
+const_assert_eq!(TransferHookPool::INIT_SPACE, 416);
 
 pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
 pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
@@ -201,7 +242,7 @@ impl PoolMetrics {
     }
 }
 
-impl VirtualPool {
+impl PoolState {
     pub fn initialize(
         &mut self,
         volatility_tracker: VolatilityTracker,

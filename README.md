@@ -74,7 +74,7 @@ Then the bonding curve will function of 2 price ranges: `(l = 100, pa = 1, pb = 
 
 ### Dependencies
 
-- anchor 1.0.0
+- anchor 1.0.2
 - solana 3.1.10
 - rust 1.93.0
 

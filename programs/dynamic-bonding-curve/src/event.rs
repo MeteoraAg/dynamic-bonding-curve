@@ -1,4 +1,5 @@
 //! Event module includes information about events of the program
+//! Transfer-hook event variants only added for events consumed by external indexers
 use anchor_lang::prelude::*;
 
 use crate::{
@@ -16,7 +17,6 @@ pub struct EvtPartnerMetadata {
     pub fee_claimer: Pubkey,
 }
 
-/// Create virtual pool metadata
 #[event]
 pub struct EvtVirtualPoolMetadata {
     pub virtual_pool_metadata: Pubkey,
@@ -62,6 +62,16 @@ pub struct EvtCreateConfigV2 {
     pub config_parameters: ConfigParameters,
 }
 
+#[event]
+pub struct EvtCreateConfigV2WithTransferHook {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_hook_program: Pubkey,
+}
+
 /// Create claim fee operator
 #[event]
 pub struct EvtCreateClaimFeeOperator {
@@ -75,15 +85,17 @@ pub struct EvtCloseClaimFeeOperator {
     pub operator: Pubkey,
 }
 
-#[event]
-pub struct EvtInitializePool {
-    pub pool: Pubkey,
-    pub config: Pubkey,
-    pub creator: Pubkey,
-    pub base_mint: Pubkey,
-    pub pool_type: u8,
-    pub activation_point: u64,
-}
+define_event_pair!(
+    EvtInitializePool,
+    EvtInitializePoolWithTransferHook {
+        pool: Pubkey,
+        config: Pubkey,
+        creator: Pubkey,
+        base_mint: Pubkey,
+        pool_type: u8,
+        activation_point: u64,
+    }
+);
 
 #[event]
 pub struct EvtSwap {
@@ -97,26 +109,30 @@ pub struct EvtSwap {
     pub current_timestamp: u64,
 }
 
-#[event]
-pub struct EvtSwap2 {
-    pub pool: Pubkey,
-    pub config: Pubkey,
-    pub trade_direction: u8,
-    pub has_referral: bool,
-    pub swap_parameters: SwapParameters2,
-    pub swap_result: SwapResult2,
-    pub quote_reserve_amount: u64,
-    pub migration_threshold: u64,
-    pub current_timestamp: u64,
-}
+define_event_pair!(
+    EvtSwap2,
+    EvtSwap2WithTransferHook {
+        pool: Pubkey,
+        config: Pubkey,
+        trade_direction: u8,
+        has_referral: bool,
+        swap_parameters: SwapParameters2,
+        swap_result: SwapResult2,
+        quote_reserve_amount: u64,
+        migration_threshold: u64,
+        current_timestamp: u64,
+    }
+);
 
-#[event]
-pub struct EvtCurveComplete {
-    pub pool: Pubkey,
-    pub config: Pubkey,
-    pub base_reserve: u64,
-    pub quote_reserve: u64,
-}
+define_event_pair!(
+    EvtCurveComplete,
+    EvtCurveCompleteWithTransferHook {
+        pool: Pubkey,
+        config: Pubkey,
+        base_reserve: u64,
+        quote_reserve: u64,
+    }
+);
 
 #[event]
 pub struct EvtClaimProtocolFee {
@@ -186,12 +202,6 @@ pub struct EvtWithdrawMigrationFee {
 }
 
 #[event]
-pub struct EvtPartnerWithdrawMigrationFee {
-    pub pool: Pubkey,
-    pub fee: u64,
-}
-
-#[event]
 pub struct EvtClaimPoolCreationFee {
     pub pool: Pubkey,
     pub receiver: Pubkey,
@@ -204,11 +214,4 @@ pub struct EvtPartnerClaimPoolCreationFee {
     pub partner: Pubkey,
     pub creation_fee: u64,
     pub fee_receiver: Pubkey,
-}
-
-#[event]
-pub struct EvtClaimProtocolLiquidityMigrationFee {
-    pub pool: Pubkey,
-    pub token_base_amount: u64,
-    pub token_quote_amount: u64,
 }

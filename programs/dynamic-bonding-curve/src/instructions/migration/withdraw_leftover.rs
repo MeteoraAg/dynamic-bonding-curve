@@ -2,12 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda,
-    event::EvtWithdrawLeftover,
-    safe_math::SafeMath,
-    state::{MigrationProgress, PoolConfig, VirtualPool},
-    token::transfer_token_from_pool_authority,
-    PoolError,
+    const_pda, event::EvtWithdrawLeftover, safe_math::SafeMath, state::MigrationProgress,
+    token::transfer_token_from_pool_authority, ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for withdraw leftover
@@ -20,16 +16,12 @@ pub struct WithdrawLeftoverCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one=leftover_receiver)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = base_mint,
-        has_one = base_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account, withdraw to ATA
     #[account(mut,
@@ -53,10 +45,35 @@ pub struct WithdrawLeftoverCtx<'info> {
     pub token_base_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
+pub fn handle_withdraw_leftover<'info>(
+    ctx: Context<'info, WithdrawLeftoverCtx<'info>>,
+) -> Result<()> {
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
 
-    let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    require!(
+        config
+            .leftover_receiver
+            .eq(&ctx.accounts.leftover_receiver.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut virtual_pool = pool_loader.load_mut()?;
+
+    require!(
+        virtual_pool.base_mint.eq(&ctx.accounts.base_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        virtual_pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::CreatedPool,
         PoolError::NotPermitToDoThisAction
@@ -87,6 +104,7 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         ctx.accounts.token_base_account.to_account_info(),
         &ctx.accounts.token_base_program,
         leftover_amount,
+        None,
     )?;
 
     // update partner withdraw leftover
@@ -97,5 +115,6 @@ pub fn handle_withdraw_leftover(ctx: Context<WithdrawLeftoverCtx>) -> Result<()>
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         leftover_amount,
     });
+
     Ok(())
 }

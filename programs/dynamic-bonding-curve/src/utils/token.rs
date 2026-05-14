@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-// use anchor_lang::system_program::transfer;
 use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
@@ -7,6 +6,7 @@ use anchor_lang::{
 };
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token::accessor;
+use anchor_spl::token_2022::spl_token_2022::extension::transfer_hook;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -19,7 +19,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::{SafeCast, SafeMath};
-use crate::state::VirtualPool;
+use crate::state::{PoolState, PoolType};
 use crate::PoolError;
 
 #[derive(
@@ -51,6 +51,26 @@ pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
     }
 }
 
+pub fn get_token_program_from_pool_type(pool_type: u8) -> Result<Pubkey> {
+    let pool_type: PoolType = pool_type.safe_cast()?;
+    match pool_type {
+        PoolType::SplToken => Ok(anchor_spl::token::ID),
+        PoolType::Token2022 => Ok(anchor_spl::token_2022::ID),
+    }
+}
+
+pub fn get_transfer_hook_program_id(token_mint: &InterfaceAccount<Mint>) -> Result<Option<Pubkey>> {
+    let token_mint_info = token_mint.to_account_info();
+    if *token_mint_info.owner == Token::id() {
+        return Ok(None);
+    }
+
+    let token_mint_data = token_mint_info.try_borrow_data()?;
+    let token_mint_unpacked =
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
+    Ok(transfer_hook::get_program_id(&token_mint_unpacked))
+}
+
 pub fn transfer_token_from_user<'a, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,
@@ -58,10 +78,11 @@ pub fn transfer_token_from_user<'a, 'info>(
     destination_token_account: &'a InterfaceAccount<'info, TokenAccount>,
     token_program: &'a Interface<'info, TokenInterface>,
     amount: u64,
+    transfer_hook_accounts: Option<&'info [AccountInfo<'info>]>,
 ) -> Result<()> {
     let destination_account = destination_token_account.to_account_info();
 
-    let instruction = spl_token_2022::instruction::transfer_checked(
+    let mut instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,
         &token_owner_account.key(),
         &token_mint.key(),
@@ -72,12 +93,35 @@ pub fn transfer_token_from_user<'a, 'info>(
         token_mint.decimals,
     )?;
 
-    let account_infos = vec![
+    let mut account_infos = vec![
         token_owner_account.to_account_info(),
         token_mint.to_account_info(),
         destination_account.to_account_info(),
         authority.to_account_info(),
     ];
+
+    if let Some(hook_program_id) = get_transfer_hook_program_id(token_mint)? {
+        let Some(hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
+
+        spl_transfer_hook_interface::onchain::add_extra_accounts_for_execute_cpi(
+            &mut instruction,
+            &mut account_infos,
+            &hook_program_id,
+            token_owner_account.to_account_info(),
+            token_mint.to_account_info(),
+            destination_account.to_account_info(),
+            authority.to_account_info(),
+            amount,
+            hook_accounts,
+        )?;
+    } else {
+        require!(
+            transfer_hook_accounts.is_none(),
+            PoolError::NoTransferHookProgram
+        );
+    }
 
     invoke(&instruction, &account_infos)?;
 
@@ -91,10 +135,11 @@ pub fn transfer_token_from_pool_authority<'info>(
     token_owner_account: AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
+    transfer_hook_accounts: Option<&'info [AccountInfo<'info>]>,
 ) -> Result<()> {
     let signer_seeds = pool_authority_seeds!(BUMP);
 
-    let instruction = spl_token_2022::instruction::transfer_checked(
+    let mut instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,
         &token_vault.key(),
         &token_mint.key(),
@@ -105,12 +150,35 @@ pub fn transfer_token_from_pool_authority<'info>(
         token_mint.decimals,
     )?;
 
-    let account_infos = vec![
+    let mut account_infos = vec![
         token_vault.to_account_info(),
         token_mint.to_account_info(),
         token_owner_account.to_account_info(),
         pool_authority.to_account_info(),
     ];
+
+    if let Some(hook_program_id) = get_transfer_hook_program_id(token_mint)? {
+        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
+
+        spl_transfer_hook_interface::onchain::add_extra_accounts_for_execute_cpi(
+            &mut instruction,
+            &mut account_infos,
+            &hook_program_id,
+            token_vault.to_account_info(),
+            token_mint.to_account_info(),
+            token_owner_account.to_account_info(),
+            pool_authority.to_account_info(),
+            amount,
+            transfer_hook_accounts,
+        )?;
+    } else {
+        require!(
+            transfer_hook_accounts.is_none(),
+            PoolError::NoTransferHookProgram
+        );
+    }
 
     invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
 
@@ -178,7 +246,7 @@ pub fn transfer_lamports_from_pool_account<'info>(
     pool.sub_lamports(lamports)?;
     to.add_lamports(lamports)?;
 
-    let minimum_balance = Rent::get()?.minimum_balance(8 + VirtualPool::INIT_SPACE);
+    let minimum_balance = Rent::get()?.minimum_balance(8 + PoolState::INIT_SPACE);
 
     require!(
         pool.get_lamports() >= minimum_balance,

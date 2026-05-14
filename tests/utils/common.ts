@@ -63,6 +63,8 @@ import {
   VirtualCurveProgram,
 } from "./types";
 import { getVirtualPool } from "./fetcher";
+import { TransferHookCounter } from "./idl/transfer_hook_counter";
+import TransferHookCounterIDL from "../../idls/transfer_hook_counter.json";
 
 const BASE_ADDRESS = new PublicKey(
   "HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv"
@@ -114,6 +116,20 @@ export function createDammV2Program() {
     {}
   );
   const program = new Program<DammV2>(DammV2IDL, provider);
+  return program;
+}
+
+export function createTransferHookCounterProgram() {
+  const wallet = new Wallet(Keypair.generate());
+  const provider = new AnchorProvider(
+    new Connection(clusterApiUrl("devnet")),
+    wallet,
+    {}
+  );
+  const program = new Program<TransferHookCounter>(
+    TransferHookCounterIDL,
+    provider
+  );
   return program;
 }
 
@@ -639,7 +655,7 @@ export async function createDbcConfig(
     dynamicFee: number;
   },
   partner: Keypair,
-  compoundingFeeBps: number = 0,
+  compoundingFeeBps: number = 0
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
     cliffFeeNumerator: new BN(2_500_000),
@@ -734,7 +750,7 @@ export async function createPoolAndSwapForMigration(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   config: PublicKey,
-  poolCreator: Keypair,
+  poolCreator: Keypair
 ) {
   const virtualPool = await createPoolWithSplToken(svm, program, {
     poolCreator,
@@ -770,7 +786,7 @@ export async function dammV2Migration(
   poolCreator: Keypair,
   admin: Keypair,
   virtualPoolAddress: PublicKey,
-  config: PublicKey,
+  config: PublicKey
 ) {
   await createMeteoraDammV2Metadata(svm, program, {
     payer: poolCreator,
@@ -795,7 +811,7 @@ export async function dammMigration(
   poolCreator: Keypair,
   program: VirtualCurveProgram,
   virtualPool: PublicKey,
-  config: PublicKey,
+  config: PublicKey
 ) {
   const poolAuthority = derivePoolAuthority();
   const dammConfig = await createDammConfig(svm, admin, poolAuthority);

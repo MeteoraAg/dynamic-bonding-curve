@@ -35,7 +35,8 @@ import {
   getVirtualPool,
   getVirtualPoolMetadata,
 } from "../utils/fetcher";
-import { VirtualCurveProgram } from "../utils/types";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
+import { AccountsType, VirtualCurveProgram } from "../utils/types";
 
 export type InitializePoolParameters = {
   name: string;
@@ -51,6 +52,10 @@ export type CreatePoolSplTokenParams = {
 };
 
 export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
+
+export type CreatePoolToken2022TransferHookParams = CreatePoolSplTokenParams & {
+  transferHookProgram: PublicKey;
+};
 
 export async function createInitializePoolWithSplTokenIx(
   svm: LiteSVM,
@@ -73,7 +78,7 @@ export async function createInitializePoolWithSplTokenIx(
   const mintMetadata = deriveMetadataAccount(baseMintKP.publicKey);
 
   const tokenProgram =
-  configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const instruction = await program.methods
     .initializeVirtualPoolWithSplToken(instructionParams)
     .accountsPartial({
@@ -165,6 +170,54 @@ export async function createPoolWithToken2022(
   return pool;
 }
 
+export async function createPoolWithToken2022TransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreatePoolToken2022TransferHookParams
+): Promise<PublicKey> {
+  const {
+    payer,
+    quoteMint,
+    config,
+    instructionParams,
+    poolCreator,
+    transferHookProgram,
+  } = params;
+
+  const poolAuthority = derivePoolAuthority();
+  const baseMintKP = Keypair.generate();
+  const pool = derivePoolAddress(config, baseMintKP.publicKey, quoteMint);
+  const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
+  const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
+  const transaction = await program.methods
+    .initializeVirtualPoolWithToken2022TransferHook(instructionParams)
+    .accountsPartial({
+      config,
+      baseMint: baseMintKP.publicKey,
+      quoteMint,
+      pool,
+      payer: payer.publicKey,
+      creator: poolCreator.publicKey,
+      poolAuthority,
+      baseVault,
+      quoteVault,
+      transferHookProgram,
+      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+    })
+    .transaction();
+
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    })
+  );
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
+
+  return pool;
+}
+
 export enum SwapMode {
   ExactIn,
   PartialFill,
@@ -235,8 +288,6 @@ export async function swapPartialFill(
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
 
-  const preUserQuoteTokenBalance = 0;
-  const preBaseVaultBalance = getTokenAccount(svm, poolState.baseVault).amount;
   const [
     { ata: inputTokenAccount, ix: createInputTokenXIx },
     { ata: outputTokenAccount, ix: createOutputTokenYIx },
@@ -447,6 +498,146 @@ export async function swap(
     })
   );
 
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(payer);
+
+  let simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction, [payer]);
+
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
+  return {
+    pool,
+    computeUnitsConsumed: consumedCUSwap,
+    message: simu.meta().logs()[0],
+    numInstructions: transaction.instructions.length,
+    completed:
+      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+  };
+}
+
+export async function swapWithTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: SwapParams
+): Promise<{
+  pool: PublicKey;
+  computeUnitsConsumed: number;
+  message: any;
+  numInstructions: number;
+  completed: boolean;
+}> {
+  const {
+    config,
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amountIn,
+    minimumAmountOut,
+    swapMode,
+    referralTokenAccount,
+  } = params;
+
+  const poolAuthority = derivePoolAuthority();
+  let poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, config);
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const isInputBaseMint = inputTokenMint.equals(poolState.baseMint);
+  const quoteMint = isInputBaseMint ? outputTokenMint : inputTokenMint;
+  const [inputTokenProgram, outputTokenProgram] = isInputBaseMint
+    ? [tokenBaseProgram, TOKEN_PROGRAM_ID]
+    : [TOKEN_PROGRAM_ID, tokenBaseProgram];
+
+  const preInstructions: TransactionInstruction[] = [];
+  const postInstructions: TransactionInstruction[] = [];
+
+  const [
+    { ata: inputTokenAccount, ix: createInputTokenXIx },
+    { ata: outputTokenAccount, ix: createOutputTokenYIx },
+  ] = [
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      payer,
+      inputTokenMint,
+      payer.publicKey,
+      inputTokenProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      payer,
+      outputTokenMint,
+      payer.publicKey,
+      outputTokenProgram
+    ),
+  ];
+  createInputTokenXIx && preInstructions.push(createInputTokenXIx);
+  createOutputTokenYIx && preInstructions.push(createOutputTokenYIx);
+
+  if (inputTokenMint.equals(NATIVE_MINT) && !amountIn.isZero()) {
+    preInstructions.push(
+      ...wrapSOLInstruction(
+        payer.publicKey,
+        inputTokenAccount,
+        BigInt(amountIn.toString())
+      )
+    );
+  }
+  if (outputTokenMint.equals(NATIVE_MINT)) {
+    const ix = unwrapSOLInstruction(payer.publicKey);
+    ix && postInstructions.push(ix);
+  }
+
+  const remainingAccountsType =
+    referralTokenAccount != null
+      ? [AccountsType.TransferHookBase, AccountsType.TransferHookBaseReferral]
+      : [AccountsType.TransferHookBase];
+
+  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+    await getRemainingAccountsForTransferHook(
+      svm,
+      program,
+      pool,
+      remainingAccountsType
+    );
+
+  const transaction = await program.methods
+    .swap2WithTransferHook(
+      { amount0: amountIn, amount1: minimumAmountOut, swapMode: swapMode },
+      transferHookAccountsInfo
+    )
+    .accountsPartial({
+      poolAuthority,
+      config,
+      pool,
+      inputTokenAccount,
+      outputTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint,
+      payer: payer.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      referralTokenAccount,
+    })
+    .remainingAccounts([
+      {
+        pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        isSigner: false,
+        isWritable: false,
+      },
+      ...transferHookAccounts,
+    ])
+    .preInstructions(preInstructions)
+    .postInstructions(postInstructions)
+    .transaction();
+
+  transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 

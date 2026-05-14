@@ -21,26 +21,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-## dynamic_bonding_curve [0.1.11] [PR #188](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/188)
+## dynamic_bonding_curve [0.2.0] [PR #193](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/193)
 
 ### Added
 
 - Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Only one of the pool tokens can be claimed per instruction call.
+- Added endpoint `create_config_with_transfer_hook` that creates a `ConfigWithTransferHook` account storing the transfer hook program alongside the pool config. Only valid for `token_type: Token2022`. The transfer hook program must be executable and cannot be the program itself.
+- Added endpoint `initialize_virtual_pool_with_token2022_transfer_hook` for creating virtual pools with token-2022 base mints that have transfer hooks. The transfer hook program is sourced from the `ConfigWithTransferHook` account and the transfer hook authority is set to the `pool_authority`. The transfer hook program and authority is revoked after the last swap when the curve completes.
+- Added endpoints with transfer hook support: `swap2_with_transfer_hook`, `claim_trading_fee2` and `claim_creator_trading_fee2`. These accept a `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for passing transfer hook extra accounts via remaining accounts. The original endpoints are unchanged for backwards compatibility with non-transfer-hook pools.
+- Added `WithTransferHook` event variants for events consumed by external indexers to differentiate between transfer-hook and non-transfer-hook pool operations: `EvtInitializePoolWithTransferHook`, `EvtSwap2WithTransferHook`, `EvtCurveCompleteWithTransferHook`, `EvtCreateConfigV2WithTransferHook`.
+- Re-enabled `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority` for transfer-hook configs only. The mint authority is assigned to the creator or partner at pool initialization.
 
 ### Changed
 
-- Update anchor to 1.0.0
+- Update anchor to 1.0.2
 
 ### Deprecated
 
 - Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
-- Deprecated `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority`
+- Deprecated `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority` for non-transfer-hook configs.
+
+### Removed
+
+- Removed unused events: `EvtPartnerWithdrawMigrationFee` and `EvtClaimProtocolLiquidityMigrationFee`
 
 ### Breaking Changes
 
 - `create_config` endpoint now rejects the configs with the following `token_update_authority`: `CreatorUpdateAndMintAuthority` and `PartnerUpdateAndMintAuthority`
 - `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` endpoints now reject configs whose `token_update_authority` is `CreatorUpdateAndMintAuthority` or `PartnerUpdateAndMintAuthority`. Existing configs on-chain that used these variants can no longer initialize new pools.
-- `base_mint` mint authority can no longer be assigned to the creator or partner. It is always revoked at pool initialization.
+- For non-transfer-hook pools, `base_mint` mint authority can no longer be assigned to the creator or partner. It is always revoked at pool initialization. Transfer-hook pools may still assign mint authority to creator/partner.
 
 ## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
 
