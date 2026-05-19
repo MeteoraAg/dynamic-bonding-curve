@@ -41,3 +41,6 @@ spl-transfer-hook-interface = "2.1.0"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(target_os, values("solana"))',
 ] }
+
+[workspace.metadata.cli]
+solana = "3.1.10"
