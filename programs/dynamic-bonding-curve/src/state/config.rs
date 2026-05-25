@@ -376,9 +376,9 @@ pub enum TokenAuthorityOption {
     Immutable,
     // Partner has permission to update update_authority
     PartnerUpdateAuthority,
-    // Deprecated. Creating a config or initializing a pool with this option will fail
+    // Only allowed for transfer-hook configs. Creating a non-transfer-hook config or initializing a non-transfer-hook pool with this option will fail.
     CreatorUpdateAndMintAuthority,
-    // Deprecated. Creating a config or initializing a pool with this option will fail
+    // Only allowed for transfer-hook configs. Creating a non-transfer-hook config or initializing a non-transfer-hook pool with this option will fail.
     PartnerUpdateAndMintAuthority,
 }
 

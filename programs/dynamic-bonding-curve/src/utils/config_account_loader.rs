@@ -20,7 +20,9 @@ impl<'a, 'info> ConfigAccountLoader<'a, 'info> {
         );
 
         let data = account_info.try_borrow_data()?;
-        let disc = &data[..8];
+        let disc = data
+            .get(..8)
+            .ok_or_else(|| PoolError::InvalidConfigAccount)?;
         let is_transfer_hook = disc == ConfigWithTransferHook::DISCRIMINATOR;
 
         if is_transfer_hook {

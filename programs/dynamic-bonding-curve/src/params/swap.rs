@@ -6,6 +6,6 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 pub enum TradeDirection {
     /// Input base token, output quote token
     BaseToQuote,
-    /// Input base token, output quote token
+    /// Input quote token, output base token
     QuoteToBase,
 }
