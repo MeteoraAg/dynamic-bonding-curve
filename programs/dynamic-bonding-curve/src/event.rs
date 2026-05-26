@@ -85,17 +85,25 @@ pub struct EvtCloseClaimFeeOperator {
     pub operator: Pubkey,
 }
 
-define_event_pair!(
-    EvtInitializePool,
-    EvtInitializePoolWithTransferHook {
-        pool: Pubkey,
-        config: Pubkey,
-        creator: Pubkey,
-        base_mint: Pubkey,
-        pool_type: u8,
-        activation_point: u64,
-    }
-);
+#[event]
+pub struct EvtInitializePool {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub creator: Pubkey,
+    pub base_mint: Pubkey,
+    pub pool_type: u8,
+    pub activation_point: u64,
+}
+
+#[event]
+pub struct EvtInitializePoolWithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub creator: Pubkey,
+    pub base_mint: Pubkey,
+    pub pool_type: u8,
+    pub activation_point: u64,
+}
 
 #[event]
 pub struct EvtSwap {
@@ -109,30 +117,47 @@ pub struct EvtSwap {
     pub current_timestamp: u64,
 }
 
-define_event_pair!(
-    EvtSwap2,
-    EvtSwap2WithTransferHook {
-        pool: Pubkey,
-        config: Pubkey,
-        trade_direction: u8,
-        has_referral: bool,
-        swap_parameters: SwapParameters2,
-        swap_result: SwapResult2,
-        quote_reserve_amount: u64,
-        migration_threshold: u64,
-        current_timestamp: u64,
-    }
-);
+#[event]
+pub struct EvtSwap2 {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub swap_parameters: SwapParameters2,
+    pub swap_result: SwapResult2,
+    pub quote_reserve_amount: u64,
+    pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
 
-define_event_pair!(
-    EvtCurveComplete,
-    EvtCurveCompleteWithTransferHook {
-        pool: Pubkey,
-        config: Pubkey,
-        base_reserve: u64,
-        quote_reserve: u64,
-    }
-);
+#[event]
+pub struct EvtSwap2WithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub swap_parameters: SwapParameters2,
+    pub swap_result: SwapResult2,
+    pub quote_reserve_amount: u64,
+    pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtCurveComplete {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub base_reserve: u64,
+    pub quote_reserve: u64,
+}
+
+#[event]
+pub struct EvtCurveCompleteWithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub base_reserve: u64,
+    pub quote_reserve: u64,
+}
 
 #[event]
 pub struct EvtClaimProtocolFee {
