@@ -268,19 +268,13 @@ pub fn process_swap<'a: 'info, 'info>(
     drop(config);
 
     let mut remaining_accounts = &remaining_accounts[extra_remaining_account_count..];
-    let remaining_account_slice_types: &[AccountsType] =
-        if has_referral && fee_mode.fees_on_base_token {
-            &[
-                AccountsType::TransferHookBase,
-                AccountsType::TransferHookBaseReferral,
-            ]
-        } else {
-            &[AccountsType::TransferHookBase]
-        };
     let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
         &mut remaining_accounts,
         &transfer_hook_accounts_info.slices,
-        remaining_account_slice_types,
+        &[
+            AccountsType::TransferHookBase,
+            AccountsType::TransferHookBaseReferral,
+        ],
     )?;
     let transfer_hook_base_accounts = parsed_transfer_hook_accounts.transfer_hook_base;
 
