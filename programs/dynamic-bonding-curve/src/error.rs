@@ -236,6 +236,9 @@ pub enum PoolError {
 
     #[msg("Pool type does not match instruction")]
     PoolTypeMismatch,
+
+    #[msg("Invalid remaining account slice type for this instruction")]
+    InvalidRemainingAccountSliceType,
 }
 
 impl From<ProtozolZapError> for PoolError {

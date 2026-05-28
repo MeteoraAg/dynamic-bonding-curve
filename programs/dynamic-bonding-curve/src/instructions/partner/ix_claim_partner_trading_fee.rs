@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimTradingFee,
-    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
@@ -98,8 +98,15 @@ pub fn handle_claim_trading_fee<'info>(
     );
 
     let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        &mut remaining_accounts,
+        &transfer_hook_accounts_info.slices,
+        &[AccountsType::TransferHookBase],
+    )?;
+    require!(
+        remaining_accounts.is_empty(),
+        PoolError::InvalidRemainingAccountsLength
+    );
 
     let (token_base_amount, token_quote_amount) =
         pool.claim_partner_trading_fee(max_base_amount, max_quote_amount)?;

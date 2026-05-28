@@ -29,10 +29,16 @@ pub struct ParsedRemainingAccounts<'a, 'info> {
 pub fn parse_transfer_hook_accounts<'a, 'info>(
     remaining_accounts: &mut &'a [AccountInfo<'info>],
     remaining_accounts_slice: &[RemainingAccountsSlice],
+    valid_accounts_type_list: &[AccountsType],
 ) -> Result<ParsedRemainingAccounts<'a, 'info>> {
     let mut parsed_transfer_hook_accounts = ParsedRemainingAccounts::default();
 
     for slice in remaining_accounts_slice {
+        require!(
+            valid_accounts_type_list.contains(&slice.accounts_type),
+            PoolError::InvalidRemainingAccountSliceType
+        );
+
         if slice.length == 0 {
             continue;
         }
