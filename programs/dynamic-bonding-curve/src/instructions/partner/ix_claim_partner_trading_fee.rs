@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimTradingFee,
-    remaining_accounts::{parse_transfer_hook_accounts, TransferHookAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
@@ -98,31 +98,46 @@ pub fn handle_claim_trading_fee<'info>(
     );
 
     let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts =
-        parse_transfer_hook_accounts(&mut remaining_accounts, &transfer_hook_accounts_info.slices)?;
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        &mut remaining_accounts,
+        &transfer_hook_accounts_info.slices,
+        &[AccountsType::TransferHookBase],
+    )?;
+    require!(
+        remaining_accounts.is_empty(),
+        PoolError::InvalidRemainingAccountsLength
+    );
 
     let (token_base_amount, token_quote_amount) =
         pool.claim_partner_trading_fee(max_base_amount, max_quote_amount)?;
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.base_mint,
-        &ctx.accounts.base_vault,
-        ctx.accounts.token_a_account.to_account_info(),
-        &ctx.accounts.token_base_program,
-        token_base_amount,
-        parsed_transfer_hook_accounts.transfer_hook_base,
-    )?;
+    // drop pool & config since transfer hook program may borrow the account
+    drop(pool);
+    drop(config);
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.quote_mint,
-        &ctx.accounts.quote_vault,
-        ctx.accounts.token_b_account.to_account_info(),
-        &ctx.accounts.token_quote_program,
-        token_quote_amount,
-        None,
-    )?;
+    if token_base_amount > 0 {
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.base_mint,
+            &ctx.accounts.base_vault,
+            ctx.accounts.token_a_account.to_account_info(),
+            &ctx.accounts.token_base_program,
+            token_base_amount,
+            parsed_transfer_hook_accounts.transfer_hook_base,
+        )?;
+    }
+
+    if token_quote_amount > 0 {
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.quote_mint,
+            &ctx.accounts.quote_vault,
+            ctx.accounts.token_b_account.to_account_info(),
+            &ctx.accounts.token_quote_program,
+            token_quote_amount,
+            None,
+        )?;
+    }
 
     emit_cpi!(EvtClaimTradingFee {
         pool: ctx.accounts.pool.key(),

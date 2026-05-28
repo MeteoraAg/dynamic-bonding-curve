@@ -72,7 +72,8 @@ fn get_claim_direction_and_validate_accounts(
     Ok(is_claiming_base)
 }
 
-/// claim protocol fees. called through the protocol_fee program
+/// claim protocol fees. called through the protocol_fee program.
+/// note: max_amount is just a cap of total trading fee and migration fee. if pool has surplus in quote token, we could withdraw more than max_amount
 pub fn handle_claim_protocol_fee2<'info>(
     ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
     max_amount: u64,

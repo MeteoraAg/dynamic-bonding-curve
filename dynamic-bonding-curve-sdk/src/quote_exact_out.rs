@@ -2,11 +2,11 @@ use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, PoolState, SwapResult2},
 };
 
 pub fn quote_exact_out(
-    pool: &VirtualPool,
+    pool: &PoolState,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
