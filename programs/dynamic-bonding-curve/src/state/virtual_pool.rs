@@ -1068,6 +1068,8 @@ impl PoolState {
         Ok(total_claimed_fee)
     }
 
+    // `max_amount` caps the total trading fee and migration fee only.
+    // if pool has surplus in quote token, the returned amount can exceed the max_amount
     pub fn claim_protocol_quote_fee_and_surplus(
         &mut self,
         max_amount: u64,
