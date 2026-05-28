@@ -56,7 +56,7 @@ pub struct SwapCtx<'info> {
     pub token_quote_program: Interface<'info, TokenInterface>,
 
     /// referral token account
-    #[account(mut)]
+    #[account(mut, dup)]
     pub referral_token_account: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
 }
 
