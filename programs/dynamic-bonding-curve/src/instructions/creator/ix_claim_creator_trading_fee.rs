@@ -96,6 +96,9 @@ pub fn handle_claim_creator_trading_fee<'info>(
     let (token_base_amount, token_quote_amount) =
         pool.claim_creator_trading_fee(max_base_amount, max_quote_amount)?;
 
+    // drop pool since transfer hook program may borrow the account
+    drop(pool);
+
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.base_mint,

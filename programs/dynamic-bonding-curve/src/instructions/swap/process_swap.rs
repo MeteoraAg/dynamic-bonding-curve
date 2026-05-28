@@ -259,6 +259,14 @@ pub fn process_swap<'a: 'info, 'info>(
         current_timestamp,
     )?;
 
+    let migration_quote_threshold = config.migration_quote_threshold;
+    let migration_base_threshold = config.migration_base_threshold;
+    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+
+    // drop pool & config since transfer hook program may borrow the account
+    drop(pool);
+    drop(config);
+
     let mut remaining_accounts = &remaining_accounts[extra_remaining_account_count..];
     let remaining_account_slice_types: &[AccountsType] =
         if has_referral && fee_mode.fees_on_base_token {
@@ -330,19 +338,15 @@ pub fn process_swap<'a: 'info, 'info>(
         }
     }
 
-    let curve_complete = if pool.is_curve_complete(config.migration_quote_threshold) {
+    let mut pool = pool_loader.load_mut()?;
+
+    let curve_complete = if pool.is_curve_complete(migration_quote_threshold) {
         base_vault.reload()?;
         let base_vault_balance = base_vault.amount;
 
-        let required_base_balance = config
-            .migration_base_threshold
+        let required_base_balance = migration_base_threshold
             .safe_add(pool.get_protocol_and_trading_base_fee()?)?
-            .safe_add(
-                config
-                    .locked_vesting_config
-                    .to_locked_vesting_params()
-                    .get_total_amount()?,
-            )?;
+            .safe_add(locked_vesting_params.get_total_amount()?)?;
 
         require!(
             base_vault_balance >= required_base_balance,
@@ -352,7 +356,6 @@ pub fn process_swap<'a: 'info, 'info>(
         // set finish time and migration progress
         pool.finish_curve_timestamp = current_timestamp;
 
-        let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
         if locked_vesting_params.has_vesting() {
             pool.set_migration_progress(MigrationProgress::PostBondingCurve.into());
         } else {
@@ -378,7 +381,7 @@ pub fn process_swap<'a: 'info, 'info>(
         swap_result_2,
         swap_in_parameters,
         quote_reserve_amount: pool.quote_reserve,
-        migration_threshold: config.migration_quote_threshold,
+        migration_threshold: migration_quote_threshold,
         current_timestamp,
         curve_complete,
     })
