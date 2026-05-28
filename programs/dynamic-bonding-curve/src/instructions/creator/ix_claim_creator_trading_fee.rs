@@ -99,15 +99,18 @@ pub fn handle_claim_creator_trading_fee<'info>(
     // drop pool since transfer hook program may borrow the account
     drop(pool);
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.base_mint,
-        &ctx.accounts.base_vault,
-        ctx.accounts.token_a_account.to_account_info(),
-        &ctx.accounts.token_base_program,
-        token_base_amount,
-        parsed_transfer_hook_accounts.transfer_hook_base,
-    )?;
+    // avoid invoking transfer hook if no base token to transfer
+    if token_base_amount > 0 {
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.base_mint,
+            &ctx.accounts.base_vault,
+            ctx.accounts.token_a_account.to_account_info(),
+            &ctx.accounts.token_base_program,
+            token_base_amount,
+            parsed_transfer_hook_accounts.transfer_hook_base,
+        )?;
+    }
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
