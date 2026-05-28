@@ -115,7 +115,6 @@ pub fn handle_claim_trading_fee<'info>(
     drop(pool);
     drop(config);
 
-    // avoid invoking transfer hook if no base token to transfer
     if token_base_amount > 0 {
         transfer_token_from_pool_authority(
             ctx.accounts.pool_authority.to_account_info(),
@@ -128,15 +127,17 @@ pub fn handle_claim_trading_fee<'info>(
         )?;
     }
 
-    transfer_token_from_pool_authority(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.quote_mint,
-        &ctx.accounts.quote_vault,
-        ctx.accounts.token_b_account.to_account_info(),
-        &ctx.accounts.token_quote_program,
-        token_quote_amount,
-        None,
-    )?;
+    if token_quote_amount > 0 {
+        transfer_token_from_pool_authority(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.quote_mint,
+            &ctx.accounts.quote_vault,
+            ctx.accounts.token_b_account.to_account_info(),
+            &ctx.accounts.token_quote_program,
+            token_quote_amount,
+            None,
+        )?;
+    }
 
     emit_cpi!(EvtClaimTradingFee {
         pool: ctx.accounts.pool.key(),
