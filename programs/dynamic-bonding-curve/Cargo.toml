@@ -41,6 +41,7 @@ locker = { workspace = true }
 protocol-zap = { workspace = true }
 mpl-token-metadata = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
+spl-tlv-account-resolution = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
