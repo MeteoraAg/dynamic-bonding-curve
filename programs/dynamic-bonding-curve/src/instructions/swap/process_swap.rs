@@ -307,28 +307,30 @@ pub fn process_swap<'a: 'info, 'info>(
 
     // send to referral
     if let Some(referral_token_account) = referral_token_account.as_ref() {
-        if fee_mode.fees_on_base_token {
-            let transfer_hook_base_referral_accounts =
-                parsed_transfer_hook_accounts.transfer_hook_base_referral;
-            transfer_token_from_pool_authority(
-                pool_authority.to_account_info(),
-                base_mint,
-                base_vault_ref,
-                referral_token_account.to_account_info(),
-                token_base_program,
-                swap_result.referral_fee,
-                transfer_hook_base_referral_accounts,
-            )?;
-        } else {
-            transfer_token_from_pool_authority(
-                pool_authority.to_account_info(),
-                quote_mint,
-                quote_vault,
-                referral_token_account.to_account_info(),
-                token_quote_program,
-                swap_result.referral_fee,
-                None,
-            )?;
+        if swap_result.referral_fee > 0 {
+            if fee_mode.fees_on_base_token {
+                let transfer_hook_base_referral_accounts =
+                    parsed_transfer_hook_accounts.transfer_hook_base_referral;
+                transfer_token_from_pool_authority(
+                    pool_authority.to_account_info(),
+                    base_mint,
+                    base_vault_ref,
+                    referral_token_account.to_account_info(),
+                    token_base_program,
+                    swap_result.referral_fee,
+                    transfer_hook_base_referral_accounts,
+                )?;
+            } else {
+                transfer_token_from_pool_authority(
+                    pool_authority.to_account_info(),
+                    quote_mint,
+                    quote_vault,
+                    referral_token_account.to_account_info(),
+                    token_quote_program,
+                    swap_result.referral_fee,
+                    None,
+                )?;
+            }
         }
     }
 
