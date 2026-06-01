@@ -1110,6 +1110,7 @@ dependencies = [
  "ruint",
  "solana-instruction 3.3.0",
  "solana-instructions-sysvar 3.0.0",
+ "spl-tlv-account-resolution",
  "spl-transfer-hook-interface",
  "static_assertions",
 ]
