@@ -1091,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "dynamic-bonding-curve"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anchor-lang 1.0.2",
  "anchor-spl",
