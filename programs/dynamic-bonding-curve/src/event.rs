@@ -160,13 +160,6 @@ pub struct EvtCurveCompleteWithTransferHook {
 }
 
 #[event]
-pub struct EvtClaimProtocolFee {
-    pub pool: Pubkey,
-    pub token_base_amount: u64,
-    pub token_quote_amount: u64,
-}
-
-#[event]
 pub struct EvtClaimProtocolFee2 {
     pub pool: Pubkey,
     pub receiver_token_account: Pubkey,

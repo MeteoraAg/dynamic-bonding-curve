@@ -17,7 +17,7 @@ use static_assertions::const_assert_eq;
 )]
 pub enum OperatorPermission {
     ClaimProtocolFee, // 0
-    ZapProtocolFee,   // 1
+    ZapProtocolFee,   // 1 - Deprecated. Kept for enum ordering
 }
 
 #[account(zero_copy)]

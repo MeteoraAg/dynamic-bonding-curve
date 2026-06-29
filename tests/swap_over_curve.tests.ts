@@ -13,7 +13,6 @@ import {
   SwapMode,
   SwapParams,
   swapPartialFill,
-  claimProtocolFee,
   createOperatorAccount,
   OperatorPermission,
 } from "./instructions";
@@ -162,11 +161,6 @@ describe("Swap Over the Curve", () => {
     }
     await migrateToMeteoraDamm(svm, program, migrationParams);
 
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
-
     await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,
       virtualPool,
@@ -311,11 +305,6 @@ describe("Swap Over the Curve", () => {
       });
     }
     await migrateToMeteoraDamm(svm, program, migrationParams);
-
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
 
     await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,

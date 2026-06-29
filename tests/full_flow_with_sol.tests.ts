@@ -5,7 +5,6 @@ import { assert, expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
   BaseFee,
-  claimProtocolFee,
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
@@ -270,19 +269,6 @@ describe("Full flow with spl-token", () => {
       //
     }
   });
-  it("Protocol withdraw surplus", async () => {
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
-  });
-
-  it("Protocol can withdraw surplus again", async () => {
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
-  });
 
   it("Partner claim trading fee", async () => {
     const claimTradingFeeParams: ClaimTradeFeeParams = {
@@ -292,12 +278,5 @@ describe("Full flow with spl-token", () => {
       maxQuoteAmount: new BN(U64_MAX),
     };
     await claimTradingFee(svm, program, claimTradingFeeParams);
-  });
-
-  it("Operator claim protocol fee", async () => {
-    await claimProtocolFee(svm, program, {
-      pool: virtualPool,
-      operator: operator,
-    });
   });
 });
