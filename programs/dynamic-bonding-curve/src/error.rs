@@ -1,6 +1,5 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
-use protocol_zap::error::ProtozolZapError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -87,6 +86,7 @@ pub enum PoolError {
     #[msg("Leftover has been withdraw")]
     LeftoverHasBeenWithdraw,
 
+    /// deprecated
     #[msg("Total base token is exceeded max supply")]
     TotalBaseTokenExceedMaxSupply,
 
@@ -144,12 +144,14 @@ pub enum PoolError {
     #[msg("Undertermined error")]
     UndeterminedError,
 
+    /// deprecated
     #[msg("Rate limiter not supported")]
     RateLimiterNotSupported,
 
     #[msg("Amount left is not zero")]
     AmountLeftIsNotZero,
 
+    /// deprecated
     #[msg("Next sqrt price is smaller than start sqrt price")]
     NextSqrtPriceIsSmallerThanStartSqrtPrice,
 
@@ -177,9 +179,11 @@ pub enum PoolError {
     #[msg("Invalid fee market cap scheduler")]
     InvalidFeeMarketCapScheduler,
 
+    /// deprecated
     #[msg("Fail to validate first swap with minimum fee")]
     FirstSwapValidationFailed,
 
+    /// deprecated
     #[msg("Incorrect ATA")]
     IncorrectATA,
 
@@ -189,21 +193,27 @@ pub enum PoolError {
     #[msg("Invalid permission")]
     InvalidPermission,
 
+    /// deprecated
     #[msg("Invalid withdraw protocol fee zap accounts")]
     InvalidWithdrawProtocolFeeZapAccounts,
 
+    /// deprecated
     #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
     MintRestrictedFromZap,
 
+    /// deprecated
     #[msg("Invalid zap out parameters")]
     InvalidZapOutParameters,
 
+    /// deprecated
     #[msg("CPI disabled")]
     CpiDisabled,
 
+    /// deprecated
     #[msg("Missing zap out instruction")]
     MissingZapOutInstruction,
 
+    /// deprecated
     #[msg("Invalid zap accounts")]
     InvalidZapAccounts,
 
@@ -239,21 +249,4 @@ pub enum PoolError {
 
     #[msg("Invalid remaining account slice type for this instruction")]
     InvalidRemainingAccountSliceType,
-}
-
-impl From<ProtozolZapError> for PoolError {
-    fn from(e: ProtozolZapError) -> Self {
-        match e {
-            ProtozolZapError::MathOverflow => PoolError::MathOverflow,
-            ProtozolZapError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
-            ProtozolZapError::TypeCastFailed => PoolError::TypeCastFailed,
-            ProtozolZapError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
-            ProtozolZapError::InvalidWithdrawProtocolFeeZapAccounts => {
-                PoolError::InvalidWithdrawProtocolFeeZapAccounts
-            }
-            ProtozolZapError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
-            ProtozolZapError::CpiDisabled => PoolError::CpiDisabled,
-            ProtozolZapError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
-        }
-    }
 }

@@ -4,8 +4,6 @@ use anchor_lang::{
     solana_program::program::{invoke, invoke_signed},
     solana_program::system_instruction::transfer,
 };
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token::accessor;
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_hook;
 use anchor_spl::{
     token::Token,
@@ -18,8 +16,8 @@ use anchor_spl::{
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
-use crate::safe_math::{SafeCast, SafeMath};
-use crate::state::{PoolState, PoolType};
+use crate::safe_math::SafeMath;
+use crate::state::PoolState;
 use crate::PoolError;
 
 #[derive(
@@ -40,22 +38,6 @@ pub fn get_token_program_flags<'a, 'info>(
         TokenProgramFlags::TokenProgram
     } else {
         TokenProgramFlags::TokenProgram2022
-    }
-}
-
-pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
-    let token_program_flag: TokenProgramFlags = token_program_flag.safe_cast()?;
-    match token_program_flag {
-        TokenProgramFlags::TokenProgram => Ok(anchor_spl::token::ID),
-        TokenProgramFlags::TokenProgram2022 => Ok(anchor_spl::token_2022::ID),
-    }
-}
-
-pub fn get_token_program_from_pool_type(pool_type: u8) -> Result<Pubkey> {
-    let pool_type: PoolType = pool_type.safe_cast()?;
-    match pool_type {
-        PoolType::SplToken => Ok(anchor_spl::token::ID),
-        PoolType::Token2022 => Ok(anchor_spl::token_2022::ID),
     }
 }
 
@@ -253,21 +235,5 @@ pub fn transfer_lamports_from_pool_account<'info>(
         PoolError::InsufficientPoolLamports
     );
 
-    Ok(())
-}
-
-pub fn validate_ata_token<'info>(
-    token_account: &AccountInfo<'info>,
-    owner: &Pubkey,
-    mint: &Pubkey,
-    token_program_id: &Pubkey,
-) -> Result<()> {
-    // validate ata address
-    let ata_address = get_associated_token_address_with_program_id(owner, mint, token_program_id);
-    require!(ata_address.eq(token_account.key), PoolError::IncorrectATA);
-
-    // validate owner
-    let current_owner = accessor::authority(token_account)?;
-    require!(current_owner.eq(owner), PoolError::IncorrectATA);
     Ok(())
 }
