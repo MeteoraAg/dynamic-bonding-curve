@@ -1,11 +1,11 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::get_base_fee_handler;
+use crate::base_fee::{get_base_fee_handler, BaseFeeEnumReader};
 use crate::constants::fee::MAX_BASIS_POINT;
 use crate::constants::{dynamic_fee::*, BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
-use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
+use crate::state::{BaseFeeConfig, BaseFeeMode, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
 /// Information regarding fee charges
@@ -28,6 +28,11 @@ pub struct BaseFeeParameters {
 
 impl BaseFeeParameters {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+        require!(
+            self.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+            PoolError::DeprecatedBaseFeeMode
+        );
+
         let base_fee_handler = get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,

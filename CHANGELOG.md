@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
 
+### Deprecated
+
+- Deprecated `BaseFeeMode::RateLimiter`. `create_config`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now fail with `DeprecatedBaseFeeMode` if `BaseFeeMode::RateLimiter` is passed, including for configs created before this deprecation.
+- Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
+
 ### Removed
 
 - Removed deprecated endpoints `withdraw_protocol_fees` and `zap_protocol_fee`.

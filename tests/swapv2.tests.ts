@@ -14,6 +14,7 @@ import {
   FEE_DENOMINATOR,
   generateAndFund,
   getTokenAccount,
+  setDeprecatedRateLimiterConfig,
   startSvm,
   U64_MAX,
 } from "./utils";
@@ -486,10 +487,10 @@ describe("Swap V2", () => {
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: feeIncrementBps,
-          secondFactor: new BN(maxLimiterDuration),
-          thirdFactor: new BN(referenceAmount),
-          baseFeeMode: 2, // Rate limiter
+          firstFactor: 0,
+          secondFactor: new BN(0),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0, // override to rate limiter later
         },
       }
     );
@@ -527,6 +528,14 @@ describe("Swap V2", () => {
         uri: "abc.com",
       },
     });
+
+    setDeprecatedRateLimiterConfig(svm, config, {
+      cliffFeeNumerator: new BN(2_500_000),
+      feeIncrementBps,
+      maxLimiterDuration: new BN(maxLimiterDuration),
+      referenceAmount: new BN(referenceAmount),
+    });
+
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // 90% of base

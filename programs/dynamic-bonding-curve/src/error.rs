@@ -249,4 +249,7 @@ pub enum PoolError {
 
     #[msg("Invalid remaining account slice type for this instruction")]
     InvalidRemainingAccountSliceType,
+
+    #[msg("Deprecated base fee mode")]
+    DeprecatedBaseFeeMode,
 }
