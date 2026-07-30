@@ -28,9 +28,7 @@ export function encodeRateLimiterBaseFeeConfig(
   return encoded;
 }
 
-// Rate limiter is deprecated and can no longer be created through the program.
-// Existing configs are still valid on-chain, so tests build the base fee config
-// bytes directly to cover them.
+// Overwrite a config's base fee with a rate limiter
 export function setDeprecatedRateLimiterConfig(
   svm: LiteSVM,
   config: PublicKey,

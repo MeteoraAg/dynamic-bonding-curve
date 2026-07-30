@@ -14,7 +14,6 @@ import {
   FEE_DENOMINATOR,
   generateAndFund,
   getTokenAccount,
-  setDeprecatedRateLimiterConfig,
   startSvm,
   U64_MAX,
 } from "./utils";
@@ -467,9 +466,6 @@ describe("Swap V2", () => {
     };
     let collectFeeMode = 0;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
-    const feeIncrementBps = 100;
-    const maxLimiterDuration = 86400;
-    const referenceAmount = 1_000_000;
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -490,7 +486,7 @@ describe("Swap V2", () => {
           firstFactor: 0,
           secondFactor: new BN(0),
           thirdFactor: new BN(0),
-          baseFeeMode: 0, // override to rate limiter later
+          baseFeeMode: 0,
         },
       }
     );
@@ -527,13 +523,6 @@ describe("Swap V2", () => {
         symbol: "TEST",
         uri: "abc.com",
       },
-    });
-
-    setDeprecatedRateLimiterConfig(svm, config, {
-      cliffFeeNumerator: new BN(2_500_000),
-      feeIncrementBps,
-      maxLimiterDuration: new BN(maxLimiterDuration),
-      referenceAmount: new BN(referenceAmount),
     });
 
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);

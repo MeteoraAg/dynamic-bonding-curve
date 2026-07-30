@@ -23,7 +23,6 @@ import {
   designCurve,
   generateAndFund,
   getMint,
-  setDeprecatedRateLimiterConfig,
   startSvm,
 } from "./utils";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
@@ -190,9 +189,6 @@ describe("Swap Over the Curve", () => {
     };
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
 
-    const feeIncrementBps = 10;
-    const maxLimiterDuration = 86400;
-    const referenceAmount = 1_000_000_000;
     const collectFeeMode = 0;
 
     let instructionParams = designCurve(
@@ -215,7 +211,7 @@ describe("Swap Over the Curve", () => {
           firstFactor: 0,
           secondFactor: new BN(0),
           thirdFactor: new BN(0),
-          baseFeeMode: 0, // override to rate limiter later
+          baseFeeMode: 0,
         },
       }
     );
@@ -269,13 +265,6 @@ describe("Swap Over the Curve", () => {
       swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
-
-    setDeprecatedRateLimiterConfig(svm, config, {
-      cliffFeeNumerator: new BN(2_500_000),
-      feeIncrementBps,
-      maxLimiterDuration: new BN(maxLimiterDuration),
-      referenceAmount: new BN(referenceAmount),
-    });
 
     const beforeAmount = svm.getBalance(swapParams.payer.publicKey);
 
