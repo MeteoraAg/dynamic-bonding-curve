@@ -56,7 +56,7 @@ pub enum BaseFeeMode {
     FeeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeSchedulerExponential,
-    /// deprecated. existing configs and pools are still supported. kept for backwards compatibility
+    /// deprecated. existing pools are still supported. kept for backwards compatibility
     RateLimiter,
 }
 

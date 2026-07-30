@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- Deprecated `BaseFeeMode::RateLimiter`. `create_config`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now fail with `DeprecatedBaseFeeMode` if `BaseFeeMode::RateLimiter` is passed, including for configs created before this deprecation.
+- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools.
 - Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
 
 ### Removed

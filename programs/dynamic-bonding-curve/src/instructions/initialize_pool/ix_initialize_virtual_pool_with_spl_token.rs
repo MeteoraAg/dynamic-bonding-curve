@@ -151,13 +151,13 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         PoolError::InvalidMigrationLockedLiquidity
     );
 
-    // validate min base fee
-    config.pool_fees.base_fee.validate_min_base_fee()?;
-
     require!(
         config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
         PoolError::DeprecatedBaseFeeMode
     );
+
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
 
     let initial_base_supply = config.get_initial_base_supply()?;
 

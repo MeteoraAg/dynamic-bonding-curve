@@ -46,13 +46,13 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
         PoolError::InvalidMigrationLockedLiquidity
     );
 
-    // validate min base fee
-    config.pool_fees.base_fee.validate_min_base_fee()?;
-
     require!(
         config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
         PoolError::DeprecatedBaseFeeMode
     );
+
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
 
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
