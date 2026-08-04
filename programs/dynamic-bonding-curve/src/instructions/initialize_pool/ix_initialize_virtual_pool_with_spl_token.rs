@@ -10,6 +10,7 @@ use std::cmp::{max, min};
 
 use crate::{
     activation_handler::get_current_point,
+    base_fee::BaseFeeEnumReader,
     const_pda,
     constants::{
         fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
@@ -19,7 +20,7 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     event::EvtInitializePool,
     process_create_token_metadata,
-    state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
+    state::{fee::VolatilityTracker, BaseFeeMode, PoolConfig, PoolType, TokenType, VirtualPool},
     token::transfer_lamports_from_user,
     PoolError, ProcessCreateTokenMetadataParams,
 };
@@ -148,6 +149,11 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
             >= MIN_LOCKED_LIQUIDITY_BPS,
         PoolError::InvalidMigrationLockedLiquidity
+    );
+
+    require!(
+        config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+        PoolError::DeprecatedBaseFeeMode
     );
 
     // validate min base fee

@@ -12,6 +12,7 @@ import {
   designGraphCurve,
   generateAndFund,
   getOrCreateAta,
+  setDeprecatedRateLimiterConfig,
   startSvm,
   warpSlotBy,
 } from "./utils";
@@ -75,10 +76,10 @@ describe("Rate limiter", () => {
       kFactor,
       {
         cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 10, // 10 bps
-        secondFactor: maxRateLimiterDuration, // 10 slot
-        thirdFactor: referenceAmount, // 1 sol
-        baseFeeMode: 2, // rate limiter mode
+        firstFactor: 0,
+        secondFactor: new BN(0),
+        thirdFactor: new BN(0),
+        baseFeeMode: 0, // override to rate limiter later
       }
     );
     let config = await createConfig(svm, program, {
@@ -109,6 +110,14 @@ describe("Rate limiter", () => {
         uri: "abc.com",
       },
     });
+
+    setDeprecatedRateLimiterConfig(svm, config, {
+      cliffFeeNumerator: new BN(10_000_000), // 100bps
+      feeIncrementBps: 10, // 10 bps
+      maxLimiterDuration: maxRateLimiterDuration, // 10 slot
+      referenceAmount, // 1 sol
+    });
+
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap with 1 SOL
@@ -216,10 +225,10 @@ describe("Rate limiter", () => {
       kFactor,
       {
         cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 10, // 10 bps
-        secondFactor: maxRateLimiterDuration, // 10 slot
-        thirdFactor: referenceAmount, // 1 sol
-        baseFeeMode: 2, // rate limiter mode
+        firstFactor: 0,
+        secondFactor: new BN(0),
+        thirdFactor: new BN(0),
+        baseFeeMode: 0, // override to rate limiter later
       }
     );
     let config = await createConfig(svm, program, {
@@ -250,6 +259,14 @@ describe("Rate limiter", () => {
         uri: "abc.com",
       },
     });
+
+    setDeprecatedRateLimiterConfig(svm, config, {
+      cliffFeeNumerator: new BN(10_000_000), // 100bps
+      feeIncrementBps: 10, // 10 bps
+      maxLimiterDuration: maxRateLimiterDuration, // 10 slot
+      referenceAmount, // 1 sol
+    });
+
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     getOrCreateAta(svm, user, virtualPoolState.baseMint, user.publicKey);

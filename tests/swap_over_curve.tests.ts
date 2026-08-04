@@ -189,9 +189,6 @@ describe("Swap Over the Curve", () => {
     };
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
 
-    const feeIncrementBps = 10;
-    const maxLimiterDuration = 86400;
-    const referenceAmount = 1_000_000_000;
     const collectFeeMode = 0;
 
     let instructionParams = designCurve(
@@ -211,10 +208,10 @@ describe("Swap Over the Curve", () => {
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: feeIncrementBps,
-          secondFactor: new BN(maxLimiterDuration),
-          thirdFactor: new BN(referenceAmount),
-          baseFeeMode: 2, // Rate limiter
+          firstFactor: 0,
+          secondFactor: new BN(0),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
       }
     );

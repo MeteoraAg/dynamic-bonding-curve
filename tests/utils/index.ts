@@ -5,4 +5,5 @@ export * from "./types";
 export * from "./svm";
 export * from "./fetcher";
 export * from "./create_curve";
+export * from "./deprecatedRateLimiter";
 export * from "./transferHookCounter";
