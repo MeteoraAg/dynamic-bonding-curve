@@ -49,6 +49,7 @@ export type CreatePoolSplTokenParams = {
   quoteMint: PublicKey;
   config: PublicKey;
   instructionParams: InitializePoolParameters;
+  tokenQuoteProgram?: PublicKey;
 };
 
 export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
@@ -154,7 +155,7 @@ export async function createPoolWithToken2022(
       poolAuthority,
       baseVault,
       quoteVault,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
     .transaction();
@@ -202,7 +203,7 @@ export async function createPoolWithToken2022TransferHook(
       baseVault,
       quoteVault,
       transferHookProgram,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
     .transaction();
@@ -416,9 +417,10 @@ export async function swap(
   const isInputBaseMint = inputTokenMint.equals(poolState.baseMint);
 
   const quoteMint = isInputBaseMint ? outputTokenMint : inputTokenMint;
+  const tokenQuoteProgram = svm.getAccount(quoteMint).owner;
   const [inputTokenProgram, outputTokenProgram] = isInputBaseMint
-    ? [tokenBaseProgram, TOKEN_PROGRAM_ID]
-    : [TOKEN_PROGRAM_ID, tokenBaseProgram];
+    ? [tokenBaseProgram, tokenQuoteProgram]
+    : [tokenQuoteProgram, tokenBaseProgram];
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
@@ -475,7 +477,7 @@ export async function swap(
       quoteMint,
       payer: payer.publicKey,
       tokenBaseProgram,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
       referralTokenAccount,
     })
     .remainingAccounts(
@@ -549,9 +551,10 @@ export async function swapWithTransferHook(
 
   const isInputBaseMint = inputTokenMint.equals(poolState.baseMint);
   const quoteMint = isInputBaseMint ? outputTokenMint : inputTokenMint;
+  const tokenQuoteProgram = svm.getAccount(quoteMint).owner;
   const [inputTokenProgram, outputTokenProgram] = isInputBaseMint
-    ? [tokenBaseProgram, TOKEN_PROGRAM_ID]
-    : [TOKEN_PROGRAM_ID, tokenBaseProgram];
+    ? [tokenBaseProgram, tokenQuoteProgram]
+    : [tokenQuoteProgram, tokenBaseProgram];
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
@@ -622,7 +625,7 @@ export async function swapWithTransferHook(
       quoteMint,
       payer: payer.publicKey,
       tokenBaseProgram,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
       referralTokenAccount,
     })
     .remainingAccounts([

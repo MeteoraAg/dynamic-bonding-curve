@@ -2,10 +2,13 @@ import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
+  createInitializePermanentDelegateInstruction,
   createMintToInstruction,
   createSyncNativeInstruction,
   createTransferCheckedWithTransferHookInstruction,
+  ExtensionType,
   getAssociatedTokenAddressSync,
+  getMintLen,
   getTransferHook,
   MINT_SIZE,
   MintLayout,
@@ -63,7 +66,7 @@ export function createToken(
   svm: LiteSVM,
   payer: Keypair,
   mintAuthority: PublicKey,
-  decimal: number
+  decimal: number = 9
 ): PublicKey {
   const mintKeypair = Keypair.generate();
   const rent = svm.getRent();
@@ -87,6 +90,58 @@ export function createToken(
   let transaction = new Transaction();
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(createAccountIx, initializeMintIx);
+  transaction.sign(payer, mintKeypair);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
+
+  return mintKeypair.publicKey;
+}
+
+export function createToken2022Mint(
+  svm: LiteSVM,
+  payer: Keypair,
+  options: {
+    decimals?: number;
+    permanentDelegate?: PublicKey;
+  } = {}
+): PublicKey {
+  const { decimals = 9, permanentDelegate } = options;
+  const mintKeypair = Keypair.generate();
+  const extensions = permanentDelegate ? [ExtensionType.PermanentDelegate] : [];
+  const mintLen = getMintLen(extensions);
+  const rent = svm.getRent();
+  const lamports = rent.minimumBalance(BigInt(mintLen));
+
+  const transaction = new Transaction();
+  transaction.add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mintKeypair.publicKey,
+      space: mintLen,
+      lamports: Number(lamports.toString()),
+      programId: TOKEN_2022_PROGRAM_ID,
+    })
+  );
+  if (permanentDelegate) {
+    transaction.add(
+      createInitializePermanentDelegateInstruction(
+        mintKeypair.publicKey,
+        permanentDelegate,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
+  transaction.add(
+    createInitializeMint2Instruction(
+      mintKeypair.publicKey,
+      decimals,
+      payer.publicKey,
+      null,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer, mintKeypair);
 
   const res = svm.sendTransaction(transaction);

@@ -255,4 +255,7 @@ pub enum PoolError {
 
     #[msg("Cannot create token badge on supported mint")]
     CannotCreateTokenBadgeOnSupportedMint,
+
+    #[msg("Invalid token badge")]
+    InvalidTokenBadge,
 }

@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
 
+### Added
+
+- Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions. Guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
+- Added endpoints `create_config2` and `create_config_with_transfer_hook2`, which take the `token_badge` account as an optional named account. Required when the quote mint is not permissionless-supported.
+
 ### Deprecated
 
 - Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools.

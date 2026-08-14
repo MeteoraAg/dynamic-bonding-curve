@@ -93,11 +93,25 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
+    pub fn create_config2<'info>(
+        ctx: Context<'info, CreateConfig2Ctx<'info>>,
+        config_parameters: ConfigParameters,
+    ) -> Result<()> {
+        instructions::handle_create_config2(ctx, config_parameters)
+    }
+
     pub fn create_config_with_transfer_hook(
         ctx: Context<CreateConfigWithTransferHookCtx>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
+    }
+
+    pub fn create_config_with_transfer_hook2<'info>(
+        ctx: Context<'info, CreateConfigWithTransferHook2Ctx<'info>>,
+        config_parameters: ConfigParameters,
+    ) -> Result<()> {
+        instructions::handle_create_config_with_transfer_hook2(ctx, config_parameters)
     }
 
     /// Accepts: VirtualPool only.

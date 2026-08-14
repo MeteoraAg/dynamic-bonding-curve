@@ -18,6 +18,7 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
+import { createToken2022Mint } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
 describe("Create config", () => {
@@ -147,6 +148,24 @@ describe("Create config", () => {
     };
 
     const errorCode = getDbcProgramErrorCodeHexString("ExceedMaxFeeBps");
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, errorCode);
+  });
+
+  it("Fail to create config for meteora damm migration with token2022 quote mint", async () => {
+    instructionParams.migrationOption = 0; // meteora damm v1
+    instructionParams.tokenType = 0; // spl token
+    const quoteMint = createToken2022Mint(svm, admin);
+    const params: CreateConfigParams<ConfigParameters> = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint,
+      instructionParams,
+    };
+
+    const errorCode = getDbcProgramErrorCodeHexString("InvalidQuoteMint");
     await expectThrowsAsync(async () => {
       await createConfig(svm, program, params);
     }, errorCode);

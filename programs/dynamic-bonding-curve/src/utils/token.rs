@@ -17,7 +17,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
-use crate::state::PoolState;
+use crate::state::{PoolState, TokenBadge};
 use crate::PoolError;
 
 #[derive(
@@ -186,6 +186,14 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
         }
     }
     Ok(true)
+}
+
+pub fn is_token_badge_initialized<'info>(
+    mint: Pubkey,
+    token_badge: &AccountLoader<'info, TokenBadge>,
+) -> Result<bool> {
+    let token_badge = token_badge.load()?;
+    Ok(token_badge.token_mint == mint)
 }
 
 pub fn update_account_lamports_to_minimum_balance<'info>(
