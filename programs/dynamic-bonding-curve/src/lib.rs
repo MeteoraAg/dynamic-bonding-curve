@@ -60,6 +60,16 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateTokenBadge))]
+    pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_create_token_badge(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
+    pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+        Ok(())
+    }
+
     /// Accepts: VirtualPool or TransferHookPool.
     pub fn claim_protocol_fee2<'info>(
         ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,

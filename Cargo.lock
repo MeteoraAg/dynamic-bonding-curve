@@ -874,6 +874,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-variant-count"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -910,6 +918,7 @@ dependencies = [
  "bytemuck",
  "const-crypto",
  "damm-v2",
+ "derive-variant-count",
  "dynamic-amm",
  "locker",
  "mpl-token-metadata",

@@ -30,6 +30,7 @@ ruint = "1.14.0"
 solana-instruction = { version = "3.0.0", features = ["syscalls"] }
 solana-instructions-sysvar = "3.0.0"
 static_assertions = "1.1.0"
+derive-variant-count = { path = "libs/derive-variant-count" }
 dynamic-amm = { path = "libs/dynamic-amm" }
 damm-v2 = { path = "libs/damm-v2" }
 locker = { path = "libs/locker" }
