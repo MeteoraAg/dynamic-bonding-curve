@@ -5,6 +5,7 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     state::{ConfigWithTransferHook, TokenBadge, TokenType},
+    token::{is_supported_quote_mint, validate_quote_mint_with_token_badge},
     PoolError,
 };
 
@@ -40,7 +41,7 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CreateConfigWithTransferHook2Ctx<'info> {
+pub struct CreateConfigWithTransferHookV2Ctx<'info> {
     #[account(
         init,
         signer,
@@ -73,9 +74,13 @@ pub fn handle_create_config_with_transfer_hook(
     ctx: Context<CreateConfigWithTransferHookCtx>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    require!(
+        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::InvalidQuoteMint
+    );
+
     config_parameters.validate(
         &ctx.accounts.quote_mint,
-        &None,
         Clock::get()?.unix_timestamp as u64,
         true,
     )?;
@@ -102,12 +107,13 @@ pub fn handle_create_config_with_transfer_hook(
 }
 
 pub fn handle_create_config_with_transfer_hook2<'info>(
-    ctx: Context<'info, CreateConfigWithTransferHook2Ctx<'info>>,
+    ctx: Context<'info, CreateConfigWithTransferHookV2Ctx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, &ctx.accounts.token_badge)?;
+
     config_parameters.validate(
         &ctx.accounts.quote_mint,
-        &ctx.accounts.token_badge,
         Clock::get()?.unix_timestamp as u64,
         true,
     )?;

@@ -5,7 +5,8 @@ use anchor_spl::token_interface::Mint;
 use crate::event::{EvtCreateConfig, EvtCreateConfigV2};
 use crate::{
     state::{PoolConfig, TokenBadge},
-    CreateConfigResult,
+    token::{is_supported_quote_mint, validate_quote_mint_with_token_badge},
+    CreateConfigResult, PoolError,
 };
 
 use super::{process_create_config, ConfigParameters};
@@ -36,7 +37,7 @@ pub struct CreateConfigCtx<'info> {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CreateConfig2Ctx<'info> {
+pub struct CreateConfigV2Ctx<'info> {
     #[account(
         init,
         signer,
@@ -65,9 +66,13 @@ pub fn handle_create_config(
     ctx: Context<CreateConfigCtx>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    require!(
+        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::InvalidQuoteMint
+    );
+
     config_parameters.validate(
         &ctx.accounts.quote_mint,
-        &None,
         Clock::get()?.unix_timestamp as u64,
         false,
     )?;
@@ -98,12 +103,13 @@ pub fn handle_create_config(
 }
 
 pub fn handle_create_config2<'info>(
-    ctx: Context<'info, CreateConfig2Ctx<'info>>,
+    ctx: Context<'info, CreateConfigV2Ctx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, &ctx.accounts.token_badge)?;
+
     config_parameters.validate(
         &ctx.accounts.quote_mint,
-        &ctx.accounts.token_badge,
         Clock::get()?.unix_timestamp as u64,
         false,
     )?;

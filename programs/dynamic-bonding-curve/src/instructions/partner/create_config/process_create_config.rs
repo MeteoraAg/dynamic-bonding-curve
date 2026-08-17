@@ -28,9 +28,9 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
-        MigrationOption, PoolConfig, TokenAuthorityOption, TokenBadge, TokenType,
+        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
-    token::{get_token_program_flags, is_supported_quote_mint, is_token_badge_initialized},
+    token::get_token_program_flags,
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
     PoolError,
@@ -370,20 +370,9 @@ impl ConfigParameters {
     pub fn validate<'info>(
         &self,
         quote_mint: &InterfaceAccount<'info, Mint>,
-        token_badge: &Option<AccountLoader<'info, TokenBadge>>,
         current_timestamp: u64,
         is_transfer_hook: bool,
     ) -> Result<()> {
-        if !is_supported_quote_mint(quote_mint)? {
-            let token_badge = token_badge
-                .as_ref()
-                .ok_or_else(|| PoolError::InvalidQuoteMint)?;
-            require!(
-                is_token_badge_initialized(quote_mint.key(), token_badge)?,
-                PoolError::InvalidTokenBadge
-            );
-        }
-
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;
 

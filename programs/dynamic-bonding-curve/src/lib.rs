@@ -94,7 +94,7 @@ pub mod dynamic_bonding_curve {
     }
 
     pub fn create_config2<'info>(
-        ctx: Context<'info, CreateConfig2Ctx<'info>>,
+        ctx: Context<'info, CreateConfigV2Ctx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config2(ctx, config_parameters)
@@ -108,7 +108,7 @@ pub mod dynamic_bonding_curve {
     }
 
     pub fn create_config_with_transfer_hook2<'info>(
-        ctx: Context<'info, CreateConfigWithTransferHook2Ctx<'info>>,
+        ctx: Context<'info, CreateConfigWithTransferHookV2Ctx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config_with_transfer_hook2(ctx, config_parameters)
