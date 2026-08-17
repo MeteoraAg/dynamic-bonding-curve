@@ -1,41 +1,25 @@
-use anchor_lang::prelude::*;
-use anchor_spl::{
-    token::{Mint, Token, TokenAccount},
-    token_interface::{
-        Mint as MintInterface, TokenAccount as TokenAccountInterface, TokenInterface,
-    },
-};
-use std::cmp::{max, min};
-
+use super::InitializePoolParameters;
+use super::{max_key, min_key};
+use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
+use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
+use crate::state::fee::VolatilityTracker;
+use crate::InitPoolData;
 use crate::{
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
     event::EvtInitializePool,
-    instructions::initialize_pool::process_initialize_virtual_pool_with_spl_token::process_initialize_virtual_pool_with_spl_token,
-    state::{PoolConfig, PoolType, VirtualPool},
-    token::is_supported_quote_mint,
-    PoolError,
+    state::{PoolConfig, PoolType, TokenBadge, VirtualPool},
+    token::validate_quote_mint_with_token_badge,
 };
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct InitializePoolParameters {
-    pub name: String,
-    pub symbol: String,
-    pub uri: String,
-}
-
-// To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
-pub fn max_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
-    max(left, right).to_bytes()
-}
-
-pub fn min_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
-    min(left, right).to_bytes()
-}
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    token_2022::Token2022,
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
+pub struct InitializeVirtualPoolWithToken2022V2Ctx<'info> {
     /// Which config the pool belongs to.
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
@@ -48,20 +32,23 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
 
     pub creator: Signer<'info>,
 
+    /// Unique token mint address, initialize in contract
     #[account(
         init,
         signer,
         payer = payer,
+        mint::token_program = token_program,
         mint::decimals = config.load()?.token_decimal,
         mint::authority = pool_authority,
-        mint::token_program = token_program,
+        extensions::metadata_pointer::authority = pool_authority,
+        extensions::metadata_pointer::metadata_address = base_mint,
     )]
-    pub base_mint: Box<Account<'info, Mint>>,
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
         mint::token_program = token_quote_program,
     )]
-    pub quote_mint: Box<InterfaceAccount<'info, MintInterface>>,
+    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// Initialize an account to store the pool state
     #[account(
@@ -78,7 +65,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     )]
     pub pool: AccountLoader<'info, VirtualPool>,
 
-    /// Token a vault for the pool
+    /// CHECK: Token base vault for the pool
     #[account(
         init,
         seeds = [
@@ -92,9 +79,9 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
         payer = payer,
         bump,
     )]
-    pub base_vault: Box<Account<'info, TokenAccount>>,
+    pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token b vault for the pool
+    /// Token quote vault for the pool
     #[account(
         init,
         seeds = [
@@ -108,15 +95,10 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
         payer = payer,
         bump,
     )]
-    pub quote_vault: Box<InterfaceAccount<'info, TokenAccountInterface>>,
+    pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// CHECK: mint_metadata
-    #[account(mut)]
-    pub mint_metadata: UncheckedAccount<'info>,
-
-    /// CHECK: Metadata program
-    #[account(address = mpl_token_metadata::ID)]
-    pub metadata_program: UncheckedAccount<'info>,
+    /// token badge for quote mint, required when quote mint is not permissionless-supported
+    pub token_badge: Option<AccountLoader<'info, TokenBadge>>,
 
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
@@ -124,44 +106,56 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
 
     /// Program to create mint account and mint tokens
     pub token_quote_program: Interface<'info, TokenInterface>,
-
-    pub token_program: Program<'info, Token>,
-
+    /// token program for base mint
+    pub token_program: Program<'info, Token2022>,
     // Sysvar for program account
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
-    ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
+pub fn handle_initialize_virtual_pool_with_token2022_2<'info>(
+    ctx: Context<'info, InitializeVirtualPoolWithToken2022V2Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    require!(
-        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
-        PoolError::InvalidQuoteMint
-    );
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, &ctx.accounts.token_badge)?;
 
-    let activation_point = process_initialize_virtual_pool_with_spl_token(
-        &ctx.accounts.config,
+    let InitPoolData {
+        activation_point,
+        initial_base_supply,
+        sqrt_start_price,
+    } = process_initialize_virtual_pool_with_token2022(
+        ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
         &ctx.accounts.base_mint,
-        &ctx.accounts.pool,
+        ctx.accounts.pool.as_ref(),
         &ctx.accounts.base_vault,
-        ctx.accounts.quote_vault.key(),
-        &ctx.accounts.mint_metadata,
-        &ctx.accounts.metadata_program,
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
         params,
     )?;
 
+    let mut pool = ctx.accounts.pool.load_init()?;
+    pool.initialize(
+        VolatilityTracker::default(),
+        ctx.accounts.config.key(),
+        ctx.accounts.creator.key(),
+        ctx.accounts.base_mint.key(),
+        ctx.accounts.base_vault.key(),
+        ctx.accounts.quote_vault.key(),
+        sqrt_start_price,
+        PoolType::Token2022.into(),
+        activation_point,
+        initial_base_supply,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+    );
+
     emit_cpi!(EvtInitializePool {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         creator: ctx.accounts.creator.key(),
         base_mint: ctx.accounts.base_mint.key(),
-        pool_type: PoolType::SplToken.into(),
+        pool_type: PoolType::Token2022.into(),
         activation_point,
     });
     Ok(())

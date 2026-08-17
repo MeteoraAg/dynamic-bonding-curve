@@ -1,16 +1,16 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
 use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
+use crate::constants::seeds::POOL_PREFIX;
 use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
 use crate::state::fee::VolatilityTracker;
 use crate::InitPoolData;
 use crate::{
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    event::EvtInitializePool,
-    state::{PoolConfig, PoolType, VirtualPool},
-    token::is_supported_quote_mint,
-    PoolError,
+    constants::seeds::TOKEN_VAULT_PREFIX,
+    event::EvtInitializePoolWithTransferHook,
+    state::{ConfigWithTransferHook, PoolType, TokenBadge, TransferHookPool},
+    token::validate_quote_mint_with_token_badge,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -18,17 +18,17 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
+/// DAMM v2 do not support mints with active transfer hooks. DAMM v1 does not support token 2022 at all
+/// The transfer hook program_id and authority must be revoked before migration.
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
-    /// Which config the pool belongs to.
+pub struct InitializeVirtualPoolWithToken2022TransferHookV2Ctx<'info> {
+    /// Transfer hook config — contains the transfer hook program set by partner
     #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    pub config: AccountLoader<'info, ConfigWithTransferHook>,
 
     /// CHECK: pool authority
-    #[account(
-        address = const_pda::pool_authority::ID
-    )]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
@@ -43,15 +43,14 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
         mint::authority = pool_authority,
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = base_mint,
+        extensions::transfer_hook::authority = pool_authority,
+        extensions::transfer_hook::program_id = config.load()?.transfer_hook_program,
     )]
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(
-        mint::token_program = token_quote_program,
-    )]
+    #[account(mint::token_program = token_quote_program)]
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// Initialize an account to store the pool state
     #[account(
         init,
         seeds = [
@@ -62,9 +61,9 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
         ],
         bump,
         payer = payer,
-        space = 8 + VirtualPool::INIT_SPACE
+        space = 8 + TransferHookPool::INIT_SPACE
     )]
-    pub pool: AccountLoader<'info, VirtualPool>,
+    pub pool: AccountLoader<'info, TransferHookPool>,
 
     /// CHECK: Token base vault for the pool
     #[account(
@@ -82,7 +81,6 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     )]
     pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token quote vault for the pool
     #[account(
         init,
         seeds = [
@@ -98,26 +96,26 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Address paying to create the pool. Can be anyone
+    /// token badge for quote mint, required when quote mint is not permissionless-supported
+    pub token_badge: Option<AccountLoader<'info, TokenBadge>>,
+
+    /// CHECK: transfer hook program
+    #[account(executable, address = config.load()?.transfer_hook_program)]
+    pub transfer_hook_program: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// Program to create mint account and mint tokens
     pub token_quote_program: Interface<'info, TokenInterface>,
-    /// token program for base mint
     pub token_program: Program<'info, Token2022>,
-    // Sysvar for program account
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_token2022<'info>(
-    ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
+pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook2(
+    ctx: Context<InitializeVirtualPoolWithToken2022TransferHookV2Ctx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    require!(
-        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
-        PoolError::InvalidQuoteMint
-    );
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, &ctx.accounts.token_badge)?;
 
     let InitPoolData {
         activation_point,
@@ -151,7 +149,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
 
-    emit_cpi!(EvtInitializePool {
+    emit_cpi!(EvtInitializePoolWithTransferHook {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
         creator: ctx.accounts.creator.key(),

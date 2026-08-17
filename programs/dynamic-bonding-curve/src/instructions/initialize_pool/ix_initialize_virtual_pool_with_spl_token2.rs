@@ -5,37 +5,20 @@ use anchor_spl::{
         Mint as MintInterface, TokenAccount as TokenAccountInterface, TokenInterface,
     },
 };
-use std::cmp::{max, min};
 
+use super::{max_key, min_key, InitializePoolParameters};
 use crate::{
     const_pda,
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
     event::EvtInitializePool,
     instructions::initialize_pool::process_initialize_virtual_pool_with_spl_token::process_initialize_virtual_pool_with_spl_token,
-    state::{PoolConfig, PoolType, VirtualPool},
-    token::is_supported_quote_mint,
-    PoolError,
+    state::{PoolConfig, PoolType, TokenBadge, VirtualPool},
+    token::validate_quote_mint_with_token_badge,
 };
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct InitializePoolParameters {
-    pub name: String,
-    pub symbol: String,
-    pub uri: String,
-}
-
-// To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
-pub fn max_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
-    max(left, right).to_bytes()
-}
-
-pub fn min_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
-    min(left, right).to_bytes()
-}
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
+pub struct InitializeVirtualPoolWithSplTokenV2Ctx<'info> {
     /// Which config the pool belongs to.
     #[account(has_one = quote_mint)]
     pub config: AccountLoader<'info, PoolConfig>,
@@ -110,6 +93,9 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, TokenAccountInterface>>,
 
+    /// token badge for quote mint, required when quote mint is not permissionless-supported
+    pub token_badge: Option<AccountLoader<'info, TokenBadge>>,
+
     /// CHECK: mint_metadata
     #[account(mut)]
     pub mint_metadata: UncheckedAccount<'info>,
@@ -131,14 +117,11 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
-    ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
+pub fn handle_initialize_virtual_pool_with_spl_token2<'info>(
+    ctx: Context<'info, InitializeVirtualPoolWithSplTokenV2Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    require!(
-        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
-        PoolError::InvalidQuoteMint
-    );
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, &ctx.accounts.token_badge)?;
 
     let activation_point = process_initialize_virtual_pool_with_spl_token(
         &ctx.accounts.config,

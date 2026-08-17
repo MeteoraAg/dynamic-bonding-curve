@@ -26,7 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions. Guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
-- Added endpoints `create_config2` and `create_config_with_transfer_hook2`, which take the `token_badge` account as an optional named account. Required when the quote mint is not permissionless-supported.
+- Added endpoints `create_config2`, `create_config_with_transfer_hook2` and `initialize_virtual_pool_with_spl_token2`, `initialize_virtual_pool_with_token2022_2` and `initialize_virtual_pool_with_token2022_transfer_hook2`, which take the `token_badge` account as an optional named account. Required when the quote mint is not permissionless-supported.
+
+### Changed
+
+- The endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now reject configs whose quote mint is not permissionless-supported with `InvalidQuoteMint`.
 
 ### Deprecated
 

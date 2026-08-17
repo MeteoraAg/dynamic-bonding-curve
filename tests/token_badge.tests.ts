@@ -18,11 +18,16 @@ import {
   createConfig,
   createConfig2,
   CreateConfig2Params,
+  createConfigWithTransferHook,
   createConfigWithTransferHook2,
   CreateConfigParams,
   createOperatorAccount,
+  createPoolWithSplToken,
+  createPoolWithSplToken2,
   createPoolWithToken2022,
+  createPoolWithToken2022V2,
   createPoolWithToken2022TransferHook,
+  createPoolWithToken2022TransferHook2,
   createTokenBadge,
   OperatorPermission,
   swap,
@@ -256,15 +261,23 @@ describe("Token badge", () => {
         quoteMint: badgedQuoteMint,
         instructionParams: buildConfigParams(),
       };
-      // create_config has no token_badge account and must reject the mint
+      // the v1 endpoints have no token_badge account and reject the mint outright
       await expectThrowsAsync(
         () => createConfig(svm, program, params).then(() => {}),
         "InvalidQuoteMint"
       );
-      // create_config2 without a badge must reject the mint the same way
+      await expectThrowsAsync(
+        () =>
+          createConfigWithTransferHook(svm, program, {
+            ...params,
+            transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+          }).then(() => {}),
+        "InvalidQuoteMint"
+      );
+      // the v2 endpoints require the badge account for this mint
       await expectThrowsAsync(
         () => createConfig2(svm, program, params).then(() => {}),
-        "InvalidQuoteMint"
+        "InvalidTokenBadge"
       );
       await expectThrowsAsync(
         () =>
@@ -272,7 +285,7 @@ describe("Token badge", () => {
             ...params,
             transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
           }).then(() => {}),
-        "InvalidQuoteMint"
+        "InvalidTokenBadge"
       );
     });
 
@@ -326,8 +339,27 @@ describe("Token badge", () => {
         config = await createConfig2(svm, program, params);
       });
 
+      it("Fails to create pool via the v1 instruction on a badged quote mint", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config,
+              instructionParams: {
+                name: "v1 badged",
+                symbol: "V1BADGE",
+                uri: "v1badge.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidQuoteMint"
+        );
+      });
+
       it("Creates pool on the badged-quote config", async () => {
-        virtualPool = await createPoolWithToken2022(svm, program, {
+        virtualPool = await createPoolWithToken2022V2(svm, program, {
           payer: poolCreator,
           poolCreator,
           quoteMint: badgedQuoteMint,
@@ -338,11 +370,31 @@ describe("Token badge", () => {
             uri: "badge.com",
           },
           tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
         });
 
         const configState = getConfig(svm, program, config);
         expect(configState.quoteMint.toString()).eq(badgedQuoteMint.toString());
         expect(svm.getAccount(virtualPool)).not.eq(null);
+      });
+
+      it("Fails to create pool without the token badge account", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022V2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config,
+              instructionParams: {
+                name: "no badge",
+                symbol: "NOBADGE",
+                uri: "nobadge.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidTokenBadge"
+        );
       });
 
       it("Swaps on the badged-quote pool", async () => {
@@ -370,7 +422,7 @@ describe("Token badge", () => {
         await swap(svm, program, params);
       });
 
-      it("Close badge blocks new configs while existing configs and pools keep working", async () => {
+      it("Close badge blocks new configs and new pools while existing pools keep working", async () => {
         await closeTokenBadge(svm, program, {
           operator,
           tokenMint: badgedQuoteMint,
@@ -392,22 +444,25 @@ describe("Token badge", () => {
               quoteMint: badgedQuoteMint,
               instructionParams: buildConfigParams(),
             }).then(() => {}),
-          "InvalidQuoteMint"
+          "InvalidTokenBadge"
         );
 
-        const newPool = await createPoolWithToken2022(svm, program, {
-          payer: poolCreator,
-          poolCreator,
-          quoteMint: badgedQuoteMint,
-          config,
-          instructionParams: {
-            name: "badged2",
-            symbol: "BADGE2",
-            uri: "badge2.com",
-          },
-          tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-        });
-        expect(svm.getAccount(newPool)).not.eq(null);
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022V2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config,
+              instructionParams: {
+                name: "badged2",
+                symbol: "BADGE2",
+                uri: "badge2.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidTokenBadge"
+        );
 
         const poolState = getVirtualPool(svm, program, virtualPool);
         const params: SwapParams = {
@@ -449,8 +504,28 @@ describe("Token badge", () => {
         });
       });
 
+      it("Fails to create hook pool via the v1 instruction on a badged quote mint", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022TransferHook(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config: hookConfig,
+              transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+              instructionParams: {
+                name: "v1 badged hook",
+                symbol: "V1BHOOK",
+                uri: "v1badgedhook.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidQuoteMint"
+        );
+      });
+
       it("Creates pool on the badged-quote hook config", async () => {
-        hookPool = await createPoolWithToken2022TransferHook(svm, program, {
+        hookPool = await createPoolWithToken2022TransferHook2(svm, program, {
           payer: poolCreator,
           poolCreator,
           quoteMint: badgedQuoteMint,
@@ -462,6 +537,7 @@ describe("Token badge", () => {
             uri: "badgedhook.com",
           },
           tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
         });
         expect(svm.getAccount(hookPool)).not.eq(null);
 
@@ -470,6 +546,26 @@ describe("Token badge", () => {
           svm,
           poolCreator,
           hookPoolState.baseMint
+        );
+      });
+
+      it("Fails to create hook pool without the token badge account", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022TransferHook2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config: hookConfig,
+              transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+              instructionParams: {
+                name: "no badge hook",
+                symbol: "NBHOOK",
+                uri: "nobadgehook.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidTokenBadge"
         );
       });
 
@@ -489,7 +585,7 @@ describe("Token badge", () => {
         await swapWithTransferHook(svm, program, params);
       });
 
-      it("Close badge blocks new configs while existing configs and pools keep working", async () => {
+      it("Close badge blocks new configs and new pools while existing pools keep working", async () => {
         await closeTokenBadge(svm, program, {
           operator,
           tokenMint: badgedQuoteMint,
@@ -512,27 +608,26 @@ describe("Token badge", () => {
               instructionParams: buildConfigParams(),
               transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidQuoteMint"
+          "InvalidTokenBadge"
         );
 
-        const newPool = await createPoolWithToken2022TransferHook(
-          svm,
-          program,
-          {
-            payer: poolCreator,
-            poolCreator,
-            quoteMint: badgedQuoteMint,
-            config: hookConfig,
-            transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-            instructionParams: {
-              name: "badged hook 2",
-              symbol: "BHOOK2",
-              uri: "badgedhook2.com",
-            },
-            tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-          }
+        await expectThrowsAsync(
+          () =>
+            createPoolWithToken2022TransferHook2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: badgedQuoteMint,
+              config: hookConfig,
+              transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+              instructionParams: {
+                name: "badged hook 2",
+                symbol: "BHOOK2",
+                uri: "badgedhook2.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidTokenBadge"
         );
-        expect(svm.getAccount(newPool)).not.eq(null);
 
         const hookPoolState = getVirtualPool(svm, program, hookPool);
         const params: SwapParams = {
@@ -547,6 +642,117 @@ describe("Token badge", () => {
           referralTokenAccount: null,
         };
         await swapWithTransferHook(svm, program, params);
+      });
+    });
+
+    describe("SplToken base", () => {
+      let splBadgedQuoteMint: PublicKey;
+      let otherBadgedMint: PublicKey;
+      let splConfig: PublicKey;
+
+      before(async () => {
+        splBadgedQuoteMint = createToken2022Mint(svm, admin, {
+          permanentDelegate: admin.publicKey,
+        });
+        await createTokenBadge(svm, program, {
+          operator,
+          payer: operator,
+          tokenMint: splBadgedQuoteMint,
+        });
+        otherBadgedMint = createToken2022Mint(svm, admin, {
+          permanentDelegate: admin.publicKey,
+        });
+        await createTokenBadge(svm, program, {
+          operator,
+          payer: operator,
+          tokenMint: otherBadgedMint,
+        });
+
+        const instructionParams = buildConfigParams();
+        instructionParams.tokenType = 0; // spl token base
+        splConfig = await createConfig2(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: splBadgedQuoteMint,
+          instructionParams,
+          tokenBadge: deriveTokenBadgeAddress(splBadgedQuoteMint),
+        });
+      });
+
+      it("Fails to create spl pool via the v1 instruction on a badged quote mint", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithSplToken(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: splBadgedQuoteMint,
+              config: splConfig,
+              instructionParams: {
+                name: "v1 badged spl",
+                symbol: "V1BSPL",
+                uri: "v1badgedspl.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidQuoteMint"
+        );
+      });
+
+      it("Fails to create spl pool without the token badge account", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithSplToken2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: splBadgedQuoteMint,
+              config: splConfig,
+              instructionParams: {
+                name: "no badge spl",
+                symbol: "NBSPL",
+                uri: "nobadgespl.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            }).then(() => {}),
+          "InvalidTokenBadge"
+        );
+      });
+
+      it("Fails to create spl pool with a badge for a different mint", async () => {
+        await expectThrowsAsync(
+          () =>
+            createPoolWithSplToken2(svm, program, {
+              payer: poolCreator,
+              poolCreator,
+              quoteMint: splBadgedQuoteMint,
+              config: splConfig,
+              instructionParams: {
+                name: "wrong badge spl",
+                symbol: "WBSPL",
+                uri: "wrongbadgespl.com",
+              },
+              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+              tokenBadge: deriveTokenBadgeAddress(otherBadgedMint),
+            }).then(() => {}),
+          "InvalidTokenBadge"
+        );
+      });
+
+      it("Creates spl pool with the token badge", async () => {
+        const splPool = await createPoolWithSplToken2(svm, program, {
+          payer: poolCreator,
+          poolCreator,
+          quoteMint: splBadgedQuoteMint,
+          config: splConfig,
+          instructionParams: {
+            name: "badged spl",
+            symbol: "BSPL",
+            uri: "badgedspl.com",
+          },
+          tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+          tokenBadge: deriveTokenBadgeAddress(splBadgedQuoteMint),
+        });
+        expect(svm.getAccount(splPool)).not.eq(null);
       });
     });
   });

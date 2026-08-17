@@ -10,6 +10,8 @@ use crate::{
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
+    token::is_supported_quote_mint,
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -111,6 +113,11 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
     ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    require!(
+        is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::InvalidQuoteMint
+    );
+
     let InitPoolData {
         activation_point,
         initial_base_supply,

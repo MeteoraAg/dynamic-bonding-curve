@@ -180,6 +180,30 @@ pub mod dynamic_bonding_curve {
         instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook(ctx, params)
     }
 
+    /// Accepts: VirtualPool only.
+    pub fn initialize_virtual_pool_with_spl_token2<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithSplTokenV2Ctx<'info>>,
+        params: InitializePoolParameters,
+    ) -> Result<()> {
+        instructions::handle_initialize_virtual_pool_with_spl_token2(ctx, params)
+    }
+
+    /// Accepts: VirtualPool only.
+    pub fn initialize_virtual_pool_with_token2022_2<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithToken2022V2Ctx<'info>>,
+        params: InitializePoolParameters,
+    ) -> Result<()> {
+        instructions::handle_initialize_virtual_pool_with_token2022_2(ctx, params)
+    }
+
+    /// Accepts: TransferHookPool only.
+    pub fn initialize_virtual_pool_with_token2022_transfer_hook2(
+        ctx: Context<InitializeVirtualPoolWithToken2022TransferHookV2Ctx>,
+        params: InitializePoolParameters,
+    ) -> Result<()> {
+        instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook2(ctx, params)
+    }
+
     /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_pool_creator(&ctx.accounts.virtual_pool, ctx.accounts.creator.key))]
     pub fn create_virtual_pool_metadata(
