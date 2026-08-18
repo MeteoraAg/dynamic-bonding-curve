@@ -62,8 +62,6 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         ErrorCode::ConstraintHasOne
     );
 
-    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
-
     // Make sure pool has been completed
     require!(
         pool.is_curve_complete(config.migration_quote_threshold),
@@ -77,6 +75,8 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     );
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),

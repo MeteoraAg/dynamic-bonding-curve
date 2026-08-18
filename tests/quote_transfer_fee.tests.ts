@@ -96,7 +96,7 @@ function buildConfigParams(): ConfigParameters {
     },
     migrationFeeOption: 0,
     tokenSupply: null,
-    creatorTradingFeePercentage: 0,
+    creatorTradingFeePercentage: 50,
     tokenUpdateAuthority: 0,
     migrationFee: {
       feePercentage: 0,
@@ -401,11 +401,12 @@ describe("Quote mint with transfer fee extension", () => {
       });
 
       it("Partner claims trading fee while the fee is zero", async () => {
+        // claim only a little so the claims below still have a non-zero quote amount to transfer
         await claimTradingFee(svm, program, {
           feeClaimer: partner,
           pool: virtualPool,
           maxBaseAmount: U64_MAX,
-          maxQuoteAmount: U64_MAX,
+          maxQuoteAmount: new BN(1),
         });
       });
 
@@ -460,6 +461,22 @@ describe("Quote mint with transfer fee extension", () => {
             }).then(() => {}),
           "QuoteMintHasNonZeroTransferFee"
         );
+      });
+
+      it("Allows base-only trading fee claims while the fee is non-zero", async () => {
+        await claimTradingFee(svm, program, {
+          feeClaimer: partner,
+          pool: virtualPool,
+          maxBaseAmount: U64_MAX,
+          maxQuoteAmount: new BN(0),
+        });
+
+        await claimCreatorTradingFee(svm, program, {
+          creator: poolCreator,
+          pool: virtualPool,
+          maxBaseAmount: U64_MAX,
+          maxQuoteAmount: new BN(0),
+        });
       });
 
       it("Partner withdraws surplus after the fee returns to zero", async () => {

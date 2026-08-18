@@ -529,10 +529,6 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         ErrorCode::ConstraintHasOne
     );
 
-    // dammv2 supports non-zero transfer fee.
-    // however this validation ensures that we initialize the migrated pool with the expected amount
-    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
-
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
         PoolError::NotPermitToDoThisAction
@@ -549,6 +545,11 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         migration_option == MigrationOption::DammV2,
         PoolError::InvalidMigrationOption
     );
+
+    // dammv2 supports non-zero transfer fee.
+    // however this validation ensures that we initialize the migrated pool with the expected amount
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
+
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 

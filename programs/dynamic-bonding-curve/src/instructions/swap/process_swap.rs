@@ -126,8 +126,6 @@ pub fn process_swap<'a: 'info, 'info>(
         ErrorCode::ConstraintHasOne
     );
 
-    validate_transfer_fee_is_zero(&quote_mint.to_account_info())?;
-
     let config_loader = ConfigAccountLoader::try_from(config_account)?;
     let config = config_loader.load()?;
 
@@ -289,6 +287,8 @@ pub fn process_swap<'a: 'info, 'info>(
         TradeDirection::BaseToQuote => (transfer_hook_base_accounts, None),
         TradeDirection::QuoteToBase => (None, transfer_hook_base_accounts),
     };
+
+    validate_transfer_fee_is_zero(&quote_mint.to_account_info())?;
 
     // send to reserve
     transfer_token_from_user(

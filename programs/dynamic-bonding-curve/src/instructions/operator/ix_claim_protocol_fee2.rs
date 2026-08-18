@@ -106,8 +106,6 @@ pub fn handle_claim_protocol_fee2<'info>(
         ErrorCode::ConstraintHasOne
     );
 
-    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
-
     let is_claiming_base = get_claim_direction_and_validate_accounts(
         &pool,
         &config,
@@ -141,6 +139,8 @@ pub fn handle_claim_protocol_fee2<'info>(
             &ctx.accounts.token_base_program,
         )
     } else {
+        validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
+
         (
             &ctx.accounts.quote_vault,
             &ctx.accounts.quote_mint,

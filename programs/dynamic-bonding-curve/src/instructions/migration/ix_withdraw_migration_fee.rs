@@ -86,8 +86,6 @@ pub fn handle_withdraw_migration_fee(
         ErrorCode::ConstraintHasOne
     );
 
-    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
-
     // Make sure pool has been completed
     require!(
         pool.is_curve_complete(config.migration_quote_threshold),
@@ -128,6 +126,8 @@ pub fn handle_withdraw_migration_fee(
         pool.update_withdraw_migration_fee(mask);
         creator_migration_fee
     };
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
