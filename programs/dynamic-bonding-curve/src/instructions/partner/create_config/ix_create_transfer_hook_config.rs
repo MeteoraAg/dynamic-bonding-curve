@@ -5,7 +5,6 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     state::{ConfigWithTransferHook, TokenType},
-    token::validate_quote_mint_with_token_badge,
     PoolError,
 };
 
@@ -43,10 +42,9 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
-
     config_parameters.validate(
         &ctx.accounts.quote_mint,
+        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         true,
     )?;
