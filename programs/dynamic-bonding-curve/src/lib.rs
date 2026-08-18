@@ -86,32 +86,18 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_partner_metadata(ctx, metadata)
     }
 
-    pub fn create_config(
-        ctx: Context<CreateConfigCtx>,
+    pub fn create_config<'info>(
+        ctx: Context<'info, CreateConfigCtx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    pub fn create_config2<'info>(
-        ctx: Context<'info, CreateConfigV2Ctx<'info>>,
-        config_parameters: ConfigParameters,
-    ) -> Result<()> {
-        instructions::handle_create_config2(ctx, config_parameters)
-    }
-
-    pub fn create_config_with_transfer_hook(
-        ctx: Context<CreateConfigWithTransferHookCtx>,
+    pub fn create_config_with_transfer_hook<'info>(
+        ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
-    }
-
-    pub fn create_config_with_transfer_hook2<'info>(
-        ctx: Context<'info, CreateConfigWithTransferHookV2Ctx<'info>>,
-        config_parameters: ConfigParameters,
-    ) -> Result<()> {
-        instructions::handle_create_config_with_transfer_hook2(ctx, config_parameters)
     }
 
     /// Accepts: VirtualPool only.
@@ -173,35 +159,11 @@ pub mod dynamic_bonding_curve {
     }
 
     /// Accepts: TransferHookPool only.
-    pub fn initialize_virtual_pool_with_token2022_transfer_hook(
-        ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
+    pub fn initialize_virtual_pool_with_token2022_transfer_hook<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook(ctx, params)
-    }
-
-    /// Accepts: VirtualPool only.
-    pub fn initialize_virtual_pool_with_spl_token2<'info>(
-        ctx: Context<'info, InitializeVirtualPoolWithSplTokenV2Ctx<'info>>,
-        params: InitializePoolParameters,
-    ) -> Result<()> {
-        instructions::handle_initialize_virtual_pool_with_spl_token2(ctx, params)
-    }
-
-    /// Accepts: VirtualPool only.
-    pub fn initialize_virtual_pool_with_token2022_2<'info>(
-        ctx: Context<'info, InitializeVirtualPoolWithToken2022V2Ctx<'info>>,
-        params: InitializePoolParameters,
-    ) -> Result<()> {
-        instructions::handle_initialize_virtual_pool_with_token2022_2(ctx, params)
-    }
-
-    /// Accepts: TransferHookPool only.
-    pub fn initialize_virtual_pool_with_token2022_transfer_hook2(
-        ctx: Context<InitializeVirtualPoolWithToken2022TransferHookV2Ctx>,
-        params: InitializePoolParameters,
-    ) -> Result<()> {
-        instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook2(ctx, params)
     }
 
     /// Accepts: VirtualPool or TransferHookPool.

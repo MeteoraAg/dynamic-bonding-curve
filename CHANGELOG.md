@@ -26,12 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
-- Note that a token badge does not allow a non-zero transfer fee: `transfer_fee_basis_points` must be 0 in both `older_transfer_fee` and `newer_transfer_fee`. This is enforced with `QuoteMintHasNonZeroTransferFee` at config/pool creation and on every endpoint that transfers quote tokens.
-- Added endpoints `create_config2`, `create_config_with_transfer_hook2` and `initialize_virtual_pool_with_spl_token2`, `initialize_virtual_pool_with_token2022_2` and `initialize_virtual_pool_with_token2022_transfer_hook2`, which take the `token_badge` account as an optional named account. Required when the quote mint is not permissionless-supported.
+- Note that a token badge does not allow a non-zero transfer fee: `transfer_fee_basis_points` must be 0 in both `older_transfer_fee` and `newer_transfer_fee`. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
 
 ### Changed
 
-- The endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now reject configs whose quote mint is not permissionless-supported with `InvalidQuoteMint`.
+- The endpoints `create_config`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now take the `token_badge` account as a remaining account at index 0. Required when the quote mint is not permissionless-supported.
 
 ### Deprecated
 

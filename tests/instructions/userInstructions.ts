@@ -50,6 +50,7 @@ export type CreatePoolSplTokenParams = {
   config: PublicKey;
   instructionParams: InitializePoolParameters;
   tokenQuoteProgram?: PublicKey;
+  tokenBadge?: PublicKey;
 };
 
 export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
@@ -57,17 +58,6 @@ export type CreatePoolToken2022Params = CreatePoolSplTokenParams;
 export type CreatePoolToken2022TransferHookParams = CreatePoolSplTokenParams & {
   transferHookProgram: PublicKey;
 };
-
-export type CreatePool2SplTokenParams = CreatePoolSplTokenParams & {
-  tokenBadge?: PublicKey;
-};
-
-export type CreatePool2Token2022Params = CreatePool2SplTokenParams;
-
-export type CreatePool2Token2022TransferHookParams =
-  CreatePool2SplTokenParams & {
-    transferHookProgram: PublicKey;
-  };
 
 export async function createInitializePoolWithSplTokenIx(
   svm: LiteSVM,
@@ -108,6 +98,11 @@ export async function createInitializePoolWithSplTokenIx(
       tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
       tokenProgram,
     })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .instruction();
 
   return {
@@ -169,6 +164,11 @@ export async function createPoolWithToken2022(
       tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .transaction();
 
   transaction.add(
@@ -217,169 +217,11 @@ export async function createPoolWithToken2022TransferHook(
       tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
-    .transaction();
-
-  transaction.add(
-    ComputeBudgetProgram.setComputeUnitLimit({
-      units: 400_000,
-    })
-  );
-
-  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
-
-  return pool;
-}
-
-export async function createInitializePoolWithSplToken2Ix(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: CreatePool2SplTokenParams
-): Promise<{
-  instruction: TransactionInstruction;
-  pool: PublicKey;
-  baseMintKP: Keypair;
-}> {
-  const { payer, quoteMint, poolCreator, config, instructionParams } = params;
-  const configState = getConfig(svm, program, config);
-
-  const poolAuthority = derivePoolAuthority();
-  const baseMintKP = Keypair.generate();
-  const pool = derivePoolAddress(config, baseMintKP.publicKey, quoteMint);
-  const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
-  const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
-  const mintMetadata = deriveMetadataAccount(baseMintKP.publicKey);
-
-  const tokenProgram =
-    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-  const instruction = await program.methods
-    .initializeVirtualPoolWithSplToken2(instructionParams)
-    .accountsPartial({
-      config,
-      baseMint: baseMintKP.publicKey,
-      quoteMint,
-      pool,
-      payer: payer.publicKey,
-      creator: poolCreator.publicKey,
-      poolAuthority,
-      baseVault,
-      quoteVault,
-      tokenBadge: params.tokenBadge ?? null,
-      mintMetadata,
-      metadataProgram: METAPLEX_PROGRAM_ID,
-      tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
-      tokenProgram,
-    })
-    .instruction();
-
-  return {
-    instruction,
-    pool,
-    baseMintKP,
-  };
-}
-
-export async function createPoolWithSplToken2(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: CreatePool2SplTokenParams
-): Promise<PublicKey> {
-  const { instruction, pool, baseMintKP } =
-    await createInitializePoolWithSplToken2Ix(svm, program, params);
-
-  const { payer, poolCreator } = params;
-
-  const transaction = new Transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-
-  transaction.add(
-    ComputeBudgetProgram.setComputeUnitLimit({
-      units: 400_000,
-    }),
-    instruction
-  );
-
-  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
-
-  return pool;
-}
-
-export async function createPoolWithToken2022V2(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: CreatePool2Token2022Params
-): Promise<PublicKey> {
-  const { payer, quoteMint, config, instructionParams, poolCreator } = params;
-
-  const poolAuthority = derivePoolAuthority();
-  const baseMintKP = Keypair.generate();
-  const pool = derivePoolAddress(config, baseMintKP.publicKey, quoteMint);
-  const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
-  const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
-  const transaction = await program.methods
-    .initializeVirtualPoolWithToken20222(instructionParams)
-    .accountsPartial({
-      config,
-      baseMint: baseMintKP.publicKey,
-      quoteMint,
-      pool,
-      payer: payer.publicKey,
-      creator: poolCreator.publicKey,
-      poolAuthority,
-      baseVault,
-      quoteVault,
-      tokenBadge: params.tokenBadge ?? null,
-      tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-    })
-    .transaction();
-
-  transaction.add(
-    ComputeBudgetProgram.setComputeUnitLimit({
-      units: 400_000,
-    })
-  );
-
-  sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
-
-  return pool;
-}
-
-export async function createPoolWithToken2022TransferHook2(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: CreatePool2Token2022TransferHookParams
-): Promise<PublicKey> {
-  const {
-    payer,
-    quoteMint,
-    config,
-    instructionParams,
-    poolCreator,
-    transferHookProgram,
-  } = params;
-
-  const poolAuthority = derivePoolAuthority();
-  const baseMintKP = Keypair.generate();
-  const pool = derivePoolAddress(config, baseMintKP.publicKey, quoteMint);
-  const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
-  const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
-  const transaction = await program.methods
-    .initializeVirtualPoolWithToken2022TransferHook2(instructionParams)
-    .accountsPartial({
-      config,
-      baseMint: baseMintKP.publicKey,
-      quoteMint,
-      pool,
-      payer: payer.publicKey,
-      creator: poolCreator.publicKey,
-      poolAuthority,
-      baseVault,
-      quoteVault,
-      tokenBadge: params.tokenBadge ?? null,
-      transferHookProgram,
-      tokenQuoteProgram: params.tokenQuoteProgram ?? TOKEN_PROGRAM_ID,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .transaction();
 
   transaction.add(

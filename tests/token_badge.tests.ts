@@ -8,18 +8,12 @@ import {
   closeTokenBadge,
   ConfigParameters,
   createConfig,
-  createConfig2,
-  CreateConfig2Params,
   createConfigWithTransferHook,
-  createConfigWithTransferHook2,
   CreateConfigParams,
   createOperatorAccount,
   createPoolWithSplToken,
-  createPoolWithSplToken2,
   createPoolWithToken2022,
-  createPoolWithToken2022V2,
   createPoolWithToken2022TransferHook,
-  createPoolWithToken2022TransferHook2,
   createTokenBadge,
   OperatorPermission,
   swap,
@@ -221,27 +215,14 @@ describe("Token badge", () => {
         quoteMint: badgedQuoteMint,
         instructionParams: buildConfigParams(),
       };
-      // the v1 endpoints have no token_badge account and reject the mint outright
+      // without the badge in remaining accounts the mint is rejected
       await expectThrowsAsync(
         () => createConfig(svm, program, params).then(() => {}),
-        "InvalidQuoteMint"
-      );
-      await expectThrowsAsync(
-        () =>
-          createConfigWithTransferHook(svm, program, {
-            ...params,
-            transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-          }).then(() => {}),
-        "InvalidQuoteMint"
-      );
-      // the v2 endpoints require the badge account for this mint
-      await expectThrowsAsync(
-        () => createConfig2(svm, program, params).then(() => {}),
         "InvalidTokenBadge"
       );
       await expectThrowsAsync(
         () =>
-          createConfigWithTransferHook2(svm, program, {
+          createConfigWithTransferHook(svm, program, {
             ...params,
             transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
           }).then(() => {}),
@@ -264,7 +245,7 @@ describe("Token badge", () => {
       instructionParams.tokenType = 0; // spl token
       await expectThrowsAsync(
         () =>
-          createConfig2(svm, program, {
+          createConfig(svm, program, {
             payer: partner,
             leftoverReceiver: partner.publicKey,
             feeClaimer: partner.publicKey,
@@ -288,7 +269,7 @@ describe("Token badge", () => {
       });
 
       it("Creates config with a badged quote mint", async () => {
-        const params: CreateConfig2Params<ConfigParameters> = {
+        const params: CreateConfigParams<ConfigParameters> = {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -296,30 +277,11 @@ describe("Token badge", () => {
           instructionParams: buildConfigParams(),
           tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
         };
-        config = await createConfig2(svm, program, params);
-      });
-
-      it("Fails to create pool via the v1 instruction on a badged quote mint", async () => {
-        await expectThrowsAsync(
-          () =>
-            createPoolWithToken2022(svm, program, {
-              payer: poolCreator,
-              poolCreator,
-              quoteMint: badgedQuoteMint,
-              config,
-              instructionParams: {
-                name: "v1 badged",
-                symbol: "V1BADGE",
-                uri: "v1badge.com",
-              },
-              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-            }).then(() => {}),
-          "InvalidQuoteMint"
-        );
+        config = await createConfig(svm, program, params);
       });
 
       it("Creates pool on the badged-quote config", async () => {
-        virtualPool = await createPoolWithToken2022V2(svm, program, {
+        virtualPool = await createPoolWithToken2022(svm, program, {
           payer: poolCreator,
           poolCreator,
           quoteMint: badgedQuoteMint,
@@ -341,7 +303,7 @@ describe("Token badge", () => {
       it("Fails to create pool without the token badge account", async () => {
         await expectThrowsAsync(
           () =>
-            createPoolWithToken2022V2(svm, program, {
+            createPoolWithToken2022(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: badgedQuoteMint,
@@ -397,7 +359,7 @@ describe("Token badge", () => {
 
         await expectThrowsAsync(
           () =>
-            createConfig2(svm, program, {
+            createConfig(svm, program, {
               payer: partner,
               leftoverReceiver: partner.publicKey,
               feeClaimer: partner.publicKey,
@@ -409,7 +371,7 @@ describe("Token badge", () => {
 
         await expectThrowsAsync(
           () =>
-            createPoolWithToken2022V2(svm, program, {
+            createPoolWithToken2022(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: badgedQuoteMint,
@@ -453,7 +415,7 @@ describe("Token badge", () => {
       });
 
       it("Creates transfer hook config with a badged quote mint", async () => {
-        hookConfig = await createConfigWithTransferHook2(svm, program, {
+        hookConfig = await createConfigWithTransferHook(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -464,28 +426,8 @@ describe("Token badge", () => {
         });
       });
 
-      it("Fails to create hook pool via the v1 instruction on a badged quote mint", async () => {
-        await expectThrowsAsync(
-          () =>
-            createPoolWithToken2022TransferHook(svm, program, {
-              payer: poolCreator,
-              poolCreator,
-              quoteMint: badgedQuoteMint,
-              config: hookConfig,
-              transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-              instructionParams: {
-                name: "v1 badged hook",
-                symbol: "V1BHOOK",
-                uri: "v1badgedhook.com",
-              },
-              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-            }).then(() => {}),
-          "InvalidQuoteMint"
-        );
-      });
-
       it("Creates pool on the badged-quote hook config", async () => {
-        hookPool = await createPoolWithToken2022TransferHook2(svm, program, {
+        hookPool = await createPoolWithToken2022TransferHook(svm, program, {
           payer: poolCreator,
           poolCreator,
           quoteMint: badgedQuoteMint,
@@ -512,7 +454,7 @@ describe("Token badge", () => {
       it("Fails to create hook pool without the token badge account", async () => {
         await expectThrowsAsync(
           () =>
-            createPoolWithToken2022TransferHook2(svm, program, {
+            createPoolWithToken2022TransferHook(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: badgedQuoteMint,
@@ -560,7 +502,7 @@ describe("Token badge", () => {
 
         await expectThrowsAsync(
           () =>
-            createConfigWithTransferHook2(svm, program, {
+            createConfigWithTransferHook(svm, program, {
               payer: partner,
               leftoverReceiver: partner.publicKey,
               feeClaimer: partner.publicKey,
@@ -573,7 +515,7 @@ describe("Token badge", () => {
 
         await expectThrowsAsync(
           () =>
-            createPoolWithToken2022TransferHook2(svm, program, {
+            createPoolWithToken2022TransferHook(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: badgedQuoteMint,
@@ -630,7 +572,7 @@ describe("Token badge", () => {
 
         const instructionParams = buildConfigParams();
         instructionParams.tokenType = 0; // spl token base
-        splConfig = await createConfig2(svm, program, {
+        splConfig = await createConfig(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -640,29 +582,10 @@ describe("Token badge", () => {
         });
       });
 
-      it("Fails to create spl pool via the v1 instruction on a badged quote mint", async () => {
-        await expectThrowsAsync(
-          () =>
-            createPoolWithSplToken(svm, program, {
-              payer: poolCreator,
-              poolCreator,
-              quoteMint: splBadgedQuoteMint,
-              config: splConfig,
-              instructionParams: {
-                name: "v1 badged spl",
-                symbol: "V1BSPL",
-                uri: "v1badgedspl.com",
-              },
-              tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-            }).then(() => {}),
-          "InvalidQuoteMint"
-        );
-      });
-
       it("Fails to create spl pool without the token badge account", async () => {
         await expectThrowsAsync(
           () =>
-            createPoolWithSplToken2(svm, program, {
+            createPoolWithSplToken(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: splBadgedQuoteMint,
@@ -681,7 +604,7 @@ describe("Token badge", () => {
       it("Fails to create spl pool with a badge for a different mint", async () => {
         await expectThrowsAsync(
           () =>
-            createPoolWithSplToken2(svm, program, {
+            createPoolWithSplToken(svm, program, {
               payer: poolCreator,
               poolCreator,
               quoteMint: splBadgedQuoteMint,
@@ -699,7 +622,7 @@ describe("Token badge", () => {
       });
 
       it("Creates spl pool with the token badge", async () => {
-        const splPool = await createPoolWithSplToken2(svm, program, {
+        const splPool = await createPoolWithSplToken(svm, program, {
           payer: poolCreator,
           poolCreator,
           quoteMint: splBadgedQuoteMint,

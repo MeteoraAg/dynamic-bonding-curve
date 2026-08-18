@@ -16,7 +16,6 @@ import {
   ConfigParameters,
   createConfig,
   CreateConfigParams,
-  createInitializePoolWithSplToken2Ix,
   createInitializePoolWithSplTokenIx,
 } from "./instructions";
 import {
@@ -118,45 +117,6 @@ describe("First swap", () => {
 
     const totalFeeCharged = totalTradingFee2.sub(totalTradingFee0);
     expect(totalFeeCharged.eq(expectedFee2)).to.be.true;
-  });
-
-  it("Charge min fee for swap ix bundled with initialize_virtual_pool_with_spl_token2", async () => {
-    const {
-      baseMintKP,
-      instruction: initPoolIx,
-      pool,
-      config,
-      endFeeNumerator,
-    } = await createInitializePoolIx(partner, poolCreator, svm, program, true);
-
-    const amountIn = new BN(LAMPORTS_PER_SOL);
-
-    const swapIxs = await createSwapIx(
-      pool,
-      poolCreator.publicKey,
-      program,
-      amountIn,
-      config,
-      baseMintKP.publicKey,
-      NATIVE_MINT
-    );
-
-    const tx = new Transaction().add(initPoolIx, ...swapIxs);
-    tx.recentBlockhash = svm.latestBlockhash();
-    tx.feePayer = poolCreator.publicKey;
-    tx.sign(poolCreator, baseMintKP);
-
-    const res = svm.sendTransaction(tx);
-    expect(res instanceof TransactionMetadata);
-
-    const expectedFee = amountIn.mul(endFeeNumerator).div(FEE_DENOMINATOR);
-    const poolState = await getVirtualPool(svm, program, pool);
-
-    const totalTradingFee = poolState.metrics.totalProtocolQuoteFee.add(
-      poolState.metrics.totalTradingQuoteFee
-    );
-
-    expect(totalTradingFee.eq(expectedFee)).to.be.true;
   });
 
   it("Charge cliff fee if no sysvar instruction passed in", async () => {
@@ -272,8 +232,7 @@ async function createInitializePoolIx(
   partner: Keypair,
   poolCreator: Keypair,
   svm: LiteSVM,
-  program: VirtualCurveProgram,
-  useV2Instruction = false
+  program: VirtualCurveProgram
 ) {
   // partner create config
 
@@ -385,11 +344,7 @@ async function createInitializePoolIx(
   };
   const config = await createConfig(svm, program, params);
 
-  const createIx = useV2Instruction
-    ? createInitializePoolWithSplToken2Ix
-    : createInitializePoolWithSplTokenIx;
-
-  return createIx(svm, program, {
+  return createInitializePoolWithSplTokenIx(svm, program, {
     poolCreator,
     payer: poolCreator,
     quoteMint: NATIVE_MINT,

@@ -6,13 +6,13 @@ import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
-  createConfig2,
-  createConfigWithTransferHook2,
+  createConfig,
+  createConfigWithTransferHook,
   createOperatorAccount,
   claimCreatorTradingFee,
   claimTradingFee,
   createMeteoraDammV2Metadata,
-  createPoolWithToken2022V2,
+  createPoolWithToken2022,
   createTokenBadge,
   creatorWithdrawSurplus,
   migrateToDammV2,
@@ -161,7 +161,7 @@ describe("Quote mint with transfer fee extension", () => {
     });
   });
 
-  it("Fails to create config when the badged quote mint has a non-zero transfer fee", async () => {
+  it("Fails to create a token badge and config when the quote mint has a non-zero transfer fee", async () => {
     const feeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 100,
@@ -169,15 +169,19 @@ describe("Quote mint with transfer fee extension", () => {
         transferFeeConfigAuthority: admin.publicKey,
       },
     });
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: feeMint,
-    });
+    await expectThrowsAsync(
+      () =>
+        createTokenBadge(svm, program, {
+          operator,
+          payer: operator,
+          tokenMint: feeMint,
+        }).then(() => {}),
+      "QuoteMintHasNonZeroTransferFee"
+    );
 
     await expectThrowsAsync(
       () =>
-        createConfig2(svm, program, {
+        createConfig(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -190,7 +194,7 @@ describe("Quote mint with transfer fee extension", () => {
 
     await expectThrowsAsync(
       () =>
-        createConfigWithTransferHook2(svm, program, {
+        createConfigWithTransferHook(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -228,7 +232,7 @@ describe("Quote mint with transfer fee extension", () => {
 
     await expectThrowsAsync(
       () =>
-        createConfig2(svm, program, {
+        createConfig(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -251,7 +255,7 @@ describe("Quote mint with transfer fee extension", () => {
 
     await expectThrowsAsync(
       () =>
-        createConfig2(svm, program, {
+        createConfig(svm, program, {
           payer: partner,
           leftoverReceiver: partner.publicKey,
           feeClaimer: partner.publicKey,
@@ -283,7 +287,7 @@ describe("Quote mint with transfer fee extension", () => {
     });
 
     it("Creates config and pool with a badged zero-fee quote mint", async () => {
-      config = await createConfig2(svm, program, {
+      config = await createConfig(svm, program, {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,
@@ -292,7 +296,7 @@ describe("Quote mint with transfer fee extension", () => {
         tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
       });
 
-      virtualPool = await createPoolWithToken2022V2(svm, program, {
+      virtualPool = await createPoolWithToken2022(svm, program, {
         payer: poolCreator,
         poolCreator,
         quoteMint: zeroFeeMint,
@@ -313,7 +317,7 @@ describe("Quote mint with transfer fee extension", () => {
 
       await expectThrowsAsync(
         () =>
-          createPoolWithToken2022V2(svm, program, {
+          createPoolWithToken2022(svm, program, {
             payer: poolCreator,
             poolCreator,
             quoteMint: zeroFeeMint,

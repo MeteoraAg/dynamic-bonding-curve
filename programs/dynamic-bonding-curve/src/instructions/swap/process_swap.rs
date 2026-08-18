@@ -1,11 +1,8 @@
 use std::u64;
 
 use crate::instruction::InitializeVirtualPoolWithSplToken;
-use crate::instruction::InitializeVirtualPoolWithSplToken2;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
-use crate::instruction::InitializeVirtualPoolWithToken20222;
 use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
-use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook2;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
 use crate::instruction::Swap2WithTransferHook as Swap2WithTransferHookInstruction;
@@ -535,9 +532,6 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
             if disc.eq(InitializeVirtualPoolWithSplToken::DISCRIMINATOR)
                 || disc.eq(InitializeVirtualPoolWithToken2022::DISCRIMINATOR)
                 || disc.eq(InitializeVirtualPoolWithToken2022TransferHook::DISCRIMINATOR)
-                || disc.eq(InitializeVirtualPoolWithSplToken2::DISCRIMINATOR)
-                || disc.eq(InitializeVirtualPoolWithToken20222::DISCRIMINATOR)
-                || disc.eq(InitializeVirtualPoolWithToken2022TransferHook2::DISCRIMINATOR)
             {
                 const VIRTUAL_POOL_ACCOUNT_INDEX: usize = 5;
                 let Some(account) = instruction.accounts.get(VIRTUAL_POOL_ACCOUNT_INDEX) else {
