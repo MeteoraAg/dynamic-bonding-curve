@@ -6,7 +6,7 @@ use crate::{
     const_pda,
     event::EvtWithdrawMigrationFee,
     state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
-    token::transfer_token_from_pool_authority,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
@@ -85,6 +85,8 @@ pub fn handle_withdraw_migration_fee(
         pool.config.eq(&ctx.accounts.config.key()),
         ErrorCode::ConstraintHasOne
     );
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     // Make sure pool has been completed
     require!(

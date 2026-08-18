@@ -4,7 +4,9 @@ use anchor_lang::{
     solana_program::program::{invoke, invoke_signed},
     solana_program::system_instruction::transfer,
 };
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_hook;
+use anchor_spl::token_2022::spl_token_2022::extension::{
+    transfer_fee::TransferFeeConfig, transfer_hook,
+};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -167,6 +169,52 @@ pub fn transfer_token_from_pool_authority<'info>(
     Ok(())
 }
 
+fn is_supported_quote_mint_extensions(
+    mint: &StateWithExtensions<spl_token_2022::state::Mint>,
+) -> Result<bool> {
+    let extensions = mint.get_extension_types()?;
+    for e in extensions {
+        if e != ExtensionType::MetadataPointer && e != ExtensionType::TokenMetadata {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn is_transfer_fee_zero(mint: &StateWithExtensions<spl_token_2022::state::Mint>) -> Result<bool> {
+    if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
+        let older_transfer_fee_bps = u16::from(
+            transfer_fee_config
+                .older_transfer_fee
+                .transfer_fee_basis_points,
+        );
+        let newer_transfer_fee_bps = u16::from(
+            transfer_fee_config
+                .newer_transfer_fee
+                .transfer_fee_basis_points,
+        );
+        return Ok(older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0);
+    }
+
+    Ok(true)
+}
+
+pub fn validate_transfer_fee_is_zero(mint_account_info: &AccountInfo) -> Result<()> {
+    if mint_account_info.owner.eq(&Token::id()) {
+        return Ok(());
+    }
+
+    let mint_data = mint_account_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    require!(
+        is_transfer_fee_zero(&mint)?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
+    Ok(())
+}
+
+/// Rule: quote mint must be SPL-Token, or Token-2022 (non-native) with only metadata extensions
 pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
@@ -179,20 +227,34 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
 
     let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-    let extensions = mint.get_extension_types()?;
-    for e in extensions {
-        if e != ExtensionType::MetadataPointer && e != ExtensionType::TokenMetadata {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+    is_supported_quote_mint_extensions(&mint)
 }
 
+/// Rule: same as [`is_supported_quote_mint`]
+/// except a mint with other extensions is allowed with a valid token badge
+/// never allow a non-zero transfer fee regardless of token badge
 pub fn validate_quote_mint_with_token_badge<'info>(
     quote_mint: &InterfaceAccount<'info, Mint>,
     token_badge: &Option<AccountLoader<'info, TokenBadge>>,
 ) -> Result<()> {
-    if !is_supported_quote_mint(quote_mint)? {
+    let mint_info = quote_mint.to_account_info();
+    if mint_info.owner.eq(&Token::id()) {
+        return Ok(());
+    }
+
+    if spl_token_2022::native_mint::check_id(&quote_mint.key()) {
+        return Err(PoolError::UnsupportNativeMintToken2022.into());
+    }
+
+    let mint_data = mint_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+
+    require!(
+        is_transfer_fee_zero(&mint)?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
+    if !is_supported_quote_mint_extensions(&mint)? {
         let token_badge = token_badge
             .as_ref()
             .ok_or_else(|| PoolError::InvalidTokenBadge)?;

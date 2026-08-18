@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
+use crate::token::validate_transfer_fee_is_zero;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
@@ -527,6 +528,10 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         virtual_pool.config.eq(&ctx.accounts.config.key()),
         ErrorCode::ConstraintHasOne
     );
+
+    // dammv2 supports non-zero transfer fee.
+    // however this validation ensures that we initialize the migrated pool with the expected amount
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     require!(
         virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,

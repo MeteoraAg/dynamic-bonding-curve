@@ -18,7 +18,9 @@ use crate::{
     params::swap::TradeDirection,
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     state::fee::FeeMode,
-    token::{transfer_token_from_pool_authority, transfer_token_from_user},
+    token::{
+        transfer_token_from_pool_authority, transfer_token_from_user, validate_transfer_fee_is_zero,
+    },
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -123,6 +125,8 @@ pub fn process_swap<'a: 'info, 'info>(
         pool.config.eq(&config_account.key()),
         ErrorCode::ConstraintHasOne
     );
+
+    validate_transfer_fee_is_zero(&quote_mint.to_account_info())?;
 
     let config_loader = ConfigAccountLoader::try_from(config_account)?;
     let config = config_loader.load()?;

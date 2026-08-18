@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     event::EvtClaimCreatorTradingFee,
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
-    token::transfer_token_from_pool_authority,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     PoolAccountLoader, PoolError,
 };
 
@@ -81,6 +81,8 @@ pub fn handle_claim_creator_trading_fee<'info>(
         pool.base_mint.eq(&ctx.accounts.base_mint.key()),
         ErrorCode::ConstraintHasOne
     );
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     let mut remaining_accounts = ctx.remaining_accounts;
     let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(

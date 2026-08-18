@@ -3,7 +3,9 @@ import {
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
   createInitializePermanentDelegateInstruction,
+  createInitializeTransferFeeConfigInstruction,
   createMintToInstruction,
+  createSetTransferFeeInstruction,
   createSyncNativeInstruction,
   createTransferCheckedWithTransferHookInstruction,
   ExtensionType,
@@ -104,11 +106,22 @@ export function createToken2022Mint(
   options: {
     decimals?: number;
     permanentDelegate?: PublicKey;
+    transferFeeConfig?: {
+      feeBasisPoints: number;
+      maximumFee: bigint;
+      transferFeeConfigAuthority?: PublicKey;
+    };
   } = {}
 ): PublicKey {
-  const { decimals = 9, permanentDelegate } = options;
+  const { decimals = 9, permanentDelegate, transferFeeConfig } = options;
   const mintKeypair = Keypair.generate();
-  const extensions = permanentDelegate ? [ExtensionType.PermanentDelegate] : [];
+  const extensions = [];
+  if (permanentDelegate) {
+    extensions.push(ExtensionType.PermanentDelegate);
+  }
+  if (transferFeeConfig) {
+    extensions.push(ExtensionType.TransferFeeConfig);
+  }
   const mintLen = getMintLen(extensions);
   const rent = svm.getRent();
   const lamports = rent.minimumBalance(BigInt(mintLen));
@@ -132,6 +145,18 @@ export function createToken2022Mint(
       )
     );
   }
+  if (transferFeeConfig) {
+    transaction.add(
+      createInitializeTransferFeeConfigInstruction(
+        mintKeypair.publicKey,
+        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
+        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
+        transferFeeConfig.feeBasisPoints,
+        transferFeeConfig.maximumFee,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
   transaction.add(
     createInitializeMint2Instruction(
       mintKeypair.publicKey,
@@ -148,6 +173,66 @@ export function createToken2022Mint(
   expect(res).instanceOf(TransactionMetadata);
 
   return mintKeypair.publicKey;
+}
+
+export function setTransferFee(
+  svm: LiteSVM,
+  payer: Keypair,
+  mint: PublicKey,
+  transferFeeConfigAuthority: Keypair,
+  feeBasisPoints: number,
+  maximumFee: bigint
+) {
+  const transaction = new Transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.add(
+    createSetTransferFeeInstruction(
+      mint,
+      transferFeeConfigAuthority.publicKey,
+      [],
+      feeBasisPoints,
+      maximumFee,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  transaction.sign(payer, transferFeeConfigAuthority);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
+}
+
+export function mintToken2022To(
+  svm: LiteSVM,
+  payer: Keypair,
+  mint: PublicKey,
+  mintAuthority: Keypair,
+  toWallet: PublicKey,
+  rawAmount: bigint | number
+) {
+  const destination = getOrCreateAssociatedTokenAccount(
+    svm,
+    payer,
+    mint,
+    toWallet,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const mintIx = createMintToInstruction(
+    mint,
+    destination,
+    mintAuthority.publicKey,
+    rawAmount,
+    [],
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const transaction = new Transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.add(mintIx);
+  transaction.sign(payer, mintAuthority);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
 }
 
 export function wrapSOL(svm: LiteSVM, payer: Keypair, amount: BN) {

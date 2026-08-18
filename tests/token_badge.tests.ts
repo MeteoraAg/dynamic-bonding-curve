@@ -1,13 +1,5 @@
-import {
-  createMintToInstruction,
-  TOKEN_2022_PROGRAM_ID,
-} from "@solana/spl-token";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  Transaction,
-} from "@solana/web3.js";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
@@ -51,41 +43,9 @@ import { getConfig, getVirtualPool } from "./utils/fetcher";
 import {
   createToken,
   createToken2022Mint,
-  getOrCreateAssociatedTokenAccount,
+  mintToken2022To,
 } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
-
-function mintToken2022To(
-  svm: LiteSVM,
-  payer: Keypair,
-  mint: PublicKey,
-  mintAuthority: Keypair,
-  toWallet: PublicKey,
-  rawAmount: bigint
-) {
-  const destination = getOrCreateAssociatedTokenAccount(
-    svm,
-    payer,
-    mint,
-    toWallet,
-    TOKEN_2022_PROGRAM_ID
-  );
-
-  const mintIx = createMintToInstruction(
-    mint,
-    destination,
-    mintAuthority.publicKey,
-    rawAmount,
-    [],
-    TOKEN_2022_PROGRAM_ID
-  );
-
-  const transaction = new Transaction();
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.add(mintIx);
-  transaction.sign(payer, mintAuthority);
-  svm.sendTransaction(transaction);
-}
 
 function buildConfigParams(): ConfigParameters {
   const baseFee: BaseFee = {

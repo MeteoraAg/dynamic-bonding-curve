@@ -2,7 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda, event::EvtCreatorWithdrawSurplus, token::transfer_token_from_pool_authority,
+    const_pda,
+    event::EvtCreatorWithdrawSurplus,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
@@ -59,6 +61,8 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         pool.config.eq(&ctx.accounts.config.key()),
         ErrorCode::ConstraintHasOne
     );
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     // Make sure pool has been completed
     require!(

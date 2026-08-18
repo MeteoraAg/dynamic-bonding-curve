@@ -531,6 +531,8 @@ export async function partnerWithdrawSurplus(
 ): Promise<any> {
   const { feeClaimer, virtualPool } = params;
   const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
+  const tokenQuoteProgram = getTokenProgram(configState.quoteTokenFlag);
   const poolAuthority = derivePoolAuthority();
 
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
@@ -543,7 +545,7 @@ export async function partnerWithdrawSurplus(
       feeClaimer,
       quoteMintInfo.mint,
       feeClaimer.publicKey,
-      TOKEN_PROGRAM_ID
+      tokenQuoteProgram
     );
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
@@ -563,7 +565,7 @@ export async function partnerWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       feeClaimer: feeClaimer.publicKey,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
