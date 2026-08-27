@@ -229,33 +229,6 @@ describe("Token badge", () => {
         "InvalidTokenBadge"
       );
     });
-
-    it("Badge does not override the MeteoraDamm spl-only quote rule", async () => {
-      const dammV1QuoteMint = createToken2022Mint(svm, admin, {
-        permanentDelegate: admin.publicKey,
-      });
-      await createTokenBadge(svm, program, {
-        operator,
-        payer: operator,
-        tokenMint: dammV1QuoteMint,
-      });
-
-      const instructionParams = buildConfigParams();
-      instructionParams.migrationOption = 0; // meteora damm v1
-      instructionParams.tokenType = 0; // spl token
-      await expectThrowsAsync(
-        () =>
-          createConfig(svm, program, {
-            payer: partner,
-            leftoverReceiver: partner.publicKey,
-            feeClaimer: partner.publicKey,
-            quoteMint: dammV1QuoteMint,
-            instructionParams,
-            tokenBadge: deriveTokenBadgeAddress(dammV1QuoteMint),
-          }).then(() => {}),
-        "InvalidQuoteMint"
-      );
-    });
   });
 
   describe("Lifecycle", () => {

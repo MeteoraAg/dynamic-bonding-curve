@@ -5,7 +5,7 @@ The Dynamic Bonding Curve program is a launch pool protocol that allows any laun
 - Launch partners can have different configurations for their launch pools, for example, customizable quote token (SOL/USDC/etc), customizable curve for token graduation, customizable fees, etc.
 - Users on these launch platforms can easily create tokens and launch pools directly with the partners' configurations directly on their partners' UI.
 - Trading platforms/bots can immediately trade on these tokens with our direct integrations.
-- Tokens will graduate to various AMM (rightnow we only support Meteora DAMM v1 and Meteora DAMM v2), based on partner configuration. With locked LP tokens, launchers can claim fees on the locked LPs.
+- Tokens will graduate to Meteora DAMM v2 (Meteora DAMM v1 is deprecated for new configs, existing DAMM v1 pools can still migrate), based on partner configuration. With locked LP tokens, launchers can claim fees on the locked LPs.
 - Full API supports for easy integration for launch partners and trading platforms/bots.
 
 ## Notable Features
@@ -29,7 +29,7 @@ Partner can specify these parameters when they create a configuration on all the
 
 - `pool_fees`: include `base_fee` and `dynamic_fee` (optional). Partner can add fee scheduler or rate limiter in `base_fee` or just a fixed fee. `pool_fees` defines the trading fee for any pool that is created from this configuration.
 - `collect_fee_mode` (`0 | 1`): `0` means the virtual pool will only collect fee in quote token, `1` means virtual pool will collect fee in both tokens.
-- `migration_option` (`0 | 1`): `0` means DammV1 and `1` means DammV2
+- `migration_option` (`0 | 1`): `0` means DammV1 (deprecated: `create_config` and `initialize_virtual_pool` reject it. Pools created before the deprecation can still migrate) and `1` means DammV2
 - `activation_type` (`0 | 1`): `0` means slot, `1` means timestamp, this field indicates the time unit that pool will work with, mostly in calculating fee scheduler/ rate limiter and dynamic fee.
 - `token_type` (`0 | 1`): `0` means SPL Token, `1` means Token2022.
 - `token_decimal`: the token decimals that the token will use when user creates the virtual pool with this configuration, we only support token decimals from 6 to 9.

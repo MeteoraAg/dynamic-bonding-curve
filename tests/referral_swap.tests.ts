@@ -99,7 +99,7 @@ describe("Swap with referral (Anchor dup constraint)", () => {
       },
       activationType: 0,
       collectFeeMode: 0, // QuoteToken
-      migrationOption: 0,
+      migrationOption: 1,
       tokenType: 0,
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 500),

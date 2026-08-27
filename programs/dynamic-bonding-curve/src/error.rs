@@ -261,4 +261,7 @@ pub enum PoolError {
 
     #[msg("Quote mint has a non zero transfer fee")]
     QuoteMintHasNonZeroTransferFee,
+
+    #[msg("Deprecated migration option")]
+    DeprecatedMigrationOption,
 }

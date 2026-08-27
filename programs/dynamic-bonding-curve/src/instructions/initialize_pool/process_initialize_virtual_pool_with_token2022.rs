@@ -54,6 +54,8 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;
 
+    // we do not add a deprecated migration option check here since the MigrationOption::MeteoraDamm config
+    // can only be created with TokenType::SplToken, so the token type check will already rejects it.
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
     require!(

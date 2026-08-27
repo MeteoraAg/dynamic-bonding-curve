@@ -36,6 +36,7 @@ import {
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
+  setDeprecatedMeteoraDammConfig,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
 import { Pool, VirtualCurveProgram } from "./utils/types";
@@ -103,7 +104,7 @@ describe("Full flow with spl-token", () => {
       },
       activationType: 0,
       collectFeeMode: 0,
-      migrationOption: 0,
+      migrationOption: 1,
       tokenType: 0, // spl_token
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
@@ -175,6 +176,7 @@ describe("Full flow with spl-token", () => {
         uri: "abc.com",
       },
     });
+    setDeprecatedMeteoraDammConfig(svm, config);
     virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // validate freeze authority
