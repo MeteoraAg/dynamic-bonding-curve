@@ -11,6 +11,7 @@ import {
   generateAndFund,
   getDbcProgramErrorCodeHexString,
   getMint,
+  setDeprecatedMeteoraDammConfig,
   startSvm,
 } from "../utils";
 import { getVirtualPool } from "../utils/fetcher";
@@ -32,6 +33,7 @@ import {
   ClaimTradeFeeParams,
   claimTradingFee,
   createConfigForSwapDamm,
+  createConfigForSwapDammDeprecated,
   CreateConfigForSwapParams,
   partnerWithdrawSurplus,
 } from "./instructions/partnerInstructions";
@@ -64,6 +66,18 @@ describe("Backwards compatibility - DAMM full flow", () => {
     program = createVirtualCurveProgram();
   });
 
+  it("createConfigSplTokenForSwapDamm with deprecated meteora damm migration option", async () => {
+    const params: CreateConfigForSwapParams = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: NATIVE_MINT,
+    };
+    await expectThrowsAsync(async () => {
+      await createConfigForSwapDammDeprecated(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("DeprecatedMigrationOption"));
+  });
+
   it("createConfigSplTokenForSwapDamm", async () => {
     const params: CreateConfigForSwapParams = {
       payer: partner,
@@ -81,6 +95,7 @@ describe("Backwards compatibility - DAMM full flow", () => {
       quoteMint: NATIVE_MINT,
       config,
     });
+    setDeprecatedMeteoraDammConfig(svm, config);
     virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // validate freeze authority

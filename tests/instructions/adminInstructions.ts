@@ -1,16 +1,17 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { LiteSVM } from "litesvm";
 import {
   getConfig,
-  getOrCreateAssociatedTokenAccount,
-  getTokenAccount,
   getVirtualPool,
   sendTransactionMaybeThrow,
   TREASURY,
-  U64_MAX,
 } from "../utils";
-import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
+import {
+  deriveOperatorAddress,
+  derivePoolAuthority,
+  deriveTokenBadgeAddress,
+} from "../utils/accounts";
 import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
 import { getRemainingAccountsForTransferHook } from "../utils/token";
@@ -18,6 +19,8 @@ import { getRemainingAccountsForTransferHook } from "../utils/token";
 export enum OperatorPermission {
   ClaimProtocolFee,
   ZapProtocolFee,
+  CreateTokenBadge,
+  CloseTokenBadge,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -48,6 +51,55 @@ export async function createOperatorAccount(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [admin]);
+}
+
+export async function createTokenBadge(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    payer: Keypair;
+    tokenMint: PublicKey;
+  }
+) {
+  const { operator, payer, tokenMint } = params;
+
+  const transaction = await program.methods
+    .createTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      tokenMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      payer: payer.publicKey,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator, payer]);
+}
+
+export async function closeTokenBadge(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    tokenMint: PublicKey;
+    rentReceiver: PublicKey;
+  }
+) {
+  const { operator, tokenMint, rentReceiver } = params;
+
+  const transaction = await program.methods
+    .closeTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      rentReceiver,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
 export type ClaimLegacyPoolCreationFeeParams = {
@@ -88,74 +140,6 @@ export async function claimProtocolPoolCreationFee(
       },
     ])
     .transaction();
-  sendTransactionMaybeThrow(svm, transaction, [operator]);
-}
-
-export type ClaimProtocolFeeParams = {
-  operator: Keypair;
-  pool: PublicKey;
-};
-
-export async function claimProtocolFee(
-  svm: LiteSVM,
-  program: VirtualCurveProgram,
-  params: ClaimProtocolFeeParams
-): Promise<any> {
-  const { operator, pool } = params;
-  const poolState = getVirtualPool(svm, program, pool);
-  const configState = getConfig(svm, program, poolState.config);
-  const poolAuthority = derivePoolAuthority();
-  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
-
-  const tokenBaseProgram =
-    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-
-  const tokenQuoteProgram =
-    configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-
-  const preInstructions: TransactionInstruction[] = [];
-  const [
-    { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
-    { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
-  ] = [
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      poolState.baseMint,
-      TREASURY,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      svm,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      tokenQuoteProgram
-    ),
-  ];
-  createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
-  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
-
-  const transaction = await program.methods
-    .claimProtocolFee(U64_MAX, U64_MAX)
-    .accountsPartial({
-      poolAuthority,
-      config: poolState.config,
-      pool,
-      baseVault: poolState.baseVault,
-      quoteVault: poolState.quoteVault,
-      baseMint: poolState.baseMint,
-      quoteMint: quoteMintInfo.mint,
-      tokenBaseAccount,
-      tokenQuoteAccount,
-      operator: deriveOperatorAddress(operator.publicKey),
-      signer: operator.publicKey,
-      tokenBaseProgram,
-      tokenQuoteProgram,
-    })
-    .preInstructions(preInstructions)
-    .transaction();
-
   sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 

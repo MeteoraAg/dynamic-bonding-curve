@@ -38,12 +38,13 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_config_with_transfer_hook(
-    ctx: Context<CreateConfigWithTransferHookCtx>,
+pub fn handle_create_config_with_transfer_hook<'info>(
+    ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
     config_parameters.validate(
         &ctx.accounts.quote_mint,
+        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         true,
     )?;

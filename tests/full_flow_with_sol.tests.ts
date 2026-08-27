@@ -5,7 +5,6 @@ import { assert, expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {
   BaseFee,
-  claimProtocolFee,
   ClaimTradeFeeParams,
   claimTradingFee,
   ConfigParameters,
@@ -37,6 +36,7 @@ import {
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
+  setDeprecatedMeteoraDammConfig,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
 import { Pool, VirtualCurveProgram } from "./utils/types";
@@ -104,7 +104,7 @@ describe("Full flow with spl-token", () => {
       },
       activationType: 0,
       collectFeeMode: 0,
-      migrationOption: 0,
+      migrationOption: 1,
       tokenType: 0, // spl_token
       tokenDecimal: 6,
       migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
@@ -176,6 +176,7 @@ describe("Full flow with spl-token", () => {
         uri: "abc.com",
       },
     });
+    setDeprecatedMeteoraDammConfig(svm, config);
     virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // validate freeze authority
@@ -270,19 +271,6 @@ describe("Full flow with spl-token", () => {
       //
     }
   });
-  it("Protocol withdraw surplus", async () => {
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
-  });
-
-  it("Protocol can withdraw surplus again", async () => {
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
-  });
 
   it("Partner claim trading fee", async () => {
     const claimTradingFeeParams: ClaimTradeFeeParams = {
@@ -292,12 +280,5 @@ describe("Full flow with spl-token", () => {
       maxQuoteAmount: new BN(U64_MAX),
     };
     await claimTradingFee(svm, program, claimTradingFeeParams);
-  });
-
-  it("Operator claim protocol fee", async () => {
-    await claimProtocolFee(svm, program, {
-      pool: virtualPool,
-      operator: operator,
-    });
   });
 });

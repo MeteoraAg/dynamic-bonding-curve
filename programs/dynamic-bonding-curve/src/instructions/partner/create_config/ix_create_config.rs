@@ -31,12 +31,13 @@ pub struct CreateConfigCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_config(
-    ctx: Context<CreateConfigCtx>,
+pub fn handle_create_config<'info>(
+    ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
     config_parameters.validate(
         &ctx.accounts.quote_mint,
+        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
     )?;

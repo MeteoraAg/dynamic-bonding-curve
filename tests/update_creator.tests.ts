@@ -17,20 +17,22 @@ import {
   transferCreator,
 } from "./instructions";
 import {
-  createMeteoraMetadata,
-  lockLpForPartnerDamm,
-  MigrateMeteoraParams,
-  migrateToMeteoraDamm,
-} from "./instructions/meteoraMigration";
-import {
-  createDammConfig,
+  createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
+  encodePermissions,
   derivePoolAuthority,
   designCurve,
   generateAndFund,
   startSvm,
   U64_MAX,
 } from "./utils";
+import {
+  createMeteoraDammV2Metadata,
+  MigrateMeteoraDammV2Params,
+  migrateToDammV2,
+} from "./instructions/dammV2Migration";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken, mintSplTokenTo } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
@@ -54,13 +56,19 @@ describe("Update creator", () => {
     poolCreator = generateAndFund(svm);
     newPoolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("transfer new creator pre-bonding curve claim fee and surplus", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -124,7 +132,7 @@ describe("Update creator", () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -311,13 +319,13 @@ async function fullFlowUpdateCreatorPoolCreated(
 
   // migrate
   const poolAuthority = derivePoolAuthority();
-  let dammConfig = await createDammConfig(svm, admin, poolAuthority);
-  const migrationParams: MigrateMeteoraParams = {
+  let dammConfig = await createDammV2Config(svm, admin, poolAuthority, 1);
+  const migrationParams: MigrateMeteoraDammV2Params = {
     payer: admin,
     virtualPool,
     dammConfig,
   };
-  await createMeteoraMetadata(svm, program, {
+  await createMeteoraDammV2Metadata(svm, program, {
     payer: admin,
     virtualPool,
     config,
@@ -329,13 +337,7 @@ async function fullFlowUpdateCreatorPoolCreated(
       virtualPool,
     });
   }
-  await migrateToMeteoraDamm(svm, program, migrationParams);
-
-  await lockLpForPartnerDamm(svm, program, {
-    payer: admin,
-    dammConfig,
-    virtualPool,
-  });
+  await migrateToDammV2(svm, program, migrationParams);
 
   virtualPoolState = getVirtualPool(svm, program, virtualPool);
 

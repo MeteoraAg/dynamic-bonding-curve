@@ -21,6 +21,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
+
+### Added
+
+- Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
+- Note that a token badge does not allow a non-zero transfer fee: `transfer_fee_basis_points` must be 0 in both `older_transfer_fee` and `newer_transfer_fee`. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
+
+### Changed
+
+- The endpoints `create_config`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now take the `token_badge` account as a remaining account at index 0. Required when the quote mint is not permissionless-supported.
+
+### Deprecated
+
+- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools. Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
+- Deprecated `MigrationOption::MeteoraDamm`. New configs and new pools can no longer be created with `MigrationOption::MeteoraDamm`. Existing configs with `MigrationOption::MeteoraDamm` can no longer be used to create new pools. Existing pools with `MigrationOption::MeteoraDamm` are unaffected and can still migrate to DAMM v1.
+
+### Removed
+
+- Removed deprecated endpoints `withdraw_protocol_fees` and `zap_protocol_fee`.
+
 ## dynamic_bonding_curve [0.2.0] [PR #193](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/193)
 
 ### Added

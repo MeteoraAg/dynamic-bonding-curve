@@ -15,7 +15,6 @@ import {
   ClaimCreatorTradeFeeParams,
   claimCreatorTradingFee,
   claimCreatorTradingFee2,
-  claimProtocolFee,
   ClaimTradeFeeParams,
   claimTradingFee,
   claimTradingFee2,
@@ -254,12 +253,5 @@ describe("Create pool with token2022", () => {
       maxQuoteAmount: new BN(U64_MAX),
     };
     await claimCreatorTradingFee2(svm, program, claimCreatorTradingFeeParams);
-  });
-
-  it("Operator claim protocol fee", async () => {
-    await claimProtocolFee(svm, program, {
-      pool: virtualPool,
-      operator: operator,
-    });
   });
 });

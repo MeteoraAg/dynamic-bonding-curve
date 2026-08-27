@@ -199,7 +199,7 @@ async function fullFlow(
     totalTokenSupply,
     initialMarketcap,
     migrationMarketcap,
-    0,
+    1, // damm v2
     tokenBaseDecimal,
     tokenQuoteDecimal,
     0,

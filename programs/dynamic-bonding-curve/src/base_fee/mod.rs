@@ -6,8 +6,31 @@ pub use fee_rate_limiter::*;
 use anchor_lang::prelude::*;
 
 use crate::{
-    activation_handler::ActivationType, params::swap::TradeDirection, state::BaseFeeMode, PoolError,
+    activation_handler::ActivationType,
+    params::{fee_parameters::BaseFeeParameters, swap::TradeDirection},
+    state::{BaseFeeConfig, BaseFeeMode},
+    PoolError,
 };
+
+pub trait BaseFeeEnumReader {
+    fn get_base_fee_mode(&self) -> Result<BaseFeeMode>;
+}
+
+impl BaseFeeEnumReader for BaseFeeParameters {
+    fn get_base_fee_mode(&self) -> Result<BaseFeeMode> {
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
+        Ok(base_fee_mode)
+    }
+}
+
+impl BaseFeeEnumReader for BaseFeeConfig {
+    fn get_base_fee_mode(&self) -> Result<BaseFeeMode> {
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
+        Ok(base_fee_mode)
+    }
+}
 
 pub trait BaseFeeHandler {
     fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()>;
