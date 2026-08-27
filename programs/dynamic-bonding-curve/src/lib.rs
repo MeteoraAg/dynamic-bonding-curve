@@ -67,7 +67,7 @@ pub mod dynamic_bonding_curve {
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
     pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
-        Ok(())
+        instructions::handle_close_token_badge(ctx)
     }
 
     /// Accepts: VirtualPool or TransferHookPool.

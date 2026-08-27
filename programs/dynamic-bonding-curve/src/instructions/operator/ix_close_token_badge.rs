@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{Operator, TokenBadge};
+use crate::{
+    event::EvtCloseTokenBadge,
+    state::{Operator, TokenBadge},
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -18,4 +21,15 @@ pub struct CloseTokenBadgeCtx<'info> {
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]
     pub rent_receiver: UncheckedAccount<'info>,
+}
+
+pub fn handle_close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+    let token_badge = ctx.accounts.token_badge.load()?;
+
+    emit_cpi!(EvtCloseTokenBadge {
+        token_mint: token_badge.token_mint,
+    });
+
+    // close account done by anchor in constraint
+    Ok(())
 }
