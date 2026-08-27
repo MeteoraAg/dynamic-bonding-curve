@@ -252,4 +252,13 @@ pub enum PoolError {
 
     #[msg("Deprecated base fee mode")]
     DeprecatedBaseFeeMode,
+
+    #[msg("Cannot create token badge on supported mint")]
+    CannotCreateTokenBadgeOnSupportedMint,
+
+    #[msg("Invalid token badge")]
+    InvalidTokenBadge,
+
+    #[msg("Quote mint has a non zero transfer fee")]
+    QuoteMintHasNonZeroTransferFee,
 }

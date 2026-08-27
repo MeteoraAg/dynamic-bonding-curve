@@ -129,6 +129,7 @@ export type CreateConfigParams<T> = {
   feeClaimer: PublicKey;
   quoteMint: PublicKey;
   instructionParams: T;
+  tokenBadge?: PublicKey;
 };
 
 export async function createConfig(
@@ -161,6 +162,11 @@ export async function createConfig(
       quoteMint,
       payer: payer.publicKey,
     })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [payer, config]);
@@ -226,6 +232,11 @@ export async function createConfigWithTransferHook(
       transferHookProgram,
       payer: payer.publicKey,
     })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [payer, config]);
@@ -399,11 +410,7 @@ export async function claimTradingFee2(
     await getRemainingAccountsForTransferHook(svm, program, pool);
 
   const transaction = await program.methods
-    .claimTradingFee2(
-      maxBaseAmount,
-      maxQuoteAmount,
-      transferHookAccountsInfo
-    )
+    .claimTradingFee2(maxBaseAmount, maxQuoteAmount, transferHookAccountsInfo)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
@@ -437,6 +444,8 @@ export async function partnerWithdrawSurplus(
 ): Promise<any> {
   const { feeClaimer, virtualPool } = params;
   const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
+  const tokenQuoteProgram = getTokenProgram(configState.quoteTokenFlag);
   const poolAuthority = derivePoolAuthority();
 
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
@@ -449,7 +458,7 @@ export async function partnerWithdrawSurplus(
       feeClaimer,
       quoteMintInfo.mint,
       feeClaimer.publicKey,
-      TOKEN_PROGRAM_ID
+      tokenQuoteProgram
     );
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
@@ -469,7 +478,7 @@ export async function partnerWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       feeClaimer: feeClaimer.publicKey,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)

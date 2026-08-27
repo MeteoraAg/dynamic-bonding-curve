@@ -7,7 +7,11 @@ import {
   sendTransactionMaybeThrow,
   TREASURY,
 } from "../utils";
-import { deriveOperatorAddress, derivePoolAuthority } from "../utils/accounts";
+import {
+  deriveOperatorAddress,
+  derivePoolAuthority,
+  deriveTokenBadgeAddress,
+} from "../utils/accounts";
 import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
 import BN from "bn.js";
 import { getRemainingAccountsForTransferHook } from "../utils/token";
@@ -15,6 +19,8 @@ import { getRemainingAccountsForTransferHook } from "../utils/token";
 export enum OperatorPermission {
   ClaimProtocolFee,
   ZapProtocolFee,
+  CreateTokenBadge,
+  CloseTokenBadge,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -45,6 +51,55 @@ export async function createOperatorAccount(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [admin]);
+}
+
+export async function createTokenBadge(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    payer: Keypair;
+    tokenMint: PublicKey;
+  }
+) {
+  const { operator, payer, tokenMint } = params;
+
+  const transaction = await program.methods
+    .createTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      tokenMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      payer: payer.publicKey,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator, payer]);
+}
+
+export async function closeTokenBadge(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    tokenMint: PublicKey;
+    rentReceiver: PublicKey;
+  }
+) {
+  const { operator, tokenMint, rentReceiver } = params;
+
+  const transaction = await program.methods
+    .closeTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      rentReceiver,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
 export type ClaimLegacyPoolCreationFeeParams = {

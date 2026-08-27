@@ -10,6 +10,7 @@ use crate::{
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
+    token::validate_quote_mint_with_token_badge,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -107,10 +108,12 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook(
-    ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
+pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
+    ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+
     let InitPoolData {
         activation_point,
         initial_base_supply,

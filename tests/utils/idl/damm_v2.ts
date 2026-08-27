@@ -8,7 +8,7 @@ export type CpAmm = {
   "address": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
   "metadata": {
     "name": "cpAmm",
-    "version": "0.2.0",
+    "version": "0.2.4",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -96,9 +96,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -115,33 +115,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -244,9 +218,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -263,33 +237,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -298,21 +246,42 @@ export type CpAmm = {
       "args": []
     },
     {
-      "name": "claimProtocolFee",
+      "name": "claimProtocolFee2",
       "discriminator": [
-        165,
-        228,
-        133,
-        48,
-        99,
-        249,
-        255,
-        33
+        235,
+        194,
+        54,
+        69,
+        65,
+        10,
+        236,
+        112
       ],
       "accounts": [
         {
-          "name": "poolAuthority",
-          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+          "name": "receiverTokenAccount",
+          "docs": [
+            "receiver token account for the claimed token. validated through the protocol_fee program"
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenAMint",
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenBMint",
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenAProgram"
+        },
+        {
+          "name": "tokenBProgram"
         },
         {
           "name": "pool",
@@ -320,9 +289,6 @@ export type CpAmm = {
         },
         {
           "name": "tokenAVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
           "writable": true,
           "relations": [
             "pool"
@@ -330,105 +296,24 @@ export type CpAmm = {
         },
         {
           "name": "tokenBVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
           "writable": true,
           "relations": [
             "pool"
           ]
         },
         {
-          "name": "tokenAMint",
-          "docs": [
-            "The mint of token a"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBMint",
-          "docs": [
-            "The mint of token b"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAAccount",
-          "writable": true
-        },
-        {
-          "name": "tokenBAccount",
-          "writable": true
-        },
-        {
-          "name": "operator",
-          "docs": [
-            "Claim fee operator"
-          ]
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "signer",
-          "docs": [
-            "operator"
-          ],
-          "signer": true
-        },
-        {
-          "name": "tokenAProgram",
-          "docs": [
-            "Token a program"
-          ]
-        },
-        {
-          "name": "tokenBProgram",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
+          "signer": true,
+          "address": "FkU5rQCWQM131skHCpcEbK8P1JrQGsBgqXe55w525SSF"
         }
       ],
       "args": [
         {
-          "name": "maxAmountA",
-          "type": "u64"
-        },
-        {
-          "name": "maxAmountB",
+          "name": "maxAmount",
           "type": "u64"
         }
       ]
@@ -482,9 +367,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -492,33 +377,7 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -564,33 +423,7 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -624,33 +457,7 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -719,33 +526,7 @@ export type CpAmm = {
           "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -782,33 +563,7 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -872,33 +627,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -972,33 +701,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1077,33 +780,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1233,33 +910,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1328,33 +979,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1531,33 +1156,7 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1806,33 +1405,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2086,33 +1659,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2370,33 +1917,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2487,33 +2008,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2564,40 +2059,14 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2649,9 +2118,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -2665,33 +2134,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2739,40 +2182,14 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2907,9 +2324,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -2926,33 +2343,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3056,9 +2447,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -3075,33 +2466,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3143,33 +2508,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3244,33 +2583,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3349,33 +2662,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3486,33 +2773,7 @@ export type CpAmm = {
           "optional": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3627,33 +2888,7 @@ export type CpAmm = {
           "optional": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3667,6 +2902,47 @@ export type CpAmm = {
               "name": "swapParameters2"
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "updateDelegatePermission",
+      "discriminator": [
+        175,
+        165,
+        56,
+        64,
+        0,
+        251,
+        89,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "positionNftAccount",
+          "docs": [
+            "The token account for nft"
+          ]
+        },
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "permission",
+          "type": "u32"
         }
       ]
     },
@@ -3695,33 +2971,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3760,33 +3010,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3825,33 +3049,7 @@ export type CpAmm = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3865,6 +3063,59 @@ export type CpAmm = {
         {
           "name": "newFunder",
           "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "withdrawDeadLiquidityReward",
+      "discriminator": [
+        121,
+        99,
+        224,
+        91,
+        178,
+        14,
+        22,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "rewardVault",
+          "writable": true
+        },
+        {
+          "name": "rewardMint"
+        },
+        {
+          "name": "funderTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "funder",
+          "signer": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u8"
         }
       ]
     },
@@ -3908,33 +3159,7 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3944,69 +3169,6 @@ export type CpAmm = {
         {
           "name": "rewardIndex",
           "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "zapProtocolFee",
-      "discriminator": [
-        213,
-        155,
-        187,
-        34,
-        56,
-        182,
-        91,
-        240
-      ],
-      "accounts": [
-        {
-          "name": "poolAuthority",
-          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
-        },
-        {
-          "name": "pool",
-          "writable": true
-        },
-        {
-          "name": "tokenVault",
-          "writable": true
-        },
-        {
-          "name": "tokenMint"
-        },
-        {
-          "name": "receiverToken",
-          "writable": true
-        },
-        {
-          "name": "operator",
-          "docs": [
-            "zap claim fee operator"
-          ]
-        },
-        {
-          "name": "signer",
-          "docs": [
-            "operator"
-          ],
-          "signer": true
-        },
-        {
-          "name": "tokenProgram",
-          "docs": [
-            "Token program"
-          ]
-        },
-        {
-          "name": "sysvarInstructions",
-          "address": "Sysvar1nstructions1111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "maxAmount",
-          "type": "u64"
         }
       ]
     }
@@ -4145,16 +3307,16 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "evtClaimProtocolFee",
+      "name": "evtClaimProtocolFee2",
       "discriminator": [
-        186,
-        244,
-        75,
-        251,
-        188,
-        13,
-        25,
-        33
+        187,
+        133,
+        66,
+        9,
+        205,
+        161,
+        84,
+        13
       ]
     },
     {
@@ -4379,6 +3541,19 @@ export type CpAmm = {
       ]
     },
     {
+      "name": "evtUpdateDelegatePermission",
+      "discriminator": [
+        66,
+        188,
+        75,
+        151,
+        150,
+        232,
+        87,
+        93
+      ]
+    },
+    {
       "name": "evtUpdatePoolFees",
       "discriminator": [
         76,
@@ -4415,6 +3590,19 @@ export type CpAmm = {
         115,
         246,
         146
+      ]
+    },
+    {
+      "name": "evtWithdrawDeadLiquidityReward",
+      "discriminator": [
+        228,
+        66,
+        150,
+        195,
+        42,
+        62,
+        163,
+        13
       ]
     },
     {
@@ -4771,6 +3959,31 @@ export type CpAmm = {
       "code": 6067,
       "name": "invalidCompoundingFeeBps",
       "msg": "Invalid compounding fee bps"
+    },
+    {
+      "code": 6068,
+      "name": "invalidClaimProtocolFeeAccounts",
+      "msg": "Invalid claim protocol fee accounts"
+    },
+    {
+      "code": 6069,
+      "name": "transferFeeExcludedAmountIsZero",
+      "msg": "Transfer fee excluded amount is zero"
+    },
+    {
+      "code": 6070,
+      "name": "delegatedAmountNonZero",
+      "msg": "Delegated amount is not zero"
+    },
+    {
+      "code": 6071,
+      "name": "deprecatedBaseFeeMode",
+      "msg": "Deprecated base fee mode"
+    },
+    {
+      "code": 6072,
+      "name": "invalidConfigPermission",
+      "msg": "Invalid config permission"
     }
   ],
   "types": [
@@ -5059,15 +4272,21 @@ export type CpAmm = {
             "type": "u128"
           },
           {
+            "name": "permission",
+            "docs": [
+              "config permission bitmask"
+            ],
+            "type": "u128"
+          },
+          {
             "name": "padding1",
             "docs": [
-              "Fee curve point",
               "Padding for further use"
             ],
             "type": {
               "array": [
                 "u64",
-                10
+                8
               ]
             }
           }
@@ -5114,6 +4333,10 @@ export type CpAmm = {
           {
             "name": "poolCreatorAuthority",
             "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -5314,7 +4537,7 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtClaimProtocolFee",
+      "name": "evtClaimProtocolFee2",
       "type": {
         "kind": "struct",
         "fields": [
@@ -5323,11 +4546,15 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "tokenAAmount",
-            "type": "u64"
+            "name": "receiverTokenAccount",
+            "type": "pubkey"
           },
           {
-            "name": "tokenBAmount",
+            "name": "tokenMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
             "type": "u64"
           }
         ]
@@ -5461,6 +4688,10 @@ export type CpAmm = {
           {
             "name": "config",
             "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -5484,6 +4715,10 @@ export type CpAmm = {
           {
             "name": "index",
             "type": "u64"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -6036,6 +5271,32 @@ export type CpAmm = {
       }
     },
     {
+      "name": "evtUpdateDelegatePermission",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u32"
+          },
+          {
+            "name": "delegate",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "evtUpdatePoolFees",
       "type": {
         "kind": "struct",
@@ -6103,6 +5364,26 @@ export type CpAmm = {
           {
             "name": "newFunder",
             "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtWithdrawDeadLiquidityReward",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "rewardMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
           }
         ]
       }
@@ -6536,8 +5817,20 @@ export type CpAmm = {
             "type": "u64"
           },
           {
+            "name": "deadLiquidityFeeCheckpoint",
+            "docs": [
+              "Cumulative dead-liquidity fee (Compounding Pool only)"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "padding2",
-            "type": "u128"
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           },
           {
             "name": "sqrtMinPrice",
@@ -7099,11 +6392,23 @@ export type CpAmm = {
             }
           },
           {
+            "name": "delegatePermission",
+            "docs": [
+              "delegate permission bitmask (paired with SPL token Approve)"
+            ],
+            "type": "u32"
+          },
+          {
             "name": "padding",
             "docs": [
               "padding for future usage"
             ],
-            "type": "u128"
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
           }
         ]
       }
@@ -7196,16 +6501,11 @@ export type CpAmm = {
             }
           },
           {
-            "name": "padding1",
+            "name": "deadLiquidityRewardCheckpoint",
             "docs": [
-              "Padding to ensure `reward_rate: u128` is 16-byte aligned"
+              "Cumulative dead-liquidity reward (Compounding Pool only)"
             ],
-            "type": {
-              "array": [
-                "u8",
-                8
-              ]
-            }
+            "type": "u64"
           },
           {
             "name": "mint",
@@ -7584,6 +6884,10 @@ export type CpAmm = {
           {
             "name": "collectFeeMode",
             "type": "u8"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -7741,6 +7045,17 @@ export type CpAmm = {
                   "name": "dynamicFeeParameters"
                 }
               }
+            }
+          },
+          {
+            "name": "compoundingFeeBps",
+            "docs": [
+              "Compounding fee update mode:",
+              "- None: skip compounding fee update",
+              "- Some: update compounding_fee_bps; pool must use CollectFeeMode::Compounding"
+            ],
+            "type": {
+              "option": "u16"
             }
           }
         ]

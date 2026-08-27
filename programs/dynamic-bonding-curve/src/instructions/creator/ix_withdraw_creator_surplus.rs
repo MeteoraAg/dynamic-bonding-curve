@@ -2,7 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda, event::EvtCreatorWithdrawSurplus, token::transfer_token_from_pool_authority,
+    const_pda,
+    event::EvtCreatorWithdrawSurplus,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
@@ -73,6 +75,8 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     );
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),

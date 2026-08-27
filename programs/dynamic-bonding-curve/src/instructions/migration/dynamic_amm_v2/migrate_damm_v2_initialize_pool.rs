@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
+use crate::token::validate_transfer_fee_is_zero;
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
@@ -264,7 +265,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
                             position_nft_account: position_nft_account.clone(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
                             program: self.amm_program.to_account_info(),
                         },
@@ -287,7 +288,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
                             position_nft_account: position_nft_account.clone(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
                             program: self.amm_program.to_account_info(),
                         },
@@ -390,7 +391,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                                 .clone()
                                 .unwrap()
                                 .to_account_info(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             token_a_program: self.token_base_program.to_account_info(),
                             token_b_program: self.token_quote_program.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
@@ -544,6 +545,11 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         migration_option == MigrationOption::DammV2,
         PoolError::InvalidMigrationOption
     );
+
+    // dammv2 supports non-zero transfer fee.
+    // however this validation ensures that we initialize the migrated pool with the expected amount
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
+
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 

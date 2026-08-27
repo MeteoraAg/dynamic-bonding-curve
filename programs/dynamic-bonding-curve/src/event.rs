@@ -233,3 +233,13 @@ pub struct EvtPartnerClaimPoolCreationFee {
     pub creation_fee: u64,
     pub fee_receiver: Pubkey,
 }
+
+#[event]
+pub struct EvtCreateTokenBadge {
+    pub token_mint: Pubkey,
+}
+
+#[event]
+pub struct EvtCloseTokenBadge {
+    pub token_mint: Pubkey,
+}

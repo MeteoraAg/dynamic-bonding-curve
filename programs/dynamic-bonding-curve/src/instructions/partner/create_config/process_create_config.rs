@@ -30,7 +30,7 @@ use crate::{
         CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
         MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
     },
-    token::{get_token_program_flags, is_supported_quote_mint},
+    token::{get_token_program_flags, validate_quote_mint_with_token_badge},
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
     PoolError,
@@ -370,14 +370,12 @@ impl ConfigParameters {
     pub fn validate<'info>(
         &self,
         quote_mint: &InterfaceAccount<'info, Mint>,
+        token_badge: Option<&'info AccountInfo<'info>>,
         current_timestamp: u64,
         is_transfer_hook: bool,
     ) -> Result<()> {
         // validate quote mint
-        require!(
-            is_supported_quote_mint(quote_mint)?,
-            PoolError::InvalidQuoteMint
-        );
+        validate_quote_mint_with_token_badge(quote_mint, token_badge)?;
 
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;

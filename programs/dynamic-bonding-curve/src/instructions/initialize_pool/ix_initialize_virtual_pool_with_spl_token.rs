@@ -21,7 +21,7 @@ use crate::{
     event::EvtInitializePool,
     process_create_token_metadata,
     state::{fee::VolatilityTracker, BaseFeeMode, PoolConfig, PoolType, TokenType, VirtualPool},
-    token::transfer_lamports_from_user,
+    token::{transfer_lamports_from_user, validate_quote_mint_with_token_badge},
     PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -143,6 +143,8 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(
