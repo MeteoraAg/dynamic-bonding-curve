@@ -62,7 +62,7 @@ describe("Simulate CU swap", () => {
         },
         activationType: 0,
         collectFeeMode: 0,
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(50_000 * 10 ** 6),

@@ -397,7 +397,7 @@ impl ConfigParameters {
             CollectFeeMode::try_from(self.collect_fee_mode).is_ok(),
             PoolError::InvalidCollectFeeMode
         );
-        // validate migration option and token type
+        // validate migration option
         let migration_option_value = MigrationOption::try_from(self.migration_option)
             .map_err(|_| PoolError::InvalidMigrationOption)?;
 
@@ -405,8 +405,8 @@ impl ConfigParameters {
         let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
             .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
-        let token_type_value =
-            TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+        // validate token type
+        TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
         let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
             &self.migrated_pool_fee,
@@ -417,29 +417,7 @@ impl ConfigParameters {
 
         match migration_option_value {
             MigrationOption::MeteoraDamm => {
-                require!(
-                    token_type_value == TokenType::SplToken,
-                    PoolError::InvalidTokenType
-                );
-                require!(
-                    *quote_mint.to_account_info().owner == anchor_spl::token::Token::id(),
-                    PoolError::InvalidQuoteMint
-                );
-
-                require!(
-                    migration_fee_option != MigrationFeeOption::Customizable
-                        && migrated_pool_fee_validator.is_none(),
-                    PoolError::InvalidMigrationFeeOption
-                );
-                // validate vesting
-                require!(
-                    self.partner_liquidity_vesting_info.is_zero(),
-                    PoolError::InvalidVestingParameters
-                );
-                require!(
-                    self.creator_liquidity_vesting_info.is_zero(),
-                    PoolError::InvalidVestingParameters
-                );
+                return Err(PoolError::DeprecatedMigrationOption.into());
             }
             MigrationOption::DammV2 => {
                 if migration_fee_option == MigrationFeeOption::Customizable {
@@ -617,9 +595,7 @@ pub fn process_create_config(
         PoolError::InvalidCurve
     );
 
-    if migration_option_enum == MigrationOption::DammV2
-        && migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding
-    {
+    if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let compounding_liquidity = CompoundingLiquidity {
             migration_sqrt_price,
         };

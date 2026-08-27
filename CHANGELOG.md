@@ -34,8 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools.
-- Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
+- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools. Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
+- Deprecated `MigrationOption::MeteoraDamm`. New configs and new pools can no longer be created with `MigrationOption::MeteoraDamm`. Existing configs with `MigrationOption::MeteoraDamm` can no longer be used to create new pools. Existing pools with `MigrationOption::MeteoraDamm` are unaffected and can still migrate to DAMM v1.
 
 ### Removed
 

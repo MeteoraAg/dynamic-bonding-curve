@@ -53,7 +53,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -147,7 +147,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -248,7 +248,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -352,7 +352,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -456,7 +456,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),

@@ -58,7 +58,7 @@ describe("Rate limiter", () => {
       cliffUnlockAmount: new BN(123456),
     };
     let leftOver = 10_000;
-    let migrationOption = 0;
+    let migrationOption = 1;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let referenceAmount = new BN(1_000_000_000);
     let maxRateLimiterDuration = new BN(10);
@@ -207,7 +207,7 @@ describe("Rate limiter", () => {
       cliffUnlockAmount: new BN(123456),
     };
     let leftOver = 10_000;
-    let migrationOption = 0;
+    let migrationOption = 1;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let referenceAmount = new BN(1_000_000_000);
     let maxRateLimiterDuration = new BN(10);

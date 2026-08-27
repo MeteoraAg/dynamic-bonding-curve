@@ -6,4 +6,5 @@ export * from "./svm";
 export * from "./fetcher";
 export * from "./create_curve";
 export * from "./deprecatedRateLimiter";
+export * from "./deprecatedMeteoraDamm";
 export * from "./transferHookCounter";

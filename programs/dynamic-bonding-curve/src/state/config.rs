@@ -423,6 +423,8 @@ impl TokenAuthorityOption {
     AnchorSerialize,
 )]
 pub enum MigrationOption {
+    /// Deprecated for new configs and pools. Exisiting pools can still migrate to DAMMv1.
+    /// Kept for backwards compatibility.
     MeteoraDamm,
     DammV2,
 }
