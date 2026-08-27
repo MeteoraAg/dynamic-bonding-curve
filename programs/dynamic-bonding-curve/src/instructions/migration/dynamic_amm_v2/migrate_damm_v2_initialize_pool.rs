@@ -265,7 +265,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
                             position_nft_account: position_nft_account.clone(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
                             program: self.amm_program.to_account_info(),
                         },
@@ -288,7 +288,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                             pool: self.pool.to_account_info(),
                             position: position.clone(),
                             position_nft_account: position_nft_account.clone(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
                             program: self.amm_program.to_account_info(),
                         },
@@ -391,7 +391,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                                 .clone()
                                 .unwrap()
                                 .to_account_info(),
-                            owner: self.pool_authority.to_account_info(),
+                            signer: self.pool_authority.to_account_info(),
                             token_a_program: self.token_base_program.to_account_info(),
                             token_b_program: self.token_quote_program.to_account_info(),
                             event_authority: self.damm_event_authority.to_account_info(),
