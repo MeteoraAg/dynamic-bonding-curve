@@ -169,7 +169,10 @@ pub fn transfer_token_from_pool_authority<'info>(
     Ok(())
 }
 
-fn is_transfer_fee_zero(mint: &StateWithExtensions<spl_token_2022::state::Mint>) -> Result<bool> {
+fn is_transfer_fee_zero(
+    mint: &StateWithExtensions<spl_token_2022::state::Mint>,
+    current_epoch: u64,
+) -> Result<bool> {
     if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
         let older_transfer_fee_bps = u16::from(
             transfer_fee_config
@@ -181,7 +184,15 @@ fn is_transfer_fee_zero(mint: &StateWithExtensions<spl_token_2022::state::Mint>)
                 .newer_transfer_fee
                 .transfer_fee_basis_points,
         );
-        return Ok(older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0);
+        let newer_transfer_fee_epoch = u64::from(transfer_fee_config.newer_transfer_fee.epoch);
+
+        if current_epoch < newer_transfer_fee_epoch {
+            // older fee is active and newer fee is scheduled, both must be zero
+            return Ok(older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0);
+        } else {
+            // newer fee is active, older fee is historical
+            return Ok(newer_transfer_fee_bps == 0);
+        }
     }
 
     Ok(true)
@@ -195,7 +206,7 @@ pub fn validate_transfer_fee_is_zero(mint_account_info: &AccountInfo) -> Result<
     let mint_data = mint_account_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
     require!(
-        is_transfer_fee_zero(&mint)?,
+        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
         PoolError::QuoteMintHasNonZeroTransferFee
     );
 
@@ -219,7 +230,7 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
 
     require!(
-        is_transfer_fee_zero(&mint)?,
+        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
         PoolError::QuoteMintHasNonZeroTransferFee
     );
 
