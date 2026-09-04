@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
 - Note that a token badge does not allow a non-zero transfer fee: `transfer_fee_basis_points` must be 0 in both `older_transfer_fee` and `newer_transfer_fee`. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
+- Note that a pool with a quote mint that is not permissionless-supported by DAMM v2 must migrate through a DAMM v2 config with the `CreatePoolWithoutMintValidation` permission.
 
 ### Changed
 
