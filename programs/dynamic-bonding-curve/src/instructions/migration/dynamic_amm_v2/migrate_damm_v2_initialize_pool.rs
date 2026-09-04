@@ -125,7 +125,7 @@ pub struct MigrateDammV2Ctx<'info> {
     pub system_program: Program<'info, System>,
     // Remaining accounts:
     // 0. [READ-ONLY] damm v2 config account
-    // A DBC token badge is only valid within DBC, DAMMv2 uses its own token badge
+    // A DBC token badge is only valid within DBC, damm-v2 uses its own token badge
     // If the quote mint is not permissionless-supported by damm-v2, the damm-v2 config must have the `CreatePoolWithoutMintValidation` permission.
 }
 
