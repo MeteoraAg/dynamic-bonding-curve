@@ -294,6 +294,12 @@ export function warpSlotBy(svm: LiteSVM, slots: BN) {
   svm.warpToSlot(BigInt(slots.toString()));
 }
 
+export function warpEpochBy(svm: LiteSVM, epochs: number) {
+  const clock = svm.getClock();
+  clock.epoch = clock.epoch + BigInt(epochs);
+  svm.setClock(clock);
+}
+
 export const SET_COMPUTE_UNIT_LIMIT_IX =
   web3.ComputeBudgetProgram.setComputeUnitLimit({
     units: 1_400_000,
