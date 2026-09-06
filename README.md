@@ -31,7 +31,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `collect_fee_mode` (`0 | 1`): `0` means the virtual pool will only collect fee in quote token, `1` means virtual pool will collect fee in both tokens.
 - `migration_option` (`0 | 1`):
   - `0` means DammV1 (`deprecated`: `create_config` and `initialize_virtual_pool` rejects this option. Pools created before the deprecation can still migrate)
-  - `1` means DammV2. Note that if the quote mint is not permissionless-supported by DAMM v2, the DAMM v2 config used for migration must have the `CreatePoolWithoutMintValidation` permission.
+  - `1` means DammV2. Note that all DAMM v2 configs used by DBC have the `CreatePoolWithoutMintValidation` permission, so a quote mint that is not permissionless-supported by DAMM v2 can still migrate.
 - `activation_type` (`0 | 1`): `0` means slot, `1` means timestamp, this field indicates the time unit that pool will work with, mostly in calculating fee scheduler/ rate limiter and dynamic fee.
 - `token_type` (`0 | 1`): `0` means SPL Token, `1` means Token2022.
 - `token_decimal`: the token decimals that the token will use when user creates the virtual pool with this configuration, we only support token decimals from 6 to 9.
