@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
-- Note that a token badge does not allow a non-zero transfer fee: `transfer_fee_basis_points` must be 0 in both `older_transfer_fee` and `newer_transfer_fee`. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
+- Note that a token badge does not allow a non-zero transfer fee: the current and any scheduled `transfer_fee_basis_points` must be 0. Expired historical `older_transfer_fee` transfer fees are ignored. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
 - Note that all DAMM v2 configs used by DBC have the `CreatePoolWithoutMintValidation` permission, so a pool with a quote mint that is not permissionless-supported by DAMM v2 can still migrate.
 
 ### Changed
@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Removed deprecated endpoints `withdraw_protocol_fees` and `zap_protocol_fee`.
+- Removed deprecated endpoints `claim_protocol_fee` and `zap_protocol_fee`.
 
 ## dynamic_bonding_curve [0.2.0] [PR #193](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/193)
 
