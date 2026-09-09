@@ -1,4 +1,7 @@
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
@@ -43,6 +46,7 @@ import { deriveTokenBadgeAddress } from "./utils/accounts";
 import { getVirtualPool } from "./utils/fetcher";
 import {
   createToken2022Mint,
+  getTokenAccount,
   mintToken2022To,
   setTransferFee,
 } from "./utils/token";
@@ -162,7 +166,7 @@ describe("Quote mint with transfer fee extension", () => {
     });
   });
 
-  it("Fails to create a token badge and config when the quote mint has a non-zero transfer fee", async () => {
+  it("Requires a token badge for a quote mint with a non-zero transfer fee", async () => {
     const feeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 100,
@@ -170,15 +174,6 @@ describe("Quote mint with transfer fee extension", () => {
         transferFeeConfigAuthority: admin.publicKey,
       },
     });
-    await expectThrowsAsync(
-      () =>
-        createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: feeMint,
-        }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
-    );
 
     await expectThrowsAsync(
       () =>
@@ -188,9 +183,8 @@ describe("Quote mint with transfer fee extension", () => {
           feeClaimer: partner.publicKey,
           quoteMint: feeMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(feeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidTokenBadge"
     );
 
     await expectThrowsAsync(
@@ -202,24 +196,43 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: feeMint,
           instructionParams: buildConfigParams(),
           transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(feeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidTokenBadge"
     );
+
+    await createTokenBadge(svm, program, {
+      operator,
+      payer: operator,
+      tokenMint: feeMint,
+    });
+
+    await createConfig(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: feeMint,
+      instructionParams: buildConfigParams(),
+      tokenBadge: deriveTokenBadgeAddress(feeMint),
+    });
+
+    await createConfigWithTransferHook(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: feeMint,
+      instructionParams: buildConfigParams(),
+      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+      tokenBadge: deriveTokenBadgeAddress(feeMint),
+    });
   });
 
-  it("Fails to create config when a non-zero transfer fee is scheduled", async () => {
+  it("Requires a token badge when a non-zero transfer fee is scheduled", async () => {
     const scheduledFeeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 0,
         maximumFee: BigInt(0),
         transferFeeConfigAuthority: admin.publicKey,
       },
-    });
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: scheduledFeeMint,
     });
     // set newer_transfer_fee > 0 while the active fee is still 0
     setTransferFee(
@@ -239,10 +252,24 @@ describe("Quote mint with transfer fee extension", () => {
           feeClaimer: partner.publicKey,
           quoteMint: scheduledFeeMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidTokenBadge"
     );
+
+    await createTokenBadge(svm, program, {
+      operator,
+      payer: operator,
+      tokenMint: scheduledFeeMint,
+    });
+
+    await createConfig(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: scheduledFeeMint,
+      instructionParams: buildConfigParams(),
+      tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
+    });
   });
 
   it("Fails to create config with a zero-fee mint without a badge", async () => {
@@ -265,6 +292,63 @@ describe("Quote mint with transfer fee extension", () => {
         }).then(() => {}),
       "InvalidTokenBadge"
     );
+  });
+
+  it("Treats a zero-fee mint with no fee authority as permissionless", async () => {
+    const immutableZeroFeeMint = createToken2022Mint(svm, admin, {
+      transferFeeConfig: {
+        feeBasisPoints: 0,
+        maximumFee: BigInt(0),
+        transferFeeConfigAuthority: null,
+      },
+    });
+
+    // the fee can never be turned on, so no badge is needed and none may be issued
+    await expectThrowsAsync(
+      () =>
+        createTokenBadge(svm, program, {
+          operator,
+          payer: operator,
+          tokenMint: immutableZeroFeeMint,
+        }).then(() => {}),
+      "CannotCreateTokenBadgeOnSupportedMint"
+    );
+
+    await createConfig(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: immutableZeroFeeMint,
+      instructionParams: buildConfigParams(),
+    });
+  });
+
+  it("Requires a token badge for a non-zero fee even when the fee authority is revoked", async () => {
+    const immutableFeeMint = createToken2022Mint(svm, admin, {
+      transferFeeConfig: {
+        feeBasisPoints: 100,
+        maximumFee: BigInt(LAMPORTS_PER_SOL),
+        transferFeeConfigAuthority: null,
+      },
+    });
+
+    await expectThrowsAsync(
+      () =>
+        createConfig(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: immutableFeeMint,
+          instructionParams: buildConfigParams(),
+        }).then(() => {}),
+      "InvalidTokenBadge"
+    );
+
+    await createTokenBadge(svm, program, {
+      operator,
+      payer: operator,
+      tokenMint: immutableFeeMint,
+    });
   });
 
   describe("Zero-fee badged mint lifecycle", () => {
@@ -313,29 +397,26 @@ describe("Quote mint with transfer fee extension", () => {
       expect(svm.getAccount(virtualPool)).not.eq(null);
     });
 
-    it("Fails to create a new pool after a non-zero fee is set", async () => {
+    it("Creates a new pool on the badged mint after a non-zero fee is set", async () => {
       setTransferFee(svm, admin, zeroFeeMint, admin, 50, BigInt(1_000_000));
 
-      await expectThrowsAsync(
-        () =>
-          createPoolWithToken2022(svm, program, {
-            payer: poolCreator,
-            poolCreator,
-            quoteMint: zeroFeeMint,
-            config,
-            instructionParams: {
-              name: "fee set",
-              symbol: "FEESET",
-              uri: "feeset.com",
-            },
-            tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-            tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
-          }).then(() => {}),
-        "QuoteMintHasNonZeroTransferFee"
-      );
+      const newPool = await createPoolWithToken2022(svm, program, {
+        payer: poolCreator,
+        poolCreator,
+        quoteMint: zeroFeeMint,
+        config,
+        instructionParams: {
+          name: "fee set",
+          symbol: "FEESET",
+          uri: "feeset.com",
+        },
+        tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+        tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
+      });
+      expect(svm.getAccount(newPool)).not.eq(null);
     });
 
-    it("Blocks swap while the transfer fee is non-zero", async () => {
+    it("Swaps while a non-zero fee is scheduled but not active and credits the full amount", async () => {
       mintToken2022To(
         svm,
         user,
@@ -357,10 +438,12 @@ describe("Quote mint with transfer fee extension", () => {
         swapMode: SwapMode.PartialFill,
         referralTokenAccount: null,
       };
-      await expectThrowsAsync(
-        () => swap(svm, program, params).then(() => {}),
-        "QuoteMintHasNonZeroTransferFee"
-      );
+      const preVaultQuote = getTokenAccount(svm, poolState.quoteVault).amount;
+      await swap(svm, program, params);
+      const vaultQuoteReceived =
+        getTokenAccount(svm, poolState.quoteVault).amount - preVaultQuote;
+      // the 50 bps fee only takes effect two epochs later, the active fee is still 0
+      expect(vaultQuoteReceived.toString()).eq(LAMPORTS_PER_SOL.toString());
     });
 
     it("Allows swap again after the transfer fee returns to zero", async () => {
@@ -415,56 +498,73 @@ describe("Quote mint with transfer fee extension", () => {
         });
       });
 
-      it("Blocks claims and withdrawals while the fee is non-zero", async () => {
+      it("Claims and withdrawals pay out net of the fee once it is active", async () => {
+        // older_transfer_fee stays 0 bps, newer_transfer_fee becomes 50 bps two epochs ahead
         setTransferFee(svm, admin, zeroFeeMint, admin, 50, BigInt(1_000_000));
+        warpEpochBy(svm, 2);
 
-        await expectThrowsAsync(
-          () =>
-            claimTradingFee(svm, program, {
-              feeClaimer: partner,
-              pool: virtualPool,
-              maxBaseAmount: U64_MAX,
-              maxQuoteAmount: U64_MAX,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
+        const poolState = getVirtualPool(svm, program, virtualPool);
+        // 50 bps, rounded up, capped at maximum_fee
+        const netOf = (gross: bigint): bigint => {
+          const rawFee = (gross * BigInt(50) + BigInt(9_999)) / BigInt(10_000);
+          const fee = rawFee < BigInt(1_000_000) ? rawFee : BigInt(1_000_000);
+          return gross - fee;
+        };
+        const expectNetPayout = async (
+          owner: PublicKey,
+          action: () => Promise<unknown>
+        ): Promise<bigint> => {
+          const recipient = getAssociatedTokenAddressSync(
+            zeroFeeMint,
+            owner,
+            true,
+            TOKEN_2022_PROGRAM_ID
+          );
+          const preVault = getTokenAccount(svm, poolState.quoteVault).amount;
+          const preRecipient =
+            svm.getAccount(recipient) === null
+              ? BigInt(0)
+              : getTokenAccount(svm, recipient).amount;
+          await action();
+          const vaultPaid =
+            preVault - getTokenAccount(svm, poolState.quoteVault).amount;
+          const received =
+            getTokenAccount(svm, recipient).amount - preRecipient;
+          expect(received.toString()).eq(netOf(vaultPaid).toString());
+          return vaultPaid;
+        };
+
+        const partnerClaim = await expectNetPayout(partner.publicKey, () =>
+          claimTradingFee(svm, program, {
+            feeClaimer: partner,
+            pool: virtualPool,
+            maxBaseAmount: U64_MAX,
+            maxQuoteAmount: U64_MAX,
+          })
+        );
+        expect(partnerClaim > BigInt(0)).eq(true);
+
+        await expectNetPayout(poolCreator.publicKey, () =>
+          claimCreatorTradingFee(svm, program, {
+            creator: poolCreator,
+            pool: virtualPool,
+            maxBaseAmount: U64_MAX,
+            maxQuoteAmount: U64_MAX,
+          })
         );
 
-        await expectThrowsAsync(
-          () =>
-            claimCreatorTradingFee(svm, program, {
-              creator: poolCreator,
-              pool: virtualPool,
-              maxBaseAmount: U64_MAX,
-              maxQuoteAmount: U64_MAX,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
+        await expectNetPayout(poolCreator.publicKey, () =>
+          creatorWithdrawSurplus(svm, program, {
+            creator: poolCreator,
+            virtualPool,
+          })
         );
 
-        await expectThrowsAsync(
-          () =>
-            partnerWithdrawSurplus(svm, program, {
-              feeClaimer: partner,
-              virtualPool,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
-        );
-
-        await expectThrowsAsync(
-          () =>
-            creatorWithdrawSurplus(svm, program, {
-              creator: poolCreator,
-              virtualPool,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
-        );
-
-        await expectThrowsAsync(
-          () =>
-            partnerWithdrawMigrationFee(svm, program, {
-              partner,
-              virtualPool,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
+        await expectNetPayout(partner.publicKey, () =>
+          partnerWithdrawMigrationFee(svm, program, {
+            partner,
+            virtualPool,
+          })
         );
       });
 
@@ -503,29 +603,12 @@ describe("Quote mint with transfer fee extension", () => {
         });
       });
 
-      it("Blocks migration while the fee is non-zero", async () => {
+      it("Migrates while a non-zero fee is active without overdrawing the quote vault", async () => {
+        // older_transfer_fee stays 0 bps, newer_transfer_fee becomes 50 bps two epochs ahead
         setTransferFee(svm, admin, zeroFeeMint, admin, 50, BigInt(1_000_000));
+        warpEpochBy(svm, 2);
 
-        const dammConfig = await createDammV2Config(
-          svm,
-          admin,
-          derivePoolAuthority(),
-          1
-        );
-        await expectThrowsAsync(
-          () =>
-            migrateToDammV2(svm, program, {
-              payer: admin,
-              virtualPool,
-              dammConfig,
-            }).then(() => {}),
-          "QuoteMintHasNonZeroTransferFee"
-        );
-      });
-
-      it("Migrates after the fee returns to zero", async () => {
-        setTransferFee(svm, admin, zeroFeeMint, admin, 0, BigInt(0));
-
+        const poolState = getVirtualPool(svm, program, virtualPool);
         const dammConfig = await createDammV2Config(
           svm,
           admin,
@@ -537,6 +620,17 @@ describe("Quote mint with transfer fee extension", () => {
           virtualPool,
           dammConfig,
         });
+
+        // everything still owed in quote must remain in the vault after the fee-bearing deposits
+        const postPoolState = getVirtualPool(svm, program, virtualPool);
+        // the config's migration fee percentage is 0, so these are all the quote claims outstanding
+        const owedQuote =
+          BigInt(postPoolState.protocolQuoteFee.toString()) +
+          BigInt(postPoolState.partnerQuoteFee.toString()) +
+          BigInt(postPoolState.creatorQuoteFee.toString()) +
+          BigInt(postPoolState.protocolMigrationQuoteFeeAmount.toString());
+        const vaultQuote = getTokenAccount(svm, poolState.quoteVault).amount;
+        expect(vaultQuote >= owedQuote).eq(true);
       });
     });
   });
@@ -572,24 +666,15 @@ describe("Quote mint with transfer fee extension", () => {
       // older_transfer_fee stays 100 bps, newer_transfer_fee becomes 0 bps two epochs ahead
       setTransferFee(svm, admin, mint, admin, 0, BigInt(0));
 
-      // the zero fee is only scheduled, the active fee is still 100 bps
-      await expectThrowsAsync(
-        () =>
-          createTokenBadge(svm, program, {
-            operator,
-            payer: operator,
-            tokenMint: mint,
-          }).then(() => {}),
-        "QuoteMintHasNonZeroTransferFee"
-      );
-
-      warpEpochBy(svm, 2);
-
+      // the zero fee is only scheduled, the active fee is still 100 bps: badge-eligible either way
       await createTokenBadge(svm, program, {
         operator,
         payer: operator,
         tokenMint: mint,
       });
+
+      warpEpochBy(svm, 2);
+
       const config = await createConfig(svm, program, {
         payer: partner,
         leftoverReceiver: partner.publicKey,
@@ -620,10 +705,18 @@ describe("Quote mint with transfer fee extension", () => {
         user.publicKey,
         BigInt(LAMPORTS_PER_SOL * 10)
       );
+      // the zero fee is active now, so the vault receives the full amount
+      const poolState = getVirtualPool(svm, program, pool);
+      const preVaultQuote = getTokenAccount(svm, poolState.quoteVault).amount;
       await swap(svm, program, buildSwapParams(mint, config, pool));
+      expect(
+        (
+          getTokenAccount(svm, poolState.quoteVault).amount - preVaultQuote
+        ).toString()
+      ).eq(LAMPORTS_PER_SOL.toString());
     });
 
-    it("Enforces a scheduled non-zero fee once it becomes active", async () => {
+    it("Applies a scheduled non-zero fee once it becomes active", async () => {
       const mint = createToken2022Mint(svm, admin, {
         transferFeeConfig: {
           feeBasisPoints: 0,
@@ -666,33 +759,31 @@ describe("Quote mint with transfer fee extension", () => {
         BigInt(LAMPORTS_PER_SOL * 10)
       );
 
+      const poolState = getVirtualPool(svm, program, pool);
+      const vaultDeltaForSwap = async (): Promise<bigint> => {
+        const pre = getTokenAccount(svm, poolState.quoteVault).amount;
+        await swap(svm, program, buildSwapParams(mint, config, pool));
+        return getTokenAccount(svm, poolState.quoteVault).amount - pre;
+      };
+      const fullAmount = BigInt(LAMPORTS_PER_SOL);
+      // 50 bps of 1 SOL is 5_000_000, capped by maximum_fee at 1_000_000
+      const netAmount = fullAmount - BigInt(1_000_000);
+
       // older_transfer_fee stays 0 bps, newer_transfer_fee becomes 50 bps two epochs ahead
       setTransferFee(svm, admin, mint, admin, 50, BigInt(1_000_000));
       warpEpochBy(svm, 2);
 
       // the historical zero fee must not mask the active 50 bps fee
-      await expectThrowsAsync(
-        () =>
-          swap(svm, program, buildSwapParams(mint, config, pool)).then(
-            () => {}
-          ),
-        "QuoteMintHasNonZeroTransferFee"
-      );
+      expect((await vaultDeltaForSwap()).toString()).eq(netAmount.toString());
 
       // older_transfer_fee becomes 50 bps, newer_transfer_fee becomes 0 bps two epochs ahead
       setTransferFee(svm, admin, mint, admin, 0, BigInt(0));
 
       // the zero fee is only scheduled, the active fee is still 50 bps
-      await expectThrowsAsync(
-        () =>
-          swap(svm, program, buildSwapParams(mint, config, pool)).then(
-            () => {}
-          ),
-        "QuoteMintHasNonZeroTransferFee"
-      );
+      expect((await vaultDeltaForSwap()).toString()).eq(netAmount.toString());
 
       warpEpochBy(svm, 2);
-      await swap(svm, program, buildSwapParams(mint, config, pool));
+      expect((await vaultDeltaForSwap()).toString()).eq(fullAmount.toString());
     });
   });
 });
