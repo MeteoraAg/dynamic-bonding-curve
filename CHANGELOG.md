@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
+
+- TODO
+
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
 
 ### Added
