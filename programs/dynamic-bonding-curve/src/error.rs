@@ -260,6 +260,7 @@ pub enum PoolError {
     #[msg("Invalid token badge")]
     InvalidTokenBadge,
 
+    /// deprecated
     #[msg("Quote mint has a non zero transfer fee")]
     QuoteMintHasNonZeroTransferFee,
 
