@@ -198,21 +198,6 @@ fn is_transfer_fee_zero(
     Ok(true)
 }
 
-pub fn validate_transfer_fee_is_zero(mint_account_info: &AccountInfo) -> Result<()> {
-    if mint_account_info.owner.eq(&Token::id()) {
-        return Ok(());
-    }
-
-    let mint_data = mint_account_info.try_borrow_data()?;
-    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-    require!(
-        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
-
-    Ok(())
-}
-
 /// Rule: quote mint must be SPL-Token, or Token-2022 (non-native) with only metadata extensions
 /// never allow a non-zero transfer fee
 pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
