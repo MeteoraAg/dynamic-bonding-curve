@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
-use crate::token::validate_transfer_fee_is_zero;
+use crate::migration_handler::get_transfer_fee_adjusted_migration_amounts;
+use crate::token::{calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee};
 use crate::{
     activation_handler::ActivationType,
     const_pda::{self, pool_authority::BUMP},
@@ -548,9 +549,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         PoolError::InvalidMigrationOption
     );
 
-    // dammv2 supports non-zero transfer fee.
-    // however this validation ensures that we initialize the migrated pool with the expected amount
-    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
+    let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
 
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
@@ -591,14 +590,19 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let excluded_protocol_fee_migration_quote_amount =
         included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
+    let (migration_base_amount, migration_quote_amount) =
+        get_transfer_fee_adjusted_migration_amounts(
+            quote_transfer_fee.as_ref(),
+            excluded_protocol_fee_migration_base_amount,
+            excluded_protocol_fee_migration_quote_amount,
+        )?;
+
     let InitialPoolInformation {
         sqrt_price: pool_sqrt_price,
         distributable_liquidity,
         dead_liquidity,
-    } = liquidity_handler.get_initial_pool_information(
-        excluded_protocol_fee_migration_base_amount,
-        excluded_protocol_fee_migration_quote_amount,
-    )?;
+    } = liquidity_handler
+        .get_initial_pool_information(migration_base_amount, migration_quote_amount)?;
 
     let LiquidityDistribution {
         partner: partner_liquidity_distribution,
@@ -669,11 +673,13 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let leftover_migration_base_amount =
-        excluded_protocol_fee_migration_base_amount.safe_sub(deposited_base_amount)?;
+    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
 
-    let leftover_migration_quote_amount =
-        excluded_protocol_fee_migration_quote_amount.safe_sub(deposited_quote_amount)?;
+    let leftover_migration_quote_amount = calculate_transfer_fee_excluded_amount(
+        quote_transfer_fee.as_ref(),
+        excluded_protocol_fee_migration_quote_amount.safe_sub(deposited_quote_amount)?,
+    )?
+    .amount;
 
     let liquidity_for_second_position = {
         let damm_pool_loader: AccountLoader<'_, damm_v2::accounts::Pool> =

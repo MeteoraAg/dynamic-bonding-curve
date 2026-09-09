@@ -4,10 +4,34 @@ pub use compounding_liquidity::*;
 pub mod concentrated_liquidity;
 pub use concentrated_liquidity::*;
 
+use crate::PoolError;
 use anchor_lang::prelude::*;
+use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::state::MigrationOption;
+use crate::{
+    state::MigrationOption, token::calculate_transfer_fee_excluded_amount, u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u64,
+};
+
+pub fn get_transfer_fee_adjusted_migration_amounts(
+    quote_transfer_fee: Option<&TransferFee>,
+    base_budget: u64,
+    quote_budget: u64,
+) -> Result<(u64, u64)> {
+    let quote_amount =
+        calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?.amount;
+    if quote_amount == quote_budget {
+        return Ok((base_budget, quote_budget));
+    }
+
+    let base_amount =
+        safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Down)?;
+
+    require!(base_amount > 0 && quote_amount > 0, PoolError::AmountIsZero);
+
+    Ok((base_amount, quote_amount))
+}
 
 pub struct InitialPoolInformation {
     pub sqrt_price: u128,
