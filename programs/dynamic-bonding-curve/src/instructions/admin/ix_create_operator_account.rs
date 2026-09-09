@@ -1,6 +1,7 @@
 use crate::{
-    constants::{seeds::OPERATOR_PREFIX, MAX_OPERATION},
-    state::Operator,
+    bits::bitmask_max,
+    constants::seeds::OPERATOR_PREFIX,
+    state::{Operator, OperatorPermission},
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -35,9 +36,9 @@ pub fn handle_create_operator_account(
     ctx: Context<CreateOperatorAccountCtx>,
     permission: u128,
 ) -> Result<()> {
-    // validate permission, only support 2 operations for now
+    // validate permission against the defined OperatorPermission bits
     require!(
-        permission > 0 && permission < 1 << MAX_OPERATION,
+        permission > 0 && permission <= bitmask_max(OperatorPermission::VARIANT_COUNT),
         PoolError::InvalidPermission
     );
 

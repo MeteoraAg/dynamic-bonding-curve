@@ -7,7 +7,6 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import {
   BaseFee,
-  claimProtocolFee,
   ConfigParameters,
   createConfigWithTransferHook,
   CreateConfigWithTransferHookParams,
@@ -25,7 +24,6 @@ import {
   DammV2OperatorPermission,
   derivePoolAuthority,
   encodePermissions,
-  expectThrowsAsync,
   generateAndFund,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
@@ -266,14 +264,5 @@ describe("Migrate to damm v2 with transfer hook", () => {
     );
     expect(transferHook!.authority.equals(PublicKey.default)).to.be.true;
     expect(transferHook!.programId.equals(PublicKey.default)).to.be.true;
-  });
-
-  it("Deprecated claim_protocol_fee rejects transfer hook pool", async () => {
-    await expectThrowsAsync(async () => {
-      await claimProtocolFee(svm, program, {
-        pool: virtualPool,
-        operator: operator,
-      });
-    }, "Account discriminator did not match what was expected"); // claimProtocolFee does not support transfer hook pool. need to use claimProtocolFee2
   });
 });

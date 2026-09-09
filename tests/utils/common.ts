@@ -294,6 +294,12 @@ export function warpSlotBy(svm: LiteSVM, slots: BN) {
   svm.warpToSlot(BigInt(slots.toString()));
 }
 
+export function warpEpochBy(svm: LiteSVM, epochs: number) {
+  const clock = svm.getClock();
+  clock.epoch = clock.epoch + BigInt(epochs);
+  svm.setClock(clock);
+}
+
 export const SET_COMPUTE_UNIT_LIMIT_IX =
   web3.ComputeBudgetProgram.setComputeUnitLimit({
     units: 1_400_000,
@@ -486,11 +492,24 @@ export async function createDammV2Operator(
   svm.sendTransaction(transaction);
 }
 
+export enum DammV2ConfigPermission {
+  CreatePoolWithoutMintValidation, // 0
+}
+
+export function encodeConfigPermissions(
+  permissions: DammV2ConfigPermission[]
+): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
 export async function createDammV2Config(
   svm: LiteSVM,
   operator: Keypair,
   poolCreatorAuthority: PublicKey,
-  activationType: number = 0
+  activationType: number = 0,
+  permission: BN = new BN(0)
 ): Promise<PublicKey> {
   const program = createDammV2Program();
 
@@ -523,6 +542,7 @@ export async function createDammV2Config(
     poolCreatorAuthority,
     activationType,
     collectFeeMode: 0,
+    permission,
   };
   const [config] = PublicKey.findProgramAddressSync(
     [Buffer.from("config"), params.index.toBuffer("le", 8)],
@@ -554,7 +574,8 @@ export async function createDammV2Config(
 export async function createDammV2DynamicConfig(
   svm: LiteSVM,
   operator: Keypair,
-  poolCreatorAuthority: PublicKey
+  poolCreatorAuthority: PublicKey,
+  permission: BN = new BN(0)
 ): Promise<PublicKey> {
   const program = createDammV2Program();
 
@@ -569,7 +590,7 @@ export async function createDammV2DynamicConfig(
   );
 
   const transaction = await program.methods
-    .createDynamicConfig(new BN(0), { poolCreatorAuthority })
+    .createDynamicConfig(new BN(0), { poolCreatorAuthority, permission })
     .accountsPartial({
       config,
       operator: operatorPda,

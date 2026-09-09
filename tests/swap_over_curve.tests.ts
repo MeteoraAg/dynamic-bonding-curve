@@ -4,28 +4,32 @@ import {
   createConfig,
   CreateConfigParams,
   createLocker,
-  createMeteoraMetadata,
   createPoolWithSplToken,
-  MigrateMeteoraParams,
-  migrateToMeteoraDamm,
   partnerWithdrawSurplus,
   swap,
   SwapMode,
   SwapParams,
   swapPartialFill,
-  claimProtocolFee,
   createOperatorAccount,
   OperatorPermission,
 } from "./instructions";
 import {
-  createDammConfig,
+  createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
+  encodePermissions,
   derivePoolAuthority,
   designCurve,
   generateAndFund,
   getMint,
   startSvm,
 } from "./utils";
+import {
+  createMeteoraDammV2Metadata,
+  MigrateMeteoraDammV2Params,
+  migrateToDammV2,
+} from "./instructions/dammV2Migration";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { VirtualCurveProgram } from "./utils/types";
 
@@ -52,6 +56,12 @@ describe("Swap Over the Curve", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
+
     await createOperatorAccount(svm, program, {
       admin,
       whitelistedAddress: operator.publicKey,
@@ -65,7 +75,7 @@ describe("Swap Over the Curve", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -142,13 +152,13 @@ describe("Swap Over the Curve", () => {
 
     // migrate
     const poolAuthority = derivePoolAuthority();
-    let dammConfig = await createDammConfig(svm, admin, poolAuthority);
-    const migrationParams: MigrateMeteoraParams = {
+    let dammConfig = await createDammV2Config(svm, admin, poolAuthority, 1);
+    const migrationParams: MigrateMeteoraDammV2Params = {
       payer: admin,
       virtualPool,
       dammConfig,
     };
-    await createMeteoraMetadata(svm, program, {
+    await createMeteoraDammV2Metadata(svm, program, {
       payer: admin,
       virtualPool,
       config,
@@ -160,12 +170,7 @@ describe("Swap Over the Curve", () => {
         virtualPool,
       });
     }
-    await migrateToMeteoraDamm(svm, program, migrationParams);
-
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
+    await migrateToDammV2(svm, program, migrationParams);
 
     await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,
@@ -185,7 +190,7 @@ describe("Swap Over the Curve", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -195,9 +200,6 @@ describe("Swap Over the Curve", () => {
     };
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
 
-    const feeIncrementBps = 10;
-    const maxLimiterDuration = 86400;
-    const referenceAmount = 1_000_000_000;
     const collectFeeMode = 0;
 
     let instructionParams = designCurve(
@@ -217,10 +219,10 @@ describe("Swap Over the Curve", () => {
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: feeIncrementBps,
-          secondFactor: new BN(maxLimiterDuration),
-          thirdFactor: new BN(referenceAmount),
-          baseFeeMode: 2, // Rate limiter
+          firstFactor: 0,
+          secondFactor: new BN(0),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
       }
     );
@@ -292,13 +294,13 @@ describe("Swap Over the Curve", () => {
 
     // migrate
     const poolAuthority = derivePoolAuthority();
-    let dammConfig = await createDammConfig(svm, admin, poolAuthority);
-    const migrationParams: MigrateMeteoraParams = {
+    let dammConfig = await createDammV2Config(svm, admin, poolAuthority, 1);
+    const migrationParams: MigrateMeteoraDammV2Params = {
       payer: admin,
       virtualPool,
       dammConfig,
     };
-    await createMeteoraMetadata(svm, program, {
+    await createMeteoraDammV2Metadata(svm, program, {
       payer: admin,
       virtualPool,
       config,
@@ -310,12 +312,7 @@ describe("Swap Over the Curve", () => {
         virtualPool,
       });
     }
-    await migrateToMeteoraDamm(svm, program, migrationParams);
-
-    await claimProtocolFee(svm, program, {
-      operator: operator,
-      pool: virtualPool,
-    });
+    await migrateToDammV2(svm, program, migrationParams);
 
     await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,

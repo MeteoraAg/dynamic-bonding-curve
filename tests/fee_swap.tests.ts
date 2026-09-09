@@ -78,7 +78,7 @@ describe("Fee Swap test", () => {
         },
         activationType: 0,
         collectFeeMode: 1, // BothToken
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
@@ -422,7 +422,7 @@ describe("Fee Swap test", () => {
         },
         activationType: 0,
         collectFeeMode: 0, // OnlyB - only quote token
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),

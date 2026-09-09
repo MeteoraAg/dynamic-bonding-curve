@@ -1,6 +1,6 @@
 [package]
 name = "dynamic-bonding-curve"
-version = "0.2.0"
+version = "0.2.1"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -35,10 +35,10 @@ num_enum = { workspace = true }
 num = { workspace = true }
 solana-instruction = { workspace = true }
 solana-instructions-sysvar = { workspace = true }
+derive-variant-count = { workspace = true }
 dynamic-amm = { workspace = true }
 damm-v2 = { workspace = true }
 locker = { workspace = true }
-protocol-zap = { workspace = true }
 mpl-token-metadata = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
 spl-tlv-account-resolution = { workspace = true }

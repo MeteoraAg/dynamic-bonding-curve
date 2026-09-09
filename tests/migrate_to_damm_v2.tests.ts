@@ -3,7 +3,6 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import {
   BaseFee,
-  claimProtocolFee,
   ConfigParameters,
   createConfig,
   CreateConfigParams,
@@ -219,12 +218,5 @@ describe("Migrate to damm v2", () => {
     };
 
     await migrateToDammV2(svm, program, migrationParams);
-  });
-
-  it("Operator claim protocol fee", async () => {
-    await claimProtocolFee(svm, program, {
-      pool: virtualPool,
-      operator: operator,
-    });
   });
 });

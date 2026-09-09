@@ -10,6 +10,7 @@ use std::cmp::{max, min};
 
 use crate::{
     activation_handler::get_current_point,
+    base_fee::BaseFeeEnumReader,
     const_pda,
     constants::{
         fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
@@ -19,8 +20,11 @@ use crate::{
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
     event::EvtInitializePool,
     process_create_token_metadata,
-    state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
-    token::transfer_lamports_from_user,
+    state::{
+        fee::VolatilityTracker, BaseFeeMode, MigrationOption, PoolConfig, PoolType, TokenType,
+        VirtualPool,
+    },
+    token::{transfer_lamports_from_user, validate_quote_mint_with_token_badge},
     PoolError, ProcessCreateTokenMetadataParams,
 };
 
@@ -142,12 +146,27 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
             >= MIN_LOCKED_LIQUIDITY_BPS,
         PoolError::InvalidMigrationLockedLiquidity
+    );
+
+    require!(
+        config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+        PoolError::DeprecatedBaseFeeMode
+    );
+
+    let migration_option = MigrationOption::try_from(config.migration_option)
+        .map_err(|_| PoolError::InvalidMigrationOption)?;
+
+    require!(
+        migration_option != MigrationOption::MeteoraDamm,
+        PoolError::DeprecatedMigrationOption
     );
 
     // validate min base fee

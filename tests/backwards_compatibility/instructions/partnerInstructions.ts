@@ -158,12 +158,13 @@ export type CreateConfigForSwapParams = {
   feeClaimer: PublicKey;
   quoteMint: PublicKey;
 };
-export async function createConfigForSwapDamm(
+async function sendCreateConfigForSwapDamm(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateConfigForSwapParams
+  params: CreateConfigForSwapParams,
+  ixName: string
 ): Promise<PublicKey> {
-  const { payer, leftoverReceiver, feeClaimer, quoteMint } = params;
+  const { payer, leftoverReceiver, feeClaimer } = params;
   const config = Keypair.generate();
   const eventAuthority = deriveEventAuthority(program);
 
@@ -179,17 +180,47 @@ export async function createConfigForSwapDamm(
       { pubkey: eventAuthority, isSigner: false, isWritable: false },
       { pubkey: program.programId, isSigner: false, isWritable: false },
     ],
-    data: await readIxData("createConfigSplTokenForSwapDamm"),
+    data: await readIxData(ixName),
   });
 
   const tx = new Transaction().add(ix);
   sendTransactionMaybeThrow(svm, tx, [payer, config]);
 
-  const configState = getConfig(svm, program, config.publicKey);
-
-  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
-
   return config.publicKey;
+}
+
+export async function createConfigForSwapDamm(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigForSwapParams
+): Promise<PublicKey> {
+  const config = await sendCreateConfigForSwapDamm(
+    svm,
+    program,
+    params,
+    "createConfigSplTokenForSwapDamm"
+  );
+
+  const configState = getConfig(svm, program, config);
+
+  expect(configState.quoteMint.toString()).equal(params.quoteMint.toString());
+
+  return config;
+}
+
+// Sends create_config bytes encoded with the deprecated MigrationOption::MeteoraDamm.
+// The program is expected to reject them.
+export async function createConfigForSwapDammDeprecated(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigForSwapParams
+): Promise<PublicKey> {
+  return sendCreateConfigForSwapDamm(
+    svm,
+    program,
+    params,
+    "createConfigSplTokenForSwapDammDeprecated"
+  );
 }
 
 export async function createConfigForSwapDammv2(

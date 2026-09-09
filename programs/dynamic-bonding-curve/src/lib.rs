@@ -52,20 +52,6 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_claim_protocol_fee_operator(ctx)
     }
 
-    /// Accepts: VirtualPool only.
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use claim_protocol_fee2 through protocol_fee program instead"
-    )]
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
-    pub fn claim_protocol_fee(
-        ctx: Context<ClaimProtocolFeesCtx>,
-        max_base_amount: u64,
-        max_quote_amount: u64,
-    ) -> Result<()> {
-        instructions::handle_claim_protocol_fee(ctx, max_base_amount, max_quote_amount)
-    }
-
     /// Accepts: VirtualPool or TransferHookPool.
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_pool_creation_fee(
@@ -74,14 +60,14 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
-    /// Accepts: VirtualPool only.
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use claim_protocol_fee2 through protocol_fee program instead"
-    )]
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
-        instructions::handle_zap_protocol_fee(ctx, max_amount)
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateTokenBadge))]
+    pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_create_token_badge(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
+    pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_close_token_badge(ctx)
     }
 
     /// Accepts: VirtualPool or TransferHookPool.
@@ -100,15 +86,15 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_partner_metadata(ctx, metadata)
     }
 
-    pub fn create_config(
-        ctx: Context<CreateConfigCtx>,
+    pub fn create_config<'info>(
+        ctx: Context<'info, CreateConfigCtx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    pub fn create_config_with_transfer_hook(
-        ctx: Context<CreateConfigWithTransferHookCtx>,
+    pub fn create_config_with_transfer_hook<'info>(
+        ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
         config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config_with_transfer_hook(ctx, config_parameters)
@@ -173,8 +159,8 @@ pub mod dynamic_bonding_curve {
     }
 
     /// Accepts: TransferHookPool only.
-    pub fn initialize_virtual_pool_with_token2022_transfer_hook(
-        ctx: Context<InitializeVirtualPoolWithToken2022TransferHookCtx>,
+    pub fn initialize_virtual_pool_with_token2022_transfer_hook<'info>(
+        ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_virtual_pool_with_token2022_transfer_hook(ctx, params)

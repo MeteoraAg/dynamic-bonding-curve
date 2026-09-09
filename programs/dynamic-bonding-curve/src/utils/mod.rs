@@ -1,4 +1,6 @@
 pub mod activation_handler;
+pub mod bits;
+pub use bits::*;
 pub mod cpi_checker;
 pub mod damm_v2_utils;
 pub mod token;

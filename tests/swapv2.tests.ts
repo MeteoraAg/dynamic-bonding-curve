@@ -53,7 +53,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -147,7 +147,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -248,7 +248,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -352,7 +352,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -456,7 +456,7 @@ describe("Swap V2", () => {
     let migrationQuoteThreshold = 300; // 300 sol
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
-    let migrationOption = 0; // damm v1
+    let migrationOption = 1;
     let lockedVesting = {
       amountPerPeriod: new BN(0),
       cliffDurationFromMigrationTime: new BN(0),
@@ -466,9 +466,6 @@ describe("Swap V2", () => {
     };
     let collectFeeMode = 0;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
-    const feeIncrementBps = 100;
-    const maxLimiterDuration = 86400;
-    const referenceAmount = 1_000_000;
     let instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -486,10 +483,10 @@ describe("Swap V2", () => {
       {
         baseFeeOption: {
           cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: feeIncrementBps,
-          secondFactor: new BN(maxLimiterDuration),
-          thirdFactor: new BN(referenceAmount),
-          baseFeeMode: 2, // Rate limiter
+          firstFactor: 0,
+          secondFactor: new BN(0),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
       }
     );
@@ -527,6 +524,7 @@ describe("Swap V2", () => {
         uri: "abc.com",
       },
     });
+
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // 90% of base

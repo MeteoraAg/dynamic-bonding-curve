@@ -147,6 +147,13 @@ export function deriveOperatorAddress(operator: PublicKey): PublicKey {
   )[0];
 }
 
+export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("token_badge"), tokenMint.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
 export function deriveProtocolFeeAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("protocol_fee_authority")],

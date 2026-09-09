@@ -3,7 +3,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::PoolAccountLoader;
 use crate::{
-    const_pda, event::EvtPartnerWithdrawSurplus, token::transfer_token_from_pool_authority,
+    const_pda,
+    event::EvtPartnerWithdrawSurplus,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     ConfigAccountLoader, PoolError,
 };
 
@@ -73,6 +75,8 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
     );
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let partner_surplus_amount = pool.get_partner_surplus(&config, total_surplus)?;
+
+    validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),

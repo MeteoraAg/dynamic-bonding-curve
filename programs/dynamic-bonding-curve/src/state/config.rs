@@ -56,7 +56,7 @@ pub enum BaseFeeMode {
     FeeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeSchedulerExponential,
-    // TODO
+    /// deprecated. existing pools are still supported. kept for backwards compatibility
     RateLimiter,
 }
 
@@ -423,6 +423,8 @@ impl TokenAuthorityOption {
     AnchorSerialize,
 )]
 pub enum MigrationOption {
+    /// Deprecated for new configs and pools. Exisiting pools can still migrate to DAMMv1.
+    /// Kept for backwards compatibility.
     MeteoraDamm,
     DammV2,
 }

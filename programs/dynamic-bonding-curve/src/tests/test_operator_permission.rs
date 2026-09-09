@@ -1,12 +1,12 @@
 use crate::{
-    constants::MAX_OPERATION,
+    bits::bitmask_max,
     state::operator::{Operator, OperatorPermission},
 };
 
 #[test]
 fn test_initialize_with_full_permission() {
-    let permission: u128 = 0b11;
-    assert!(permission >= 1 << (MAX_OPERATION - 1) && permission <= 1 << MAX_OPERATION);
+    let permission: u128 = bitmask_max(OperatorPermission::VARIANT_COUNT);
+    assert_eq!(permission, 0b1111);
 
     let operator = Operator {
         permission,
@@ -20,6 +20,16 @@ fn test_initialize_with_full_permission() {
 
     assert_eq!(
         operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
+        true
+    );
+
+    assert_eq!(
+        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
+        true
+    );
+
+    assert_eq!(
+        operator.is_permission_allow(OperatorPermission::CloseTokenBadge),
         true
     );
 }

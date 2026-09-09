@@ -38,6 +38,7 @@ import {
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
+  setDeprecatedMeteoraDammConfig,
 } from "./utils";
 import {
   getConfig,
@@ -85,7 +86,7 @@ async function createPartnerConfig(
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
@@ -142,7 +143,7 @@ async function createPartnerConfig(
     quoteMint: NATIVE_MINT,
     instructionParams,
   };
-  return createConfig(svm, program, params);
+  return await createConfig(svm, program, params);
 }
 
 async function setupPrerequisite(
@@ -169,6 +170,7 @@ async function setupPrerequisite(
       uri: "abc.com",
     },
   });
+  setDeprecatedMeteoraDammConfig(svm, config);
 
   const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 

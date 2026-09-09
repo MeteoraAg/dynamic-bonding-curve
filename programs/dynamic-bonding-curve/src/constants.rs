@@ -135,5 +135,3 @@ pub mod protocol_fee_program {
         pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
     }
 }
-
-pub const MAX_OPERATION: u8 = 2; // Check OperatorPermission enum variants count

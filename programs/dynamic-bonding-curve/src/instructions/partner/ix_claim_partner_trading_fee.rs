@@ -5,7 +5,7 @@ use crate::{
     const_pda,
     event::EvtClaimTradingFee,
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
-    token::transfer_token_from_pool_authority,
+    token::{transfer_token_from_pool_authority, validate_transfer_fee_is_zero},
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
@@ -128,6 +128,8 @@ pub fn handle_claim_trading_fee<'info>(
     }
 
     if token_quote_amount > 0 {
+        validate_transfer_fee_is_zero(&ctx.accounts.quote_mint.to_account_info())?;
+
         transfer_token_from_pool_authority(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.quote_mint,

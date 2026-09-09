@@ -18,13 +18,11 @@ import {
   SwapParams,
 } from "./instructions";
 import {
-  createMeteoraMetadata,
-  MigrateMeteoraParams,
-  migrateToMeteoraDamm,
-} from "./instructions/meteoraMigration";
-import {
-  createDammConfig,
+  createDammV2Config,
+  createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
+  encodePermissions,
   derivePoolAuthority,
   designCurve,
   expectThrowsAsync,
@@ -33,6 +31,11 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
+import {
+  createMeteoraDammV2Metadata,
+  MigrateMeteoraDammV2Params,
+  migrateToDammV2,
+} from "./instructions/dammV2Migration";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken, mintSplTokenTo } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
@@ -54,13 +57,19 @@ describe("Creator and Partner share trading fees and surplus", () => {
     user = generateAndFund(svm);
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("50-50 fee between partner and creator", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -124,7 +133,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -188,7 +197,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -252,7 +261,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
-    let migrationOption = 0;
+    let migrationOption = 1;
     let tokenBaseDecimal = 6;
     let tokenQuoteDecimal = 9;
     let lockedVesting = {
@@ -395,13 +404,13 @@ async function fullFlow(
 
   // migrate
   const poolAuthority = derivePoolAuthority();
-  let dammConfig = await createDammConfig(svm, admin, poolAuthority);
-  const migrationParams: MigrateMeteoraParams = {
+  let dammConfig = await createDammV2Config(svm, admin, poolAuthority, 1);
+  const migrationParams: MigrateMeteoraDammV2Params = {
     payer: admin,
     virtualPool,
     dammConfig,
   };
-  await createMeteoraMetadata(svm, program, {
+  await createMeteoraDammV2Metadata(svm, program, {
     payer: admin,
     virtualPool,
     config,
@@ -413,7 +422,7 @@ async function fullFlow(
       virtualPool,
     });
   }
-  await migrateToMeteoraDamm(svm, program, migrationParams);
+  await migrateToDammV2(svm, program, migrationParams);
 
   const errorCodeUnauthorized = getDbcProgramErrorCodeHexString("Unauthorized");
 

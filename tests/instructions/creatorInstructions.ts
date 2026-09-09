@@ -174,6 +174,8 @@ export async function creatorWithdrawSurplus(
 ): Promise<any> {
   const { creator, virtualPool } = params;
   const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
+  const tokenQuoteProgram = getTokenProgram(configState.quoteTokenFlag);
   const poolAuthority = derivePoolAuthority();
 
   const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
@@ -186,7 +188,7 @@ export async function creatorWithdrawSurplus(
       creator,
       quoteMintInfo.mint,
       creator.publicKey,
-      TOKEN_PROGRAM_ID
+      tokenQuoteProgram
     );
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
@@ -206,7 +208,7 @@ export async function creatorWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       creator: creator.publicKey,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)

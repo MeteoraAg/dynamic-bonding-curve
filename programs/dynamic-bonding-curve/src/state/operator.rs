@@ -1,6 +1,7 @@
 use std::ops::BitAnd;
 
 use anchor_lang::prelude::*;
+use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
@@ -14,10 +15,13 @@ use static_assertions::const_assert_eq;
     TryFromPrimitive,
     AnchorDeserialize,
     AnchorSerialize,
+    VariantCount,
 )]
 pub enum OperatorPermission {
     ClaimProtocolFee, // 0
-    ZapProtocolFee,   // 1
+    ZapProtocolFee,   // 1 - Deprecated. Kept for enum ordering
+    CreateTokenBadge, // 2
+    CloseTokenBadge,  // 3
 }
 
 #[account(zero_copy)]

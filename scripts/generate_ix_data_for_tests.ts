@@ -80,7 +80,7 @@ async function createConfigSplToken(
     },
     activationType: 0,
     collectFeeMode: 1,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 6,
     // 5 SOL
@@ -204,8 +204,9 @@ async function createConfigToken2022(
   return ix.data;
 }
 
-async function createConfigSplTokenForSwapDamm(
-  program: Program<VirtualCurve>
+async function buildCreateConfigSplTokenForSwapDamm(
+  program: Program<VirtualCurve>,
+  migrationOption: number
 ): Promise<Buffer> {
   let curves = [];
   for (let i = 1; i <= 16; i++) {
@@ -245,7 +246,7 @@ async function createConfigSplTokenForSwapDamm(
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0,
+    migrationOption,
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
@@ -286,6 +287,20 @@ async function createConfigSplTokenForSwapDamm(
     .instruction();
 
   return ix.data;
+}
+
+async function createConfigSplTokenForSwapDamm(
+  program: Program<VirtualCurve>
+): Promise<Buffer> {
+  return buildCreateConfigSplTokenForSwapDamm(program, 1);
+}
+
+// Encodes the deprecated MigrationOption::MeteoraDamm so the backwards
+// compatibility suite can assert the program now rejects it.
+async function createConfigSplTokenForSwapDammDeprecated(
+  program: Program<VirtualCurve>
+): Promise<Buffer> {
+  return buildCreateConfigSplTokenForSwapDamm(program, 0);
 }
 
 async function createConfigSplTokenForSwapDammv2(
@@ -411,7 +426,7 @@ async function createConfigSplTokenWithBaseFeeParameters(
     },
     activationType: 0,
     collectFeeMode: 1,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 6,
     // 5 SOL
@@ -945,6 +960,7 @@ async function main() {
     createConfigSplToken,
     createConfigToken2022,
     createConfigSplTokenForSwapDamm,
+    createConfigSplTokenForSwapDammDeprecated,
     createConfigSplTokenForSwapDammv2,
     createConfigSplTokenWithBaseFeeParameters,
     claimTradingFee,
