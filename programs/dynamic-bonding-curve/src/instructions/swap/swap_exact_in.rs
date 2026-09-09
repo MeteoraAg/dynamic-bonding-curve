@@ -1,5 +1,6 @@
 use crate::{
     swap::{ProcessSwapParams, ProcessSwapResult},
+    token::calculate_transfer_fee_excluded_amount,
     PoolError, SwapParameters,
 };
 use anchor_lang::prelude::*;
@@ -14,20 +15,27 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
         trade_direction,
         current_point,
         eligible_for_first_swap_with_min_fee,
-        ..
+        transfer_fee_in,
+        transfer_fee_out,
     } = params;
+
+    let excluded_transfer_fee_amount_in =
+        calculate_transfer_fee_excluded_amount(transfer_fee_in, amount_in)?.amount;
+    require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result = pool.get_swap_result_from_exact_input(
         config,
-        amount_in,
+        excluded_transfer_fee_amount_in,
         fee_mode,
         trade_direction,
         current_point,
         eligible_for_first_swap_with_min_fee,
     )?;
 
+    let excluded_transfer_fee_amount_out =
+        calculate_transfer_fee_excluded_amount(transfer_fee_out, swap_result.output_amount)?.amount;
     require!(
-        swap_result.output_amount >= minimum_amount_out,
+        excluded_transfer_fee_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
 
@@ -37,5 +45,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
             amount_in,
             minimum_amount_out,
         },
+        included_transfer_fee_amount_in: amount_in,
+        excluded_transfer_fee_amount_out,
     })
 }

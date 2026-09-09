@@ -1,6 +1,6 @@
 use crate::{
     const_pda,
-    event::{EvtCurveCompleteWithTransferHook, EvtSwap2WithTransferHook},
+    event::{EvtCurveCompleteWithTransferHook, EvtSwap2WithTransferHook, EvtSwap3WithTransferHook},
     remaining_accounts::TransferHookAccountsInfo,
     PoolAccountLoader, PoolError,
 };
@@ -104,6 +104,19 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         swap_result: result.swap_result_2,
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
+        current_timestamp: result.current_timestamp,
+    });
+    emit_cpi!(EvtSwap3WithTransferHook {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: result.trade_direction.into(),
+        has_referral: result.has_referral,
+        swap_parameters: result.swap_parameters,
+        swap_result: result.swap_result_2,
+        quote_reserve_amount: result.quote_reserve_amount,
+        migration_threshold: result.migration_threshold,
+        included_transfer_fee_amount_in: result.included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_out: result.excluded_transfer_fee_amount_out,
         current_timestamp: result.current_timestamp,
     });
 

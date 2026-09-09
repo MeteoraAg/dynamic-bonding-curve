@@ -1,5 +1,6 @@
 use crate::{
     swap::{ProcessSwapParams, ProcessSwapResult},
+    token::{calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount},
     PoolError, SwapParameters,
 };
 use anchor_lang::prelude::*;
@@ -14,24 +15,36 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         trade_direction,
         current_point,
         eligible_for_first_swap_with_min_fee,
+        transfer_fee_in,
+        transfer_fee_out,
     } = params;
+
+    let excluded_transfer_fee_amount_in =
+        calculate_transfer_fee_excluded_amount(transfer_fee_in, amount_in)?.amount;
+    require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result = pool.get_swap_result_from_partial_input(
         config,
-        amount_in,
+        excluded_transfer_fee_amount_in,
         fee_mode,
         trade_direction,
         current_point,
         eligible_for_first_swap_with_min_fee,
     )?;
 
+    let excluded_transfer_fee_amount_out =
+        calculate_transfer_fee_excluded_amount(transfer_fee_out, swap_result.output_amount)?.amount;
     require!(
-        swap_result.output_amount >= minimum_amount_out,
+        excluded_transfer_fee_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
 
     let included_fee_input_amount = swap_result.included_fee_input_amount;
     let output_amount = swap_result.output_amount;
+
+    // the user is charged only for the consumed part of the input, grossed up by the transfer fee
+    let included_transfer_fee_amount_in =
+        calculate_transfer_fee_included_amount(transfer_fee_in, included_fee_input_amount)?.amount;
 
     Ok(ProcessSwapResult {
         swap_result,
@@ -40,5 +53,7 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
             amount_in: included_fee_input_amount,
             minimum_amount_out: output_amount,
         },
+        included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_out,
     })
 }
