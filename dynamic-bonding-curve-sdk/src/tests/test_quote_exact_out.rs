@@ -21,10 +21,13 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         output_amount,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
 
@@ -34,11 +37,14 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         exact_out_swap_result.included_fee_input_amount,
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert_eq!(exact_in_swap_result.output_amount, output_amount);
@@ -69,10 +75,13 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         output_amount,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
     let exact_in_swap_result = quote_exact_in(
@@ -81,11 +90,14 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         exact_out_swap_result.included_fee_input_amount,
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert!(exact_in_swap_result.output_amount >= output_amount);
@@ -111,10 +123,13 @@ fn test_quote_exact_out_fee_in_both_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         output_amount,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
 
@@ -124,11 +139,14 @@ fn test_quote_exact_out_fee_in_both_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         exact_out_swap_result.included_fee_input_amount,
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert_eq!(exact_in_swap_result.output_amount, output_amount);
@@ -159,10 +177,13 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         output_amount,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     println!("exact_out_swap_result {:?}", exact_out_swap_result);
     let exact_in_swap_result = quote_exact_in(
@@ -171,11 +192,14 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
         exact_out_swap_result.included_fee_input_amount,
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert!(exact_in_swap_result.output_amount >= output_amount);

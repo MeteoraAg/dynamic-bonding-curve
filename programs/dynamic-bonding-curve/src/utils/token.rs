@@ -4,14 +4,14 @@ use anchor_lang::{
     solana_program::program::{invoke, invoke_signed},
     solana_program::system_instruction::transfer,
 };
-use anchor_spl::token_2022::spl_token_2022::extension::{
-    transfer_fee::TransferFeeConfig, transfer_hook,
-};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
         self,
-        extension::{BaseStateWithExtensions, ExtensionType, StateWithExtensions},
+        extension::{
+            transfer_fee::{TransferFee, TransferFeeConfig},
+            transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+        },
     },
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
@@ -169,10 +169,99 @@ pub fn transfer_token_from_pool_authority<'info>(
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct TransferFeeIncludedAmount {
+    pub amount: u64,
+    pub transfer_fee: u64,
+}
+
+#[derive(Debug)]
+pub struct TransferFeeExcludedAmount {
+    pub amount: u64,
+    pub transfer_fee: u64,
+}
+
+pub fn calculate_transfer_fee_excluded_amount(
+    transfer_fee: Option<&TransferFee>,
+    transfer_fee_included_amount: u64,
+) -> Result<TransferFeeExcludedAmount> {
+    if let Some(epoch_transfer_fee) = transfer_fee {
+        let transfer_fee = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+        let transfer_fee_excluded_amount = transfer_fee_included_amount.safe_sub(transfer_fee)?;
+        return Ok(TransferFeeExcludedAmount {
+            amount: transfer_fee_excluded_amount,
+            transfer_fee,
+        });
+    }
+
+    Ok(TransferFeeExcludedAmount {
+        amount: transfer_fee_included_amount,
+        transfer_fee: 0,
+    })
+}
+
+pub fn calculate_transfer_fee_included_amount(
+    transfer_fee: Option<&TransferFee>,
+    transfer_fee_excluded_amount: u64,
+) -> Result<TransferFeeIncludedAmount> {
+    if transfer_fee_excluded_amount == 0 {
+        return Ok(TransferFeeIncludedAmount {
+            amount: 0,
+            transfer_fee: 0,
+        });
+    }
+
+    if let Some(epoch_transfer_fee) = transfer_fee {
+        let transfer_fee = epoch_transfer_fee
+            .calculate_inverse_fee(transfer_fee_excluded_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+
+        let transfer_fee_included_amount = transfer_fee_excluded_amount.safe_add(transfer_fee)?;
+
+        // verify transfer fee calculation for safety
+        let transfer_fee_verification = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?; // should never fail
+
+        require!(
+            transfer_fee == transfer_fee_verification,
+            PoolError::FeeInverseIsIncorrect
+        );
+
+        return Ok(TransferFeeIncludedAmount {
+            amount: transfer_fee_included_amount,
+            transfer_fee,
+        });
+    }
+
+    Ok(TransferFeeIncludedAmount {
+        amount: transfer_fee_excluded_amount,
+        transfer_fee: 0,
+    })
+}
+
+pub fn get_epoch_transfer_fee(mint_info: &AccountInfo) -> Result<Option<TransferFee>> {
+    if mint_info.owner.eq(&Token::id()) {
+        return Ok(None);
+    }
+
+    let mint_data = mint_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
+        return Ok(Some(
+            *transfer_fee_config.get_epoch_fee(Clock::get()?.epoch),
+        ));
+    }
+
+    Ok(None)
+}
+
 fn is_transfer_fee_zero(
     mint: &StateWithExtensions<spl_token_2022::state::Mint>,
     current_epoch: u64,
-) -> Result<bool> {
+) -> bool {
     if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
         let older_transfer_fee_bps = u16::from(
             transfer_fee_config
@@ -188,33 +277,18 @@ fn is_transfer_fee_zero(
 
         if current_epoch < newer_transfer_fee_epoch {
             // older fee is active and newer fee is scheduled, both must be zero
-            return Ok(older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0);
+            return older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0;
         } else {
             // newer fee is active, older fee is historical
-            return Ok(newer_transfer_fee_bps == 0);
+            return newer_transfer_fee_bps == 0;
         }
     }
 
-    Ok(true)
+    true
 }
 
-pub fn validate_transfer_fee_is_zero(mint_account_info: &AccountInfo) -> Result<()> {
-    if mint_account_info.owner.eq(&Token::id()) {
-        return Ok(());
-    }
-
-    let mint_data = mint_account_info.try_borrow_data()?;
-    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-    require!(
-        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
-
-    Ok(())
-}
-
-/// Rule: quote mint must be SPL-Token, or Token-2022 (non-native) with only metadata extensions
-/// never allow a non-zero transfer fee
+/// Rule: quote mint must be SPL-Token or Token-2022 (non-native) with only metadata extensions and/or zero transfer fee with no authority
+/// Anything else requires a token badge
 pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
@@ -229,15 +303,22 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
     let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
 
-    require!(
-        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
-
     let extensions = mint.get_extension_types()?;
     for e in extensions {
-        if e != ExtensionType::MetadataPointer && e != ExtensionType::TokenMetadata {
-            return Ok(false);
+        match e {
+            ExtensionType::MetadataPointer | ExtensionType::TokenMetadata => {
+                // permissionless supported
+            }
+            ExtensionType::TransferFeeConfig => {
+                // permissionless only when the transfer fee is zero and no authority
+                let transfer_fee_config = mint.get_extension::<TransferFeeConfig>()?;
+                let authority: Option<Pubkey> =
+                    transfer_fee_config.transfer_fee_config_authority.into();
+                if authority.is_some() || !is_transfer_fee_zero(&mint, Clock::get()?.epoch) {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
         }
     }
     Ok(true)

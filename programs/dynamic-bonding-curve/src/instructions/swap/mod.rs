@@ -12,10 +12,13 @@ use crate::{
     params::swap::TradeDirection,
     state::{fee::FeeMode, PoolConfig, PoolState, SwapResult2},
 };
+use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 
 struct ProcessSwapResult {
     swap_result: SwapResult2,
     swap_in_parameters: SwapParameters,
+    included_transfer_fee_amount_in: u64,
+    excluded_transfer_fee_amount_out: u64,
 }
 
 struct ProcessSwapParams<'a> {
@@ -27,4 +30,6 @@ struct ProcessSwapParams<'a> {
     amount_0: u64,
     amount_1: u64,
     eligible_for_first_swap_with_min_fee: bool,
+    transfer_fee_in: Option<&'a TransferFee>,
+    transfer_fee_out: Option<&'a TransferFee>,
 }

@@ -1,8 +1,10 @@
+use crate::transfer_fee::{QuoteResult, QuoteTransferFees};
+use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFeeConfig;
 use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, PoolState, SwapResult2},
+    state::{fee::FeeMode, PoolConfig, PoolState},
 };
 
 pub fn quote_partial_fill(
@@ -11,10 +13,12 @@ pub fn quote_partial_fill(
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
+    current_epoch: u64,
+    quote_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     in_amount: u64,
     has_referral: bool,
     eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
-) -> Result<SwapResult2> {
+) -> Result<QuoteResult> {
     ensure!(
         !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
@@ -36,14 +40,29 @@ pub fn quote_partial_fill(
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
+    let transfer_fees = QuoteTransferFees::new(
+        quote_mint_transfer_fee_config,
+        current_epoch,
+        trade_direction,
+    );
+    let excluded_transfer_fee_amount_in = transfer_fees.excluded_input(in_amount)?;
+    ensure!(excluded_transfer_fee_amount_in > 0, "amount is zero");
+
     let swap_result = pool.get_swap_result_from_partial_input(
         config,
-        in_amount,
+        excluded_transfer_fee_amount_in,
         fee_mode,
         trade_direction,
         current_point,
         eligible_for_first_swap_with_min_fee,
     )?;
 
-    Ok(swap_result)
+    Ok(QuoteResult {
+        // the user is charged only for the consumed part of the input, grossed up by the transfer fee
+        included_transfer_fee_amount_in: transfer_fees
+            .included_input(swap_result.included_fee_input_amount)?,
+        excluded_transfer_fee_amount_out: transfer_fees
+            .excluded_output(swap_result.output_amount)?,
+        swap_result,
+    })
 }

@@ -109,7 +109,8 @@ export function createToken2022Mint(
     transferFeeConfig?: {
       feeBasisPoints: number;
       maximumFee: bigint;
-      transferFeeConfigAuthority?: PublicKey;
+      // undefined defaults to the payer, null leaves the fee immutable
+      transferFeeConfigAuthority?: PublicKey | null;
     };
   } = {}
 ): PublicKey {
@@ -149,8 +150,12 @@ export function createToken2022Mint(
     transaction.add(
       createInitializeTransferFeeConfigInstruction(
         mintKeypair.publicKey,
-        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
-        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
         transferFeeConfig.feeBasisPoints,
         transferFeeConfig.maximumFee,
         TOKEN_2022_PROGRAM_ID
