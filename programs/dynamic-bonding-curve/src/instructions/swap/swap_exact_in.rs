@@ -21,6 +21,7 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
 
     let excluded_transfer_fee_amount_in =
         calculate_transfer_fee_excluded_amount(transfer_fee_in, amount_in)?.amount;
+
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result = pool.get_swap_result_from_exact_input(

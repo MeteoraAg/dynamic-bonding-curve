@@ -19,7 +19,6 @@ pub fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSw
         transfer_fee_out,
     } = params;
 
-    // the pool must send this much so the user nets amount_out after the output mint's transfer fee
     let included_transfer_fee_amount_out =
         calculate_transfer_fee_included_amount(transfer_fee_out, amount_out)?.amount;
 
@@ -34,9 +33,9 @@ pub fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSw
 
     let included_fee_input_amount = swap_result.included_fee_input_amount;
 
-    // the user must send this much so the vault nets what the curve requires
     let included_transfer_fee_amount_in =
         calculate_transfer_fee_included_amount(transfer_fee_in, included_fee_input_amount)?.amount;
+
     require!(
         included_transfer_fee_amount_in <= maximum_amount_in,
         PoolError::ExceededSlippage

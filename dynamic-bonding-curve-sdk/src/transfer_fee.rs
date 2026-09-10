@@ -8,7 +8,6 @@ use dynamic_bonding_curve::{
     token::{calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount},
 };
 
-/// Curve result plus the token amounts that actually move once the quote mint's transfer fee applies.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct QuoteResult {
     pub swap_result: SwapResult2,
@@ -18,8 +17,6 @@ pub struct QuoteResult {
     // included_transfer_fee_amount_out is equivalent to swap_result.output_amount
 }
 
-/// Transfer fee of the quote mint active at `current_epoch`, split by leg for the given direction.
-/// The base mint never carries a transfer fee, so its leg is always `None`.
 pub struct QuoteTransferFees {
     pub input: Option<TransferFee>,
     pub output: Option<TransferFee>,

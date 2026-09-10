@@ -1,4 +1,4 @@
-use crate::{QuoteResult, QuoteTransferFees};
+use crate::transfer_fee::{QuoteResult, QuoteTransferFees};
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFeeConfig;
 use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
