@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Swap endpoints account for the quote transfer fee: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
-- `migration_damm_v2` deposits the quote amount net of the transfer fee. The base tokens that are not deposited become leftover.
+- The endpoint `migration_damm_v2` deposits the transfer-fee-excluded quote amount and scales the base amount down by the same ratio to keep the migration price. The initial liquidity of the migrated pool is reduced by the transfer fee.
 - Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_creator_trading_fee`, `claim_protocol_fee2`, `withdraw_partner_surplus`, `withdraw_creator_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
 
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
