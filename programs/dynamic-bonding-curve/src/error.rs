@@ -266,4 +266,7 @@ pub enum PoolError {
 
     #[msg("Deprecated migration option")]
     DeprecatedMigrationOption,
+
+    #[msg("Transfer fee inverse calculation is incorrect")]
+    FeeInverseIsIncorrect,
 }

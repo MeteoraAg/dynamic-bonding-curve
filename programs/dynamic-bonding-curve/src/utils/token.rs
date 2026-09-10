@@ -217,7 +217,19 @@ pub fn calculate_transfer_fee_included_amount(
         let transfer_fee = epoch_transfer_fee
             .calculate_inverse_fee(transfer_fee_excluded_amount)
             .ok_or_else(|| PoolError::MathOverflow)?;
+
         let transfer_fee_included_amount = transfer_fee_excluded_amount.safe_add(transfer_fee)?;
+
+        // verify transfer fee calculation for safety
+        let transfer_fee_verification = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?; // should never fail
+
+        require!(
+            transfer_fee == transfer_fee_verification,
+            PoolError::FeeInverseIsIncorrect
+        );
+
         return Ok(TransferFeeIncludedAmount {
             amount: transfer_fee_included_amount,
             transfer_fee,
