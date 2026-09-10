@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
 - Added support for quote mints with a non-zero transfer fee using a token badge.
 - Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints, which include `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+- Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
 
 ### Changed
 

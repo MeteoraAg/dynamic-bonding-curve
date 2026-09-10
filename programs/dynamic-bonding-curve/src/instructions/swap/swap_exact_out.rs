@@ -46,7 +46,7 @@ pub fn process_swap_exact_out(params: ProcessSwapParams<'_>) -> Result<ProcessSw
         swap_result,
         // For backward compatibility because we are emitting EvtSwap and EvtSwap2
         swap_in_parameters: SwapParameters {
-            amount_in: included_fee_input_amount,
+            amount_in: included_transfer_fee_amount_in,
             minimum_amount_out: amount_out,
         },
         included_transfer_fee_amount_in,
