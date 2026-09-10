@@ -3,7 +3,7 @@ use crate::{
     quote_exact_out::quote_exact_out,
     quote_partial_fill::quote_partial_fill,
     tests::{get_fee_in_quote_accounts, TestAccounts},
-    QuoteResult,
+    transfer_fee::QuoteResult,
 };
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::{
     TransferFee, TransferFeeConfig,
