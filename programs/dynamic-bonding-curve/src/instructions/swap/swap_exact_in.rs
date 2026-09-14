@@ -46,7 +46,6 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
             amount_in,
             minimum_amount_out,
         },
-        included_transfer_fee_amount_in: amount_in,
         excluded_transfer_fee_amount_out,
     })
 }

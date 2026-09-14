@@ -17,7 +17,6 @@ use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee
 struct ProcessSwapResult {
     swap_result: SwapResult2,
     swap_in_parameters: SwapParameters,
-    included_transfer_fee_amount_in: u64,
     excluded_transfer_fee_amount_out: u64,
 }
 

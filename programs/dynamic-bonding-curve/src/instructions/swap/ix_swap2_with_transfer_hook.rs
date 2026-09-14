@@ -115,7 +115,7 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         swap_result: result.swap_result_2,
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
-        included_transfer_fee_amount_in: result.included_transfer_fee_amount_in,
+        included_transfer_fee_amount_in: result.swap_in_parameters.amount_in,
         excluded_transfer_fee_amount_out: result.excluded_transfer_fee_amount_out,
         current_timestamp: result.current_timestamp,
     });

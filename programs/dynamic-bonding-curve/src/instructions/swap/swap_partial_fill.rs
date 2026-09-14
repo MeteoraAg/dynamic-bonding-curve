@@ -53,7 +53,6 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
             amount_in: included_transfer_fee_amount_in,
             minimum_amount_out: excluded_transfer_fee_amount_out,
         },
-        included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
     })
 }

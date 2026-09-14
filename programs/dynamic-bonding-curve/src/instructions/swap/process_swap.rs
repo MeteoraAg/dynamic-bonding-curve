@@ -78,7 +78,6 @@ pub struct SwapEventData {
     pub swap_in_parameters: SwapParameters,
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
-    pub included_transfer_fee_amount_in: u64,
     pub excluded_transfer_fee_amount_out: u64,
     pub current_timestamp: u64,
     pub curve_complete: Option<CurveCompleteEventData>,
@@ -251,7 +250,6 @@ pub fn process_swap<'a: 'info, 'info>(
     let ProcessSwapResult {
         swap_result: swap_result_2,
         swap_in_parameters,
-        included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
@@ -299,7 +297,7 @@ pub fn process_swap<'a: 'info, 'info>(
         input_token_account,
         input_vault_account,
         input_program,
-        included_transfer_fee_amount_in,
+        swap_in_parameters.amount_in,
         transfer_hook_in,
     )?;
 
@@ -387,7 +385,6 @@ pub fn process_swap<'a: 'info, 'info>(
         swap_in_parameters,
         quote_reserve_amount: pool.quote_reserve,
         migration_threshold: migration_quote_threshold,
-        included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
         current_timestamp,
         curve_complete,

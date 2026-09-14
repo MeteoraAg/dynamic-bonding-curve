@@ -91,6 +91,8 @@ pub fn handle_swap_wrapper<'info>(
         Default::default(),
     )?;
 
+    let included_transfer_fee_amount_in = result.swap_in_parameters.amount_in;
+
     emit_cpi!(EvtSwap {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
@@ -121,7 +123,7 @@ pub fn handle_swap_wrapper<'info>(
         swap_result: result.swap_result_2,
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
-        included_transfer_fee_amount_in: result.included_transfer_fee_amount_in,
+        included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out: result.excluded_transfer_fee_amount_out,
         current_timestamp: result.current_timestamp,
     });
