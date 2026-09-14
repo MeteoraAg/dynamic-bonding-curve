@@ -1,8 +1,6 @@
 import {
-  calculateFee,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
-  TransferFee,
 } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
@@ -78,6 +76,8 @@ type MigratedState = {
   baseMint: PublicKey;
   quoteVault: PublicKey;
   baseVault: PublicKey;
+  // base vault balance right before migration
+  preMigrationBaseVaultAmount: bigint;
   leftoverReceiver: PublicKey;
 };
 
@@ -258,6 +258,8 @@ async function setupPool(
     config,
   });
 
+  const preMigrationBaseVaultAmount = balanceOf(svm, poolState.baseVault);
+
   let dammPool = PublicKey.default;
   if (migrate) {
     dammPool = await migrate_(
@@ -280,6 +282,7 @@ async function setupPool(
     baseMint: poolState.baseMint,
     quoteVault: poolState.quoteVault,
     baseVault: poolState.baseVault,
+    preMigrationBaseVaultAmount,
     leftoverReceiver: partner.publicKey,
   };
 }
@@ -350,23 +353,32 @@ function baseLeftover(state: MigratedState): bigint {
   return balanceOf(state.svm, state.baseVault) - owedBase(state);
 }
 
-// Expected base surplus from the fee: base_budget - floor(base_budget * excluded(quote_budget) / quote_budget)
-function expectedSurplus(state: MigratedState, scenario: Scenario): bigint {
-  const config = getConfig(state.svm, state.program, state.config);
+function protocolMigrationBaseFee(state: MigratedState): bigint {
   const pool = getVirtualPool(state.svm, state.program, state.virtualPool);
-  const baseBudget =
-    BigInt(config.migrationBaseThreshold.toString()) -
-    BigInt(pool.protocolMigrationBaseFeeAmount.toString());
-  const quoteBudget =
-    BigInt(config.migrationQuoteThreshold.toString()) -
-    BigInt(pool.protocolMigrationQuoteFeeAmount.toString());
-  const fee: TransferFee = {
-    epoch: BigInt(0),
-    maximumFee: scenario.maximumFee,
-    transferFeeBasisPoints: scenario.feeBasisPoints,
-  };
-  const quoteToDamm = quoteBudget - calculateFee(fee, quoteBudget);
-  return baseBudget - (baseBudget * quoteToDamm) / quoteBudget;
+  return BigInt(pool.protocolMigrationBaseFeeAmount.toString());
+}
+
+// Base that left the vault for damm v2. The burn happens after the deposit, so add it back.
+function depositedBase(state: MigratedState): bigint {
+  const pre = BigInt(PRE_MIGRATION_TOKEN_SUPPLY.toString());
+  const post = BigInt(POST_MIGRATION_TOKEN_SUPPLY.toString());
+  return (
+    state.preMigrationBaseVaultAmount -
+    balanceOf(state.svm, state.baseVault) -
+    (pre - post)
+  );
+}
+
+function expectWithinAbsolute(
+  actual: bigint,
+  expected: bigint,
+  tolerance: bigint
+) {
+  const diff = actual > expected ? actual - expected : expected - actual;
+  expect(
+    diff <= tolerance,
+    `${actual} not within ${tolerance} of ${expected}`
+  ).eq(true);
 }
 
 function expectWithinRelative(actual: bigint, expected: bigint, ppm: bigint) {
@@ -459,19 +471,21 @@ describe("Migrate to damm v2 with a quote mint that has a non-zero transfer fee"
         expect(baseLeftover(feeNonFixed).toString()).eq("0");
       });
 
-      it("leaves the surplus as leftover for a fixed-supply config and burns to the target supply", () => {
-        const surplus = baseLeftover(feeFixed) - baseLeftover(zeroFeeFixed);
+      it("attributes the surplus to the protocol migration base fee for a fixed-supply config and burns to the target supply", () => {
+        const surplus =
+          protocolMigrationBaseFee(feeFixed) -
+          protocolMigrationBaseFee(zeroFeeFixed);
         expect(surplus > BigInt(0)).eq(true);
-        expectWithinRelative(
+        // the surplus is the base the fee kept out of damm v2, measured against the zero-fee pool
+        expectWithinAbsolute(
           surplus,
-          expectedSurplus(feeFixed, {
-            fixedSupply: true,
-            collectFeeMode,
-            feeBasisPoints: FEE_BPS,
-            maximumFee: NO_CAP,
-          }),
-          BigInt(1_000)
+          depositedBase(zeroFeeFixed) - depositedBase(feeFixed),
+          BigInt(2)
         );
+
+        // the surplus is kept in the vault for claim_protocol_fee2 and is not burned
+        const vaultBase = balanceOf(feeFixed.svm, feeFixed.baseVault);
+        expect(vaultBase >= owedBase(feeFixed)).eq(true);
 
         const supply = getMint(
           feeFixed.svm,
@@ -481,8 +495,15 @@ describe("Migrate to damm v2 with a quote mint that has a non-zero transfer fee"
         expect(supply.toString()).eq(POST_MIGRATION_TOKEN_SUPPLY.toString());
       });
 
-      it("pays the leftover, surplus included, to leftover_receiver", async () => {
+      it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
+        expect(protocolMigrationBaseFee(feeNonFixed).toString()).eq(
+          protocolMigrationBaseFee(zeroFeeFixed).toString()
+        );
+      });
+
+      it("pays the leftover without the surplus to leftover_receiver", async () => {
         const leftover = baseLeftover(feeFixed);
+        expectWithinAbsolute(leftover, baseLeftover(zeroFeeFixed), BigInt(2));
         const receiverAccount = getAssociatedTokenAddressSync(
           feeFixed.baseMint,
           feeFixed.leftoverReceiver,

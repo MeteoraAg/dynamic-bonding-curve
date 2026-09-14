@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
-use crate::migration_handler::get_transfer_fee_adjusted_migration_amounts;
 use crate::token::{calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee};
 use crate::{
     activation_handler::ActivationType,
@@ -580,18 +579,13 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
             virtual_pool.protocol_liquidity_migration_fee_bps,
         )?;
 
-    virtual_pool.save_protocol_liquidity_migration_fee(
-        protocol_migration_base_fee,
-        protocol_migration_quote_fee,
-    );
-
     let excluded_protocol_fee_migration_base_amount =
         included_protocol_fee_migration_base_amount.safe_sub(protocol_migration_base_fee)?;
     let excluded_protocol_fee_migration_quote_amount =
         included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-    let (migration_base_amount, migration_quote_amount) =
-        get_transfer_fee_adjusted_migration_amounts(
+    let (migration_base_amount, migration_quote_amount) = liquidity_handler
+        .get_transfer_fee_adjusted_migration_amounts(
             quote_transfer_fee.as_ref(),
             excluded_protocol_fee_migration_base_amount,
             excluded_protocol_fee_migration_quote_amount,
@@ -739,10 +733,38 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
 
     virtual_pool.update_after_create_pool();
 
-    // burn the rest of token in pool authority after migrated amount and fee
     ctx.accounts.base_vault.reload()?;
 
-    // check whether we should burn token
+    let quote_transfer_fee_amount = calculate_transfer_fee_excluded_amount(
+        quote_transfer_fee.as_ref(),
+        excluded_protocol_fee_migration_quote_amount,
+    )?
+    .transfer_fee;
+
+    // quote transfer fee will lower the base amount that gets migrated to damm v2
+    // for fixed token supply, this unused base amount goes to the protocol
+    let protocol_migration_base_fee =
+        if config.is_fixed_token_supply() && quote_transfer_fee_amount > 0 {
+            let base_deposit_without_transfer_fee = liquidity_handler
+                .get_base_deposit_without_transfer_fee(
+                    excluded_protocol_fee_migration_base_amount,
+                    excluded_protocol_fee_migration_quote_amount,
+                )?;
+            let total_deposited_base_amount =
+                initial_base_vault_amount.safe_sub(ctx.accounts.base_vault.amount)?;
+            let transfer_fee_base_surplus =
+                base_deposit_without_transfer_fee.saturating_sub(total_deposited_base_amount);
+            protocol_migration_base_fee.safe_add(transfer_fee_base_surplus)?
+        } else {
+            protocol_migration_base_fee
+        };
+
+    virtual_pool.save_protocol_liquidity_migration_fee(
+        protocol_migration_base_fee,
+        protocol_migration_quote_fee,
+    );
+
+    // burn the rest of token in pool authority after migrated amount and fee
     let non_burnable_amount =
         protocol_and_partner_base_fee.safe_add(protocol_migration_base_fee)?;
 

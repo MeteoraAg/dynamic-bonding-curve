@@ -4,34 +4,14 @@ pub use compounding_liquidity::*;
 pub mod concentrated_liquidity;
 pub use concentrated_liquidity::*;
 
-use crate::PoolError;
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
-    state::MigrationOption, token::calculate_transfer_fee_excluded_amount, u128x128_math::Rounding,
-    utils_math::safe_mul_div_cast_u64,
+    constants::MAX_SQRT_PRICE, curve::get_delta_amount_base_unsigned, safe_math::SafeMath,
+    state::MigrationOption, u128x128_math::Rounding,
 };
-
-pub fn get_transfer_fee_adjusted_migration_amounts(
-    quote_transfer_fee: Option<&TransferFee>,
-    base_budget: u64,
-    quote_budget: u64,
-) -> Result<(u64, u64)> {
-    let quote_amount =
-        calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?.amount;
-    if quote_amount == quote_budget {
-        return Ok((base_budget, quote_budget));
-    }
-
-    let base_amount =
-        safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Down)?;
-
-    require!(base_amount > 0 && quote_amount > 0, PoolError::AmountIsZero);
-
-    Ok((base_amount, quote_amount))
-}
 
 pub struct InitialPoolInformation {
     pub sqrt_price: u128,
@@ -109,6 +89,35 @@ pub trait MigrationHandler {
         migration_fee_percentage: u8,
         excluded_fee_base_reserve: u64,
     ) -> Result<(u64, u64)>;
+
+    /// amounts to deposit when the quote mint charges a transfer fee.
+    /// the returned quote amount is what damm v2 receives after the fee
+    fn get_transfer_fee_adjusted_migration_amounts(
+        &self,
+        quote_transfer_fee: Option<&TransferFee>,
+        base_budget: u64,
+        quote_budget: u64,
+    ) -> Result<(u64, u64)>;
+
+    /// base amount damm v2 would receive if the quote mint charged no transfer fee
+    fn get_base_deposit_without_transfer_fee(
+        &self,
+        base_budget: u64,
+        quote_budget: u64,
+    ) -> Result<u64> {
+        let InitialPoolInformation {
+            sqrt_price,
+            distributable_liquidity,
+            dead_liquidity,
+        } = self.get_initial_pool_information(base_budget, quote_budget)?;
+        let base_amount = get_delta_amount_base_unsigned(
+            sqrt_price,
+            MAX_SQRT_PRICE,
+            distributable_liquidity.safe_add(dead_liquidity)?,
+            Rounding::Up,
+        )?;
+        Ok(base_amount.min(base_budget))
+    }
 }
 
 pub fn get_migration_handler(
