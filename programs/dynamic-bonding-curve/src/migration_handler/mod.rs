@@ -9,8 +9,13 @@ use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
-    constants::MAX_SQRT_PRICE, curve::get_delta_amount_base_unsigned, safe_math::SafeMath,
-    state::MigrationOption, u128x128_math::Rounding,
+    constants::MAX_SQRT_PRICE,
+    curve::get_delta_amount_base_unsigned,
+    safe_math::{SafeCast, SafeMath},
+    state::{LiquidityDistribution, MigrationOption, PoolConfig},
+    token::{calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount},
+    u128x128_math::Rounding,
+    utils_math::safe_mul_div_cast_u128,
 };
 
 pub struct InitialPoolInformation {
@@ -90,14 +95,73 @@ pub trait MigrationHandler {
         excluded_fee_base_reserve: u64,
     ) -> Result<(u64, u64)>;
 
-    /// amounts to deposit when the quote mint charges a transfer fee.
-    /// the returned quote amount is what damm v2 receives after the fee
-    fn get_transfer_fee_adjusted_migration_amounts(
+    /// amounts to deposit given the quote damm v2 receives after the transfer fee
+    fn get_migration_deposit_amounts(
+        &self,
+        base_budget: u64,
+        quote_budget: u64,
+        quote_amount: u64,
+    ) -> Result<(u64, u64)>;
+
+    /// quote transfer fee charged across the migration deposits.
+    /// dammv2 migration does two transfers, so the transfer fee is charged twice
+    fn get_quote_transfer_fee_amount(
         &self,
         quote_transfer_fee: Option<&TransferFee>,
         base_budget: u64,
         quote_budget: u64,
-    ) -> Result<(u64, u64)>;
+        config: &PoolConfig,
+    ) -> Result<u64> {
+        let single_transfer =
+            calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?;
+        if single_transfer.transfer_fee == 0 {
+            return Ok(0);
+        }
+
+        // first pass: split the planned liquidity with the fee charged once
+        let (base_amount, quote_amount) =
+            self.get_migration_deposit_amounts(base_budget, quote_budget, single_transfer.amount)?;
+        let InitialPoolInformation {
+            distributable_liquidity,
+            dead_liquidity,
+            ..
+        } = self.get_initial_pool_information(base_amount, quote_amount)?;
+        let LiquidityDistribution { partner, creator } =
+            config.get_liquidity_distribution(distributable_liquidity)?;
+        let partner_liquidity = partner.get_total_liquidity()?;
+        let creator_liquidity = creator.get_total_liquidity()?;
+
+        let second_position_liquidity = partner_liquidity.min(creator_liquidity);
+        if second_position_liquidity == 0 {
+            return Ok(single_transfer.transfer_fee);
+        }
+        // dead liquidity is deposited with the first position
+        let first_position_liquidity = partner_liquidity
+            .max(creator_liquidity)
+            .safe_add(dead_liquidity)?;
+
+        // second pass: calculate transfer fee on each of its own amount
+        let first_deposit_quote_amount: u64 = safe_mul_div_cast_u128(
+            quote_amount.into(),
+            first_position_liquidity,
+            first_position_liquidity.safe_add(second_position_liquidity)?,
+            Rounding::Up,
+        )?
+        .safe_cast()?;
+        let first_deposit_transfer_fee =
+            calculate_transfer_fee_included_amount(quote_transfer_fee, first_deposit_quote_amount)?
+                .transfer_fee;
+        let second_deposit_quote_budget = quote_budget
+            .safe_sub(first_deposit_quote_amount)?
+            .safe_sub(first_deposit_transfer_fee)?;
+        let second_deposit_transfer_fee = calculate_transfer_fee_excluded_amount(
+            quote_transfer_fee,
+            second_deposit_quote_budget,
+        )?
+        .transfer_fee;
+
+        Ok(first_deposit_transfer_fee.safe_add(second_deposit_transfer_fee)?)
+    }
 
     /// base amount damm v2 would receive if the quote mint charged no transfer fee
     fn get_base_deposit_without_transfer_fee(

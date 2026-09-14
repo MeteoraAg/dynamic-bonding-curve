@@ -584,11 +584,18 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let excluded_protocol_fee_migration_quote_amount =
         included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
+    let quote_transfer_fee_amount = liquidity_handler.get_quote_transfer_fee_amount(
+        quote_transfer_fee.as_ref(),
+        excluded_protocol_fee_migration_base_amount,
+        excluded_protocol_fee_migration_quote_amount,
+        &config,
+    )?;
+
     let (migration_base_amount, migration_quote_amount) = liquidity_handler
-        .get_transfer_fee_adjusted_migration_amounts(
-            quote_transfer_fee.as_ref(),
+        .get_migration_deposit_amounts(
             excluded_protocol_fee_migration_base_amount,
             excluded_protocol_fee_migration_quote_amount,
+            excluded_protocol_fee_migration_quote_amount.safe_sub(quote_transfer_fee_amount)?,
         )?;
 
     let InitialPoolInformation {
@@ -734,12 +741,6 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     virtual_pool.update_after_create_pool();
 
     ctx.accounts.base_vault.reload()?;
-
-    let quote_transfer_fee_amount = calculate_transfer_fee_excluded_amount(
-        quote_transfer_fee.as_ref(),
-        excluded_protocol_fee_migration_quote_amount,
-    )?
-    .transfer_fee;
 
     // quote transfer fee will lower the base amount that gets migrated to damm v2
     // for fixed token supply, this unused base amount goes to the protocol

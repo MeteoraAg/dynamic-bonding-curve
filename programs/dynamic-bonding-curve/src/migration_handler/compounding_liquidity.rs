@@ -3,13 +3,11 @@ use crate::{
     migration_handler::{InitialPoolInformation, MigrationHandler},
     safe_math::SafeMath,
     state::{MigrationAmount, PoolConfig},
-    token::calculate_transfer_fee_excluded_amount,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, sqrt_u256},
     PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 use ruint::aliases::U256;
 
 // https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/programs/cp-amm/src/liquidity_handler/compounding_liquidity.rs#L13
@@ -166,15 +164,13 @@ impl MigrationHandler for CompoundingLiquidity {
         Ok((migration_base_threshold, quote_amount))
     }
 
-    fn get_transfer_fee_adjusted_migration_amounts(
+    fn get_migration_deposit_amounts(
         &self,
-        quote_transfer_fee: Option<&TransferFee>,
         base_budget: u64,
         quote_budget: u64,
+        quote_amount: u64,
     ) -> Result<(u64, u64)> {
         // the price is derived from the deposited amounts, so scale base down by the same ratio
-        let quote_amount =
-            calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?.amount;
         if quote_amount == quote_budget {
             return Ok((base_budget, quote_budget));
         }

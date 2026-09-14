@@ -4,13 +4,11 @@ use crate::{
     migration_handler::{InitialPoolInformation, MigrationHandler},
     safe_math::SafeMath,
     state::{MigrationAmount, PoolConfig},
-    token::calculate_transfer_fee_excluded_amount,
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 use ruint::aliases::{U256, U512};
 
 pub struct ConcentratedLiquidity {
@@ -145,15 +143,12 @@ impl MigrationHandler for ConcentratedLiquidity {
         Ok((excluded_fee_base_reserve, quote_amount))
     }
 
-    fn get_transfer_fee_adjusted_migration_amounts(
+    fn get_migration_deposit_amounts(
         &self,
-        quote_transfer_fee: Option<&TransferFee>,
         base_budget: u64,
-        quote_budget: u64,
+        _quote_budget: u64,
+        quote_amount: u64,
     ) -> Result<(u64, u64)> {
-        // the migration price is fixed, so the smaller quote amount already limits the base deposited
-        let quote_amount =
-            calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?.amount;
         require!(quote_amount > 0, PoolError::AmountIsZero);
         Ok((base_budget, quote_amount))
     }

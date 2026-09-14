@@ -24,6 +24,7 @@ import {
   createDammV2Config,
   createDammV2DynamicConfig,
   createDammV2Operator,
+  createDammV2Program,
   createVirtualCurveProgram,
   DammV2ConfigPermission,
   DammV2OperatorPermission,
@@ -72,6 +73,8 @@ type MigratedState = {
   config: PublicKey;
   virtualPool: PublicKey;
   dammPool: PublicKey;
+  firstPosition: PublicKey;
+  secondPosition: PublicKey;
   quoteMint: PublicKey;
   baseMint: PublicKey;
   quoteVault: PublicKey;
@@ -261,14 +264,16 @@ async function setupPool(
   const preMigrationBaseVaultAmount = balanceOf(svm, poolState.baseVault);
 
   let dammPool = PublicKey.default;
+  let firstPosition = PublicKey.default;
+  let secondPosition = PublicKey.default;
   if (migrate) {
-    dammPool = await migrate_(
+    ({ dammPool, firstPosition, secondPosition } = await migrate_(
       svm,
       program,
       admin,
       virtualPool,
       scenario.collectFeeMode
-    );
+    ));
   }
 
   return {
@@ -278,6 +283,8 @@ async function setupPool(
     config,
     virtualPool,
     dammPool,
+    firstPosition,
+    secondPosition,
     quoteMint,
     baseMint: poolState.baseMint,
     quoteVault: poolState.quoteVault,
@@ -293,7 +300,11 @@ async function migrate_(
   admin: Keypair,
   virtualPool: PublicKey,
   collectFeeMode: number
-): Promise<PublicKey> {
+): Promise<{
+  dammPool: PublicKey;
+  firstPosition: PublicKey;
+  secondPosition: PublicKey;
+}> {
   const permission = encodeConfigPermissions([
     DammV2ConfigPermission.CreatePoolWithoutMintValidation,
   ]);
@@ -312,12 +323,30 @@ async function migrate_(
           1, // timestamp
           permission
         );
-  const { dammPool } = await migrateToDammV2(svm, program, {
+  return migrateToDammV2(svm, program, {
     payer: admin,
     virtualPool,
     dammConfig,
   });
-  return dammPool;
+}
+
+function positionLiquidity(svm: LiteSVM, position: PublicKey): bigint {
+  const state = createDammV2Program().coder.accounts.decode(
+    "position",
+    Buffer.from(svm.getAccount(position).data)
+  );
+  return (
+    BigInt(state.unlockedLiquidity.toString()) +
+    BigInt(state.permanentLockedLiquidity.toString()) +
+    BigInt(state.vestedLiquidity.toString())
+  );
+}
+
+// share of the pool liquidity held by the second position, in parts per million
+function secondPositionSharePpm(state: MigratedState): bigint {
+  const first = positionLiquidity(state.svm, state.firstPosition);
+  const second = positionLiquidity(state.svm, state.secondPosition);
+  return (second * BigInt(1_000_000)) / (first + second);
 }
 
 function owedQuote(state: MigratedState): bigint {
@@ -524,8 +553,70 @@ describe("Migrate to damm v2 with a quote mint that has a non-zero transfer fee"
     });
   }
 
+  describe("transfer fee capped by maximum fee across two deposits", () => {
+    const CAPPED_FEE_BPS = 1000; // 10%
+    const MAXIMUM_FEE = BigInt(1_000_000);
+
+    for (const collectFeeMode of [CONCENTRATED, COMPOUNDING]) {
+      const modeName =
+        collectFeeMode === COMPOUNDING ? "compounding" : "concentrated";
+
+      it(`${modeName} handler keeps the position split of a zero-fee pool`, async () => {
+        const zeroFee = await setupPool(
+          {
+            fixedSupply: false,
+            collectFeeMode,
+            feeBasisPoints: 0,
+            maximumFee: BigInt(0),
+          },
+          true
+        );
+        const cappedFee = await setupPool(
+          {
+            fixedSupply: false,
+            collectFeeMode,
+            feeBasisPoints: CAPPED_FEE_BPS,
+            maximumFee: MAXIMUM_FEE,
+          },
+          true
+        );
+
+        expectWithinAbsolute(
+          secondPositionSharePpm(cappedFee),
+          secondPositionSharePpm(zeroFee),
+          BigInt(20)
+        );
+
+        const config = getConfig(
+          cappedFee.svm,
+          cappedFee.program,
+          cappedFee.config
+        );
+        const pool = getVirtualPool(
+          cappedFee.svm,
+          cappedFee.program,
+          cappedFee.virtualPool
+        );
+        const quoteBudget =
+          BigInt(config.migrationQuoteThreshold.toString()) -
+          BigInt(pool.protocolMigrationQuoteFeeAmount.toString());
+        const landedQuote = BigInt(
+          getDammV2Pool(
+            cappedFee.svm,
+            cappedFee.dammPool
+          ).tokenBAmount.toString()
+        );
+        expectWithinAbsolute(
+          landedQuote,
+          quoteBudget - MAXIMUM_FEE * BigInt(2),
+          BigInt(16)
+        );
+      });
+    }
+  });
+
   describe("liquidity cliff", () => {
-    it("fails cleanly when the fee leaves nothing for damm v2 to receive", async () => {
+    it("fails when the fee leaves nothing for damm v2 to receive", async () => {
       const state = await setupPool(
         {
           fixedSupply: false,
@@ -535,6 +626,7 @@ describe("Migrate to damm v2 with a quote mint that has a non-zero transfer fee"
         },
         false
       );
+      
       // 100% fee with no cap: excluded(quote_budget) is 0, so derived liquidity is 0
       setTransferFee(
         state.svm,
