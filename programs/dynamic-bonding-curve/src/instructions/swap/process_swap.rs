@@ -79,6 +79,7 @@ pub struct SwapEventData {
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
     pub excluded_transfer_fee_amount_out: u64,
+    pub fee_on_base_token: bool,
     pub current_timestamp: u64,
     pub curve_complete: Option<CurveCompleteEventData>,
 }
@@ -387,6 +388,7 @@ pub fn process_swap<'a: 'info, 'info>(
         quote_reserve_amount: pool.quote_reserve,
         migration_threshold: migration_quote_threshold,
         excluded_transfer_fee_amount_out,
+        fee_on_base_token: fee_mode.fees_on_base_token,
         current_timestamp,
         curve_complete,
     })

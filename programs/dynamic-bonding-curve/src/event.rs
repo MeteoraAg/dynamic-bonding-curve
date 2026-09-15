@@ -171,15 +171,18 @@ pub struct EvtSwap3 {
     pub pool: Pubkey,
     pub config: Pubkey,
     pub trade_direction: u8,
+    pub swap_mode: u8,
     pub has_referral: bool,
-    pub swap_parameters: SwapParameters2,
-    pub swap_result: SwapResult2,
-    pub quote_reserve_amount: u64,
-    pub migration_threshold: u64,
+    pub fee_on_base_token: bool,
     pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
     pub excluded_transfer_fee_amount_out: u64,
-    // excluded_transfer_fee_amount_in is equivalent to swap_result.included_fee_input_amount
-    // included_transfer_fee_amount_out is equivalent to swap_result.output_amount
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
     pub current_timestamp: u64,
 }
 
@@ -188,15 +191,18 @@ pub struct EvtSwap3WithTransferHook {
     pub pool: Pubkey,
     pub config: Pubkey,
     pub trade_direction: u8,
+    pub swap_mode: u8,
     pub has_referral: bool,
-    pub swap_parameters: SwapParameters2,
-    pub swap_result: SwapResult2,
-    pub quote_reserve_amount: u64,
-    pub migration_threshold: u64,
+    pub fee_on_base_token: bool,
     pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
     pub excluded_transfer_fee_amount_out: u64,
-    // excluded_transfer_fee_amount_in is equivalent to swap_result.included_fee_input_amount
-    // included_transfer_fee_amount_out is equivalent to swap_result.output_amount
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
     pub current_timestamp: u64,
 }
 
