@@ -1,4 +1,6 @@
 import {
+  ACCOUNT_SIZE,
+  ACCOUNT_TYPE_SIZE,
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
@@ -12,11 +14,15 @@ import {
   getAssociatedTokenAddressSync,
   getMintLen,
   getTransferHook,
+  LENGTH_SIZE,
+  MAX_FEE_BASIS_POINTS,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  TransferFee,
+  TYPE_SIZE,
   unpackMint,
 } from "@solana/spl-token";
 import {
@@ -398,4 +404,50 @@ export async function getRemainingAccountsForTransferHook(
   const accounts = accountTypes.flatMap(() => transferHookAccounts);
 
   return { info: { slices }, accounts };
+}
+
+/**
+ * Extension types of a Token-2022 mint read from its raw account data.
+ * Token-2022 pads a mint by two bytes when its length would equal the multisig
+ * account size, and spl-token's getExtensionTypes trips on that padding.
+ */
+export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
+  const buffer = Buffer.from(data);
+  const extensionTypes: ExtensionType[] = [];
+  let index = ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE;
+  while (index + TYPE_SIZE + LENGTH_SIZE <= buffer.length) {
+    const extensionType = buffer.readUInt16LE(index);
+    const length = buffer.readUInt16LE(index + TYPE_SIZE);
+    if (extensionType === ExtensionType.Uninitialized) {
+      break;
+    }
+    extensionTypes.push(extensionType);
+    index += TYPE_SIZE + LENGTH_SIZE + length;
+  }
+  return extensionTypes;
+}
+
+/**
+ * Mirrors spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
+ * transfer so the recipient nets `excludedAmount` after the fee.
+ */
+export function getTransferFeeIncludedAmount(
+  transferFee: TransferFee,
+  excludedAmount: bigint
+): bigint {
+  const bps = BigInt(transferFee.transferFeeBasisPoints);
+  const ONE = BigInt(MAX_FEE_BASIS_POINTS);
+  if (bps === BigInt(0) || excludedAmount === BigInt(0)) {
+    return excludedAmount;
+  }
+  if (bps === ONE) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  const numerator = excludedAmount * ONE;
+  const denominator = ONE - bps;
+  const raw = (numerator + denominator - BigInt(1)) / denominator;
+  if (raw - excludedAmount >= transferFee.maximumFee) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  return raw;
 }

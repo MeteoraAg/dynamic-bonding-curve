@@ -38,6 +38,7 @@ import {
   U64_MAX,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
+import { getMintExtensionTypes } from "./utils/token";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 
 describe("Create pool with token2022", () => {
@@ -49,6 +50,7 @@ describe("Create pool with token2022", () => {
   let poolCreator: Keypair;
   let program: VirtualCurveProgram;
   let config: PublicKey;
+  let configInstructionParams: ConfigParameters;
   let virtualPool: PublicKey;
   let virtualPoolState: Pool;
 
@@ -93,7 +95,7 @@ describe("Create pool with token2022", () => {
       }
     }
 
-    const instructionParams: ConfigParameters = {
+    configInstructionParams = {
       poolFees: {
         baseFee,
         dynamicFee: null,
@@ -155,7 +157,7 @@ describe("Create pool with token2022", () => {
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint: NATIVE_MINT,
-      instructionParams,
+      instructionParams: configInstructionParams,
     };
     config = await createConfig(svm, program, params);
   });
@@ -198,6 +200,14 @@ describe("Create pool with token2022", () => {
       PublicKey.default.toString()
     );
     expect(baseMintData.mintAuthorityOption).eq(0);
+
+    // a zero-fee config must produce exactly the extensions Anchor init produced
+    expect(
+      getMintExtensionTypes(svm.getAccount(virtualPoolState.baseMint).data)
+    ).deep.eq([ExtensionType.MetadataPointer, ExtensionType.TokenMetadata]);
+    expect(svm.getAccount(virtualPoolState.baseVault).data.length).eq(
+      ACCOUNT_SIZE
+    );
   });
 
   it("Swap", async () => {

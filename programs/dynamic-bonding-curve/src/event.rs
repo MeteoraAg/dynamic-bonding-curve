@@ -7,7 +7,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::{SwapResult, SwapResult2},
-    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
+    ConfigParameters, ConfigParameters2, LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
 /// Create partner metadata
@@ -53,6 +53,7 @@ pub struct EvtCreateConfig {
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
+// used in ix_create_config
 #[event]
 pub struct EvtCreateConfigV2 {
     pub config: Pubkey,
@@ -62,6 +63,7 @@ pub struct EvtCreateConfigV2 {
     pub config_parameters: ConfigParameters,
 }
 
+// used in ix_create_config_with_transfer_hook
 #[event]
 pub struct EvtCreateConfigV2WithTransferHook {
     pub config: Pubkey,
@@ -69,6 +71,27 @@ pub struct EvtCreateConfigV2WithTransferHook {
     pub fee_claimer: Pubkey,
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
+    pub transfer_hook_program: Pubkey,
+}
+
+// used in ix_create_config2
+#[event]
+pub struct EvtCreateConfig2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters2,
+}
+
+// used in ix_create_config_with_transfer_hook2
+#[event]
+pub struct EvtCreateConfigWithTransferHook2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters2,
     pub transfer_hook_program: Pubkey,
 }
 

@@ -190,6 +190,126 @@ export async function createConfig(
   return config.publicKey;
 }
 
+export type TransferFeeParameters = {
+  transferFeeBasisPoints: number;
+  maximumFee: BN;
+  /// 0 partner (fee claimer), 1 creator
+  withheldAuthority: number;
+};
+
+export type ConfigParameters2 = ConfigParameters & {
+  transferFee: TransferFeeParameters;
+};
+
+export type CreateConfig2Params = CreateConfigParams<ConfigParameters2>;
+
+export async function createConfig2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfig2Params
+): Promise<PublicKey> {
+  const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
+    params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfig2({
+      ...instructionParams,
+      padding: new Array(32).fill(0),
+    })
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+  expect(configState.transferFeeBasisPoints).equal(
+    instructionParams.transferFee.transferFeeBasisPoints
+  );
+
+  return config.publicKey;
+}
+
+export type CreateConfigWithTransferHook2Params = CreateConfig2Params & {
+  transferHookProgram: PublicKey;
+};
+
+export async function createConfigWithTransferHook2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigWithTransferHook2Params
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferHookProgram,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfigWithTransferHook2({
+      ...instructionParams,
+      padding: new Array(32).fill(0),
+    })
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      transferHookProgram,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+  expect(configState.transferFeeBasisPoints).equal(
+    instructionParams.transferFee.transferFeeBasisPoints
+  );
+
+  return config.publicKey;
+}
+
 export type CreateConfigWithTransferHookParams =
   CreateConfigParams<ConfigParameters> & {
     transferHookProgram: PublicKey;

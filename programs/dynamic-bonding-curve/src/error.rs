@@ -269,4 +269,7 @@ pub enum PoolError {
 
     #[msg("Transfer fee inverse calculation is incorrect")]
     FeeInverseIsIncorrect,
+
+    #[msg("Invalid transfer fee parameters")]
+    InvalidTransferFeeParameters,
 }

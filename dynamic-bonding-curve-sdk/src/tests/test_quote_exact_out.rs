@@ -23,6 +23,7 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         current_slot,
         0,
         None,
+        None,
         output_amount,
         false,
     )
@@ -38,6 +39,7 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         current_timestamp,
         current_slot,
         0,
+        None,
         None,
         exact_out_swap_result.included_fee_input_amount,
         false,
@@ -77,6 +79,7 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
         current_slot,
         0,
         None,
+        None,
         output_amount,
         false,
     )
@@ -91,6 +94,7 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
         current_timestamp,
         current_slot,
         0,
+        None,
         None,
         exact_out_swap_result.included_fee_input_amount,
         false,
@@ -125,6 +129,7 @@ fn test_quote_exact_out_fee_in_both_from_base_for_quote() {
         current_slot,
         0,
         None,
+        None,
         output_amount,
         false,
     )
@@ -140,6 +145,7 @@ fn test_quote_exact_out_fee_in_both_from_base_for_quote() {
         current_timestamp,
         current_slot,
         0,
+        None,
         None,
         exact_out_swap_result.included_fee_input_amount,
         false,
@@ -179,6 +185,7 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
         current_slot,
         0,
         None,
+        None,
         output_amount,
         false,
     )
@@ -193,6 +200,7 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
         current_timestamp,
         current_slot,
         0,
+        None,
         None,
         exact_out_swap_result.included_fee_input_amount,
         false,

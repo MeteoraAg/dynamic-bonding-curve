@@ -548,6 +548,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         PoolError::InvalidMigrationOption
     );
 
+    let base_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.base_mint.to_account_info())?;
     let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
 
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
@@ -584,17 +585,20 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let excluded_protocol_fee_migration_quote_amount =
         included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-    let quote_transfer_fee_amount = liquidity_handler.get_quote_transfer_fee_amount(
-        quote_transfer_fee.as_ref(),
-        excluded_protocol_fee_migration_base_amount,
-        excluded_protocol_fee_migration_quote_amount,
-        &config,
-    )?;
+    let (base_transfer_fee_amount, quote_transfer_fee_amount) = liquidity_handler
+        .get_migration_transfer_fee_amounts(
+            base_transfer_fee.as_ref(),
+            quote_transfer_fee.as_ref(),
+            excluded_protocol_fee_migration_base_amount,
+            excluded_protocol_fee_migration_quote_amount,
+            &config,
+        )?;
 
     let (migration_base_amount, migration_quote_amount) = liquidity_handler
         .get_migration_deposit_amounts(
             excluded_protocol_fee_migration_base_amount,
             excluded_protocol_fee_migration_quote_amount,
+            excluded_protocol_fee_migration_base_amount.safe_sub(base_transfer_fee_amount)?,
             excluded_protocol_fee_migration_quote_amount.safe_sub(quote_transfer_fee_amount)?,
         )?;
 
@@ -674,7 +678,11 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let deposited_quote_amount =
         initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
 
-    let leftover_migration_base_amount = migration_base_amount.safe_sub(deposited_base_amount)?;
+    let leftover_migration_base_amount = calculate_transfer_fee_excluded_amount(
+        base_transfer_fee.as_ref(),
+        excluded_protocol_fee_migration_base_amount.safe_sub(deposited_base_amount)?,
+    )?
+    .amount;
 
     let leftover_migration_quote_amount = calculate_transfer_fee_excluded_amount(
         quote_transfer_fee.as_ref(),
@@ -742,8 +750,10 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
 
     ctx.accounts.base_vault.reload()?;
 
-    // quote transfer fee will lower the base amount that gets migrated to damm v2
-    // for fixed token supply, this unused base amount goes to the protocol
+    // transfer fee will lower the amount of tokens migrated to dammv2 in order to init the pool at the fixed migration price
+    // we will scale down either the quote or base based on the transfer fee.
+    // when the base token is unused and the token supply is fixed, the surplus is attributed to the protocol
+    // when the quote token is unused, the surplus is attributed to the protocol
     let protocol_migration_base_fee =
         if config.is_fixed_token_supply() && quote_transfer_fee_amount > 0 {
             let base_deposit_without_transfer_fee = liquidity_handler
@@ -759,6 +769,18 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         } else {
             protocol_migration_base_fee
         };
+
+    ctx.accounts.quote_vault.reload()?;
+
+    let protocol_migration_quote_fee = if base_transfer_fee_amount > 0 {
+        let total_deposited_quote_amount =
+            initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
+        let transfer_fee_quote_surplus = excluded_protocol_fee_migration_quote_amount
+            .saturating_sub(total_deposited_quote_amount);
+        protocol_migration_quote_fee.safe_add(transfer_fee_quote_surplus)?
+    } else {
+        protocol_migration_quote_fee
+    };
 
     virtual_pool.save_protocol_liquidity_migration_fee(
         protocol_migration_base_fee,

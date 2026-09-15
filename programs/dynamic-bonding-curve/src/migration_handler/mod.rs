@@ -95,36 +95,43 @@ pub trait MigrationHandler {
         excluded_fee_base_reserve: u64,
     ) -> Result<(u64, u64)>;
 
-    /// amounts to deposit given the quote damm v2 receives after the transfer fee
     fn get_migration_deposit_amounts(
         &self,
         base_budget: u64,
         quote_budget: u64,
+        base_amount: u64,
         quote_amount: u64,
     ) -> Result<(u64, u64)>;
 
-    /// quote transfer fee charged across the migration deposits.
-    /// dammv2 migration does two transfers, so the transfer fee is charged twice
-    fn get_quote_transfer_fee_amount(
+    /// transfer fees charged across the migration deposits, as (base, quote).
+    /// dammv2 migration does two transfers per mint, so each fee is charged twice
+    fn get_migration_transfer_fee_amounts(
         &self,
+        base_transfer_fee: Option<&TransferFee>,
         quote_transfer_fee: Option<&TransferFee>,
         base_budget: u64,
         quote_budget: u64,
         config: &PoolConfig,
-    ) -> Result<u64> {
-        let single_transfer =
+    ) -> Result<(u64, u64)> {
+        let single_base_transfer =
+            calculate_transfer_fee_excluded_amount(base_transfer_fee, base_budget)?;
+        let single_quote_transfer =
             calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?;
-        if single_transfer.transfer_fee == 0 {
-            return Ok(0);
+        if single_base_transfer.transfer_fee == 0 && single_quote_transfer.transfer_fee == 0 {
+            return Ok((0, 0));
         }
 
-        // first pass: split the planned liquidity with the fee charged once
-        let (base_amount, quote_amount) =
-            self.get_migration_deposit_amounts(base_budget, quote_budget, single_transfer.amount)?;
+        // first pass: split the planned liquidity with each fee charged once
+        let (base_amount, quote_amount) = self.get_migration_deposit_amounts(
+            base_budget,
+            quote_budget,
+            single_base_transfer.amount,
+            single_quote_transfer.amount,
+        )?;
         let InitialPoolInformation {
+            sqrt_price,
             distributable_liquidity,
             dead_liquidity,
-            ..
         } = self.get_initial_pool_information(base_amount, quote_amount)?;
         let LiquidityDistribution { partner, creator } =
             config.get_liquidity_distribution(distributable_liquidity)?;
@@ -133,34 +140,42 @@ pub trait MigrationHandler {
 
         let second_position_liquidity = partner_liquidity.min(creator_liquidity);
         if second_position_liquidity == 0 {
-            return Ok(single_transfer.transfer_fee);
+            return Ok((
+                single_base_transfer.transfer_fee,
+                single_quote_transfer.transfer_fee,
+            ));
         }
         // dead liquidity is deposited with the first position
         let first_position_liquidity = partner_liquidity
             .max(creator_liquidity)
             .safe_add(dead_liquidity)?;
+        let total_liquidity = first_position_liquidity.safe_add(second_position_liquidity)?;
 
-        // second pass: calculate transfer fee on each of its own amount
-        let first_deposit_quote_amount: u64 = safe_mul_div_cast_u128(
-            quote_amount.into(),
-            first_position_liquidity,
-            first_position_liquidity.safe_add(second_position_liquidity)?,
+        // the concentrated handler leaves base slack, so split the base the liquidity pulls, not the deposit amount
+        let pulled_base_amount = get_delta_amount_base_unsigned(
+            sqrt_price,
+            MAX_SQRT_PRICE,
+            total_liquidity,
             Rounding::Up,
         )?
-        .safe_cast()?;
-        let first_deposit_transfer_fee =
-            calculate_transfer_fee_included_amount(quote_transfer_fee, first_deposit_quote_amount)?
-                .transfer_fee;
-        let second_deposit_quote_budget = quote_budget
-            .safe_sub(first_deposit_quote_amount)?
-            .safe_sub(first_deposit_transfer_fee)?;
-        let second_deposit_transfer_fee = calculate_transfer_fee_excluded_amount(
-            quote_transfer_fee,
-            second_deposit_quote_budget,
-        )?
-        .transfer_fee;
+        .min(base_amount);
 
-        Ok(first_deposit_transfer_fee.safe_add(second_deposit_transfer_fee)?)
+        // second pass: charge each deposit its own fee
+        let base_transfer_fee_amount = get_transfer_fee_for_two_deposits(
+            base_transfer_fee,
+            base_budget,
+            pulled_base_amount,
+            first_position_liquidity,
+            total_liquidity,
+        )?;
+        let quote_transfer_fee_amount = get_transfer_fee_for_two_deposits(
+            quote_transfer_fee,
+            quote_budget,
+            quote_amount,
+            first_position_liquidity,
+            total_liquidity,
+        )?;
+        Ok((base_transfer_fee_amount, quote_transfer_fee_amount))
     }
 
     /// base amount damm v2 would receive if the quote mint charged no transfer fee
@@ -182,6 +197,30 @@ pub trait MigrationHandler {
         )?;
         Ok(base_amount.min(base_budget))
     }
+}
+
+fn get_transfer_fee_for_two_deposits(
+    transfer_fee: Option<&TransferFee>,
+    budget: u64,
+    deposit_amount: u64,
+    first_position_liquidity: u128,
+    total_liquidity: u128,
+) -> Result<u64> {
+    let first_deposit_amount: u64 = safe_mul_div_cast_u128(
+        deposit_amount.into(),
+        first_position_liquidity,
+        total_liquidity,
+        Rounding::Up,
+    )?
+    .safe_cast()?;
+    let first_deposit_transfer_fee =
+        calculate_transfer_fee_included_amount(transfer_fee, first_deposit_amount)?.transfer_fee;
+    let second_deposit_budget = budget
+        .safe_sub(first_deposit_amount)?
+        .safe_sub(first_deposit_transfer_fee)?;
+    let second_deposit_transfer_fee =
+        calculate_transfer_fee_excluded_amount(transfer_fee, second_deposit_budget)?.transfer_fee;
+    Ok(first_deposit_transfer_fee.safe_add(second_deposit_transfer_fee)?)
 }
 
 pub fn get_migration_handler(

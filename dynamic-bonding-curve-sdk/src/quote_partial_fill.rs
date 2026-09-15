@@ -15,6 +15,7 @@ pub fn quote_partial_fill(
     current_timestamp: u64,
     current_slot: u64,
     current_epoch: u64,
+    base_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     quote_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     in_amount: u64,
     has_referral: bool,
@@ -42,7 +43,7 @@ pub fn quote_partial_fill(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
     let (input_transfer_fee, output_transfer_fee) = get_transfer_fees(
-        None,
+        base_mint_transfer_fee_config,
         quote_mint_transfer_fee_config,
         current_epoch,
         trade_direction,

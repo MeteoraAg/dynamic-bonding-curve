@@ -145,12 +145,13 @@ impl MigrationHandler for ConcentratedLiquidity {
 
     fn get_migration_deposit_amounts(
         &self,
-        base_budget: u64,
+        _base_budget: u64,
         _quote_budget: u64,
+        base_amount: u64,
         quote_amount: u64,
     ) -> Result<(u64, u64)> {
-        require!(quote_amount > 0, PoolError::AmountIsZero);
-        Ok((base_budget, quote_amount))
+        require!(base_amount > 0 && quote_amount > 0, PoolError::AmountIsZero);
+        Ok((base_amount, quote_amount))
     }
 }
 // calculate liquidity for concentrated pool

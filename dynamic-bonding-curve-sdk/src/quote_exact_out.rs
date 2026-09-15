@@ -15,6 +15,7 @@ pub fn quote_exact_out(
     current_timestamp: u64,
     current_slot: u64,
     current_epoch: u64,
+    base_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     quote_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     out_amount: u64,
     eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
@@ -42,7 +43,7 @@ pub fn quote_exact_out(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false)?;
 
     let (input_transfer_fee, output_transfer_fee) = get_transfer_fees(
-        None,
+        base_mint_transfer_fee_config,
         quote_mint_transfer_fee_config,
         current_epoch,
         trade_direction,

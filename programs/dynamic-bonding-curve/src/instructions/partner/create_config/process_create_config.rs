@@ -1,5 +1,11 @@
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
-use anchor_spl::token_interface::Mint;
+use anchor_spl::{
+    token_2022::spl_token_2022::extension::transfer_fee::TransferFee,
+    token_interface::{
+        spl_pod::primitives::{PodU16, PodU64},
+        Mint,
+    },
+};
 use damm_v2::constants::MAX_BASIS_POINT;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
@@ -7,7 +13,10 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS},
+        fee::{
+            MAX_FEE_BPS, MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE,
+            PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        },
         MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
@@ -28,9 +37,12 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
-        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
+        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType, TransferFeeWithheldAuthority,
     },
-    token::{get_token_program_flags, validate_quote_mint_with_token_badge},
+    token::{
+        calculate_transfer_fee_included_amount, get_token_program_flags,
+        validate_quote_mint_with_token_badge,
+    },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
     PoolError,
@@ -68,6 +80,107 @@ pub struct ConfigParameters {
     /// padding for future use
     pub padding: [u8; 2],
     pub curve: Vec<LiquidityDistributionParameters>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct ConfigParameters2 {
+    pub pool_fees: PoolFeeParameters,
+    pub collect_fee_mode: u8,
+    pub migration_option: u8,
+    pub activation_type: u8,
+    pub token_type: u8,
+    pub token_decimal: u8,
+    pub partner_liquidity_percentage: u8,
+    pub partner_permanent_locked_liquidity_percentage: u8,
+    pub creator_liquidity_percentage: u8,
+    pub creator_permanent_locked_liquidity_percentage: u8,
+    pub migration_quote_threshold: u64,
+    pub sqrt_start_price: u128,
+    pub locked_vesting: LockedVestingParams,
+    pub migration_fee_option: u8,
+    pub token_supply: Option<TokenSupplyParams>,
+    pub creator_trading_fee_percentage: u8, // percentage of trading fee creator can share with partner
+    pub token_update_authority: u8,
+    pub migration_fee: MigrationFee,
+    pub migrated_pool_fee: MigratedPoolFee,
+    /// pool creation fee in SOL lamports value
+    pub pool_creation_fee: u64,
+    pub partner_liquidity_vesting_info: LiquidityVestingInfoParams,
+    pub creator_liquidity_vesting_info: LiquidityVestingInfoParams,
+    pub migrated_pool_base_fee_mode: u8,
+    pub migrated_pool_market_cap_fee_scheduler_params: MigratedPoolMarketCapFeeSchedulerParams,
+    pub enable_first_swap_with_min_fee: bool,
+    pub compounding_fee_bps: u16,
+    pub transfer_fee: TransferFeeParameters,
+    pub curve: Vec<LiquidityDistributionParameters>,
+    /// padding for future use
+    pub padding: [u8; 32],
+}
+
+impl From<ConfigParameters> for ConfigParameters2 {
+    fn from(params: ConfigParameters) -> Self {
+        let ConfigParameters {
+            pool_fees,
+            collect_fee_mode,
+            migration_option,
+            activation_type,
+            token_type,
+            token_decimal,
+            partner_liquidity_percentage,
+            partner_permanent_locked_liquidity_percentage,
+            creator_liquidity_percentage,
+            creator_permanent_locked_liquidity_percentage,
+            migration_quote_threshold,
+            sqrt_start_price,
+            locked_vesting,
+            migration_fee_option,
+            token_supply,
+            creator_trading_fee_percentage,
+            token_update_authority,
+            migration_fee,
+            migrated_pool_fee,
+            pool_creation_fee,
+            partner_liquidity_vesting_info,
+            creator_liquidity_vesting_info,
+            migrated_pool_base_fee_mode,
+            migrated_pool_market_cap_fee_scheduler_params,
+            enable_first_swap_with_min_fee,
+            compounding_fee_bps,
+            padding: _,
+            curve,
+        } = params;
+        Self {
+            pool_fees,
+            collect_fee_mode,
+            migration_option,
+            activation_type,
+            token_type,
+            token_decimal,
+            partner_liquidity_percentage,
+            partner_permanent_locked_liquidity_percentage,
+            creator_liquidity_percentage,
+            creator_permanent_locked_liquidity_percentage,
+            migration_quote_threshold,
+            sqrt_start_price,
+            locked_vesting,
+            migration_fee_option,
+            token_supply,
+            creator_trading_fee_percentage,
+            token_update_authority,
+            migration_fee,
+            migrated_pool_fee,
+            pool_creation_fee,
+            partner_liquidity_vesting_info,
+            creator_liquidity_vesting_info,
+            migrated_pool_base_fee_mode,
+            migrated_pool_market_cap_fee_scheduler_params,
+            enable_first_swap_with_min_fee,
+            compounding_fee_bps,
+            transfer_fee: TransferFeeParameters::default(),
+            curve,
+            padding: [0u8; 32],
+        }
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
@@ -238,6 +351,61 @@ pub struct MigratedPoolMarketCapFeeSchedulerParams {
 const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
+pub struct TransferFeeParameters {
+    pub transfer_fee_basis_points: u16,
+    pub maximum_fee: u64,
+    pub withheld_authority: u8,
+}
+
+impl TransferFeeParameters {
+    pub fn has_transfer_fee(&self) -> bool {
+        self.transfer_fee_basis_points > 0
+    }
+
+    pub fn to_transfer_fee(&self) -> Option<TransferFee> {
+        if !self.has_transfer_fee() {
+            return None;
+        }
+        Some(TransferFee {
+            epoch: PodU64::from(0),
+            transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
+            maximum_fee: PodU64::from(self.maximum_fee),
+        })
+    }
+
+    pub fn validate(&self, token_type: u8) -> Result<()> {
+        if !self.has_transfer_fee() {
+            require!(
+                self.maximum_fee == 0,
+                PoolError::InvalidTransferFeeParameters
+            );
+            return Ok(());
+        }
+
+        let token_type =
+            TokenType::try_from(token_type).map_err(|_| PoolError::InvalidTokenType)?;
+
+        require!(
+            token_type == TokenType::Token2022,
+            PoolError::InvalidTokenType
+        );
+        require!(
+            u64::from(self.transfer_fee_basis_points) <= MAX_FEE_BPS,
+            PoolError::InvalidTransferFeeParameters
+        );
+        require!(
+            self.maximum_fee > 0,
+            PoolError::InvalidTransferFeeParameters
+        );
+        require!(
+            TransferFeeWithheldAuthority::try_from(self.withheld_authority).is_ok(),
+            PoolError::InvalidTransferFeeParameters
+        );
+        Ok(())
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct TokenSupplyParams {
     /// pre migration token supply
     pub pre_migration_token_supply: u64,
@@ -286,11 +454,13 @@ impl LockedVestingParams {
         })
     }
 
-    pub fn get_total_amount(&self) -> Result<u64> {
+    /// The vesting total grossed up by the base mint transfer fee, which is what the locker pulls from the base vault
+    /// so the escrow receives the plain total. Pass None for the plain total.
+    pub fn get_total_amount(&self, transfer_fee: Option<&TransferFee>) -> Result<u64> {
         let total_amount = self
             .cliff_unlock_amount
             .safe_add(self.amount_per_period.safe_mul(self.number_of_period)?)?;
-        Ok(total_amount)
+        Ok(calculate_transfer_fee_included_amount(transfer_fee, total_amount)?.amount)
     }
 
     pub fn has_vesting(&self) -> bool {
@@ -299,7 +469,7 @@ impl LockedVestingParams {
 
     pub fn validate(&self) -> Result<()> {
         if self.has_vesting() {
-            let total_amount = self.get_total_amount()?;
+            let total_amount = self.get_total_amount(None)?;
             require!(
                 self.frequency != 0 && total_amount != 0,
                 PoolError::InvalidVestingParameters
@@ -366,7 +536,7 @@ impl LiquidityVestingInfoParams {
     }
 }
 
-impl ConfigParameters {
+impl ConfigParameters2 {
     pub fn validate<'info>(
         &self,
         quote_mint: &InterfaceAccount<'info, Mint>,
@@ -376,6 +546,8 @@ impl ConfigParameters {
     ) -> Result<()> {
         // validate quote mint
         validate_quote_mint_with_token_badge(quote_mint, token_badge)?;
+
+        self.transfer_fee.validate(self.token_type)?;
 
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;
@@ -525,12 +697,12 @@ pub struct CreateConfigResult {
 
 pub fn process_create_config(
     config: &mut PoolConfig,
-    config_parameters: &ConfigParameters,
+    config_parameters: &ConfigParameters2,
     quote_mint: &InterfaceAccount<'_, Mint>,
     fee_claimer: &Pubkey,
     leftover_receiver: &Pubkey,
 ) -> Result<CreateConfigResult> {
-    let ConfigParameters {
+    let ConfigParameters2 {
         pool_fees,
         collect_fee_mode,
         migration_option,
@@ -558,6 +730,7 @@ pub fn process_create_config(
         migrated_pool_market_cap_fee_scheduler_params,
         enable_first_swap_with_min_fee,
         compounding_fee_bps,
+        transfer_fee,
         ..
     } = config_parameters.clone();
 
@@ -630,16 +803,20 @@ pub fn process_create_config(
                 &curve,
             )?;
 
+            let base_transfer_fee = transfer_fee.to_transfer_fee();
+
             let minimum_base_supply_with_buffer = PoolConfig::get_total_token_supply(
                 swap_base_amount_buffer,
                 included_protocol_fee_migration_base_amount,
                 &locked_vesting,
+                base_transfer_fee.as_ref(),
             )?;
 
             let minimum_base_supply_without_buffer = PoolConfig::get_total_token_supply(
                 swap_base_amount,
                 included_protocol_fee_migration_base_amount,
                 &locked_vesting,
+                base_transfer_fee.as_ref(),
             )?;
 
             require!(
@@ -703,6 +880,8 @@ pub fn process_create_config(
         &curve,
         enable_first_swap_with_min_fee.into(),
     )?;
+
+    config.set_base_transfer_fee(&transfer_fee);
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

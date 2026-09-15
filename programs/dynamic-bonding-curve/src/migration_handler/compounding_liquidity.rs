@@ -168,15 +168,31 @@ impl MigrationHandler for CompoundingLiquidity {
         &self,
         base_budget: u64,
         quote_budget: u64,
+        base_amount: u64,
         quote_amount: u64,
     ) -> Result<(u64, u64)> {
-        // the price is derived from the deposited amounts, so scale base down by the same ratio
-        if quote_amount == quote_budget {
+        // the price is derived from the deposited amounts. a transfer fee reduces what damm v2 receives on that side,
+        // so the side that loses the larger share due to the transfer fee is deposited as is
+        // the other side is reduced by the same proportion, so the ratio between them and the initial price stays unchanged
+        if base_amount == base_budget && quote_amount == quote_budget {
             return Ok((base_budget, quote_budget));
         }
 
-        let base_amount =
-            safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Down)?;
+        // base_amount / base_budget <= quote_amount / quote_budget, compared without division
+        let base_side_binds = u128::from(base_amount).safe_mul(quote_budget.into())?
+            <= u128::from(quote_amount).safe_mul(base_budget.into())?;
+
+        let (base_amount, quote_amount) = if base_side_binds {
+            (
+                base_amount,
+                safe_mul_div_cast_u64(quote_budget, base_amount, base_budget, Rounding::Down)?,
+            )
+        } else {
+            (
+                safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Down)?,
+                quote_amount,
+            )
+        };
 
         require!(base_amount > 0 && quote_amount > 0, PoolError::AmountIsZero);
 

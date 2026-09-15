@@ -1,18 +1,17 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{token, token_2022, token_interface::Mint};
 
-#[allow(deprecated)]
-use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
+    event::EvtCreateConfigWithTransferHook2,
     state::{ConfigWithTransferHook, TokenType},
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, ConfigParameters2};
+use super::{process_create_config, ConfigParameters2};
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CreateConfigWithTransferHookCtx<'info> {
+pub struct CreateConfigWithTransferHook2Ctx<'info> {
     #[account(
         init,
         signer,
@@ -38,13 +37,11 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_config_with_transfer_hook<'info>(
-    ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
-    config_parameters: ConfigParameters,
+pub fn handle_create_config_with_transfer_hook2<'info>(
+    ctx: Context<'info, CreateConfigWithTransferHook2Ctx<'info>>,
+    config_parameters: ConfigParameters2,
 ) -> Result<()> {
-    let config_parameters2 = ConfigParameters2::from(config_parameters.clone());
-
-    config_parameters2.validate(
+    config_parameters.validate(
         &ctx.accounts.quote_mint,
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
@@ -70,14 +67,14 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
         &mut config,
-        &config_parameters2,
+        &config_parameters,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
     )?;
     config.transfer_hook_program = ctx.accounts.transfer_hook_program.key();
 
-    emit_cpi!(EvtCreateConfigV2WithTransferHook {
+    emit_cpi!(EvtCreateConfigWithTransferHook2 {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
