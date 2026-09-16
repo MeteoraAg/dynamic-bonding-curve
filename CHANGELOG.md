@@ -25,19 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for creating base mints with a transfer fee. The fee is configured per config through the new `transfer_fee` field and is immutable after pool creation. The withheld fees are claimable by the partner or the pool creator based on the config.
+- Added support for quote mints with a non-zero transfer fee using a token badge. Previously a token badge only allowed a zero transfer fee.
 - Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
-- Added support for quote mints with a non-zero transfer fee using a token badge.
-- Added support for base mints with a transfer fee. The fee is configured per config and is immutable after pool creation. The withheld fees are claimable by the partner or the pool creator based on the config.
-- Added endpoints `create_config2` and `create_config_with_transfer_hook2` that take `ConfigParameters2`, which contains a `transfer_fee` field, these endpoints emit the new `EvtCreateConfig2` and `EvtCreateConfigWithTransferHook2` events.
-- Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints, which include `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
-- Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
+- Added endpoints `create_config2` and `create_config_with_transfer_hook2` that take `ConfigParameters2`, which contains the `transfer_fee` field. These endpoints emit the new `EvtCreateConfig2` and `EvtCreateConfigWithTransferHook2` events.
+- Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
 
 ### Changed
 
+- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_creator_trading_fee`, `claim_protocol_fee2`, `withdraw_partner_surplus`, `withdraw_creator_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
+- Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
 - Swap endpoints account for the transfer fee on either mint: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
 - The endpoint `migration_damm_v2` deposits the transfer-fee-excluded amounts of both mints. In compounding mode the other side is scaled down by the same ratio to keep the migration price. In concentrated mode the fixed migration price limits the deposit. The initial liquidity of the migrated pool is reduced by the transfer fee. The base and quote that the fee keeps out of the migrated pool are added to `protocol_migration_base_fee_amount` and `protocol_migration_quote_fee_amount` and are claimable through `claim_protocol_fee2`. For a non-fixed token supply the base is burned.
-- With a base transfer fee, partners should size `pre_migration_token_supply` to include the fee on the migration base amount, or `migration_damm_v2` deposits less liquidity.
-- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_creator_trading_fee`, `claim_protocol_fee2`, `withdraw_partner_surplus`, `withdraw_creator_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
+- When the base mint has a transfer fee, partners should include the fee on the migration base amount in `pre_migration_token_supply`. Otherwise `migration_damm_v2` deposits less liquidity.
 
 ### Breaking Changes
 
