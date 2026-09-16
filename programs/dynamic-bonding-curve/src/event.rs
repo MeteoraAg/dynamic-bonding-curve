@@ -53,7 +53,6 @@ pub struct EvtCreateConfig {
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
-// used in ix_create_config
 #[event]
 pub struct EvtCreateConfigV2 {
     pub config: Pubkey,
@@ -63,7 +62,6 @@ pub struct EvtCreateConfigV2 {
     pub config_parameters: ConfigParameters,
 }
 
-// used in ix_create_config_with_transfer_hook
 #[event]
 pub struct EvtCreateConfigV2WithTransferHook {
     pub config: Pubkey,
@@ -74,7 +72,6 @@ pub struct EvtCreateConfigV2WithTransferHook {
     pub transfer_hook_program: Pubkey,
 }
 
-// used in ix_create_config2
 #[event]
 pub struct EvtCreateConfig2 {
     pub config: Pubkey,
@@ -84,7 +81,6 @@ pub struct EvtCreateConfig2 {
     pub config_parameters: ConfigParameters2,
 }
 
-// used in ix_create_config_with_transfer_hook2
 #[event]
 pub struct EvtCreateConfigWithTransferHook2 {
     pub config: Pubkey,

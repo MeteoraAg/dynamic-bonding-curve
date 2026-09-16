@@ -116,6 +116,8 @@ jobs:
       # Run tests
       - run: bun run build-local-test
         shell: bash
+      - run: bun run typecheck
+        shell: bash
 
   backwards_compatibility_tests:
     runs-on: ubuntu-latest

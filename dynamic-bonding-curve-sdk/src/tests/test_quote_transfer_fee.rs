@@ -27,7 +27,7 @@ fn transfer_fee_config(basis_points: u16, maximum_fee: u64) -> TransferFeeConfig
     }
 }
 
-// distinct rates so a combined test can tell which leg each fee landed on
+// different rates so the combined test can tell the two fees apart
 fn base_fee() -> TransferFeeConfig {
     transfer_fee_config(250, u64::MAX)
 }
@@ -48,7 +48,7 @@ fn included(config: &TransferFeeConfig, amount: u64) -> u64 {
         .amount
 }
 
-// quote mint transfer fee only
+// transfer fee on the quote mint only
 
 #[test]
 fn test_quote_fee_exact_in_quote_to_base_consumes_the_net_input() {
@@ -81,13 +81,13 @@ fn test_quote_fee_exact_in_quote_to_base_consumes_the_net_input() {
         quote.swap_result.included_fee_input_amount,
         excluded(&quote_fee, in_amount)
     );
-    // base has no transfer fee
+    // the base mint has no transfer fee
     assert_eq!(
         quote.excluded_transfer_fee_amount_out,
         quote.swap_result.output_amount
     );
 
-    // the curve saw less input than a fee-free quote would
+    // the curve receives less input than with no fee
     let fee_free = quote_exact_in(
         &pool,
         &config,
@@ -170,7 +170,7 @@ fn test_quote_fee_exact_out_base_to_quote_round_trips_through_exact_in() {
         exact_out.swap_result.output_amount,
         included(&quote_fee, out_amount)
     );
-    // base input has no transfer fee
+    // the base mint has no transfer fee
     assert_eq!(
         exact_out.included_transfer_fee_amount_in,
         exact_out.swap_result.included_fee_input_amount
@@ -218,7 +218,7 @@ fn test_quote_fee_exact_out_quote_to_base_grosses_up_the_input() {
     )
     .unwrap();
 
-    // base output has no transfer fee
+    // the base mint has no transfer fee
     assert_eq!(exact_out.excluded_transfer_fee_amount_out, out_amount);
     assert_eq!(exact_out.swap_result.output_amount, out_amount);
     assert_eq!(
@@ -229,7 +229,7 @@ fn test_quote_fee_exact_out_quote_to_base_grosses_up_the_input() {
         exact_out.included_transfer_fee_amount_in > exact_out.swap_result.included_fee_input_amount
     );
 
-    // paying the grossed-up input through exact-in yields at least the requested output
+    // paying this input with exact-in returns at least out_amount
     let exact_in = quote_exact_in(
         &pool,
         &config,
@@ -256,7 +256,7 @@ fn test_quote_fee_partial_fill_charges_the_grossed_up_consumed_input() {
         current_slot,
     } = get_fee_in_quote_accounts();
     let quote_fee = quote_fee();
-    // large enough to hit the migration threshold and leave amount_left behind
+    // large enough to reach the migration threshold, so some input is left over
     let in_amount = u64::MAX / 4;
 
     let partial = quote_partial_fill(
@@ -280,14 +280,14 @@ fn test_quote_fee_partial_fill_charges_the_grossed_up_consumed_input() {
         included(&quote_fee, partial.swap_result.included_fee_input_amount)
     );
     assert!(partial.included_transfer_fee_amount_in < in_amount);
-    // the user nets what the vault gives up, base has no fee
+    // the base mint has no transfer fee, the user receives the full output
     assert_eq!(
         partial.excluded_transfer_fee_amount_out,
         partial.swap_result.output_amount
     );
 }
 
-// base mint transfer fee only
+// transfer fee on the base mint only
 
 #[test]
 fn test_base_fee_exact_in_base_to_quote_consumes_the_net_input() {
@@ -320,13 +320,13 @@ fn test_base_fee_exact_in_base_to_quote_consumes_the_net_input() {
         quote.swap_result.included_fee_input_amount,
         excluded(&base_fee, in_amount)
     );
-    // quote has no transfer fee
+    // the quote mint has no transfer fee
     assert_eq!(
         quote.excluded_transfer_fee_amount_out,
         quote.swap_result.output_amount
     );
 
-    // the curve sees exactly the net amount, so a fee-free quote of that amount matches
+    // the curve receives the net amount, so a fee-free quote of the net amount gives the same result
     let fee_free = quote_exact_in(
         &pool,
         &config,
@@ -409,13 +409,13 @@ fn test_base_fee_exact_out_quote_to_base_grosses_up_the_output() {
         exact_out.swap_result.output_amount,
         included(&base_fee, out_amount)
     );
-    // quote input has no transfer fee
+    // the quote mint has no transfer fee
     assert_eq!(
         exact_out.included_transfer_fee_amount_in,
         exact_out.swap_result.included_fee_input_amount
     );
 
-    // paying the quoted input through exact-in nets at least out_amount after the base fee
+    // paying this input with exact-in returns at least out_amount after the base fee
     let exact_in = quote_exact_in(
         &pool,
         &config,
@@ -458,7 +458,7 @@ fn test_base_fee_exact_out_base_to_quote_grosses_up_the_input() {
     )
     .unwrap();
 
-    // quote output has no transfer fee
+    // the quote mint has no transfer fee
     assert_eq!(exact_out.excluded_transfer_fee_amount_out, out_amount);
     assert_eq!(exact_out.swap_result.output_amount, out_amount);
     assert_eq!(
@@ -514,14 +514,14 @@ fn test_base_fee_partial_fill_base_to_quote_charges_the_grossed_up_consumed_inpu
         included(&base_fee, partial.swap_result.included_fee_input_amount)
     );
     assert!(partial.included_transfer_fee_amount_in <= in_amount);
-    // quote output has no transfer fee
+    // the quote mint has no transfer fee
     assert_eq!(
         partial.excluded_transfer_fee_amount_out,
         partial.swap_result.output_amount
     );
 }
 
-// both mints carry a transfer fee
+// transfer fee on both mints
 
 #[test]
 fn test_both_fees_apply_to_their_own_legs() {
@@ -535,7 +535,7 @@ fn test_both_fees_apply_to_their_own_legs() {
     let quote_fee = quote_fee();
     let in_amount = 1_000_000_000;
 
-    // quote in, base out: quote fee on input, base fee on output
+    // quote in, base out: the quote fee applies to the input, the base fee to the output
     let quote_to_base = quote_exact_in(
         &pool,
         &config,
@@ -559,7 +559,7 @@ fn test_both_fees_apply_to_their_own_legs() {
         excluded(&base_fee, quote_to_base.swap_result.output_amount)
     );
 
-    // base in, quote out: base fee on input, quote fee on output
+    // base in, quote out: the base fee applies to the input, the quote fee to the output
     let base_to_quote = quote_exact_in(
         &pool,
         &config,
@@ -583,7 +583,7 @@ fn test_both_fees_apply_to_their_own_legs() {
         excluded(&quote_fee, base_to_quote.swap_result.output_amount)
     );
 
-    // exact-out with both fees grosses up both legs
+    // exact-out with both fees grosses up the input and the output
     let out_amount = 100_000_000;
     let exact_out = quote_exact_out(
         &pool,
@@ -608,7 +608,7 @@ fn test_both_fees_apply_to_their_own_legs() {
     );
 }
 
-// fee config edge cases, checked on each mint slot
+// edge cases, checked on the base mint and the quote mint
 
 #[test]
 fn test_zero_fee_config_matches_none_on_either_slot() {
@@ -684,7 +684,7 @@ fn test_zero_fee_config_matches_none_on_either_slot() {
             );
         }
 
-        // with no fee the transfer amounts collapse onto the curve amounts
+        // with no fee the transfer amounts equal the curve amounts
         for quote in without_config {
             assert_eq!(
                 quote.included_transfer_fee_amount_in,
@@ -714,7 +714,7 @@ fn test_scheduled_fee_is_applied_only_once_its_epoch_arrives() {
     };
     let in_amount = 1_000_000_000;
 
-    // the scheduled fee sits on the input mint in both cases
+    // the scheduled fee is on the input mint in both cases
     for (swap_base_for_quote, base_fee, quote_fee) in [
         (false, None, Some(&fee_config)),
         (true, Some(&fee_config), None),
@@ -736,12 +736,12 @@ fn test_scheduled_fee_is_applied_only_once_its_epoch_arrives() {
             .unwrap()
         };
 
-        // older fee (0 bps) is still active
+        // the older fee (0 bps) is active
         assert_eq!(
             quote(CURRENT_EPOCH).swap_result.included_fee_input_amount,
             in_amount
         );
-        // newer fee (100 bps) took over
+        // the newer fee (100 bps) is active
         assert_eq!(
             quote(CURRENT_EPOCH + 2)
                 .swap_result
