@@ -184,7 +184,7 @@ describe("Create locker with a base mint that has a transfer fee", () => {
   let poolCreator: Keypair;
   let program: VirtualCurveProgram;
 
-  // initial supply the fee config mints, derived on chain in the first test
+  // supply minted by the fee config, read on chain in the first test
   let feeMintSupply: bigint;
 
   before(async () => {

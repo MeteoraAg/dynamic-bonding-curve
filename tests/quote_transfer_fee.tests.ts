@@ -303,7 +303,7 @@ describe("Quote mint with transfer fee extension", () => {
       },
     });
 
-    // the fee can never be turned on, so no badge is needed and none may be issued
+    // the fee can never be set, so no badge is needed and none can be created
     await expectThrowsAsync(
       () =>
         createTokenBadge(svm, program, {
@@ -442,7 +442,7 @@ describe("Quote mint with transfer fee extension", () => {
       await swap(svm, program, params);
       const vaultQuoteReceived =
         getTokenAccount(svm, poolState.quoteVault).amount - preVaultQuote;
-      // the 50 bps fee only takes effect two epochs later, the active fee is still 0
+      // the 50 bps fee starts two epochs later, the active fee is still 0
       expect(vaultQuoteReceived.toString()).eq(LAMPORTS_PER_SOL.toString());
     });
 
@@ -621,9 +621,9 @@ describe("Quote mint with transfer fee extension", () => {
           dammConfig,
         });
 
-        // everything still owed in quote must remain in the vault after the fee-bearing deposits
+        // all quote still owed must stay in the vault after the deposits
         const postPoolState = getVirtualPool(svm, program, virtualPool);
-        // the config's migration fee percentage is 0, so these are all the quote claims outstanding
+        // the migration fee percentage is 0, so this is all the quote still owed
         const owedQuote =
           BigInt(postPoolState.protocolQuoteFee.toString()) +
           BigInt(postPoolState.partnerQuoteFee.toString()) +
@@ -666,7 +666,7 @@ describe("Quote mint with transfer fee extension", () => {
       // older_transfer_fee stays 100 bps, newer_transfer_fee becomes 0 bps two epochs ahead
       setTransferFee(svm, admin, mint, admin, 0, BigInt(0));
 
-      // the zero fee is only scheduled, the active fee is still 100 bps: badge-eligible either way
+      // the zero fee is only scheduled and the active fee is still 100 bps. A badge is allowed in both cases
       await createTokenBadge(svm, program, {
         operator,
         payer: operator,

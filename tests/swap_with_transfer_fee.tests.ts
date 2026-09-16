@@ -114,7 +114,7 @@ function balanceOf(svm: LiteSVM, tokenAccount: PublicKey): bigint {
   return getTokenAccount(svm, tokenAccount).amount;
 }
 
-// Absolute change of a vault balance if `transaction` were executed now.
+// Absolute change of a vault balance if the transaction runs now.
 function simulatedVaultDelta(
   svm: LiteSVM,
   transaction: Transaction,
@@ -199,7 +199,7 @@ function buildConfigParams(): ConfigParameters {
     },
     migrationFeeOption: 0,
     tokenSupply: null,
-    // non-zero creator and migration fee shares so every payout below moves tokens
+    // non-zero creator and migration fee shares, so every payout below transfers tokens
     creatorTradingFeePercentage: 50,
     tokenUpdateAuthority: 0,
     migrationFee: {
@@ -267,7 +267,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           TOKEN_2022_PROGRAM_ID
         );
 
-      // Runs a payout and checks each recipient account nets the vault delta minus that mint's transfer fee.
+      // Runs a payout and checks that the recipient receives the vault delta minus the transfer fee of each mint.
       // Returns the base and quote amounts that left the vaults.
       async function expectNetPayout(
         recipient: PublicKey,
@@ -457,7 +457,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         expect(vaultQuoteReceived.toString()).eq(
           excludedQuote(amountIn).toString()
         );
-        // the curve consumed exactly what landed in the vault
+        // the curve used exactly the amount the vault received
         expect(curveAccountedQuote.toString()).eq(
           vaultQuoteReceived.toString()
         );
@@ -552,7 +552,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         const userBasePaid = preUserBase - balanceOf(svm, userBaseAccount);
         const vaultBaseReceived = balanceOf(svm, baseVault) - preVaultBase;
 
-        // fully filled: the consumed amount is what landed in the vault, and the user is charged its gross-up
+        // fully filled: the curve used the amount the vault received, and the user pays that amount plus the fee
         expect(vaultBaseReceived.toString()).eq(
           excludedBase(amountIn).toString()
         );
@@ -705,7 +705,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           referralTokenAccount: null,
         };
 
-        // the referral fee is carved out of the protocol fee, so the user's output is the same with or without it
+        // the referral fee is taken from the protocol fee, so the user output is the same with or without a referral
         const grossBaseOut = simulatedVaultDelta(
           svm,
           await buildSwapTransaction(svm, program, params),
@@ -812,8 +812,8 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           expect(quotePaid > BigInt(0)).eq(true);
         });
 
-        // claim_protocol_fee2 is signed by a PDA of the protocol fee program, so it cannot be
-        // exercised here; the suite only has rejection cases for it (see claim_protocol_fee2.tests.ts).
+        // claim_protocol_fee2 needs a signature from a PDA of the protocol fee program, so this suite cannot
+        // call it. Only rejection cases exist, see claim_protocol_fee2.tests.ts.
 
         it("Partner withdraws surplus net of the quote fee", async () => {
           await expectNetPayout(partner.publicKey, () =>

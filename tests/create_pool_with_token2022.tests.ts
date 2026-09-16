@@ -201,7 +201,7 @@ describe("Create pool with token2022", () => {
     );
     expect(baseMintData.mintAuthorityOption).eq(0);
 
-    // a zero-fee config must produce exactly the extensions Anchor init produced
+    // a zero-fee config creates the same extensions as the old Anchor init
     expect(
       getMintExtensionTypes(svm.getAccount(virtualPoolState.baseMint).data)
     ).deep.eq([ExtensionType.MetadataPointer, ExtensionType.TokenMetadata]);

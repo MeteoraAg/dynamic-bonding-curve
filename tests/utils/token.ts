@@ -115,7 +115,7 @@ export function createToken2022Mint(
     transferFeeConfig?: {
       feeBasisPoints: number;
       maximumFee: bigint;
-      // undefined defaults to the payer, null leaves the fee immutable
+      // undefined uses the payer, null makes the fee immutable
       transferFeeConfigAuthority?: PublicKey | null;
     };
   } = {}
@@ -407,9 +407,9 @@ export async function getRemainingAccountsForTransferHook(
 }
 
 /**
- * Extension types of a Token-2022 mint read from its raw account data.
- * Token-2022 pads a mint by two bytes when its length would equal the multisig
- * account size, and spl-token's getExtensionTypes trips on that padding.
+ * Extension types of a Token-2022 mint, read from the raw account data.
+ * Token-2022 adds two padding bytes when the mint length would equal the multisig
+ * account size. getExtensionTypes from spl-token fails on that padding.
  */
 export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
   const buffer = Buffer.from(data);
@@ -428,8 +428,8 @@ export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
 }
 
 /**
- * Mirrors spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
- * transfer so the recipient nets `excludedAmount` after the fee.
+ * Same as spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
+ * transfer so the recipient receives `excludedAmount` after the fee.
  */
 export function getTransferFeeIncludedAmount(
   transferFee: TransferFee,
