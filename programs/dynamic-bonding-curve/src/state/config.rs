@@ -870,11 +870,7 @@ impl PoolConfig {
     pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
         self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
         self.transfer_fee_maximum_fee = transfer_fee_parameters.maximum_fee.to_le_bytes();
-        self.transfer_fee_withheld_authority = if transfer_fee_parameters.has_transfer_fee() {
-            transfer_fee_parameters.withheld_authority
-        } else {
-            0
-        };
+        self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
     }
 
     pub fn get_base_transfer_fee(&self) -> Option<TransferFee> {

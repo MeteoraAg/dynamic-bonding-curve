@@ -7,7 +7,7 @@ import {
   unpackMint,
 } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { BN } from "bn.js";
+import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 import {

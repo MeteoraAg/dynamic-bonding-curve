@@ -34,7 +34,7 @@ import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { getMintExtensionTypes } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
-const MAX_FEE_BPS = 9900;
+const MAX_BASE_TRANSFER_FEE_BPS = 9900;
 
 // 0 partner (fee claimer), 1 creator
 const WITHHELD_AUTHORITY_PARTNER = 0;
@@ -163,7 +163,7 @@ describe("Create config2", () => {
         () =>
           createFeeConfig(1, {
             ...feeParameters,
-            transferFeeBasisPoints: MAX_FEE_BPS + 1,
+            transferFeeBasisPoints: MAX_BASE_TRANSFER_FEE_BPS + 1,
           }),
         "InvalidTransferFeeParameters"
       );
@@ -195,22 +195,34 @@ describe("Create config2", () => {
       );
     });
 
+    it("Rejects zero basis points with a non-zero withheld authority", async () => {
+      await expectThrowsAsync(
+        () =>
+          createFeeConfig(1, {
+            transferFeeBasisPoints: 0,
+            maximumFee: new BN(0),
+            withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
+          }),
+        "InvalidTransferFeeParameters"
+      );
+    });
+
     it("Accepts the maximum basis points", async () => {
       const config = await createFeeConfig(1, {
         ...feeParameters,
-        transferFeeBasisPoints: MAX_FEE_BPS,
+        transferFeeBasisPoints: MAX_BASE_TRANSFER_FEE_BPS,
       });
       const configState = getConfig(svm, program, config);
-      expect(configState.transferFeeBasisPoints).eq(MAX_FEE_BPS);
+      expect(configState.transferFeeBasisPoints).eq(MAX_BASE_TRANSFER_FEE_BPS);
     });
   });
 
   describe("Zero fee", () => {
-    it("Accepts zero fee on an SPL token config and stores flag 0", async () => {
+    it("Accepts zero fee on an SPL token config", async () => {
       const config = await createFeeConfig(0, {
         transferFeeBasisPoints: 0,
         maximumFee: new BN(0),
-        withheldAuthority: 5,
+        withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
       });
       const configState = getConfig(svm, program, config);
       expect(configState.transferFeeBasisPoints).eq(0);

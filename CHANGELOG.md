@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Swap endpoints account for the transfer fee on either mint: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
 - The endpoint `migration_damm_v2` deposits the transfer-fee-excluded amounts of both mints. In compounding mode the other side is scaled down by the same ratio to keep the migration price. In concentrated mode the fixed migration price limits the deposit. The initial liquidity of the migrated pool is reduced by the transfer fee. The base and quote that the fee keeps out of the migrated pool are added to `protocol_migration_base_fee_amount` and `protocol_migration_quote_fee_amount` and are claimable through `claim_protocol_fee2`. For a non-fixed token supply the base is burned.
 - When the base mint has a transfer fee, partners should include the fee on the migration base amount in `pre_migration_token_supply`. Otherwise `migration_damm_v2` deposits less liquidity.
+- For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
 
 ### Breaking Changes
 
