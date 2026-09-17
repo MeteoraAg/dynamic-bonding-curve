@@ -6,5 +6,3 @@ pub mod ix_create_transfer_hook_config;
 pub use ix_create_transfer_hook_config::*;
 pub mod ix_create_config2;
 pub use ix_create_config2::*;
-pub mod ix_create_config_with_transfer_hook2;
-pub use ix_create_config_with_transfer_hook2::*;

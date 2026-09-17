@@ -86,6 +86,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_partner_metadata(ctx, metadata)
     }
 
+    #[deprecated(
+        since = "0.2.2",
+        note = "Use create_config2 instead. Will be removed in a future version"
+    )]
     pub fn create_config<'info>(
         ctx: Context<'info, CreateConfigCtx<'info>>,
         config_parameters: ConfigParameters,
@@ -105,13 +109,6 @@ pub mod dynamic_bonding_curve {
         config_parameters: ConfigParameters2,
     ) -> Result<()> {
         instructions::handle_create_config2(ctx, config_parameters)
-    }
-
-    pub fn create_config_with_transfer_hook2<'info>(
-        ctx: Context<'info, CreateConfigWithTransferHook2Ctx<'info>>,
-        config_parameters: ConfigParameters2,
-    ) -> Result<()> {
-        instructions::handle_create_config_with_transfer_hook2(ctx, config_parameters)
     }
 
     /// Accepts: VirtualPool only.

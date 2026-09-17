@@ -15,9 +15,7 @@ import {
   BaseFee,
   ConfigParameters,
   createConfig2,
-  createConfigWithTransferHook2,
   createPoolWithToken2022,
-  createPoolWithToken2022TransferHook,
   TransferFeeParameters,
 } from "./instructions";
 import {
@@ -29,12 +27,11 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
-import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { getMintExtensionTypes } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
-const MAX_BASE_TRANSFER_FEE_BPS = 9900;
+const MAX_BASE_TRANSFER_FEE_BPS = 1000;
 
 // 0 partner (fee claimer), 1 creator
 const WITHHELD_AUTHORITY_PARTNER = 0;
@@ -356,55 +353,6 @@ describe("Create config2", () => {
           ExtensionType.TransferFeeConfig,
           ExtensionType.TokenMetadata,
         ]
-      );
-    });
-
-    it("Creates a transfer hook pool with a fee-bearing mint", async () => {
-      const config = await createConfigWithTransferHook2(svm, program, {
-        payer: partner,
-        leftoverReceiver: partner.publicKey,
-        feeClaimer: partner.publicKey,
-        quoteMint: NATIVE_MINT,
-        instructionParams: {
-          ...buildConfigParameters(1),
-          transferFee: feeParameters,
-        },
-        transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      });
-      const pool = await createPoolWithToken2022TransferHook(svm, program, {
-        payer: operator,
-        poolCreator,
-        quoteMint: NATIVE_MINT,
-        config,
-        transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-        instructionParams: { name: "hook", symbol: "HOOK", uri: "hook.com" },
-      });
-      const poolState = getVirtualPool(svm, program, pool);
-
-      const mintAccount = svm.getAccount(poolState.baseMint);
-      expect(getMintExtensionTypes(mintAccount.data)).deep.eq([
-        ExtensionType.MetadataPointer,
-        ExtensionType.TransferFeeConfig,
-        ExtensionType.TransferHook,
-        ExtensionType.TokenMetadata,
-      ]);
-      const mint = unpackMint(
-        poolState.baseMint,
-        { ...mintAccount, data: Buffer.from(mintAccount.data) },
-        TOKEN_2022_PROGRAM_ID
-      );
-      const transferFeeConfig = getTransferFeeConfig(mint);
-      expect(transferFeeConfig.transferFeeConfigAuthority.toString()).eq(
-        PublicKey.default.toString()
-      );
-      expect(transferFeeConfig.withdrawWithheldAuthority.toString()).eq(
-        poolCreator.publicKey.toString()
-      );
-      expect(svm.getAccount(poolState.baseVault).data.length).eq(
-        getAccountLen([
-          ExtensionType.TransferFeeAmount,
-          ExtensionType.TransferHookAccount,
-        ])
       );
     });
   });

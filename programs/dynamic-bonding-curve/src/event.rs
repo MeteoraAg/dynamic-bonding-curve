@@ -81,16 +81,6 @@ pub struct EvtCreateConfig2 {
     pub config_parameters: ConfigParameters2,
 }
 
-#[event]
-pub struct EvtCreateConfigWithTransferHook2 {
-    pub config: Pubkey,
-    pub quote_mint: Pubkey,
-    pub fee_claimer: Pubkey,
-    pub leftover_receiver: Pubkey,
-    pub config_parameters: ConfigParameters2,
-    pub transfer_hook_program: Pubkey,
-}
-
 /// Create claim fee operator
 #[event]
 pub struct EvtCreateClaimFeeOperator {

@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for creating base mints with a transfer fee. The fee is configured per config through the new `transfer_fee` field and is immutable after pool creation. The withheld fees are claimable by the partner or the pool creator based on the config.
 - Added support for quote mints with a non-zero transfer fee using a token badge. Previously a token badge only allowed a zero transfer fee.
 - Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
-- Added endpoints `create_config2` and `create_config_with_transfer_hook2` that take `ConfigParameters2`, which contains the `transfer_fee` field. These endpoints emit the new `EvtCreateConfig2` and `EvtCreateConfigWithTransferHook2` events.
+- Added endpoint `create_config2` that takes `ConfigParameters2`, which contains the `transfer_fee` field. This endpoint emits the new `EvtCreateConfig2` event.
 - Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
 
 ### Changed
@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The endpoint `migration_damm_v2` deposits the transfer-fee-excluded amounts of both mints. In compounding mode the other side is scaled down by the same ratio to keep the migration price. In concentrated mode the fixed migration price limits the deposit. The initial liquidity of the migrated pool is reduced by the transfer fee. The base and quote that the fee keeps out of the migrated pool are added to `protocol_migration_base_fee_amount` and `protocol_migration_quote_fee_amount` and are claimable through `claim_protocol_fee2`. For a non-fixed token supply the base is burned.
 - When the base mint has a transfer fee, partners should include the fee on the migration base amount in `pre_migration_token_supply`. Otherwise `migration_damm_v2` deposits less liquidity.
 - For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
+
+### Deprecated
+
+- Deprecated `create_config` endpoint in favour of `create_config2`.
 
 ### Breaking Changes
 
