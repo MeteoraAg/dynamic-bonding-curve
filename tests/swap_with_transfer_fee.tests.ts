@@ -33,6 +33,7 @@ import {
   swap,
   SwapMode,
   SwapParams,
+  TransferFeeParameters,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -63,6 +64,11 @@ const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
 const WITHHELD_AUTHORITY_CREATOR = 1;
+const NO_BASE_FEE: TransferFeeParameters = {
+  transferFeeBasisPoints: 0,
+  maximumFee: new BN(0),
+  withheldAuthority: 0,
+};
 
 const BASE_FEE_BPS = 250; // 2.5%
 const QUOTE_FEE_BPS = 100; // 1%
@@ -357,6 +363,22 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           tokenBadge = deriveTokenBadgeAddress(quoteMint);
           expect(svm.getAccount(tokenBadge)).not.eq(null);
         });
+
+        it("Rejects the legacy create_config for the fee-bearing quote mint even with a badge", async () => {
+          const errorCode = getDbcProgramErrorCodeHexString(
+            "QuoteMintHasNonZeroTransferFee"
+          );
+          await expectThrowsAsync(async () => {
+            await createConfig(svm, program, {
+              payer: partner,
+              leftoverReceiver: partner.publicKey,
+              feeClaimer: partner.publicKey,
+              quoteMint,
+              instructionParams: buildConfigParams(),
+              tokenBadge,
+            });
+          }, errorCode);
+        });
       }
 
       it("Creates config and pool", async () => {
@@ -368,17 +390,18 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           instructionParams: buildConfigParams(),
           tokenBadge,
         };
-        config =
-          baseFeeBasisPoints > 0
-            ? await createConfig2(svm, program, {
-                ...configParams,
-                transferFee: {
+        // every fee case has a transfer fee on at least one mint, so the config goes through create_config2
+        config = await createConfig2(svm, program, {
+          ...configParams,
+          transferFee:
+            baseFeeBasisPoints > 0
+              ? {
                   transferFeeBasisPoints: baseFeeBasisPoints,
                   maximumFee: U64_MAX,
                   withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
-                },
-              })
-            : await createConfig(svm, program, configParams);
+                }
+              : NO_BASE_FEE,
+        });
 
         virtualPool = await createPoolWithToken2022(svm, program, {
           payer: poolCreator,

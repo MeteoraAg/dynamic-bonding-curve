@@ -10,6 +10,7 @@ import {
   BaseFee,
   ConfigParameters,
   createConfig,
+  createConfig2,
   createConfigWithTransferHook,
   createOperatorAccount,
   claimCreatorTradingFee,
@@ -27,11 +28,13 @@ import {
   SwapParams,
 } from "./instructions";
 import {
-  createDammV2Config,
+  createDammV2DynamicConfig,
   createDammV2Operator,
   createVirtualCurveProgram,
+  DammV2ConfigPermission,
   DammV2OperatorPermission,
   derivePoolAuthority,
+  encodeConfigPermissions,
   encodePermissions,
   expectThrowsAsync,
   generateAndFund,
@@ -51,6 +54,12 @@ import {
   setTransferFee,
 } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
+
+// a quote mint with a transfer fee or a live fee authority is only accepted by create_config2, which requires
+// a fixed supply, no locked vesting and a customizable migrated pool
+const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
+const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
+const CUSTOMIZABLE_MIGRATION_FEE_OPTION = 6;
 
 function buildConfigParams(): ConfigParameters {
   const baseFee: BaseFee = {
@@ -135,6 +144,22 @@ function buildConfigParams(): ConfigParameters {
   };
 }
 
+function buildTransferFeeModeConfigParams(): ConfigParameters {
+  return {
+    ...buildConfigParams(),
+    migrationFeeOption: CUSTOMIZABLE_MIGRATION_FEE_OPTION,
+    migratedPoolFee: {
+      collectFeeMode: 0,
+      dynamicFee: 0,
+      poolFeeBps: 100,
+    },
+    tokenSupply: {
+      preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
+      postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
+    },
+  };
+}
+
 describe("Quote mint with transfer fee extension", () => {
   let svm: LiteSVM;
   let admin: Keypair;
@@ -166,7 +191,25 @@ describe("Quote mint with transfer fee extension", () => {
     });
   });
 
-  it("Requires a token badge for a quote mint with a non-zero transfer fee", async () => {
+  function createTransferFeeModeConfig(
+    quoteMint: PublicKey
+  ): Promise<PublicKey> {
+    return createConfig2(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint,
+      instructionParams: buildTransferFeeModeConfigParams(),
+      tokenBadge: deriveTokenBadgeAddress(quoteMint),
+      transferFee: {
+        transferFeeBasisPoints: 0,
+        maximumFee: new BN(0),
+        withheldAuthority: 0,
+      },
+    });
+  }
+
+  it("Requires a token badge and create_config2 for a quote mint with a non-zero transfer fee", async () => {
     const feeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 100,
@@ -206,27 +249,38 @@ describe("Quote mint with transfer fee extension", () => {
       tokenMint: feeMint,
     });
 
-    await createConfig(svm, program, {
-      payer: partner,
-      leftoverReceiver: partner.publicKey,
-      feeClaimer: partner.publicKey,
-      quoteMint: feeMint,
-      instructionParams: buildConfigParams(),
-      tokenBadge: deriveTokenBadgeAddress(feeMint),
-    });
+    // the legacy endpoints reject the mint even with a badge
+    await expectThrowsAsync(
+      () =>
+        createConfig(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: feeMint,
+          instructionParams: buildConfigParams(),
+          tokenBadge: deriveTokenBadgeAddress(feeMint),
+        }).then(() => {}),
+      "QuoteMintHasNonZeroTransferFee"
+    );
 
-    await createConfigWithTransferHook(svm, program, {
-      payer: partner,
-      leftoverReceiver: partner.publicKey,
-      feeClaimer: partner.publicKey,
-      quoteMint: feeMint,
-      instructionParams: buildConfigParams(),
-      transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      tokenBadge: deriveTokenBadgeAddress(feeMint),
-    });
+    await expectThrowsAsync(
+      () =>
+        createConfigWithTransferHook(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: feeMint,
+          instructionParams: buildConfigParams(),
+          transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+          tokenBadge: deriveTokenBadgeAddress(feeMint),
+        }).then(() => {}),
+      "QuoteMintHasNonZeroTransferFee"
+    );
+
+    await createTransferFeeModeConfig(feeMint);
   });
 
-  it("Requires a token badge when a non-zero transfer fee is scheduled", async () => {
+  it("Requires a token badge and create_config2 when a non-zero transfer fee is scheduled", async () => {
     const scheduledFeeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 0,
@@ -262,14 +316,20 @@ describe("Quote mint with transfer fee extension", () => {
       tokenMint: scheduledFeeMint,
     });
 
-    await createConfig(svm, program, {
-      payer: partner,
-      leftoverReceiver: partner.publicKey,
-      feeClaimer: partner.publicKey,
-      quoteMint: scheduledFeeMint,
-      instructionParams: buildConfigParams(),
-      tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
-    });
+    await expectThrowsAsync(
+      () =>
+        createConfig(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: scheduledFeeMint,
+          instructionParams: buildConfigParams(),
+          tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
+        }).then(() => {}),
+      "QuoteMintHasNonZeroTransferFee"
+    );
+
+    await createTransferFeeModeConfig(scheduledFeeMint);
   });
 
   it("Fails to create config with a zero-fee mint without a badge", async () => {
@@ -323,7 +383,7 @@ describe("Quote mint with transfer fee extension", () => {
     });
   });
 
-  it("Requires a token badge for a non-zero fee even when the fee authority is revoked", async () => {
+  it("Requires a token badge and create_config2 for a non-zero fee even when the fee authority is revoked", async () => {
     const immutableFeeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
         feeBasisPoints: 100,
@@ -349,6 +409,21 @@ describe("Quote mint with transfer fee extension", () => {
       payer: operator,
       tokenMint: immutableFeeMint,
     });
+
+    await expectThrowsAsync(
+      () =>
+        createConfig(svm, program, {
+          payer: partner,
+          leftoverReceiver: partner.publicKey,
+          feeClaimer: partner.publicKey,
+          quoteMint: immutableFeeMint,
+          instructionParams: buildConfigParams(),
+          tokenBadge: deriveTokenBadgeAddress(immutableFeeMint),
+        }).then(() => {}),
+      "QuoteMintHasNonZeroTransferFee"
+    );
+
+    await createTransferFeeModeConfig(immutableFeeMint);
   });
 
   describe("Zero-fee badged mint lifecycle", () => {
@@ -372,14 +447,21 @@ describe("Quote mint with transfer fee extension", () => {
     });
 
     it("Creates config and pool with a badged zero-fee quote mint", async () => {
-      config = await createConfig(svm, program, {
-        payer: partner,
-        leftoverReceiver: partner.publicKey,
-        feeClaimer: partner.publicKey,
-        quoteMint: zeroFeeMint,
-        instructionParams: buildConfigParams(),
-        tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
-      });
+      // the fee authority is live, so the legacy endpoint rejects the mint even while the fee is zero
+      await expectThrowsAsync(
+        () =>
+          createConfig(svm, program, {
+            payer: partner,
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint: zeroFeeMint,
+            instructionParams: buildConfigParams(),
+            tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
+          }).then(() => {}),
+        "QuoteMintHasNonZeroTransferFee"
+      );
+
+      config = await createTransferFeeModeConfig(zeroFeeMint);
 
       virtualPool = await createPoolWithToken2022(svm, program, {
         payer: poolCreator,
@@ -609,11 +691,13 @@ describe("Quote mint with transfer fee extension", () => {
         warpEpochBy(svm, 2);
 
         const poolState = getVirtualPool(svm, program, virtualPool);
-        const dammConfig = await createDammV2Config(
+        const dammConfig = await createDammV2DynamicConfig(
           svm,
           admin,
           derivePoolAuthority(),
-          1
+          encodeConfigPermissions([
+            DammV2ConfigPermission.CreatePoolWithoutMintValidation,
+          ])
         );
         await migrateToDammV2(svm, program, {
           payer: admin,
@@ -675,14 +759,7 @@ describe("Quote mint with transfer fee extension", () => {
 
       warpEpochBy(svm, 2);
 
-      const config = await createConfig(svm, program, {
-        payer: partner,
-        leftoverReceiver: partner.publicKey,
-        feeClaimer: partner.publicKey,
-        quoteMint: mint,
-        instructionParams: buildConfigParams(),
-        tokenBadge: deriveTokenBadgeAddress(mint),
-      });
+      const config = await createTransferFeeModeConfig(mint);
       const pool = await createPoolWithToken2022(svm, program, {
         payer: poolCreator,
         poolCreator,
@@ -729,14 +806,7 @@ describe("Quote mint with transfer fee extension", () => {
         payer: operator,
         tokenMint: mint,
       });
-      const config = await createConfig(svm, program, {
-        payer: partner,
-        leftoverReceiver: partner.publicKey,
-        feeClaimer: partner.publicKey,
-        quoteMint: mint,
-        instructionParams: buildConfigParams(),
-        tokenBadge: deriveTokenBadgeAddress(mint),
-      });
+      const config = await createTransferFeeModeConfig(mint);
       const pool = await createPoolWithToken2022(svm, program, {
         payer: poolCreator,
         poolCreator,

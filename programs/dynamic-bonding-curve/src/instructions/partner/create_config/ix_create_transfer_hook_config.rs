@@ -5,6 +5,7 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     state::{ConfigWithTransferHook, TokenType},
+    token::has_transfer_fee_or_config_authority,
     PoolError,
 };
 
@@ -48,6 +49,11 @@ pub fn handle_create_config_with_transfer_hook<'info>(
         Clock::get()?.unix_timestamp as u64,
         true,
     )?;
+
+    require!(
+        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
 
     let token_type = TokenType::try_from(config_parameters.token_type)
         .map_err(|_| PoolError::InvalidTokenType)?;

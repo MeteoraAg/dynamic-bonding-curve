@@ -406,25 +406,70 @@ export async function getRemainingAccountsForTransferHook(
   return { info: { slices }, accounts };
 }
 
+type MintExtension = {
+  type: ExtensionType;
+  // offset of the extension data in the account data
+  offset: number;
+  length: number;
+};
+
 /**
- * Extension types of a Token-2022 mint, read from the raw account data.
+ * Extensions of a Token-2022 mint, read from the raw account data.
  * Token-2022 adds two padding bytes when the mint length would equal the multisig
  * account size. getExtensionTypes from spl-token fails on that padding.
  */
-export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
+function getMintExtensions(data: Uint8Array): MintExtension[] {
   const buffer = Buffer.from(data);
-  const extensionTypes: ExtensionType[] = [];
+  const extensions: MintExtension[] = [];
   let index = ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE;
   while (index + TYPE_SIZE + LENGTH_SIZE <= buffer.length) {
-    const extensionType = buffer.readUInt16LE(index);
+    const type = buffer.readUInt16LE(index);
     const length = buffer.readUInt16LE(index + TYPE_SIZE);
-    if (extensionType === ExtensionType.Uninitialized) {
+    if (type === ExtensionType.Uninitialized) {
       break;
     }
-    extensionTypes.push(extensionType);
-    index += TYPE_SIZE + LENGTH_SIZE + length;
+    const offset = index + TYPE_SIZE + LENGTH_SIZE;
+    extensions.push({ type, offset, length });
+    index = offset + length;
   }
-  return extensionTypes;
+  return extensions;
+}
+
+export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
+  return getMintExtensions(data).map((extension) => extension.type);
+}
+
+/**
+ * Overwrites the transfer fee config authority of a Token-2022 mint in the account data.
+ * Token-2022 cannot set the authority once it is revoked. This simulates a quote mint that was
+ * badged with a live fee authority before the legacy config endpoints started to reject such mints.
+ */
+export function setTransferFeeConfigAuthority(
+  svm: LiteSVM,
+  mint: PublicKey,
+  authority: PublicKey
+) {
+  const account = svm.getAccount(mint);
+  if (account === null) {
+    throw new Error(`Mint ${mint.toBase58()} not found`);
+  }
+  const extension = getMintExtensions(account.data).find(
+    (extension) => extension.type === ExtensionType.TransferFeeConfig
+  );
+  if (extension === undefined) {
+    throw new Error(
+      `Mint ${mint.toBase58()} has no TransferFeeConfig extension`
+    );
+  }
+  // transfer_fee_config_authority is the first field of the extension
+  const data = Buffer.from(account.data);
+  authority.toBuffer().copy(data, extension.offset);
+  svm.setAccount(mint, {
+    data: new Uint8Array(data),
+    executable: account.executable,
+    lamports: account.lamports,
+    owner: account.owner,
+  });
 }
 
 /**

@@ -51,6 +51,7 @@ import {
   getTransferFeeIncludedAmount,
   mintToken2022To,
   setTransferFee,
+  setTransferFeeConfigAuthority,
 } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
@@ -241,16 +242,24 @@ async function setupPool(
   });
 
   const quoteHasFee = scenario.quoteFeeBasisPoints > 0;
+  const quoteMaximumFee = scenario.quoteMaximumFee ?? NO_CAP;
+  const legacyConfig = quoteHasFee && !scenario.fixedSupply;
   const quoteMint = createToken2022Mint(
     svm,
     admin,
     quoteHasFee
       ? {
-          transferFeeConfig: {
-            feeBasisPoints: scenario.quoteFeeBasisPoints,
-            maximumFee: scenario.quoteMaximumFee ?? NO_CAP,
-            transferFeeConfigAuthority: admin.publicKey,
-          },
+          transferFeeConfig: legacyConfig
+            ? {
+                feeBasisPoints: 0,
+                maximumFee: BigInt(0),
+                transferFeeConfigAuthority: null,
+              }
+            : {
+                feeBasisPoints: scenario.quoteFeeBasisPoints,
+                maximumFee: quoteMaximumFee,
+                transferFeeConfigAuthority: admin.publicKey,
+              },
         }
       : {}
   );
@@ -263,7 +272,7 @@ async function setupPool(
     USER_QUOTE_BALANCE
   );
   let tokenBadge: PublicKey | undefined;
-  if (quoteHasFee) {
+  if (quoteHasFee && !legacyConfig) {
     await createTokenBadge(svm, program, {
       operator,
       payer: operator,
@@ -280,17 +289,48 @@ async function setupPool(
     instructionParams: buildConfigParams(scenario),
     tokenBadge,
   };
-  const config =
-    scenario.baseFeeBasisPoints > 0
-      ? await createConfig2(svm, program, {
-          ...configParams,
-          transferFee: {
-            transferFeeBasisPoints: scenario.baseFeeBasisPoints,
-            maximumFee: U64_MAX,
-            withheldAuthority: 0,
-          },
-        })
-      : await createConfig(svm, program, configParams);
+  let config: PublicKey;
+  if (scenario.baseFeeBasisPoints > 0) {
+    config = await createConfig2(svm, program, {
+      ...configParams,
+      transferFee: {
+        transferFeeBasisPoints: scenario.baseFeeBasisPoints,
+        maximumFee: U64_MAX,
+        withheldAuthority: 0,
+      },
+    });
+  } else if (quoteHasFee && !legacyConfig) {
+    config = await createConfig2(svm, program, {
+      ...configParams,
+      transferFee: {
+        transferFeeBasisPoints: 0,
+        maximumFee: new BN(0),
+        withheldAuthority: 0,
+      },
+    });
+  } else {
+    config = await createConfig(svm, program, configParams);
+  }
+
+  if (legacyConfig) {
+    setTransferFeeConfigAuthority(svm, quoteMint, admin.publicKey);
+    await createTokenBadge(svm, program, {
+      operator,
+      payer: operator,
+      tokenMint: quoteMint,
+    });
+    tokenBadge = deriveTokenBadgeAddress(quoteMint);
+    setTransferFee(
+      svm,
+      admin,
+      quoteMint,
+      admin,
+      scenario.quoteFeeBasisPoints,
+      quoteMaximumFee
+    );
+    // the new fee becomes active two epochs later
+    warpEpochBy(svm, 2);
+  }
 
   const virtualPool = await createPoolWithToken2022(svm, program, {
     payer: poolCreator,
@@ -518,8 +558,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           quoteFeeBasisPoints
         );
 
-        // a base fee goes through create_config2, which requires a fixed supply. Without a base fee the config
-        // goes through create_config, so the non-fixed supply path of the migration is still covered there
         const nonFixedSupplyAllowed = baseFeeBasisPoints === 0;
 
         describe(feeCase.name, () => {
