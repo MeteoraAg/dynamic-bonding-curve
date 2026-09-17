@@ -270,7 +270,6 @@ pub fn process_swap<'a: 'info, 'info>(
     let migration_quote_threshold = config.migration_quote_threshold;
     let migration_base_threshold = config.migration_base_threshold;
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
-    let base_transfer_fee = config.get_base_transfer_fee();
 
     // drop pool & config since transfer hook program may borrow the account
     drop(pool);
@@ -351,7 +350,7 @@ pub fn process_swap<'a: 'info, 'info>(
 
         let required_base_balance = migration_base_threshold
             .safe_add(pool.get_protocol_and_trading_base_fee()?)?
-            .safe_add(locked_vesting_params.get_total_amount(base_transfer_fee.as_ref())?)?;
+            .safe_add(locked_vesting_params.get_total_amount()?)?;
 
         require!(
             base_vault_balance >= required_base_balance,

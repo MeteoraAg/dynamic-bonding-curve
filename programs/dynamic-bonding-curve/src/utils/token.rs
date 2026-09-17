@@ -293,6 +293,21 @@ fn is_transfer_fee_zero(
     true
 }
 
+pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<bool> {
+    if mint_info.owner.eq(&Token::id()) {
+        return Ok(false);
+    }
+
+    let mint_data = mint_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
+        let authority: Option<Pubkey> = transfer_fee_config.transfer_fee_config_authority.into();
+        Ok(authority.is_some() || !is_transfer_fee_zero(&mint, Clock::get()?.epoch))
+    } else {
+        Ok(false)
+    }
+}
+
 /// Rule: quote mint must be SPL-Token or Token-2022 (non-native) with only metadata extensions and/or zero transfer fee with no authority
 /// Anything else requires a token badge
 pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {

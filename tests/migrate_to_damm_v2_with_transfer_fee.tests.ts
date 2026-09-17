@@ -24,7 +24,6 @@ import {
   withdrawLeftover,
 } from "./instructions";
 import {
-  createDammV2Config,
   createDammV2DynamicConfig,
   createDammV2Operator,
   createDammV2Program,
@@ -186,8 +185,8 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     },
-    // compounding needs a customizable migrated pool, which uses a damm v2 dynamic config
-    migrationFeeOption: scenario.collectFeeMode === COMPOUNDING ? 6 : 0,
+    // create_config2 requires a customizable migrated pool once a base fee is set, which uses a damm v2 dynamic config
+    migrationFeeOption: 6,
     tokenSupply: scenario.fixedSupply
       ? {
           preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
@@ -203,7 +202,7 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
     migratedPoolFee: {
       collectFeeMode: scenario.collectFeeMode,
       dynamicFee: 0,
-      poolFeeBps: scenario.collectFeeMode === COMPOUNDING ? 100 : 0,
+      poolFeeBps: 100,
     },
     creatorLiquidityVestingInfo: liquidityVestingInfo,
     partnerLiquidityVestingInfo: liquidityVestingInfo,
@@ -285,13 +284,10 @@ async function setupPool(
     scenario.baseFeeBasisPoints > 0
       ? await createConfig2(svm, program, {
           ...configParams,
-          instructionParams: {
-            ...configParams.instructionParams,
-            transferFee: {
-              transferFeeBasisPoints: scenario.baseFeeBasisPoints,
-              maximumFee: U64_MAX,
-              withheldAuthority: 0,
-            },
+          transferFee: {
+            transferFeeBasisPoints: scenario.baseFeeBasisPoints,
+            maximumFee: U64_MAX,
+            withheldAuthority: 0,
           },
         })
       : await createConfig(svm, program, configParams);
@@ -340,8 +336,7 @@ async function setupPool(
       svm,
       program,
       admin,
-      virtualPool,
-      scenario.collectFeeMode
+      virtualPool
     ));
   }
 
@@ -367,8 +362,7 @@ async function migrate_(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   admin: Keypair,
-  virtualPool: PublicKey,
-  collectFeeMode: number
+  virtualPool: PublicKey
 ): Promise<{
   dammPool: PublicKey;
   firstPosition: PublicKey;
@@ -377,21 +371,12 @@ async function migrate_(
   const permission = encodeConfigPermissions([
     DammV2ConfigPermission.CreatePoolWithoutMintValidation,
   ]);
-  const dammConfig =
-    collectFeeMode === COMPOUNDING
-      ? await createDammV2DynamicConfig(
-          svm,
-          admin,
-          derivePoolAuthority(),
-          permission
-        )
-      : await createDammV2Config(
-          svm,
-          admin,
-          derivePoolAuthority(),
-          1, // timestamp
-          permission
-        );
+  const dammConfig = await createDammV2DynamicConfig(
+    svm,
+    admin,
+    derivePoolAuthority(),
+    permission
+  );
   return migrateToDammV2(svm, program, {
     payer: admin,
     virtualPool,
@@ -533,9 +518,15 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           quoteFeeBasisPoints
         );
 
+        // a base fee goes through create_config2, which requires a fixed supply. Without a base fee the config
+        // goes through create_config, so the non-fixed supply path of the migration is still covered there
+        const nonFixedSupplyAllowed = baseFeeBasisPoints === 0;
+
         describe(feeCase.name, () => {
           let feeFixed: MigratedState;
-          let feeNonFixed: MigratedState;
+          let feeNonFixed: MigratedState | null = null;
+          const states = () =>
+            feeNonFixed ? [feeFixed, feeNonFixed] : [feeFixed];
 
           before(async () => {
             feeFixed = await setupPool({
@@ -544,16 +535,18 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
               baseFeeBasisPoints,
               quoteFeeBasisPoints,
             });
-            feeNonFixed = await setupPool({
-              fixedSupply: false,
-              collectFeeMode,
-              baseFeeBasisPoints,
-              quoteFeeBasisPoints,
-            });
+            if (nonFixedSupplyAllowed) {
+              feeNonFixed = await setupPool({
+                fixedSupply: false,
+                collectFeeMode,
+                baseFeeBasisPoints,
+                quoteFeeBasisPoints,
+              });
+            }
           });
 
           it("migrates without overdrawing either vault below the outstanding claims", () => {
-            for (const state of [feeFixed, feeNonFixed]) {
+            for (const state of states()) {
               expect(
                 getVirtualPool(state.svm, state.program, state.virtualPool)
                   .isMigrated
@@ -661,17 +654,19 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
             ).eq(true);
           });
 
-          it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
-            expect(protocolMigrationBaseFee(feeNonFixed).toString()).eq(
-              protocolMigrationBaseFee(zeroFeeFixed).toString()
-            );
-          });
+          if (nonFixedSupplyAllowed) {
+            it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
+              expect(protocolMigrationBaseFee(feeNonFixed!).toString()).eq(
+                protocolMigrationBaseFee(zeroFeeFixed).toString()
+              );
+            });
+          }
 
           it("books the quote the base fee scaled off as protocol migration quote fee on the compounding handler and strands none", () => {
             const plainProtocolBaseFee = protocolMigrationBaseFee(zeroFeeFixed);
             const plainProtocolQuoteFee =
               protocolMigrationQuoteFee(zeroFeeFixed);
-            for (const state of [feeFixed, feeNonFixed]) {
+            for (const state of states()) {
               // damm v2 pulls the quote deposit plus its fee, so only rounding dust stays in the vault
               expectWithinAbsolute(quoteLeftover(state), BigInt(0), BigInt(2));
               const routedQuote =
@@ -736,9 +731,11 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
             }
           });
 
-          it("burns the base leftover for a non-fixed-supply config", () => {
-            expect(baseLeftover(feeNonFixed).toString()).eq("0");
-          });
+          if (nonFixedSupplyAllowed) {
+            it("burns the base leftover for a non-fixed-supply config", () => {
+              expect(baseLeftover(feeNonFixed!).toString()).eq("0");
+            });
+          }
 
           it("burns a fixed-supply config down to the target supply and pays the leftover to leftover_receiver", async () => {
             const supply = getMint(
@@ -863,14 +860,52 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
             state.svm,
             state.program,
             state.admin,
-            state.virtualPool,
-            COMPOUNDING
+            state.virtualPool
           ).then(() => {}),
         getDbcProgramErrorCodeHexString("AmountIsZero")
       );
       const after = getVirtualPool(state.svm, state.program, state.virtualPool);
       expect(after.migrationProgress).eq(before.migrationProgress);
       expect(after.isMigrated).eq(0);
+    });
+  });
+
+  describe("dispatch between the zero-fee and the transfer fee migration", () => {
+    it("runs the transfer fee logic for a quote mint whose fee can change, even while the active fee is zero", async () => {
+      // a badged quote mint with a fee authority. Its fee is set to zero, so the current epoch charges nothing
+      const state = await setupPool(
+        {
+          fixedSupply: false,
+          collectFeeMode: CONCENTRATED,
+          baseFeeBasisPoints: 0,
+          quoteFeeBasisPoints: QUOTE_FEE_BPS,
+        },
+        false
+      );
+      setTransferFee(
+        state.svm,
+        state.admin,
+        state.quoteMint,
+        state.admin,
+        0,
+        NO_CAP
+      );
+      warpEpochBy(state.svm, 2);
+
+      // schedule a fee two epochs out. The zero-fee logic would reject the scheduled fee, the transfer fee logic
+      // migrates with the active zero fee
+      setTransferFee(
+        state.svm,
+        state.admin,
+        state.quoteMint,
+        state.admin,
+        QUOTE_FEE_BPS,
+        NO_CAP
+      );
+      await migrate_(state.svm, state.program, state.admin, state.virtualPool);
+      expect(
+        getVirtualPool(state.svm, state.program, state.virtualPool).isMigrated
+      ).eq(1);
     });
   });
 });

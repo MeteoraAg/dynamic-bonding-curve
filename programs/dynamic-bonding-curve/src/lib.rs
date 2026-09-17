@@ -106,9 +106,10 @@ pub mod dynamic_bonding_curve {
 
     pub fn create_config2<'info>(
         ctx: Context<'info, CreateConfig2Ctx<'info>>,
-        config_parameters: ConfigParameters2,
+        config_parameters: ConfigParameters,
+        transfer_fee_parameters: TransferFeeParameters,
     ) -> Result<()> {
-        instructions::handle_create_config2(ctx, config_parameters)
+        instructions::handle_create_config2(ctx, config_parameters, transfer_fee_parameters)
     }
 
     /// Accepts: VirtualPool only.

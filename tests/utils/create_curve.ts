@@ -9,8 +9,6 @@ import {
   MigrationFeeParams,
 } from "../instructions";
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE } from "./constants";
-import { TransferFee } from "@solana/spl-token";
-import { getTransferFeeIncludedAmount } from "./token";
 
 function fromDecimalToBN(value: Decimal): BN {
   return new BN(value.floor().toFixed());
@@ -340,8 +338,6 @@ const getMigrationBaseToken = (
   }
 };
 
-// `baseTransferFee` grosses up the locked vesting part, matching the on-chain
-// reserve for a base mint with a transfer fee.
 export const getTotalSupplyFromCurve = (
   migrationQuoteThreshold: BN,
   sqrtStartPrice: BN,
@@ -349,8 +345,7 @@ export const getTotalSupplyFromCurve = (
   lockedVesting: LockedVestingParams,
   migrationOption: number,
   leftOver: BN,
-  migrationFeePercent: number,
-  baseTransferFee?: TransferFee
+  migrationFeePercent: number
 ): BN => {
   let sqrtMigrationPrice = getMigrationThresholdPrice(
     migrationQuoteThreshold,
@@ -373,10 +368,7 @@ export const getTotalSupplyFromCurve = (
     migrationOption,
     migrationFeePercent
   );
-  let totalVestingAmount = getTotalVestingAmount(
-    lockedVesting,
-    baseTransferFee
-  );
+  let totalVestingAmount = getTotalVestingAmount(lockedVesting);
   let minimumBaseSupplyWithBuffer = swapBaseAmountBuffer
     .add(migrationBaseAmount)
     .add(totalVestingAmount)
@@ -385,20 +377,11 @@ export const getTotalSupplyFromCurve = (
 };
 
 export const getTotalVestingAmount = (
-  lockedVesting: LockedVestingParams,
-  baseTransferFee?: TransferFee
+  lockedVesting: LockedVestingParams
 ): BN => {
   let totalVestingAmount = lockedVesting.cliffUnlockAmount.add(
     lockedVesting.amountPerPeriod.mul(lockedVesting.numberOfPeriod)
   );
-  if (baseTransferFee) {
-    return new BN(
-      getTransferFeeIncludedAmount(
-        baseTransferFee,
-        BigInt(totalVestingAmount.toString())
-      ).toString()
-    );
-  }
   return totalVestingAmount;
 };
 

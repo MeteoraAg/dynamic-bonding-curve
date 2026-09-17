@@ -953,17 +953,13 @@ impl PoolConfig {
                 .map_err(|_| PoolError::MathOverflow)?)
         }
     }
-    /// The locked vesting part is grossed up by the base mint transfer fee because the locker pulls the fee-included
-    /// amount from the base vault.
     pub fn get_total_token_supply(
         swap_base_amount: u64,
         migration_base_threshold: u64,
         locked_vesting_params: &LockedVestingParams,
-        base_transfer_fee: Option<&TransferFee>,
     ) -> Result<u64> {
         let total_circulating_amount = swap_base_amount.safe_add(migration_base_threshold)?;
-        let total_locked_vesting_amount =
-            locked_vesting_params.get_total_amount(base_transfer_fee)?;
+        let total_locked_vesting_amount = locked_vesting_params.get_total_amount()?;
         let total_amount = total_circulating_amount.safe_add(total_locked_vesting_amount)?;
         Ok(total_amount)
     }
@@ -988,7 +984,6 @@ impl PoolConfig {
                 swap_amount_with_buffer,
                 self.migration_base_threshold,
                 &self.locked_vesting_config.to_locked_vesting_params(),
-                self.get_base_transfer_fee().as_ref(),
             )
         }
     }

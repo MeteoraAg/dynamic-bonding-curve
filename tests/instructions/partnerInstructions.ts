@@ -197,19 +197,23 @@ export type TransferFeeParameters = {
   withheldAuthority: number;
 };
 
-export type ConfigParameters2 = ConfigParameters & {
+export type CreateConfig2Params = CreateConfigParams<ConfigParameters> & {
   transferFee: TransferFeeParameters;
 };
-
-export type CreateConfig2Params = CreateConfigParams<ConfigParameters2>;
 
 export async function createConfig2(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   params: CreateConfig2Params
 ): Promise<PublicKey> {
-  const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
-    params;
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferFee,
+  } = params;
   const config = Keypair.generate();
 
   if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
@@ -222,10 +226,13 @@ export async function createConfig2(
   }
 
   const transaction = await program.methods
-    .createConfig2({
-      ...instructionParams,
-      padding: new Array(32).fill(0),
-    })
+    .createConfig2(
+      {
+        ...instructionParams,
+        padding: new Array(2).fill(0),
+      },
+      transferFee
+    )
     .accountsPartial({
       config: config.publicKey,
       feeClaimer,
@@ -245,7 +252,7 @@ export async function createConfig2(
   const configState = getConfig(svm, program, config.publicKey);
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
   expect(configState.transferFeeBasisPoints).equal(
-    instructionParams.transferFee.transferFeeBasisPoints
+    transferFee.transferFeeBasisPoints
   );
 
   return config.publicKey;

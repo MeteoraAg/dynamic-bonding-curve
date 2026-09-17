@@ -94,7 +94,7 @@ fn get_constant_product_curve(
     let swap_amount = total_supply
         .checked_sub(migration_base_amount)
         .unwrap()
-        .checked_sub(locked_vesting.get_total_amount(None).unwrap())
+        .checked_sub(locked_vesting.get_total_amount().unwrap())
         .unwrap();
 
     let (sqrt_start_price, mut curve) = get_first_curve(
@@ -170,7 +170,6 @@ fn get_total_supply_from_curve(
         swap_base_amount_buffer,
         migration_base_amount,
         &locked_vesting,
-        None,
     )
     .unwrap();
 

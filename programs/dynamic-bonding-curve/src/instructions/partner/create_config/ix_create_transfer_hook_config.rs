@@ -8,7 +8,7 @@ use crate::{
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, ConfigParameters2};
+use super::{process_create_config, ConfigParameters, TransferFeeParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -42,9 +42,7 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    let config_parameters2 = ConfigParameters2::from(config_parameters.clone());
-
-    config_parameters2.validate(
+    config_parameters.validate(
         &ctx.accounts.quote_mint,
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
@@ -70,7 +68,8 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
         &mut config,
-        &config_parameters2,
+        &config_parameters,
+        &TransferFeeParameters::default(),
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,

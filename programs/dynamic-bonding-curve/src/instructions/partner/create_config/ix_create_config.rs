@@ -5,7 +5,7 @@ use anchor_spl::token_interface::Mint;
 use crate::event::{EvtCreateConfig, EvtCreateConfigV2};
 use crate::{state::PoolConfig, CreateConfigResult};
 
-use super::{process_create_config, ConfigParameters, ConfigParameters2};
+use super::{process_create_config, ConfigParameters, TransferFeeParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -35,9 +35,7 @@ pub fn handle_create_config<'info>(
     ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    let config_parameters2 = ConfigParameters2::from(config_parameters.clone());
-
-    config_parameters2.validate(
+    config_parameters.validate(
         &ctx.accounts.quote_mint,
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
@@ -53,7 +51,8 @@ pub fn handle_create_config<'info>(
         post_migration_token_supply,
     } = process_create_config(
         &mut config,
-        &config_parameters2,
+        &config_parameters,
+        &TransferFeeParameters::default(),
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,

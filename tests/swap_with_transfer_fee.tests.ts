@@ -57,6 +57,9 @@ import {
 import { Pool, VirtualCurveProgram } from "./utils/types";
 
 const MIGRATION_QUOTE_THRESHOLD = new BN(LAMPORTS_PER_SOL * 5);
+// create_config2 requires a fixed supply and a customizable migrated pool once a base fee is set
+const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
+const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
 const WITHHELD_AUTHORITY_CREATOR = 1;
@@ -197,8 +200,11 @@ function buildConfigParams(): ConfigParameters {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     },
-    migrationFeeOption: 0,
-    tokenSupply: null,
+    migrationFeeOption: 6,
+    tokenSupply: {
+      preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
+      postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
+    },
     // non-zero creator and migration fee shares, so every payout below transfers tokens
     creatorTradingFeePercentage: 50,
     tokenUpdateAuthority: 0,
@@ -209,7 +215,7 @@ function buildConfigParams(): ConfigParameters {
     migratedPoolFee: {
       collectFeeMode: 0,
       dynamicFee: 0,
-      poolFeeBps: 0,
+      poolFeeBps: 100,
     },
     creatorLiquidityVestingInfo: liquidityVestingInfo,
     partnerLiquidityVestingInfo: liquidityVestingInfo,
@@ -366,13 +372,10 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
           baseFeeBasisPoints > 0
             ? await createConfig2(svm, program, {
                 ...configParams,
-                instructionParams: {
-                  ...configParams.instructionParams,
-                  transferFee: {
-                    transferFeeBasisPoints: baseFeeBasisPoints,
-                    maximumFee: U64_MAX,
-                    withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
-                  },
+                transferFee: {
+                  transferFeeBasisPoints: baseFeeBasisPoints,
+                  maximumFee: U64_MAX,
+                  withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
                 },
               })
             : await createConfig(svm, program, configParams);
