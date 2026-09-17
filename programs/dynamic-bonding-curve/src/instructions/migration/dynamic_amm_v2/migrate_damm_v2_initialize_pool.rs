@@ -16,7 +16,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
-        MigrationProgress, PoolConfig,
+        MigrationProgress, PoolConfig, PoolState,
     },
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
@@ -420,6 +420,55 @@ impl<'info> MigrateDammV2Ctx<'info> {
 
         Ok(())
     }
+
+    fn validate(
+        &self,
+        remaining_accounts: &'info [AccountInfo<'info>],
+        config: &PoolConfig,
+        virtual_pool: &PoolState,
+        migration_fee_option: MigrationFeeOption,
+    ) -> Result<()> {
+        require!(
+            remaining_accounts.len() >= 1,
+            PoolError::MissingPoolConfigInRemainingAccount
+        );
+        let damm_config_loader: AccountLoader<'_, damm_v2::accounts::Config> =
+            AccountLoader::try_from(&remaining_accounts[0])?;
+        let damm_config = damm_config_loader.load()?;
+        validate_config_key(&damm_config, migration_fee_option)?;
+
+        require!(
+            virtual_pool.base_vault.eq(&self.base_vault.key()),
+            ErrorCode::ConstraintHasOne
+        );
+        require!(
+            virtual_pool.quote_vault.eq(&self.quote_vault.key()),
+            ErrorCode::ConstraintHasOne
+        );
+        require!(
+            virtual_pool.config.eq(&self.config.key()),
+            ErrorCode::ConstraintHasOne
+        );
+
+        require!(
+            virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
+            PoolError::NotPermitToDoThisAction
+        );
+
+        require!(
+            virtual_pool.is_curve_complete(config.migration_quote_threshold),
+            PoolError::PoolIsIncompleted
+        );
+
+        let migration_option = MigrationOption::try_from(config.migration_option)
+            .map_err(|_| PoolError::InvalidMigrationOption)?;
+        require!(
+            migration_option == MigrationOption::DammV2,
+            PoolError::InvalidMigrationOption
+        );
+
+        Ok(())
+    }
 }
 
 fn validate_config_key(
@@ -522,53 +571,19 @@ fn process_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) 
 
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
+
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-
-    {
-        require!(
-            ctx.remaining_accounts.len() >= 1,
-            PoolError::MissingPoolConfigInRemainingAccount
-        );
-        let damm_config_loader: AccountLoader<'_, damm_v2::accounts::Config> =
-            AccountLoader::try_from(&ctx.remaining_accounts[0])?;
-        let damm_config = damm_config_loader.load()?;
-
-        validate_config_key(&damm_config, migration_fee_option)?;
-    }
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut virtual_pool = pool_loader.load_mut()?;
 
-    require!(
-        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        ErrorCode::ConstraintHasOne
-    );
-    require!(
-        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        ErrorCode::ConstraintHasOne
-    );
-    require!(
-        virtual_pool.config.eq(&ctx.accounts.config.key()),
-        ErrorCode::ConstraintHasOne
-    );
-
-    require!(
-        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
-        PoolError::NotPermitToDoThisAction
-    );
-
-    require!(
-        virtual_pool.is_curve_complete(config.migration_quote_threshold),
-        PoolError::PoolIsIncompleted
-    );
-
-    let migration_option = MigrationOption::try_from(config.migration_option)
-        .map_err(|_| PoolError::InvalidMigrationOption)?;
-    require!(
-        migration_option == MigrationOption::DammV2,
-        PoolError::InvalidMigrationOption
-    );
+    ctx.accounts.validate(
+        ctx.remaining_accounts,
+        &config,
+        &virtual_pool,
+        migration_fee_option,
+    )?;
 
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
@@ -798,53 +813,19 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
 
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
+
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-
-    {
-        require!(
-            ctx.remaining_accounts.len() >= 1,
-            PoolError::MissingPoolConfigInRemainingAccount
-        );
-        let damm_config_loader: AccountLoader<'_, damm_v2::accounts::Config> =
-            AccountLoader::try_from(&ctx.remaining_accounts[0])?;
-        let damm_config = damm_config_loader.load()?;
-
-        validate_config_key(&damm_config, migration_fee_option)?;
-    }
 
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
     let mut virtual_pool = pool_loader.load_mut()?;
 
-    require!(
-        virtual_pool.base_vault.eq(&ctx.accounts.base_vault.key()),
-        ErrorCode::ConstraintHasOne
-    );
-    require!(
-        virtual_pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
-        ErrorCode::ConstraintHasOne
-    );
-    require!(
-        virtual_pool.config.eq(&ctx.accounts.config.key()),
-        ErrorCode::ConstraintHasOne
-    );
-
-    require!(
-        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
-        PoolError::NotPermitToDoThisAction
-    );
-
-    require!(
-        virtual_pool.is_curve_complete(config.migration_quote_threshold),
-        PoolError::PoolIsIncompleted
-    );
-
-    let migration_option = MigrationOption::try_from(config.migration_option)
-        .map_err(|_| PoolError::InvalidMigrationOption)?;
-    require!(
-        migration_option == MigrationOption::DammV2,
-        PoolError::InvalidMigrationOption
-    );
+    ctx.accounts.validate(
+        ctx.remaining_accounts,
+        &config,
+        &virtual_pool,
+        migration_fee_option,
+    )?;
 
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
