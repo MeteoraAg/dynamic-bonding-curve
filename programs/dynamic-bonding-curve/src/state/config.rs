@@ -5,7 +5,6 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
-use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
@@ -17,7 +16,7 @@ use crate::{
     },
     damm_v2_utils::{
         calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
-        DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
+        BaseFeeMode as DammV2BaseFeeMode, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
     },
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
@@ -28,13 +27,19 @@ use crate::{
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
     LockedVestingParams, MigratedPoolMarketCapFeeSchedulerParams, MigrationFee, PoolError,
+    TransferFeeParameters,
 };
-use damm_v2::types::BaseFeeParameters as DammV2BaseFeeParameters;
-use damm_v2::types::BorshFeeMarketCapScheduler as DammV2BorshFeeMarketCapScheduler;
-use damm_v2::types::BorshFeeTimeScheduler as DammV2BorshFeeTimeScheduler;
-use damm_v2::types::DynamicFeeParameters as DammV2DynamicFeeParameters;
-use damm_v2::types::PoolFeeParameters as DammV2PoolFeeParameters;
-use damm_v2::types::VestingParameters as DammV2VestingParameters;
+use anchor_spl::{
+    token_2022::spl_token_2022::extension::transfer_fee::TransferFee,
+    token_interface::spl_pod::primitives::{PodU16, PodU64},
+};
+use damm_v2::types::{
+    BaseFeeParameters as DammV2BaseFeeParameters,
+    BorshFeeMarketCapScheduler as DammV2BorshFeeMarketCapScheduler,
+    BorshFeeTimeScheduler as DammV2BorshFeeTimeScheduler,
+    DynamicFeeParameters as DammV2DynamicFeeParameters,
+    PoolFeeParameters as DammV2PoolFeeParameters, VestingParameters as DammV2VestingParameters,
+};
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
@@ -422,6 +427,31 @@ impl TokenAuthorityOption {
     AnchorDeserialize,
     AnchorSerialize,
 )]
+pub enum TransferFeeWithheldAuthority {
+    Partner,
+    Creator,
+}
+
+impl TransferFeeWithheldAuthority {
+    pub fn get_authority(&self, creator: Pubkey, partner: Pubkey) -> Pubkey {
+        match *self {
+            TransferFeeWithheldAuthority::Partner => partner,
+            TransferFeeWithheldAuthority::Creator => creator,
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
 pub enum MigrationOption {
     /// Deprecated for new configs and pools. Exisiting pools can still migrate to DAMMv1.
     /// Kept for backwards compatibility.
@@ -510,8 +540,14 @@ pub struct PoolConfig {
     pub partner_liquidity_vesting_info: LiquidityVestingInfo,
     // Creator liquidity vesting info, only available for DAMM v2 migration
     pub creator_liquidity_vesting_info: LiquidityVestingInfo,
+    /// Base mint transfer fee in basis points
+    pub transfer_fee_basis_points: u16,
+    /// Base mint transfer fee maximum_fee
+    pub transfer_fee_maximum_fee: [u8; 8],
+    /// See TransferFeeWithheldAuthority (0 means partner, 1 means creator)
+    pub transfer_fee_withheld_authority: u8,
     /// Padding for future use
-    pub padding_0: [u8; 14],
+    pub padding_0: [u8; 3],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -829,6 +865,30 @@ impl PoolConfig {
         }
 
         Ok(())
+    }
+
+    pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
+        self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
+        self.transfer_fee_maximum_fee = transfer_fee_parameters.maximum_fee.to_le_bytes();
+        self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
+    }
+
+    pub fn get_base_transfer_fee(&self) -> Option<TransferFee> {
+        if self.transfer_fee_basis_points == 0 {
+            return None;
+        }
+        Some(TransferFee {
+            epoch: PodU64::from(0),
+            transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
+            maximum_fee: PodU64::from(u64::from_le_bytes(self.transfer_fee_maximum_fee)),
+        })
+    }
+
+    pub fn get_transfer_fee_withheld_authority(&self, creator: Pubkey) -> Result<Pubkey> {
+        let withheld_authority =
+            TransferFeeWithheldAuthority::try_from(self.transfer_fee_withheld_authority)
+                .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
+        Ok(withheld_authority.get_authority(creator, self.fee_claimer))
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {

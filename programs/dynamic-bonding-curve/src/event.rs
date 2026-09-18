@@ -7,7 +7,7 @@ use crate::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
     state::{SwapResult, SwapResult2},
-    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
+    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2, TransferFeeParameters,
 };
 
 /// Create partner metadata
@@ -70,6 +70,16 @@ pub struct EvtCreateConfigV2WithTransferHook {
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
     pub transfer_hook_program: Pubkey,
+}
+
+#[event]
+pub struct EvtCreateConfig2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_fee_parameters: TransferFeeParameters,
 }
 
 /// Create claim fee operator
@@ -140,6 +150,46 @@ pub struct EvtSwap2WithTransferHook {
     pub swap_result: SwapResult2,
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwap3 {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub swap_mode: u8,
+    pub has_referral: bool,
+    pub fee_on_base_token: bool,
+    pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
+    pub excluded_transfer_fee_amount_out: u64,
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwap3WithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub swap_mode: u8,
+    pub has_referral: bool,
+    pub fee_on_base_token: bool,
+    pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
+    pub excluded_transfer_fee_amount_out: u64,
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
     pub current_timestamp: u64,
 }
 

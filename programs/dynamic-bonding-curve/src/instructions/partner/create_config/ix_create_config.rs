@@ -3,9 +3,11 @@ use anchor_spl::token_interface::Mint;
 
 #[allow(deprecated)]
 use crate::event::{EvtCreateConfig, EvtCreateConfigV2};
-use crate::{state::PoolConfig, CreateConfigResult};
+use crate::{
+    state::PoolConfig, token::has_transfer_fee_or_config_authority, CreateConfigResult, PoolError,
+};
 
-use super::{process_create_config, ConfigParameters};
+use super::{process_create_config, ConfigParameters, TransferFeeParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -42,6 +44,11 @@ pub fn handle_create_config<'info>(
         false,
     )?;
 
+    require!(
+        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
     let mut config = ctx.accounts.config.load_init()?;
     let CreateConfigResult {
         swap_base_amount,
@@ -52,6 +59,7 @@ pub fn handle_create_config<'info>(
     } = process_create_config(
         &mut config,
         &config_parameters,
+        &TransferFeeParameters::default(),
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
