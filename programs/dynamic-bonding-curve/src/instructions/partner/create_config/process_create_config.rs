@@ -168,8 +168,9 @@ impl MigratedPoolFeeValidator {
 
         match migrated_collect_fee_mode {
             MigratedCollectFeeMode::Compounding => {
+                // compounding_fee_bps = 0 collects the whole trading fee in quote token
                 require!(
-                    self.compounding_fee_bps > 0 && self.compounding_fee_bps <= MAX_BASIS_POINT,
+                    self.compounding_fee_bps <= MAX_BASIS_POINT,
                     PoolError::InvalidMigratedPoolFee
                 );
             }

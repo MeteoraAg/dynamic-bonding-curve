@@ -3,6 +3,7 @@ use anchor_spl::token_interface::Mint;
 
 use crate::{
     event::EvtCreateConfig3,
+    migration_handler::MigratedCollectFeeMode,
     state::{MigrationFeeOption, PoolConfig},
     token::has_transfer_fee_or_config_authority,
     PoolError,
@@ -68,6 +69,13 @@ pub fn handle_create_config2<'info>(
         require!(
             migration_fee_option == MigrationFeeOption::Customizable,
             PoolError::InvalidMigrationFeeOption
+        );
+        let migrated_collect_fee_mode =
+            MigratedCollectFeeMode::try_from(config_parameters.migrated_pool_fee.collect_fee_mode)
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        require!(
+            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
+            PoolError::InvalidMigratedPoolFee
         );
     }
 

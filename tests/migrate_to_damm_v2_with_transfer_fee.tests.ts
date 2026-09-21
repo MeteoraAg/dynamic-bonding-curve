@@ -37,6 +37,7 @@ import {
   generateAndFund,
   getDbcProgramErrorCodeHexString,
   MAX_SQRT_PRICE,
+  MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
@@ -60,9 +61,6 @@ const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
 const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
-
-const CONCENTRATED = 0;
-const COMPOUNDING = 2;
 
 const BASE_FEE_BPS = 250; // 2.5%
 const QUOTE_FEE_BPS = 100; // 1%
@@ -93,7 +91,6 @@ const FEE_CASES: FeeCase[] = [
 
 type Scenario = {
   fixedSupply: boolean;
-  collectFeeMode: number;
   baseFeeBasisPoints: number;
   quoteFeeBasisPoints: number;
   // maximum fee of the quote mint, defaults to no cap
@@ -201,7 +198,7 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
       creatorFeePercentage: 0,
     },
     migratedPoolFee: {
-      collectFeeMode: scenario.collectFeeMode,
+      collectFeeMode: MigratedCollectFeeMode.Compounding,
       dynamicFee: 0,
       poolFeeBps: 100,
     },
@@ -209,7 +206,7 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
     partnerLiquidityVestingInfo: liquidityVestingInfo,
     poolCreationFee: new BN(0),
     enableFirstSwapWithMinFee: false,
-    compoundingFeeBps: scenario.collectFeeMode === COMPOUNDING ? 500 : 0,
+    compoundingFeeBps: 500,
     migratedPoolBaseFeeMode: 0,
     migratedPoolMarketCapFeeSchedulerParams: null,
     curve: curves,
@@ -530,336 +527,262 @@ function expectWithinRelative(actual: bigint, expected: bigint, ppm: bigint) {
 }
 
 describe("Migrate to damm v2 with a transfer fee on the base mint, the quote mint, or both", () => {
-  for (const collectFeeMode of [CONCENTRATED, COMPOUNDING]) {
-    const modeName =
-      collectFeeMode === COMPOUNDING ? "compounding" : "concentrated";
+  describe("compounding handler", () => {
+    // this pool has no transfer fees, so it gives the reference amounts and protocol migration fees
+    let zeroFeeFixed: MigratedState;
 
-    describe(`${modeName} handler`, () => {
-      // this pool has no transfer fees, so it gives the reference amounts and protocol migration fees
-      let zeroFeeFixed: MigratedState;
-
-      before(async () => {
-        zeroFeeFixed = await setupPool({
-          fixedSupply: true,
-          collectFeeMode,
-          baseFeeBasisPoints: 0,
-          quoteFeeBasisPoints: 0,
-        });
+    before(async () => {
+      zeroFeeFixed = await setupPool({
+        fixedSupply: true,
+        baseFeeBasisPoints: 0,
+        quoteFeeBasisPoints: 0,
       });
+    });
 
-      for (const feeCase of FEE_CASES) {
-        const { baseFeeBasisPoints, quoteFeeBasisPoints } = feeCase;
-        // on the compounding handler the side with the larger fee limits the deposit and the other side is
-        // scaled down to match, so both sides shrink by the larger fee
-        const compoundingFeeBasisPoints = Math.max(
-          baseFeeBasisPoints,
-          quoteFeeBasisPoints
-        );
+    for (const feeCase of FEE_CASES) {
+      const { baseFeeBasisPoints, quoteFeeBasisPoints } = feeCase;
+      // on the compounding handler the side with the larger fee limits the deposit and the other side is
+      // scaled down to match, so both sides shrink by the larger fee
+      const compoundingFeeBasisPoints = Math.max(
+        baseFeeBasisPoints,
+        quoteFeeBasisPoints
+      );
 
-        const nonFixedSupplyAllowed = baseFeeBasisPoints === 0;
+      const nonFixedSupplyAllowed = baseFeeBasisPoints === 0;
 
-        describe(feeCase.name, () => {
-          let feeFixed: MigratedState;
-          let feeNonFixed: MigratedState | null = null;
-          const states = () =>
-            feeNonFixed ? [feeFixed, feeNonFixed] : [feeFixed];
+      describe(feeCase.name, () => {
+        let feeFixed: MigratedState;
+        let feeNonFixed: MigratedState | null = null;
+        const states = () =>
+          feeNonFixed ? [feeFixed, feeNonFixed] : [feeFixed];
 
-          before(async () => {
-            feeFixed = await setupPool({
-              fixedSupply: true,
-              collectFeeMode,
+        before(async () => {
+          feeFixed = await setupPool({
+            fixedSupply: true,
+            baseFeeBasisPoints,
+            quoteFeeBasisPoints,
+          });
+          if (nonFixedSupplyAllowed) {
+            feeNonFixed = await setupPool({
+              fixedSupply: false,
               baseFeeBasisPoints,
               quoteFeeBasisPoints,
             });
-            if (nonFixedSupplyAllowed) {
-              feeNonFixed = await setupPool({
-                fixedSupply: false,
-                collectFeeMode,
-                baseFeeBasisPoints,
-                quoteFeeBasisPoints,
-              });
-            }
-          });
+          }
+        });
 
-          it("migrates without overdrawing either vault below the outstanding claims", () => {
-            for (const state of states()) {
-              expect(
-                getVirtualPool(state.svm, state.program, state.virtualPool)
-                  .isMigrated
-              ).eq(1);
-              expect(
-                balanceOf(state.svm, state.baseVault) >= owedBase(state)
-              ).eq(true);
-              expect(
-                balanceOf(state.svm, state.quoteVault) >= owedQuote(state)
-              ).eq(true);
-            }
-          });
-
-          it("preserves the migration price", () => {
-            const feePrice = BigInt(
-              getDammV2Pool(
-                feeFixed.svm,
-                feeFixed.dammPool
-              ).sqrtPrice.toString()
+        it("migrates without overdrawing either vault below the outstanding claims", () => {
+          for (const state of states()) {
+            expect(
+              getVirtualPool(state.svm, state.program, state.virtualPool)
+                .isMigrated
+            ).eq(1);
+            expect(balanceOf(state.svm, state.baseVault) >= owedBase(state)).eq(
+              true
             );
-            if (collectFeeMode === CONCENTRATED) {
-              const migrationSqrtPrice = BigInt(
-                getConfig(
-                  feeFixed.svm,
-                  feeFixed.program,
-                  feeFixed.config
-                ).migrationSqrtPrice.toString()
-              );
-              expect(feePrice.toString()).eq(migrationSqrtPrice.toString());
-            } else {
-              const zeroFeePrice = BigInt(
-                getDammV2Pool(
-                  zeroFeeFixed.svm,
-                  zeroFeeFixed.dammPool
-                ).sqrtPrice.toString()
-              );
-              expectWithinRelative(feePrice, zeroFeePrice, BigInt(1));
-            }
-          });
+            expect(
+              balanceOf(state.svm, state.quoteVault) >= owedQuote(state)
+            ).eq(true);
+          }
+        });
 
-          it("deposits the fee-excluded amounts into damm v2", () => {
-            const dammPool = getDammV2Pool(feeFixed.svm, feeFixed.dammPool);
-            const zeroFeeDammPool = getDammV2Pool(
+        it("preserves the migration price", () => {
+          const feePrice = BigInt(
+            getDammV2Pool(feeFixed.svm, feeFixed.dammPool).sqrtPrice.toString()
+          );
+          const zeroFeePrice = BigInt(
+            getDammV2Pool(
               zeroFeeFixed.svm,
               zeroFeeFixed.dammPool
-            );
-            const baseInPool = BigInt(dammPool.tokenAAmount.toString());
-            const quoteInPool = BigInt(dammPool.tokenBAmount.toString());
-            const zeroFeeBaseInPool = BigInt(
-              zeroFeeDammPool.tokenAAmount.toString()
-            );
-            const zeroFeeQuoteInPool = BigInt(
-              zeroFeeDammPool.tokenBAmount.toString()
-            );
-
-            if (collectFeeMode === CONCENTRATED) {
-              // the price is fixed and the base budget is the whole vault reserve. The quote net of its fee sets
-              // the liquidity and the base follows. The base fee is paid from the unused base.
-              expectWithinRelative(
-                baseInPool,
-                excluded(quoteFeeBasisPoints, zeroFeeBaseInPool),
-                BigInt(1)
-              );
-              expectWithinRelative(
-                quoteInPool,
-                excluded(quoteFeeBasisPoints, zeroFeeQuoteInPool),
-                BigInt(1)
-              );
-            } else {
-              // the base budget is the migration threshold, so both sides shrink by the larger fee.
-              // damm v2 pulls the quote fee on top of the deposit, so the quote in the pool is not reduced a second time
-              expectWithinRelative(
-                baseInPool,
-                excluded(compoundingFeeBasisPoints, zeroFeeBaseInPool),
-                BigInt(10)
-              );
-              expectWithinRelative(
-                quoteInPool,
-                excluded(compoundingFeeBasisPoints, zeroFeeQuoteInPool),
-                BigInt(10)
-              );
-            }
-          });
-
-          it("books the base the quote fee kept out of damm v2 as protocol migration base fee on a fixed-supply config", () => {
-            const surplus =
-              protocolMigrationBaseFee(feeFixed) -
-              protocolMigrationBaseFee(zeroFeeFixed);
-            // the surplus is the base the zero-fee pool deposited and this pool did not. With a base fee the
-            // deposit is grossed up, so this pool deposits at least as much and books no surplus.
-            const expected = saturatingSub(
-              depositedBase(zeroFeeFixed),
-              depositedBase(feeFixed)
-            );
-            if (baseFeeBasisPoints === 0) {
-              expect(surplus > BigInt(0)).eq(true);
-            } else {
-              expect(surplus.toString()).eq("0");
-            }
-            expectWithinAbsolute(surplus, expected, BigInt(2));
-
-            // the surplus is kept in the vault for claim_protocol_fee2 and is not burned
-            expect(
-              balanceOf(feeFixed.svm, feeFixed.baseVault) >= owedBase(feeFixed)
-            ).eq(true);
-          });
-
-          if (nonFixedSupplyAllowed) {
-            it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
-              expect(protocolMigrationBaseFee(feeNonFixed!).toString()).eq(
-                protocolMigrationBaseFee(zeroFeeFixed).toString()
-              );
-            });
-          }
-
-          it("books the quote the base fee scaled off as protocol migration quote fee on the compounding handler and strands none", () => {
-            const plainProtocolBaseFee = protocolMigrationBaseFee(zeroFeeFixed);
-            const plainProtocolQuoteFee =
-              protocolMigrationQuoteFee(zeroFeeFixed);
-            for (const state of states()) {
-              // damm v2 pulls the quote deposit plus its fee, so only rounding dust stays in the vault
-              expectWithinAbsolute(quoteLeftover(state), BigInt(0), BigInt(2));
-              const routedQuote =
-                protocolMigrationQuoteFee(state) - plainProtocolQuoteFee;
-              if (collectFeeMode === CONCENTRATED || baseFeeBasisPoints === 0) {
-                // the concentrated handler does not scale the quote, and without a base fee nothing is scaled down
-                expect(routedQuote.toString()).eq("0");
-                continue;
-              }
-              const config = getConfig(state.svm, state.program, state.config);
-              // quote_to_damm = quote_budget * excluded(base_budget) / base_budget, and damm v2 pulls included(quote_to_damm)
-              const baseBudget =
-                BigInt(config.migrationBaseThreshold.toString()) -
-                plainProtocolBaseFee;
-              const quoteBudget =
-                BigInt(config.migrationQuoteThreshold.toString()) -
-                plainProtocolQuoteFee;
-              const quoteToDamm =
-                (quoteBudget * excluded(baseFeeBasisPoints, baseBudget)) /
-                baseBudget;
-              const pulledQuote = included(quoteFeeBasisPoints, quoteToDamm);
-              expectWithinRelative(
-                routedQuote,
-                quoteBudget - pulledQuote,
-                BigInt(1_000)
-              );
-            }
-          });
-
-          it("pays the base fee from the base slack on the concentrated handler and from the deposit on compounding", () => {
-            const zeroFeeLeftover = baseLeftover(zeroFeeFixed);
-            const feeLeftover = baseLeftover(feeFixed);
-            if (baseFeeBasisPoints === 0) {
-              // no base fee: the base kept out by the quote fee goes to the protocol, so the leftover does not change
-              expectWithinAbsolute(feeLeftover, zeroFeeLeftover, BigInt(2));
-              return;
-            }
-            if (collectFeeMode === CONCENTRATED) {
-              // this vault paid included(base in pool), the zero-fee vault paid its base in pool
-              const baseInPool = BigInt(
-                getDammV2Pool(
-                  feeFixed.svm,
-                  feeFixed.dammPool
-                ).tokenAAmount.toString()
-              );
-              const zeroFeeBaseInPool = BigInt(
-                getDammV2Pool(
-                  zeroFeeFixed.svm,
-                  zeroFeeFixed.dammPool
-                ).tokenAAmount.toString()
-              );
-              const extraBasePaid =
-                included(baseFeeBasisPoints, baseInPool) - zeroFeeBaseInPool;
-              // the deposit is two transfers, each with its own fee, so the total fee can differ by one unit
-              expectWithinAbsolute(
-                zeroFeeLeftover - feeLeftover,
-                extraBasePaid,
-                BigInt(1)
-              );
-            } else {
-              expect(feeLeftover.toString()).eq(zeroFeeLeftover.toString());
-            }
-          });
-
-          if (nonFixedSupplyAllowed) {
-            it("burns the base leftover for a non-fixed-supply config", () => {
-              expect(baseLeftover(feeNonFixed!).toString()).eq("0");
-            });
-          }
-
-          it("burns a fixed-supply config down to the target supply and pays the leftover to leftover_receiver", async () => {
-            const supply = getMint(
-              feeFixed.svm,
-              feeFixed.baseMint,
-              TOKEN_2022_PROGRAM_ID
-            ).supply;
-            expect(supply.toString()).eq(
-              POST_MIGRATION_TOKEN_SUPPLY.toString()
-            );
-
-            const leftover = baseLeftover(feeFixed);
-            const receiverAccount = getAssociatedTokenAddressSync(
-              feeFixed.baseMint,
-              feeFixed.leftoverReceiver,
-              true,
-              TOKEN_2022_PROGRAM_ID
-            );
-            const preReceiver = balanceOf(feeFixed.svm, receiverAccount);
-
-            await withdrawLeftover(feeFixed.svm, feeFixed.program, {
-              payer: feeFixed.admin,
-              virtualPool: feeFixed.virtualPool,
-            });
-
-            const received =
-              balanceOf(feeFixed.svm, receiverAccount) - preReceiver;
-            // the receiver pays the base transfer fee on the payout
-            expect(received.toString()).eq(
-              excluded(baseFeeBasisPoints, leftover).toString()
-            );
-            expect(baseLeftover(feeFixed).toString()).eq("0");
-          });
+            ).sqrtPrice.toString()
+          );
+          expectWithinRelative(feePrice, zeroFeePrice, BigInt(1));
         });
-      }
-    });
-  }
+
+        it("deposits the fee-excluded amounts into damm v2", () => {
+          const dammPool = getDammV2Pool(feeFixed.svm, feeFixed.dammPool);
+          const zeroFeeDammPool = getDammV2Pool(
+            zeroFeeFixed.svm,
+            zeroFeeFixed.dammPool
+          );
+          const baseInPool = BigInt(dammPool.tokenAAmount.toString());
+          const quoteInPool = BigInt(dammPool.tokenBAmount.toString());
+          const zeroFeeBaseInPool = BigInt(
+            zeroFeeDammPool.tokenAAmount.toString()
+          );
+          const zeroFeeQuoteInPool = BigInt(
+            zeroFeeDammPool.tokenBAmount.toString()
+          );
+
+          // the base budget is the migration threshold, so both sides shrink by the larger fee.
+          // damm v2 pulls the quote fee on top of the deposit, so the quote in the pool is not reduced a second time
+          expectWithinRelative(
+            baseInPool,
+            excluded(compoundingFeeBasisPoints, zeroFeeBaseInPool),
+            BigInt(10)
+          );
+          expectWithinRelative(
+            quoteInPool,
+            excluded(compoundingFeeBasisPoints, zeroFeeQuoteInPool),
+            BigInt(10)
+          );
+        });
+
+        it("books the base the quote fee kept out of damm v2 as protocol migration base fee on a fixed-supply config", () => {
+          const surplus =
+            protocolMigrationBaseFee(feeFixed) -
+            protocolMigrationBaseFee(zeroFeeFixed);
+          // the surplus is the base the zero-fee pool deposited and this pool did not. With a base fee the
+          // deposit is grossed up, so this pool deposits at least as much and books no surplus.
+          const expected = saturatingSub(
+            depositedBase(zeroFeeFixed),
+            depositedBase(feeFixed)
+          );
+          if (baseFeeBasisPoints === 0) {
+            expect(surplus > BigInt(0)).eq(true);
+          } else {
+            expect(surplus.toString()).eq("0");
+          }
+          expectWithinAbsolute(surplus, expected, BigInt(2));
+
+          // the surplus is kept in the vault for claim_protocol_fee2 and is not burned
+          expect(
+            balanceOf(feeFixed.svm, feeFixed.baseVault) >= owedBase(feeFixed)
+          ).eq(true);
+        });
+
+        if (nonFixedSupplyAllowed) {
+          it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
+            expect(protocolMigrationBaseFee(feeNonFixed!).toString()).eq(
+              protocolMigrationBaseFee(zeroFeeFixed).toString()
+            );
+          });
+        }
+
+        it("books the quote the base fee scaled off as protocol migration quote fee on the compounding handler and strands none", () => {
+          const plainProtocolBaseFee = protocolMigrationBaseFee(zeroFeeFixed);
+          const plainProtocolQuoteFee = protocolMigrationQuoteFee(zeroFeeFixed);
+          for (const state of states()) {
+            // damm v2 pulls the quote deposit plus its fee, so only rounding dust stays in the vault
+            expectWithinAbsolute(quoteLeftover(state), BigInt(0), BigInt(2));
+            const routedQuote =
+              protocolMigrationQuoteFee(state) - plainProtocolQuoteFee;
+            if (baseFeeBasisPoints === 0) {
+              // without a base fee nothing is scaled down
+              expect(routedQuote.toString()).eq("0");
+              continue;
+            }
+            const config = getConfig(state.svm, state.program, state.config);
+            // quote_to_damm = quote_budget * excluded(base_budget) / base_budget, and damm v2 pulls included(quote_to_damm)
+            const baseBudget =
+              BigInt(config.migrationBaseThreshold.toString()) -
+              plainProtocolBaseFee;
+            const quoteBudget =
+              BigInt(config.migrationQuoteThreshold.toString()) -
+              plainProtocolQuoteFee;
+            const quoteToDamm =
+              (quoteBudget * excluded(baseFeeBasisPoints, baseBudget)) /
+              baseBudget;
+            const pulledQuote = included(quoteFeeBasisPoints, quoteToDamm);
+            expectWithinRelative(
+              routedQuote,
+              quoteBudget - pulledQuote,
+              BigInt(1_000)
+            );
+          }
+        });
+
+        it("pays the base fee from the deposit and leaves the leftover untouched", () => {
+          const zeroFeeLeftover = baseLeftover(zeroFeeFixed);
+          const feeLeftover = baseLeftover(feeFixed);
+          if (baseFeeBasisPoints === 0) {
+            // no base fee: the base kept out by the quote fee goes to the protocol, so the leftover does not change
+            expectWithinAbsolute(feeLeftover, zeroFeeLeftover, BigInt(2));
+            return;
+          }
+          expect(feeLeftover.toString()).eq(zeroFeeLeftover.toString());
+        });
+
+        if (nonFixedSupplyAllowed) {
+          it("burns the base leftover for a non-fixed-supply config", () => {
+            expect(baseLeftover(feeNonFixed!).toString()).eq("0");
+          });
+        }
+
+        it("burns a fixed-supply config down to the target supply and pays the leftover to leftover_receiver", async () => {
+          const supply = getMint(
+            feeFixed.svm,
+            feeFixed.baseMint,
+            TOKEN_2022_PROGRAM_ID
+          ).supply;
+          expect(supply.toString()).eq(POST_MIGRATION_TOKEN_SUPPLY.toString());
+
+          const leftover = baseLeftover(feeFixed);
+          const receiverAccount = getAssociatedTokenAddressSync(
+            feeFixed.baseMint,
+            feeFixed.leftoverReceiver,
+            true,
+            TOKEN_2022_PROGRAM_ID
+          );
+          const preReceiver = balanceOf(feeFixed.svm, receiverAccount);
+
+          await withdrawLeftover(feeFixed.svm, feeFixed.program, {
+            payer: feeFixed.admin,
+            virtualPool: feeFixed.virtualPool,
+          });
+
+          const received =
+            balanceOf(feeFixed.svm, receiverAccount) - preReceiver;
+          // the receiver pays the base transfer fee on the payout
+          expect(received.toString()).eq(
+            excluded(baseFeeBasisPoints, leftover).toString()
+          );
+          expect(baseLeftover(feeFixed).toString()).eq("0");
+        });
+      });
+    }
+  });
 
   describe("quote transfer fee capped by maximum fee across two deposits", () => {
     const CAPPED_FEE_BPS = 1000; // 10%
     const MAXIMUM_FEE = BigInt(1_000_000);
 
-    for (const collectFeeMode of [CONCENTRATED, COMPOUNDING]) {
-      const modeName =
-        collectFeeMode === COMPOUNDING ? "compounding" : "concentrated";
-
-      it(`${modeName} handler keeps the position split of a zero-fee pool`, async () => {
-        const zeroFee = await setupPool({
-          fixedSupply: false,
-          collectFeeMode,
-          baseFeeBasisPoints: 0,
-          quoteFeeBasisPoints: 0,
-        });
-        const cappedFee = await setupPool({
-          fixedSupply: false,
-          collectFeeMode,
-          baseFeeBasisPoints: 0,
-          quoteFeeBasisPoints: CAPPED_FEE_BPS,
-          quoteMaximumFee: MAXIMUM_FEE,
-        });
-
-        expectWithinAbsolute(
-          secondPositionSharePpm(cappedFee),
-          secondPositionSharePpm(zeroFee),
-          BigInt(20)
-        );
-
-        const config = getConfig(
-          cappedFee.svm,
-          cappedFee.program,
-          cappedFee.config
-        );
-        const quoteBudget =
-          BigInt(config.migrationQuoteThreshold.toString()) -
-          protocolMigrationQuoteFee(cappedFee);
-        const landedQuote = BigInt(
-          getDammV2Pool(
-            cappedFee.svm,
-            cappedFee.dammPool
-          ).tokenBAmount.toString()
-        );
-        expectWithinAbsolute(
-          landedQuote,
-          quoteBudget - MAXIMUM_FEE * BigInt(2),
-          BigInt(16)
-        );
+    it("compounding handler keeps the position split of a zero-fee pool", async () => {
+      const zeroFee = await setupPool({
+        fixedSupply: false,
+        baseFeeBasisPoints: 0,
+        quoteFeeBasisPoints: 0,
       });
-    }
+      const cappedFee = await setupPool({
+        fixedSupply: false,
+        baseFeeBasisPoints: 0,
+        quoteFeeBasisPoints: CAPPED_FEE_BPS,
+        quoteMaximumFee: MAXIMUM_FEE,
+      });
+
+      expectWithinAbsolute(
+        secondPositionSharePpm(cappedFee),
+        secondPositionSharePpm(zeroFee),
+        BigInt(20)
+      );
+
+      const config = getConfig(
+        cappedFee.svm,
+        cappedFee.program,
+        cappedFee.config
+      );
+      const quoteBudget =
+        BigInt(config.migrationQuoteThreshold.toString()) -
+        protocolMigrationQuoteFee(cappedFee);
+      const landedQuote = BigInt(
+        getDammV2Pool(cappedFee.svm, cappedFee.dammPool).tokenBAmount.toString()
+      );
+      expectWithinAbsolute(
+        landedQuote,
+        quoteBudget - MAXIMUM_FEE * BigInt(2),
+        BigInt(16)
+      );
+    });
   });
 
   describe("liquidity cliff", () => {
@@ -867,7 +790,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       const state = await setupPool(
         {
           fixedSupply: false,
-          collectFeeMode: COMPOUNDING,
           baseFeeBasisPoints: 0,
           quoteFeeBasisPoints: QUOTE_FEE_BPS,
         },
@@ -912,7 +834,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       const state = await setupPool(
         {
           fixedSupply: false,
-          collectFeeMode: CONCENTRATED,
           baseFeeBasisPoints: 0,
           quoteFeeBasisPoints: QUOTE_FEE_BPS,
         },

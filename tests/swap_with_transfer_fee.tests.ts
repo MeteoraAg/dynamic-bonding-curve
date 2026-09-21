@@ -41,6 +41,7 @@ import {
   generateAndFund,
   getDbcProgramErrorCodeHexString,
   MAX_SQRT_PRICE,
+  MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   sendTransactionMaybeThrow,
   startSvm,
@@ -218,7 +219,7 @@ function buildConfigParams(): ConfigParameters {
       creatorFeePercentage: 50,
     },
     migratedPoolFee: {
-      collectFeeMode: 0,
+      collectFeeMode: MigratedCollectFeeMode.Compounding,
       dynamicFee: 0,
       poolFeeBps: 100,
     },

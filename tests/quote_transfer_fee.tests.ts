@@ -39,6 +39,7 @@ import {
   expectThrowsAsync,
   generateAndFund,
   MAX_SQRT_PRICE,
+  MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
@@ -149,7 +150,7 @@ function buildTransferFeeModeConfigParams(): ConfigParameters {
     ...buildConfigParams(),
     migrationFeeOption: CUSTOMIZABLE_MIGRATION_FEE_OPTION,
     migratedPoolFee: {
-      collectFeeMode: 0,
+      collectFeeMode: MigratedCollectFeeMode.Compounding,
       dynamicFee: 0,
       poolFeeBps: 100,
     },

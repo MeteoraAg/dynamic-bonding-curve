@@ -26,6 +26,7 @@ import {
   expectThrowsAsync,
   generateAndFund,
   MAX_SQRT_PRICE,
+  MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
   U64_MAX,
@@ -114,7 +115,7 @@ function buildConfigParameters(tokenType: number): ConfigParameters {
       creatorFeePercentage: 0,
     },
     migratedPoolFee: {
-      collectFeeMode: 0,
+      collectFeeMode: MigratedCollectFeeMode.Compounding,
       dynamicFee: 0,
       poolFeeBps: 100,
     },
@@ -194,6 +195,11 @@ describe("Create config2", () => {
 
   // the migrated pool fee must be empty for a fixed migration fee option
   const noMigratedPoolFee = { collectFeeMode: 0, dynamicFee: 0, poolFeeBps: 0 };
+  const quoteTokenMigratedPoolFee = {
+    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+    dynamicFee: 0,
+    poolFeeBps: 100,
+  };
 
   type CreateWithOverrides = (
     overrides: Partial<ConfigParameters>
@@ -227,6 +233,13 @@ describe("Create config2", () => {
       );
     });
 
+    it("Rejects a quote token migrated collect fee mode", async () => {
+      await expectThrowsAsync(
+        () => create()({ migratedPoolFee: quoteTokenMigratedPoolFee }),
+        "InvalidMigratedPoolFee"
+      );
+    });
+
     it("Accepts a fixed supply with a customizable migrated pool", async () => {
       const config = await create()({});
       const configState = getConfig(svm, program, config);
@@ -249,6 +262,15 @@ describe("Create config2", () => {
         migratedPoolFee: noMigratedPoolFee,
       });
       expect(getConfig(svm, program, config).migrationFeeOption).eq(0);
+    });
+
+    it("Accepts a quote token migrated collect fee mode", async () => {
+      const config = await create()({
+        migratedPoolFee: quoteTokenMigratedPoolFee,
+      });
+      expect(getConfig(svm, program, config).migratedCollectFeeMode).eq(
+        MigratedCollectFeeMode.QuoteToken
+      );
     });
 
     it("Accepts locked vesting", async () => {

@@ -44,5 +44,11 @@ export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new PublicKey(
   "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
 );
 
+export const MigratedCollectFeeMode = {
+  QuoteToken: 0,
+  OutputToken: 1,
+  Compounding: 2,
+} as const;
+
 export const FEE_DENOMINATOR = new BN(1_000_000_000);
 export const FLASH_RENT_FUND = 1e9;
