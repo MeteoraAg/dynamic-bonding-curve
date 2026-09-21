@@ -9,8 +9,8 @@ use crate::{
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{
-            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR,
-            PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
+            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASE_TRANSFER_FEE, MAX_BASIS_POINT,
+            MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
         },
         MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
@@ -542,12 +542,10 @@ pub struct PoolConfig {
     pub creator_liquidity_vesting_info: LiquidityVestingInfo,
     /// Base mint transfer fee in basis points
     pub transfer_fee_basis_points: u16,
-    /// Base mint transfer fee maximum_fee
-    pub transfer_fee_maximum_fee: [u8; 8],
     /// See TransferFeeWithheldAuthority (0 means partner, 1 means creator)
     pub transfer_fee_withheld_authority: u8,
     /// Padding for future use
-    pub padding_0: [u8; 3],
+    pub padding_0: [u8; 11],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -869,7 +867,6 @@ impl PoolConfig {
 
     pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
         self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
-        self.transfer_fee_maximum_fee = transfer_fee_parameters.maximum_fee.to_le_bytes();
         self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
     }
 
@@ -880,7 +877,7 @@ impl PoolConfig {
         Some(TransferFee {
             epoch: PodU64::from(0),
             transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
-            maximum_fee: PodU64::from(u64::from_le_bytes(self.transfer_fee_maximum_fee)),
+            maximum_fee: PodU64::from(MAX_BASE_TRANSFER_FEE),
         })
     }
 

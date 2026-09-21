@@ -139,12 +139,10 @@ describe("Create config2", () => {
 
   const feeParameters: TransferFeeParameters = {
     transferFeeBasisPoints: 100,
-    maximumFee: new BN(1_000_000),
     withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
   };
   const zeroFeeParameters: TransferFeeParameters = {
     transferFeeBasisPoints: 0,
-    maximumFee: new BN(0),
     withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
   };
 
@@ -283,28 +281,9 @@ describe("Create config2", () => {
       );
     });
 
-    it("Rejects a transfer fee with a zero maximum fee", async () => {
-      await expectThrowsAsync(
-        () => createFeeConfig(1, { ...feeParameters, maximumFee: new BN(0) }),
-        "InvalidTransferFeeParameters"
-      );
-    });
-
     it("Rejects an unknown withheld authority", async () => {
       await expectThrowsAsync(
         () => createFeeConfig(1, { ...feeParameters, withheldAuthority: 2 }),
-        "InvalidTransferFeeParameters"
-      );
-    });
-
-    it("Rejects zero basis points with a non-zero maximum fee", async () => {
-      await expectThrowsAsync(
-        () =>
-          createFeeConfig(1, {
-            transferFeeBasisPoints: 0,
-            maximumFee: new BN(1),
-            withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
-          }),
         "InvalidTransferFeeParameters"
       );
     });
@@ -314,7 +293,6 @@ describe("Create config2", () => {
         () =>
           createFeeConfig(1, {
             transferFeeBasisPoints: 0,
-            maximumFee: new BN(0),
             withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
           }),
         "InvalidTransferFeeParameters"
@@ -335,19 +313,16 @@ describe("Create config2", () => {
     it("Accepts zero fee on an SPL token config", async () => {
       const config = await createFeeConfig(0, {
         transferFeeBasisPoints: 0,
-        maximumFee: new BN(0),
         withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
       });
       const configState = getConfig(svm, program, config);
       expect(configState.transferFeeBasisPoints).eq(0);
-      expect(configState.transferFeeMaximumFee).deep.eq(new Array(8).fill(0));
       expect(configState.transferFeeWithheldAuthority).eq(0);
     });
 
     it("Zero fee Token2022 config creates a mint without TransferFeeConfig", async () => {
       const config = await createFeeConfig(1, {
         transferFeeBasisPoints: 0,
-        maximumFee: new BN(0),
         withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
       });
       const pool = await createPoolWithToken2022(svm, program, {
@@ -470,9 +445,7 @@ describe("Create config2", () => {
         expect(fee.transferFeeBasisPoints).eq(
           transferFeeParameters.transferFeeBasisPoints
         );
-        expect(fee.maximumFee.toString()).eq(
-          transferFeeParameters.maximumFee.toString()
-        );
+        expect(fee.maximumFee.toString()).eq(U64_MAX.toString());
       }
       expect(mint.freezeAuthority).to.be.null;
       expect(mint.mintAuthority).to.be.null;
@@ -488,9 +461,6 @@ describe("Create config2", () => {
       const configState = getConfig(svm, program, config);
       expect(configState.transferFeeBasisPoints).eq(
         feeParameters.transferFeeBasisPoints
-      );
-      expect(configState.transferFeeMaximumFee).deep.eq(
-        Array.from(feeParameters.maximumFee.toArrayLike(Buffer, "le", 8))
       );
       expect(configState.transferFeeWithheldAuthority).eq(
         feeParameters.withheldAuthority

@@ -53,6 +53,7 @@ pub struct EvtCreateConfig {
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
+#[deprecated(since = "0.2.2")]
 #[event]
 pub struct EvtCreateConfigV2 {
     pub config: Pubkey,
@@ -73,7 +74,7 @@ pub struct EvtCreateConfigV2WithTransferHook {
 }
 
 #[event]
-pub struct EvtCreateConfig2 {
+pub struct EvtCreateConfig3 {
     pub config: Pubkey,
     pub quote_mint: Pubkey,
     pub fee_claimer: Pubkey,

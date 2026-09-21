@@ -66,7 +66,6 @@ const NO_CAP = BigInt(U64_MAX.toString());
 const WITHHELD_AUTHORITY_CREATOR = 1;
 const NO_BASE_FEE: TransferFeeParameters = {
   transferFeeBasisPoints: 0,
-  maximumFee: new BN(0),
   withheldAuthority: 0,
 };
 
@@ -397,7 +396,6 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
             baseFeeBasisPoints > 0
               ? {
                   transferFeeBasisPoints: baseFeeBasisPoints,
-                  maximumFee: U64_MAX,
                   withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
                 }
               : NO_BASE_FEE,

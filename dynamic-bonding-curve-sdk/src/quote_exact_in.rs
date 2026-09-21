@@ -1,4 +1,4 @@
-use crate::transfer_fee::{get_transfer_fees, QuoteResult};
+use crate::transfer_fee::{get_transfer_fees, SwapResultWithTransferFee};
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFeeConfig;
 use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
@@ -20,7 +20,7 @@ pub fn quote_exact_in(
     in_amount: u64,
     has_referral: bool,
     eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
-) -> Result<QuoteResult> {
+) -> Result<SwapResultWithTransferFee> {
     ensure!(
         !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
@@ -67,7 +67,7 @@ pub fn quote_exact_in(
     )?
     .amount;
 
-    Ok(QuoteResult {
+    Ok(SwapResultWithTransferFee {
         included_transfer_fee_amount_in: in_amount,
         excluded_transfer_fee_amount_out,
         swap_result,

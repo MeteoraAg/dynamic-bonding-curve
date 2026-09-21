@@ -192,7 +192,6 @@ export async function createConfig(
 
 export type TransferFeeParameters = {
   transferFeeBasisPoints: number;
-  maximumFee: BN;
   /// 0 partner (fee claimer), 1 creator
   withheldAuthority: number;
 };

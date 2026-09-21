@@ -4,7 +4,7 @@ use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::{
 use dynamic_bonding_curve::{params::swap::TradeDirection, state::SwapResult2};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct QuoteResult {
+pub struct SwapResultWithTransferFee {
     pub swap_result: SwapResult2,
     pub included_transfer_fee_amount_in: u64,
     pub excluded_transfer_fee_amount_out: u64,

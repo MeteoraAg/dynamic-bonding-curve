@@ -295,7 +295,6 @@ async function setupPool(
       ...configParams,
       transferFee: {
         transferFeeBasisPoints: scenario.baseFeeBasisPoints,
-        maximumFee: U64_MAX,
         withheldAuthority: 0,
       },
     });
@@ -304,7 +303,6 @@ async function setupPool(
       ...configParams,
       transferFee: {
         transferFeeBasisPoints: 0,
-        maximumFee: new BN(0),
         withheldAuthority: 0,
       },
     });

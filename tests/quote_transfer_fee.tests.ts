@@ -203,7 +203,6 @@ describe("Quote mint with transfer fee extension", () => {
       tokenBadge: deriveTokenBadgeAddress(quoteMint),
       transferFee: {
         transferFeeBasisPoints: 0,
-        maximumFee: new BN(0),
         withheldAuthority: 0,
       },
     });

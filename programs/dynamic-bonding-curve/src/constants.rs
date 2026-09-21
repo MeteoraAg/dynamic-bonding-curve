@@ -76,6 +76,7 @@ pub mod fee {
     pub const MAX_FEE_NUMERATOR: u64 = 990_000_000; // 99%
 
     pub const MAX_BASE_TRANSFER_FEE_BPS: u16 = 1000; // 10%
+    pub const MAX_BASE_TRANSFER_FEE: u64 = u64::MAX;
 
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;

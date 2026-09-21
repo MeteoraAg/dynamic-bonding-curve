@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 
 use crate::{
-    event::EvtCreateConfig2,
+    event::EvtCreateConfig3,
     state::{MigrationFeeOption, PoolConfig},
     token::has_transfer_fee_or_config_authority,
     PoolError,
@@ -37,8 +37,10 @@ pub struct CreateConfig2Ctx<'info> {
 pub fn handle_create_config2<'info>(
     ctx: Context<'info, CreateConfig2Ctx<'info>>,
     config_parameters: ConfigParameters,
-    transfer_fee_parameters: TransferFeeParameters,
+    transfer_fee_parameters: Option<TransferFeeParameters>,
 ) -> Result<()> {
+    let transfer_fee_parameters = transfer_fee_parameters.unwrap_or_default();
+
     config_parameters.validate(
         &ctx.accounts.quote_mint,
         ctx.remaining_accounts.first(),
@@ -79,7 +81,7 @@ pub fn handle_create_config2<'info>(
         ctx.accounts.leftover_receiver.key,
     )?;
 
-    emit_cpi!(EvtCreateConfig2 {
+    emit_cpi!(EvtCreateConfig3 {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),

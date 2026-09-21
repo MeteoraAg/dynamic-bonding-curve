@@ -14,8 +14,8 @@ use crate::{
     activation_handler::ActivationType,
     constants::{
         fee::{
-            MAX_BASE_TRANSFER_FEE_BPS, MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE,
-            PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+            MAX_BASE_TRANSFER_FEE, MAX_BASE_TRANSFER_FEE_BPS, MAX_POOL_CREATION_FEE,
+            MIN_POOL_CREATION_FEE, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
         },
         MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
@@ -249,12 +249,13 @@ pub struct MigratedPoolMarketCapFeeSchedulerParams {
 
 const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
 pub struct TransferFeeParameters {
     pub transfer_fee_basis_points: u16,
-    pub maximum_fee: u64,
     pub withheld_authority: u8,
 }
+
+const_assert_eq!(TransferFeeParameters::INIT_SPACE, 3);
 
 impl TransferFeeParameters {
     pub fn has_transfer_fee(&self) -> bool {
@@ -268,14 +269,14 @@ impl TransferFeeParameters {
         Some(TransferFee {
             epoch: PodU64::from(0),
             transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
-            maximum_fee: PodU64::from(self.maximum_fee),
+            maximum_fee: PodU64::from(MAX_BASE_TRANSFER_FEE),
         })
     }
 
     pub fn validate(&self, token_type: u8) -> Result<()> {
         if !self.has_transfer_fee() {
             require!(
-                self.maximum_fee == 0 && self.withheld_authority == 0,
+                self.withheld_authority == 0,
                 PoolError::InvalidTransferFeeParameters
             );
             return Ok(());
@@ -290,10 +291,6 @@ impl TransferFeeParameters {
         );
         require!(
             self.transfer_fee_basis_points <= MAX_BASE_TRANSFER_FEE_BPS,
-            PoolError::InvalidTransferFeeParameters
-        );
-        require!(
-            self.maximum_fee > 0,
             PoolError::InvalidTransferFeeParameters
         );
         require!(

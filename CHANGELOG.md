@@ -25,10 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added support for creating base mints with a transfer fee. The fee is configured per config through the `transfer_fee_parameters` argument in `create_config2` and is immutable after pool creation. The withheld fees are claimable by the partner or the pool creator based on the config.
+- Added support for creating base mints with a transfer fee. The fee is configured per config through the optional `transfer_fee_parameters` argument in `create_config2` and is immutable after pool creation. The withheld fees are claimable by the partner or the pool creator based on the config.
 - Added support for quote mints with a non-zero transfer fee using a token badge through `create_config2`. Previously a token badge only allowed a zero transfer fee.
 - Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
-- Added endpoint `create_config2` that takes the new `TransferFeeParameters` argument. It emits the new `EvtCreateConfig2` event. When there is a base transfer fee or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config is restricted to a fixed token supply, no locked vesting, and `MigrationFeeOption::Customizable`.
+- Added endpoint `create_config2` that takes the new optional `TransferFeeParameters` argument. Passing `None` is the same as passing the default parameters, which is no base transfer fee. It emits the new `EvtCreateConfig3` event. When there is a base transfer fee or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config is restricted to a fixed token supply, no locked vesting, and `MigrationFeeOption::Customizable`.
 - Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
 
 ### Changed
@@ -44,11 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - Deprecated `create_config` endpoint in favour of `create_config2`.
+- Deprecated `EvtCreateConfigV2` event in favour of `EvtCreateConfig3`.
 
 ### Breaking Changes
 
 - Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` take new `current_epoch: u64`, `base_mint_transfer_fee_config: Option<&TransferFeeConfig>` and `quote_mint_transfer_fee_config: Option<&TransferFeeConfig>` parameters.
-- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` return `QuoteResult` instead of `SwapResult2`. `QuoteResult` contains `swap_result: SwapResult2`, `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` return `SwapResultWithTransferFee` instead of `SwapResult2`. `SwapResultWithTransferFee` contains `swap_result: SwapResult2`, `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
 
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
 

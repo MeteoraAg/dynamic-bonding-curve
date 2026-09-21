@@ -3,7 +3,7 @@ use crate::{
     quote_exact_out::quote_exact_out,
     quote_partial_fill::quote_partial_fill,
     tests::{get_fee_in_both_accounts, get_fee_in_quote_accounts, TestAccounts},
-    transfer_fee::QuoteResult,
+    transfer_fee::SwapResultWithTransferFee,
 };
 use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::{
     TransferFee, TransferFeeConfig,
@@ -624,7 +624,7 @@ fn test_zero_fee_config_matches_none_on_either_slot() {
     let quotes = |swap_base_for_quote: bool,
                   base_fee: Option<&TransferFeeConfig>,
                   quote_fee: Option<&TransferFeeConfig>|
-     -> [QuoteResult; 3] {
+     -> [SwapResultWithTransferFee; 3] {
         [
             quote_exact_in(
                 &pool,
