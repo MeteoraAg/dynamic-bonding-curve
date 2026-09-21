@@ -29,9 +29,11 @@ import {
   MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
+  MigratedTransferFeeAuthorityOption,
+  TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
+import { derivePoolAuthority, deriveTokenBadgeAddress } from "./utils/accounts";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken2022Mint, getMintExtensionTypes } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
@@ -49,10 +51,6 @@ const LOCKED_VESTING = {
   cliffUnlockAmount: new BN(1_000_000_000),
 };
 const FIXED_MIGRATION_FEE_OPTIONS = [0, 1, 2, 3, 4, 5];
-
-// 0 partner (fee claimer), 1 creator
-const WITHHELD_AUTHORITY_PARTNER = 0;
-const WITHHELD_AUTHORITY_CREATOR = 1;
 
 function buildConfigParameters(tokenType: number): ConfigParameters {
   const baseFee: BaseFee = {
@@ -140,11 +138,15 @@ describe("Create config2", () => {
 
   const feeParameters: TransferFeeParameters = {
     transferFeeBasisPoints: 100,
-    withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
+    withheldAuthority: TransferFeeWithheldAuthority.Creator,
+    migratedTransferFeeAuthorityOption:
+      MigratedTransferFeeAuthorityOption.Revoke,
   };
   const zeroFeeParameters: TransferFeeParameters = {
     transferFeeBasisPoints: 0,
-    withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
+    withheldAuthority: TransferFeeWithheldAuthority.Partner,
+    migratedTransferFeeAuthorityOption:
+      MigratedTransferFeeAuthorityOption.Revoke,
   };
 
   before(async () => {
@@ -315,10 +317,53 @@ describe("Create config2", () => {
         () =>
           createFeeConfig(1, {
             transferFeeBasisPoints: 0,
-            withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
+            withheldAuthority: TransferFeeWithheldAuthority.Creator,
+            migratedTransferFeeAuthorityOption:
+              MigratedTransferFeeAuthorityOption.Revoke,
           }),
         "InvalidTransferFeeParameters"
       );
+    });
+
+    it("Rejects an unknown migrated transfer fee authority option", async () => {
+      await expectThrowsAsync(
+        () =>
+          createFeeConfig(1, {
+            ...feeParameters,
+            migratedTransferFeeAuthorityOption: 4,
+          }),
+        "InvalidTransferFeeParameters"
+      );
+    });
+
+    it("Rejects zero basis points with a non-zero migrated transfer fee authority option", async () => {
+      await expectThrowsAsync(
+        () =>
+          createFeeConfig(1, {
+            transferFeeBasisPoints: 0,
+            withheldAuthority: TransferFeeWithheldAuthority.Partner,
+            migratedTransferFeeAuthorityOption:
+              MigratedTransferFeeAuthorityOption.Creator,
+          }),
+        "InvalidTransferFeeParameters"
+      );
+    });
+
+    it("Accepts and stores every migrated transfer fee authority option", async () => {
+      for (const migratedTransferFeeAuthorityOption of [
+        MigratedTransferFeeAuthorityOption.Revoke,
+        MigratedTransferFeeAuthorityOption.RevokeZeroFee,
+        MigratedTransferFeeAuthorityOption.Creator,
+        MigratedTransferFeeAuthorityOption.Partner,
+      ]) {
+        const config = await createFeeConfig(1, {
+          ...feeParameters,
+          migratedTransferFeeAuthorityOption,
+        });
+        expect(
+          getConfig(svm, program, config).migratedTransferFeeAuthorityOption
+        ).eq(migratedTransferFeeAuthorityOption);
+      }
     });
 
     it("Accepts the maximum basis points", async () => {
@@ -335,7 +380,9 @@ describe("Create config2", () => {
     it("Accepts zero fee on an SPL token config", async () => {
       const config = await createFeeConfig(0, {
         transferFeeBasisPoints: 0,
-        withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.Revoke,
       });
       const configState = getConfig(svm, program, config);
       expect(configState.transferFeeBasisPoints).eq(0);
@@ -345,7 +392,9 @@ describe("Create config2", () => {
     it("Zero fee Token2022 config creates a mint without TransferFeeConfig", async () => {
       const config = await createFeeConfig(1, {
         transferFeeBasisPoints: 0,
-        withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.Revoke,
       });
       const pool = await createPoolWithToken2022(svm, program, {
         payer: operator,
@@ -455,7 +504,7 @@ describe("Create config2", () => {
       );
       const transferFeeConfig = getTransferFeeConfig(mint);
       expect(transferFeeConfig.transferFeeConfigAuthority.toString()).eq(
-        PublicKey.default.toString()
+        derivePoolAuthority().toString()
       );
       expect(transferFeeConfig.withdrawWithheldAuthority.toString()).eq(
         withheldAuthority.toString()
@@ -515,7 +564,7 @@ describe("Create config2", () => {
     it("Creates a pool whose mint pays withheld fees to the partner", async () => {
       const partnerFeeParameters = {
         ...feeParameters,
-        withheldAuthority: WITHHELD_AUTHORITY_PARTNER,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
       };
       const config = await createFeeConfig(1, partnerFeeParameters);
       const pool = await createPoolWithToken2022(svm, program, {

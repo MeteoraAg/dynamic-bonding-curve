@@ -451,6 +451,45 @@ impl TransferFeeWithheldAuthority {
     TryFromPrimitive,
     AnchorDeserialize,
     AnchorSerialize,
+    Default,
+)]
+pub enum MigratedTransferFeeAuthorityOption {
+    /// Revoke the authority. The fee stays at the configured basis points.
+    #[default]
+    Revoke,
+    /// Schedule the fee to zero, then revoke the authority. The fee change takes 2 epoch to land after migration
+    RevokeZeroFee,
+    /// Set authority to the pool creator.
+    Creator,
+    /// Set authority to the partner.
+    Partner,
+}
+
+impl MigratedTransferFeeAuthorityOption {
+    pub fn get_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
+        match *self {
+            MigratedTransferFeeAuthorityOption::Revoke
+            | MigratedTransferFeeAuthorityOption::RevokeZeroFee => None,
+            MigratedTransferFeeAuthorityOption::Creator => Some(creator),
+            MigratedTransferFeeAuthorityOption::Partner => Some(partner),
+        }
+    }
+
+    pub fn should_zero_fee(&self) -> bool {
+        matches!(*self, MigratedTransferFeeAuthorityOption::RevokeZeroFee)
+    }
+}
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
 )]
 pub enum MigrationOption {
     /// Deprecated for new configs and pools. Exisiting pools can still migrate to DAMMv1.
@@ -544,8 +583,10 @@ pub struct PoolConfig {
     pub transfer_fee_basis_points: u16,
     /// See TransferFeeWithheldAuthority (0 means partner, 1 means creator)
     pub transfer_fee_withheld_authority: u8,
+    /// See MigratedTransferFeeAuthorityOption
+    pub migrated_transfer_fee_authority_option: u8,
     /// Padding for future use
-    pub padding_0: [u8; 11],
+    pub padding_0: [u8; 10],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -868,6 +909,8 @@ impl PoolConfig {
     pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
         self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
         self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
+        self.migrated_transfer_fee_authority_option =
+            transfer_fee_parameters.migrated_transfer_fee_authority_option;
     }
 
     pub fn get_base_transfer_fee(&self) -> Option<TransferFee> {
@@ -886,6 +929,13 @@ impl PoolConfig {
             TransferFeeWithheldAuthority::try_from(self.transfer_fee_withheld_authority)
                 .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
         Ok(withheld_authority.get_authority(creator, self.fee_claimer))
+    }
+
+    pub fn get_migrated_transfer_fee_authority_option(
+        &self,
+    ) -> Result<MigratedTransferFeeAuthorityOption> {
+        MigratedTransferFeeAuthorityOption::try_from(self.migrated_transfer_fee_authority_option)
+            .map_err(|_| PoolError::InvalidTransferFeeParameters.into())
     }
 
     pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {

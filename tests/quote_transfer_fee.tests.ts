@@ -42,6 +42,8 @@ import {
   MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
+  MigratedTransferFeeAuthorityOption,
+  TransferFeeWithheldAuthority,
   U64_MAX,
   warpEpochBy,
 } from "./utils";
@@ -204,7 +206,9 @@ describe("Quote mint with transfer fee extension", () => {
       tokenBadge: deriveTokenBadgeAddress(quoteMint),
       transferFee: {
         transferFeeBasisPoints: 0,
-        withheldAuthority: 0,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.Revoke,
       },
     });
   }

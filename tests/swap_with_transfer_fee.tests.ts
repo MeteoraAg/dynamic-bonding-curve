@@ -45,6 +45,8 @@ import {
   MIN_SQRT_PRICE,
   sendTransactionMaybeThrow,
   startSvm,
+  MigratedTransferFeeAuthorityOption,
+  TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
 import { deriveTokenBadgeAddress } from "./utils/accounts";
@@ -64,10 +66,10 @@ const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
 const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
-const WITHHELD_AUTHORITY_CREATOR = 1;
 const NO_BASE_FEE: TransferFeeParameters = {
   transferFeeBasisPoints: 0,
-  withheldAuthority: 0,
+  withheldAuthority: TransferFeeWithheldAuthority.Partner,
+  migratedTransferFeeAuthorityOption: MigratedTransferFeeAuthorityOption.Revoke,
 };
 
 const BASE_FEE_BPS = 250; // 2.5%
@@ -397,7 +399,9 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
             baseFeeBasisPoints > 0
               ? {
                   transferFeeBasisPoints: baseFeeBasisPoints,
-                  withheldAuthority: WITHHELD_AUTHORITY_CREATOR,
+                  withheldAuthority: TransferFeeWithheldAuthority.Creator,
+                  migratedTransferFeeAuthorityOption:
+                    MigratedTransferFeeAuthorityOption.Revoke,
                 }
               : NO_BASE_FEE,
         });

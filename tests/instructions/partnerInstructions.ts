@@ -194,6 +194,9 @@ export type TransferFeeParameters = {
   transferFeeBasisPoints: number;
   /// 0 partner (fee claimer), 1 creator
   withheldAuthority: number;
+  /// What happens to the transfer fee config authority at migration.
+  /// 0 revoke and keep the fee, 1 revoke and zero the fee, 2 creator, 3 partner
+  migratedTransferFeeAuthorityOption: number;
 };
 
 export type CreateConfig2Params = CreateConfigParams<ConfigParameters> & {

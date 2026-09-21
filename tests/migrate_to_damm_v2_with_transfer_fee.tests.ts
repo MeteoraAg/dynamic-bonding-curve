@@ -1,8 +1,10 @@
 import {
   calculateFee,
   getAssociatedTokenAddressSync,
+  getTransferFeeConfig,
   TOKEN_2022_PROGRAM_ID,
   TransferFee,
+  unpackMint,
 } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
@@ -40,6 +42,8 @@ import {
   MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
+  MigratedTransferFeeAuthorityOption,
+  TransferFeeWithheldAuthority,
   U64_MAX,
   warpEpochBy,
 } from "./utils";
@@ -100,6 +104,9 @@ type Scenario = {
   quoteFeeBasisPoints: number;
   // maximum fee of the quote mint, defaults to no cap
   quoteMaximumFee?: bigint;
+  // what happens to the base mint fee authority at migration, defaults to
+  // revoke and keep the fee
+  migratedTransferFeeAuthorityOption?: number;
 };
 
 type MigratedState = {
@@ -118,6 +125,8 @@ type MigratedState = {
   // base vault balance right before migration
   preMigrationBaseVaultAmount: bigint;
   leftoverReceiver: PublicKey;
+  poolCreator: Keypair;
+  feeClaimer: PublicKey;
 };
 
 function transferFee(basisPoints: number): TransferFee {
@@ -297,7 +306,10 @@ async function setupPool(
       ...configParams,
       transferFee: {
         transferFeeBasisPoints: scenario.baseFeeBasisPoints,
-        withheldAuthority: 0,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+          scenario.migratedTransferFeeAuthorityOption ??
+          MigratedTransferFeeAuthorityOption.Revoke,
       },
     });
   } else if (quoteHasFee && !legacyConfig) {
@@ -305,7 +317,9 @@ async function setupPool(
       ...configParams,
       transferFee: {
         transferFeeBasisPoints: 0,
-        withheldAuthority: 0,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.Revoke,
       },
     });
   } else {
@@ -395,6 +409,8 @@ async function setupPool(
     baseVault: poolState.baseVault,
     preMigrationBaseVaultAmount,
     leftoverReceiver: partner.publicKey,
+    poolCreator,
+    feeClaimer: partner.publicKey,
   };
 }
 
@@ -826,6 +842,145 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       const after = getVirtualPool(state.svm, state.program, state.virtualPool);
       expect(after.migrationProgress).eq(before.migrationProgress);
       expect(after.isMigrated).eq(0);
+    });
+  });
+
+  describe("migrated transfer fee authority option", () => {
+    function baseFeeConfig(state: MigratedState) {
+      const account = state.svm.getAccount(state.baseMint);
+      const mint = unpackMint(
+        state.baseMint,
+        { ...account, data: Buffer.from(account.data) },
+        TOKEN_2022_PROGRAM_ID
+      );
+      return getTransferFeeConfig(mint);
+    }
+
+    function feeForEpoch(
+      config: ReturnType<typeof baseFeeConfig>,
+      epoch: bigint
+    ): TransferFee {
+      return epoch >= config.newerTransferFee.epoch
+        ? config.newerTransferFee
+        : config.olderTransferFee;
+    }
+
+    function migrateWithOption(migratedTransferFeeAuthorityOption: number) {
+      return setupPool({
+        fixedSupply: true,
+        baseFeeBasisPoints: BASE_FEE_BPS,
+        quoteFeeBasisPoints: 0,
+        migratedTransferFeeAuthorityOption,
+      });
+    }
+
+    it("option 0 revokes the authority and keeps the fee", async () => {
+      const state = await migrateWithOption(
+        MigratedTransferFeeAuthorityOption.Revoke
+      );
+      const config = baseFeeConfig(state);
+
+      expect(config.transferFeeConfigAuthority.toString()).eq(
+        PublicKey.default.toString()
+      );
+      expect(config.newerTransferFee.transferFeeBasisPoints).eq(BASE_FEE_BPS);
+      expect(
+        feeForEpoch(config, state.svm.getClock().epoch).transferFeeBasisPoints
+      ).eq(BASE_FEE_BPS);
+    });
+
+    it("option 1 schedules a zero fee two epochs out and revokes the authority", async () => {
+      const state = await migrateWithOption(
+        MigratedTransferFeeAuthorityOption.RevokeZeroFee
+      );
+      const config = baseFeeConfig(state);
+      const migrationEpoch = state.svm.getClock().epoch;
+
+      expect(config.transferFeeConfigAuthority.toString()).eq(
+        PublicKey.default.toString()
+      );
+      expect(config.newerTransferFee.epoch).eq(migrationEpoch + BigInt(2));
+      expect(config.newerTransferFee.transferFeeBasisPoints).eq(0);
+      expect(config.olderTransferFee.transferFeeBasisPoints).eq(BASE_FEE_BPS);
+      expect(
+        calculateFee(feeForEpoch(config, migrationEpoch), BigInt(1_000_000))
+      ).eq(BigInt(25_000));
+
+      warpEpochBy(state.svm, 2);
+      const afterWarp = state.svm.getClock().epoch;
+      expect(
+        calculateFee(feeForEpoch(config, afterWarp), BigInt(1_000_000))
+      ).eq(BigInt(0));
+    });
+
+    it("option 2 hands the authority to the creator", async () => {
+      const state = await migrateWithOption(
+        MigratedTransferFeeAuthorityOption.Creator
+      );
+      const config = baseFeeConfig(state);
+
+      expect(config.transferFeeConfigAuthority.toString()).eq(
+        state.poolCreator.publicKey.toString()
+      );
+      expect(config.newerTransferFee.transferFeeBasisPoints).eq(BASE_FEE_BPS);
+    });
+
+    it("option 3 hands the authority to the partner", async () => {
+      const state = await migrateWithOption(
+        MigratedTransferFeeAuthorityOption.Partner
+      );
+      const config = baseFeeConfig(state);
+
+      expect(config.transferFeeConfigAuthority.toString()).eq(
+        state.feeClaimer.toString()
+      );
+      expect(config.newerTransferFee.transferFeeBasisPoints).eq(BASE_FEE_BPS);
+    });
+
+    it("holds the authority with the pool authority until migration", async () => {
+      const state = await setupPool(
+        {
+          fixedSupply: true,
+          baseFeeBasisPoints: BASE_FEE_BPS,
+          quoteFeeBasisPoints: 0,
+          migratedTransferFeeAuthorityOption:
+            MigratedTransferFeeAuthorityOption.Creator,
+        },
+        false
+      );
+
+      expect(baseFeeConfig(state).transferFeeConfigAuthority.toString()).eq(
+        derivePoolAuthority().toString()
+      );
+      expect(() =>
+        setTransferFee(
+          state.svm,
+          state.poolCreator,
+          state.baseMint,
+          state.poolCreator,
+          0,
+          NO_CAP
+        )
+      ).to.throw();
+    });
+
+    it("leaves a mint without a base fee untouched", async () => {
+      const state = await setupPool({
+        fixedSupply: true,
+        baseFeeBasisPoints: 0,
+        quoteFeeBasisPoints: QUOTE_FEE_BPS,
+      });
+
+      expect(
+        getVirtualPool(state.svm, state.program, state.virtualPool).isMigrated
+      ).eq(1);
+      const account = state.svm.getAccount(state.baseMint);
+      const mint = unpackMint(
+        state.baseMint,
+        { ...account, data: Buffer.from(account.data) },
+        TOKEN_2022_PROGRAM_ID
+      );
+      expect(getTransferFeeConfig(mint)).eq(null);
     });
   });
 

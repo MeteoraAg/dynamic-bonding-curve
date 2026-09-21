@@ -25,7 +25,7 @@ use anchor_spl::{
         spl_token_2022::{extension::transfer_fee::TransferFee, instruction::AuthorityType},
         SetAuthority,
     },
-    token_interface::{TokenAccount, TokenInterface},
+    token_interface::{transfer_fee_set, TokenAccount, TokenInterface, TransferFeeSetTransferFee},
 };
 use damm_v2::{
     accounts::PodAlignedFeeTimeScheduler,
@@ -349,6 +349,51 @@ impl<'info> MigrateDammV2Ctx<'info> {
             AuthorityType::AccountOwner,
             Some(new_authority),
         )?;
+        Ok(())
+    }
+
+    fn apply_transfer_fee_authority_option(
+        &self,
+        config: &PoolConfig,
+        creator: Pubkey,
+        bump: u8,
+    ) -> Result<()> {
+        if config.get_base_transfer_fee().is_none() {
+            return Ok(());
+        }
+
+        let transfer_fee_authority_option = config.get_migrated_transfer_fee_authority_option()?;
+        let pool_authority_seeds = pool_authority_seeds!(bump);
+
+        if transfer_fee_authority_option.should_zero_fee() {
+            transfer_fee_set(
+                CpiContext::new_with_signer(
+                    self.token_base_program.key(),
+                    TransferFeeSetTransferFee {
+                        token_program_id: self.token_base_program.to_account_info(),
+                        mint: self.base_mint.to_account_info(),
+                        authority: self.pool_authority.to_account_info(),
+                    },
+                    &[&pool_authority_seeds[..]],
+                ),
+                0,
+                0,
+            )?;
+        }
+
+        set_authority(
+            CpiContext::new_with_signer(
+                self.token_base_program.key(),
+                SetAuthority {
+                    current_authority: self.pool_authority.to_account_info(),
+                    account_or_mint: self.base_mint.to_account_info(),
+                },
+                &[&pool_authority_seeds[..]],
+            ),
+            AuthorityType::TransferFeeConfig,
+            transfer_fee_authority_option.get_authority(creator, config.fee_claimer),
+        )?;
+
         Ok(())
     }
 
@@ -1047,6 +1092,13 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
             const_pda::pool_authority::BUMP,
         )?;
     }
+
+    msg!("apply the transfer fee authority option");
+    ctx.accounts.apply_transfer_fee_authority_option(
+        &config,
+        virtual_pool.creator,
+        const_pda::pool_authority::BUMP,
+    )?;
 
     virtual_pool.update_after_create_pool();
 

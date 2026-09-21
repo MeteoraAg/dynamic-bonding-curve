@@ -437,7 +437,7 @@ pub fn create_token_2022_base_mint<'info>(
                     mint: base_mint.clone(),
                 },
             ),
-            None,
+            Some(pool_authority.key),
             Some(&transfer_fee.withdraw_withheld_authority),
             transfer_fee.transfer_fee_basis_points,
             transfer_fee.maximum_fee,

@@ -36,8 +36,9 @@ use crate::{
     },
     safe_math::{SafeCast, SafeMath},
     state::{
-        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
-        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType, TransferFeeWithheldAuthority,
+        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig,
+        MigratedTransferFeeAuthorityOption, MigrationFeeOption, MigrationOption, PoolConfig,
+        TokenAuthorityOption, TokenType, TransferFeeWithheldAuthority,
     },
     token::{
         calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
@@ -254,9 +255,10 @@ const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
 pub struct TransferFeeParameters {
     pub transfer_fee_basis_points: u16,
     pub withheld_authority: u8,
+    pub migrated_transfer_fee_authority_option: u8,
 }
 
-const_assert_eq!(TransferFeeParameters::INIT_SPACE, 3);
+const_assert_eq!(TransferFeeParameters::INIT_SPACE, 4);
 
 impl TransferFeeParameters {
     pub fn has_transfer_fee(&self) -> bool {
@@ -280,6 +282,10 @@ impl TransferFeeParameters {
                 self.withheld_authority == 0,
                 PoolError::InvalidTransferFeeParameters
             );
+            require!(
+                self.migrated_transfer_fee_authority_option == 0,
+                PoolError::InvalidTransferFeeParameters
+            );
             return Ok(());
         }
 
@@ -296,6 +302,13 @@ impl TransferFeeParameters {
         );
         require!(
             TransferFeeWithheldAuthority::try_from(self.withheld_authority).is_ok(),
+            PoolError::InvalidTransferFeeParameters
+        );
+        require!(
+            MigratedTransferFeeAuthorityOption::try_from(
+                self.migrated_transfer_fee_authority_option
+            )
+            .is_ok(),
             PoolError::InvalidTransferFeeParameters
         );
         Ok(())
