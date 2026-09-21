@@ -1,12 +1,12 @@
 use super::InitializePoolParameters;
 use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
-use crate::token::transfer_lamports_from_user;
+use crate::utils::accounts::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
     base_fee::BaseFeeEnumReader,
     const_pda,
     state::{BaseFeeMode, TokenType},
-    token::update_account_lamports_to_minimum_balance,
+    utils::accounts::update_account_lamports_to_minimum_balance,
     ConfigAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
