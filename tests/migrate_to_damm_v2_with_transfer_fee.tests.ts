@@ -87,6 +87,11 @@ const FEE_CASES: FeeCase[] = [
     baseFeeBasisPoints: BASE_FEE_BPS,
     quoteFeeBasisPoints: QUOTE_FEE_BPS,
   },
+  {
+    name: "equal base and quote fees",
+    baseFeeBasisPoints: BASE_FEE_BPS,
+    quoteFeeBasisPoints: BASE_FEE_BPS,
+  },
 ];
 
 type Scenario = {
@@ -743,7 +748,7 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
     }
   });
 
-  describe("quote transfer fee capped by maximum fee across two deposits", () => {
+  describe("quote transfer fee capped by maximum fee", () => {
     const CAPPED_FEE_BPS = 1000; // 10%
     const MAXIMUM_FEE = BigInt(1_000_000);
 
@@ -777,11 +782,7 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       const landedQuote = BigInt(
         getDammV2Pool(cappedFee.svm, cappedFee.dammPool).tokenBAmount.toString()
       );
-      expectWithinAbsolute(
-        landedQuote,
-        quoteBudget - MAXIMUM_FEE * BigInt(2),
-        BigInt(16)
-      );
+      expectWithinAbsolute(landedQuote, quoteBudget - MAXIMUM_FEE, BigInt(16));
     });
   });
 
