@@ -1015,15 +1015,18 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
         &config,
     )?;
 
-    // the second position is split out of the first, so the transfer fee is not charged twice
+    // the second position is split out of the first, so the transfer fee is not charged twice.
     let liquidity_numerator_for_second_position: u32 = safe_mul_div_cast_u128(
         second_position_liquidity_distribution.get_total_liquidity()?,
         SPLIT_POSITION_DENOMINATOR.into(),
-        total_position_liquidity,
+        distributable_liquidity,
         Rounding::Down,
     )?
     .safe_cast()?;
 
+    // mirrors Position::get_unlocked_liquidity_by_numerator in damm-v2, which is used in apply_split_position
+    // https://github.com/MeteoraAg/damm-v2/blob/f08b0d14876fcc52eb0bbf471f4fe74f206fc47b/programs/cp-amm/src/state/position.rs#L367-L376
+    // https://github.com/MeteoraAg/damm-v2/blob/f08b0d14876fcc52eb0bbf471f4fe74f206fc47b/programs/cp-amm/src/state/pool.rs#L965-L973
     let split_liquidity_for_second_position = safe_mul_div_cast_u128(
         distributable_liquidity,
         liquidity_numerator_for_second_position.into(),
