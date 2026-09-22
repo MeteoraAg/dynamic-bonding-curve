@@ -69,7 +69,7 @@ const NO_CAP = BigInt(U64_MAX.toString());
 const NO_BASE_FEE: TransferFeeParameters = {
   transferFeeBasisPoints: 0,
   withheldAuthority: TransferFeeWithheldAuthority.Partner,
-  migratedTransferFeeAuthorityOption: MigratedTransferFeeAuthorityOption.Revoke,
+  migratedTransferFeeAuthorityOption: MigratedTransferFeeAuthorityOption.Immutable,
 };
 
 const BASE_FEE_BPS = 250; // 2.5%
@@ -401,7 +401,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
                   transferFeeBasisPoints: baseFeeBasisPoints,
                   withheldAuthority: TransferFeeWithheldAuthority.Creator,
                   migratedTransferFeeAuthorityOption:
-                    MigratedTransferFeeAuthorityOption.Revoke,
+                    MigratedTransferFeeAuthorityOption.Immutable,
                 }
               : NO_BASE_FEE,
         });

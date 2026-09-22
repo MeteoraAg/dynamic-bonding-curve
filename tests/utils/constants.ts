@@ -56,7 +56,7 @@ export const TransferFeeWithheldAuthority = {
 } as const;
 
 export const MigratedTransferFeeAuthorityOption = {
-  Revoke: 0,
+  Immutable: 0,
   RevokeZeroFee: 1,
   Creator: 2,
   Partner: 3,

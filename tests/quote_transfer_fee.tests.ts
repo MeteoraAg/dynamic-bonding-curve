@@ -208,7 +208,7 @@ describe("Quote mint with transfer fee extension", () => {
         transferFeeBasisPoints: 0,
         withheldAuthority: TransferFeeWithheldAuthority.Partner,
         migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Revoke,
+          MigratedTransferFeeAuthorityOption.Immutable,
       },
     });
   }

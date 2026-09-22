@@ -454,9 +454,9 @@ impl TransferFeeWithheldAuthority {
     Default,
 )]
 pub enum MigratedTransferFeeAuthorityOption {
-    /// Revoke the authority. The fee stays at the configured basis points.
+    /// The base mint is created without a transfer fee config authority
     #[default]
-    Revoke,
+    Immutable,
     /// Schedule the fee to zero, then revoke the authority. The fee change takes 2 epoch to land after migration
     RevokeZeroFee,
     /// Set authority to the pool creator.
@@ -466,9 +466,13 @@ pub enum MigratedTransferFeeAuthorityOption {
 }
 
 impl MigratedTransferFeeAuthorityOption {
-    pub fn get_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
+    pub fn is_immutable(&self) -> bool {
+        matches!(*self, MigratedTransferFeeAuthorityOption::Immutable)
+    }
+
+    pub fn get_migrated_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
         match *self {
-            MigratedTransferFeeAuthorityOption::Revoke
+            MigratedTransferFeeAuthorityOption::Immutable
             | MigratedTransferFeeAuthorityOption::RevokeZeroFee => None,
             MigratedTransferFeeAuthorityOption::Creator => Some(creator),
             MigratedTransferFeeAuthorityOption::Partner => Some(partner),

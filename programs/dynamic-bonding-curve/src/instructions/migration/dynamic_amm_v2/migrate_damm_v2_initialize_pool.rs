@@ -363,6 +363,11 @@ impl<'info> MigrateDammV2Ctx<'info> {
         }
 
         let transfer_fee_authority_option = config.get_migrated_transfer_fee_authority_option()?;
+
+        if transfer_fee_authority_option.is_immutable() {
+            return Ok(());
+        }
+
         let pool_authority_seeds = pool_authority_seeds!(bump);
 
         if transfer_fee_authority_option.should_zero_fee() {
@@ -391,7 +396,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 &[&pool_authority_seeds[..]],
             ),
             AuthorityType::TransferFeeConfig,
-            transfer_fee_authority_option.get_authority(creator, config.fee_claimer),
+            transfer_fee_authority_option.get_migrated_authority(creator, config.fee_claimer),
         )?;
 
         Ok(())

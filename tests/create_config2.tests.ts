@@ -140,13 +140,13 @@ describe("Create config2", () => {
     transferFeeBasisPoints: 100,
     withheldAuthority: TransferFeeWithheldAuthority.Creator,
     migratedTransferFeeAuthorityOption:
-      MigratedTransferFeeAuthorityOption.Revoke,
+      MigratedTransferFeeAuthorityOption.Immutable,
   };
   const zeroFeeParameters: TransferFeeParameters = {
     transferFeeBasisPoints: 0,
     withheldAuthority: TransferFeeWithheldAuthority.Partner,
     migratedTransferFeeAuthorityOption:
-      MigratedTransferFeeAuthorityOption.Revoke,
+      MigratedTransferFeeAuthorityOption.Immutable,
   };
 
   before(async () => {
@@ -319,7 +319,7 @@ describe("Create config2", () => {
             transferFeeBasisPoints: 0,
             withheldAuthority: TransferFeeWithheldAuthority.Creator,
             migratedTransferFeeAuthorityOption:
-              MigratedTransferFeeAuthorityOption.Revoke,
+              MigratedTransferFeeAuthorityOption.Immutable,
           }),
         "InvalidTransferFeeParameters"
       );
@@ -351,7 +351,7 @@ describe("Create config2", () => {
 
     it("Accepts and stores every migrated transfer fee authority option", async () => {
       for (const migratedTransferFeeAuthorityOption of [
-        MigratedTransferFeeAuthorityOption.Revoke,
+        MigratedTransferFeeAuthorityOption.Immutable,
         MigratedTransferFeeAuthorityOption.RevokeZeroFee,
         MigratedTransferFeeAuthorityOption.Creator,
         MigratedTransferFeeAuthorityOption.Partner,
@@ -382,7 +382,7 @@ describe("Create config2", () => {
         transferFeeBasisPoints: 0,
         withheldAuthority: TransferFeeWithheldAuthority.Partner,
         migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Revoke,
+          MigratedTransferFeeAuthorityOption.Immutable,
       });
       const configState = getConfig(svm, program, config);
       expect(configState.transferFeeBasisPoints).eq(0);
@@ -394,7 +394,7 @@ describe("Create config2", () => {
         transferFeeBasisPoints: 0,
         withheldAuthority: TransferFeeWithheldAuthority.Partner,
         migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Revoke,
+          MigratedTransferFeeAuthorityOption.Immutable,
       });
       const pool = await createPoolWithToken2022(svm, program, {
         payer: operator,
@@ -503,8 +503,13 @@ describe("Create config2", () => {
         TOKEN_2022_PROGRAM_ID
       );
       const transferFeeConfig = getTransferFeeConfig(mint);
+      const expectedConfigAuthority =
+        transferFeeParameters.migratedTransferFeeAuthorityOption ===
+        MigratedTransferFeeAuthorityOption.Immutable
+          ? PublicKey.default
+          : derivePoolAuthority();
       expect(transferFeeConfig.transferFeeConfigAuthority.toString()).eq(
-        derivePoolAuthority().toString()
+        expectedConfigAuthority.toString()
       );
       expect(transferFeeConfig.withdrawWithheldAuthority.toString()).eq(
         withheldAuthority.toString()
@@ -552,6 +557,34 @@ describe("Create config2", () => {
         poolState.baseMint,
         poolState.baseVault,
         feeParameters,
+        poolCreator.publicKey,
+        [
+          ExtensionType.MetadataPointer,
+          ExtensionType.TransferFeeConfig,
+          ExtensionType.TokenMetadata,
+        ]
+      );
+    });
+
+    it("Creates a mint that keeps the config authority when the fee is zeroed on migration", async () => {
+      const zeroFeeOnMigrationParameters = {
+        ...feeParameters,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.RevokeZeroFee,
+      };
+      const config = await createFeeConfig(1, zeroFeeOnMigrationParameters);
+      const pool = await createPoolWithToken2022(svm, program, {
+        payer: operator,
+        poolCreator,
+        quoteMint: NATIVE_MINT,
+        config,
+        instructionParams: { name: "fee", symbol: "FEE", uri: "fee.com" },
+      });
+      const poolState = getVirtualPool(svm, program, pool);
+      expectFeeMint(
+        poolState.baseMint,
+        poolState.baseVault,
+        zeroFeeOnMigrationParameters,
         poolCreator.publicKey,
         [
           ExtensionType.MetadataPointer,

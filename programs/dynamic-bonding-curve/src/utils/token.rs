@@ -23,7 +23,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
-use crate::state::{PoolConfig, TokenBadge};
+use crate::state::{MigratedTransferFeeAuthorityOption, PoolConfig, TokenBadge};
 use crate::utils::accounts::create_account;
 use crate::PoolError;
 
@@ -370,6 +370,7 @@ fn is_token_badge_initialized<'info>(
 pub struct BaseMintTransferFee {
     pub transfer_fee_basis_points: u16,
     pub maximum_fee: u64,
+    pub migrated_authority_option: MigratedTransferFeeAuthorityOption,
     pub withdraw_withheld_authority: Pubkey,
 }
 
@@ -381,6 +382,7 @@ impl BaseMintTransferFee {
         Ok(Some(Self {
             transfer_fee_basis_points: transfer_fee.transfer_fee_basis_points.into(),
             maximum_fee: transfer_fee.maximum_fee.into(),
+            migrated_authority_option: config.get_migrated_transfer_fee_authority_option()?,
             withdraw_withheld_authority: config.get_transfer_fee_withheld_authority(creator)?,
         }))
     }
@@ -429,6 +431,12 @@ pub fn create_token_2022_base_mint<'info>(
     )?;
 
     if let Some(transfer_fee) = transfer_fee {
+        let config_authority = if transfer_fee.migrated_authority_option.is_immutable() {
+            None
+        } else {
+            Some(pool_authority.key)
+        };
+
         transfer_fee_initialize(
             CpiContext::new(
                 token_program.key(),
@@ -437,7 +445,7 @@ pub fn create_token_2022_base_mint<'info>(
                     mint: base_mint.clone(),
                 },
             ),
-            Some(pool_authority.key),
+            config_authority,
             Some(&transfer_fee.withdraw_withheld_authority),
             transfer_fee.transfer_fee_basis_points,
             transfer_fee.maximum_fee,

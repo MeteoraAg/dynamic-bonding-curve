@@ -105,7 +105,7 @@ type Scenario = {
   // maximum fee of the quote mint, defaults to no cap
   quoteMaximumFee?: bigint;
   // what happens to the base mint fee authority at migration, defaults to
-  // revoke and keep the fee
+  // an immutable fee
   migratedTransferFeeAuthorityOption?: number;
 };
 
@@ -309,7 +309,7 @@ async function setupPool(
         withheldAuthority: TransferFeeWithheldAuthority.Partner,
         migratedTransferFeeAuthorityOption:
           scenario.migratedTransferFeeAuthorityOption ??
-          MigratedTransferFeeAuthorityOption.Revoke,
+          MigratedTransferFeeAuthorityOption.Immutable,
       },
     });
   } else if (quoteHasFee && !legacyConfig) {
@@ -319,7 +319,7 @@ async function setupPool(
         transferFeeBasisPoints: 0,
         withheldAuthority: TransferFeeWithheldAuthority.Partner,
         migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Revoke,
+          MigratedTransferFeeAuthorityOption.Immutable,
       },
     });
   } else {
@@ -874,9 +874,9 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       });
     }
 
-    it("option 0 revokes the authority and keeps the fee", async () => {
+    it("option 0 keeps the fee with no authority on the mint", async () => {
       const state = await migrateWithOption(
-        MigratedTransferFeeAuthorityOption.Revoke
+        MigratedTransferFeeAuthorityOption.Immutable
       );
       const config = baseFeeConfig(state);
 
