@@ -1143,7 +1143,8 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
     );
 
     // the config is required to have a constant token supply when it has transfer fee,
-    // so there is no base token to burn here. the leftover goes to the leftover receiver.
+    // so there is no base token to burn here. the base that is not sent to the migrated pool
+    // is attributed to the protocol above, so the leftover receiver gets the rest
 
     virtual_pool.set_migration_progress(MigrationProgress::CreatedPool.into());
 
