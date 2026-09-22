@@ -7,10 +7,7 @@ pub use concentrated_liquidity::*;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::{
-    constants::MAX_SQRT_PRICE, curve::get_delta_amount_base_unsigned, safe_math::SafeMath,
-    state::MigrationOption, u128x128_math::Rounding,
-};
+use crate::state::MigrationOption;
 
 pub struct InitialPoolInformation {
     pub sqrt_price: u128,
@@ -96,26 +93,6 @@ pub trait MigrationHandler {
         base_amount: u64,
         quote_amount: u64,
     ) -> Result<(u64, u64)>;
-
-    /// base amount damm v2 would receive if the quote mint charged no transfer fee
-    fn get_base_deposit_without_transfer_fee(
-        &self,
-        base_budget: u64,
-        quote_budget: u64,
-    ) -> Result<u64> {
-        let InitialPoolInformation {
-            sqrt_price,
-            distributable_liquidity,
-            dead_liquidity,
-        } = self.get_initial_pool_information(base_budget, quote_budget)?;
-        let base_amount = get_delta_amount_base_unsigned(
-            sqrt_price,
-            MAX_SQRT_PRICE,
-            distributable_liquidity.safe_add(dead_liquidity)?,
-            Rounding::Up,
-        )?;
-        Ok(base_amount.min(base_budget))
-    }
 }
 
 pub fn get_migration_handler(

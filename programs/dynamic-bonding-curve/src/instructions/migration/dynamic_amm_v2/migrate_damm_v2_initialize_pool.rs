@@ -1118,37 +1118,21 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
     virtual_pool.update_after_create_pool();
 
     ctx.accounts.base_vault.reload()?;
+    ctx.accounts.quote_vault.reload()?;
 
     // transfer fee will lower the amount of tokens migrated to dammv2 in order to init the pool at the fixed migration price
     // we will scale down either the quote or base based on the transfer fee.
-    // when the base token is unused and the token supply is fixed, the surplus is attributed to the protocol
-    // when the quote token is unused, the surplus is attributed to the protocol
-    let protocol_migration_base_fee = if quote_transfer_fee_amount > 0 {
-        let base_deposit_without_transfer_fee = liquidity_handler
-            .get_base_deposit_without_transfer_fee(
-                excluded_protocol_fee_migration_base_amount,
-                excluded_protocol_fee_migration_quote_amount,
-            )?;
-        let total_deposited_base_amount =
-            initial_base_vault_amount.safe_sub(ctx.accounts.base_vault.amount)?;
-        let transfer_fee_base_surplus =
-            base_deposit_without_transfer_fee.saturating_sub(total_deposited_base_amount);
-        protocol_migration_base_fee.safe_add(transfer_fee_base_surplus)?
-    } else {
-        protocol_migration_base_fee
-    };
+    let total_deposited_base_amount =
+        initial_base_vault_amount.safe_sub(ctx.accounts.base_vault.amount)?;
+    let protocol_migration_base_fee = protocol_migration_base_fee.safe_add(
+        excluded_protocol_fee_migration_base_amount.saturating_sub(total_deposited_base_amount),
+    )?;
 
-    ctx.accounts.quote_vault.reload()?;
-
-    let protocol_migration_quote_fee = if base_transfer_fee_amount > 0 {
-        let total_deposited_quote_amount =
-            initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
-        let transfer_fee_quote_surplus = excluded_protocol_fee_migration_quote_amount
-            .saturating_sub(total_deposited_quote_amount);
-        protocol_migration_quote_fee.safe_add(transfer_fee_quote_surplus)?
-    } else {
-        protocol_migration_quote_fee
-    };
+    let total_deposited_quote_amount =
+        initial_quote_vault_amount.safe_sub(ctx.accounts.quote_vault.amount)?;
+    let protocol_migration_quote_fee = protocol_migration_quote_fee.safe_add(
+        excluded_protocol_fee_migration_quote_amount.saturating_sub(total_deposited_quote_amount),
+    )?;
 
     virtual_pool.save_protocol_liquidity_migration_fee(
         protocol_migration_base_fee,
