@@ -591,6 +591,12 @@ impl ConfigParameters {
 
         Ok(())
     }
+
+    pub fn is_constant_token_supply(&self) -> bool {
+        self.token_supply.as_ref().map_or(false, |token_supply| {
+            token_supply.pre_migration_token_supply == token_supply.post_migration_token_supply
+        })
+    }
 }
 
 pub struct CreateConfigResult {

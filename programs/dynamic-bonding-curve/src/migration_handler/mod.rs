@@ -5,12 +5,11 @@ pub mod concentrated_liquidity;
 pub use concentrated_liquidity::*;
 
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     constants::MAX_SQRT_PRICE, curve::get_delta_amount_base_unsigned, safe_math::SafeMath,
-    state::MigrationOption, token::calculate_transfer_fee_excluded_amount, u128x128_math::Rounding,
+    state::MigrationOption, u128x128_math::Rounding,
 };
 
 pub struct InitialPoolInformation {
@@ -97,19 +96,6 @@ pub trait MigrationHandler {
         base_amount: u64,
         quote_amount: u64,
     ) -> Result<(u64, u64)>;
-
-    fn get_migration_transfer_fee_amounts(
-        &self,
-        base_transfer_fee: Option<&TransferFee>,
-        quote_transfer_fee: Option<&TransferFee>,
-        base_budget: u64,
-        quote_budget: u64,
-    ) -> Result<(u64, u64)> {
-        let base_transfer = calculate_transfer_fee_excluded_amount(base_transfer_fee, base_budget)?;
-        let quote_transfer =
-            calculate_transfer_fee_excluded_amount(quote_transfer_fee, quote_budget)?;
-        Ok((base_transfer.transfer_fee, quote_transfer.transfer_fee))
-    }
 
     /// base amount damm v2 would receive if the quote mint charged no transfer fee
     fn get_base_deposit_without_transfer_fee(

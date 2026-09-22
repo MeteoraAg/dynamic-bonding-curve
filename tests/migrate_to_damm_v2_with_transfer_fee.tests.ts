@@ -56,13 +56,11 @@ import {
   getTransferFeeIncludedAmount,
   mintToken2022To,
   setTransferFee,
-  setTransferFeeConfigAuthority,
 } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
 const MIGRATION_QUOTE_THRESHOLD = new BN(LAMPORTS_PER_SOL * 5);
-const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
-const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
+const CONSTANT_TOKEN_SUPPLY = new BN(2_500_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
 
@@ -99,7 +97,6 @@ const FEE_CASES: FeeCase[] = [
 ];
 
 type Scenario = {
-  fixedSupply: boolean;
   baseFeeBasisPoints: number;
   quoteFeeBasisPoints: number;
   // maximum fee of the quote mint, defaults to no cap
@@ -199,12 +196,10 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
     },
     // create_config2 requires a customizable migrated pool once a base fee is set, which uses a damm v2 dynamic config
     migrationFeeOption: 6,
-    tokenSupply: scenario.fixedSupply
-      ? {
-          preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
-          postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
-        }
-      : null,
+    tokenSupply: {
+      preMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+      postMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+    },
     creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: 0,
     migrationFee: {
@@ -254,23 +249,16 @@ async function setupPool(
 
   const quoteHasFee = scenario.quoteFeeBasisPoints > 0;
   const quoteMaximumFee = scenario.quoteMaximumFee ?? NO_CAP;
-  const legacyConfig = quoteHasFee && !scenario.fixedSupply;
   const quoteMint = createToken2022Mint(
     svm,
     admin,
     quoteHasFee
       ? {
-          transferFeeConfig: legacyConfig
-            ? {
-                feeBasisPoints: 0,
-                maximumFee: BigInt(0),
-                transferFeeConfigAuthority: null,
-              }
-            : {
-                feeBasisPoints: scenario.quoteFeeBasisPoints,
-                maximumFee: quoteMaximumFee,
-                transferFeeConfigAuthority: admin.publicKey,
-              },
+          transferFeeConfig: {
+            feeBasisPoints: scenario.quoteFeeBasisPoints,
+            maximumFee: quoteMaximumFee,
+            transferFeeConfigAuthority: admin.publicKey,
+          },
         }
       : {}
   );
@@ -283,7 +271,7 @@ async function setupPool(
     USER_QUOTE_BALANCE
   );
   let tokenBadge: PublicKey | undefined;
-  if (quoteHasFee && !legacyConfig) {
+  if (quoteHasFee) {
     await createTokenBadge(svm, program, {
       operator,
       payer: operator,
@@ -312,7 +300,7 @@ async function setupPool(
           MigratedTransferFeeAuthorityOption.Immutable,
       },
     });
-  } else if (quoteHasFee && !legacyConfig) {
+  } else if (quoteHasFee) {
     config = await createConfig2(svm, program, {
       ...configParams,
       transferFee: {
@@ -324,26 +312,6 @@ async function setupPool(
     });
   } else {
     config = await createConfig(svm, program, configParams);
-  }
-
-  if (legacyConfig) {
-    setTransferFeeConfigAuthority(svm, quoteMint, admin.publicKey);
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: quoteMint,
-    });
-    tokenBadge = deriveTokenBadgeAddress(quoteMint);
-    setTransferFee(
-      svm,
-      admin,
-      quoteMint,
-      admin,
-      scenario.quoteFeeBasisPoints,
-      quoteMaximumFee
-    );
-    // the new fee becomes active two epochs later
-    warpEpochBy(svm, 2);
   }
 
   const virtualPool = await createPoolWithToken2022(svm, program, {
@@ -487,7 +455,7 @@ function balanceOf(svm: LiteSVM, tokenAccount: PublicKey): bigint {
   return getTokenAccount(svm, tokenAccount).amount;
 }
 
-// Base in the vault that is not owed as fees. The burn and withdraw_leftover act on this amount.
+// Base in the vault that is not owed as fees. withdraw_leftover acts on this amount.
 function baseLeftover(state: MigratedState): bigint {
   return balanceOf(state.svm, state.baseVault) - owedBase(state);
 }
@@ -512,14 +480,10 @@ function protocolMigrationQuoteFee(state: MigratedState): bigint {
   return BigInt(pool.protocolMigrationQuoteFeeAmount.toString());
 }
 
-// Base deposited into damm v2 on a fixed-supply pool. The burn comes after the deposit, so it is added back.
+// Base deposited into damm v2. No pool here shrinks its supply, so nothing is burned out of the vault.
 function depositedBase(state: MigratedState): bigint {
-  const pre = BigInt(PRE_MIGRATION_TOKEN_SUPPLY.toString());
-  const post = BigInt(POST_MIGRATION_TOKEN_SUPPLY.toString());
   return (
-    state.preMigrationBaseVaultAmount -
-    balanceOf(state.svm, state.baseVault) -
-    (pre - post)
+    state.preMigrationBaseVaultAmount - balanceOf(state.svm, state.baseVault)
   );
 }
 
@@ -554,7 +518,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
 
     before(async () => {
       zeroFeeFixed = await setupPool({
-        fixedSupply: true,
         baseFeeBasisPoints: 0,
         quoteFeeBasisPoints: 0,
       });
@@ -569,27 +532,15 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         quoteFeeBasisPoints
       );
 
-      const nonFixedSupplyAllowed = baseFeeBasisPoints === 0;
-
       describe(feeCase.name, () => {
         let feeFixed: MigratedState;
-        let feeNonFixed: MigratedState | null = null;
-        const states = () =>
-          feeNonFixed ? [feeFixed, feeNonFixed] : [feeFixed];
+        const states = () => [feeFixed];
 
         before(async () => {
           feeFixed = await setupPool({
-            fixedSupply: true,
             baseFeeBasisPoints,
             quoteFeeBasisPoints,
           });
-          if (nonFixedSupplyAllowed) {
-            feeNonFixed = await setupPool({
-              fixedSupply: false,
-              baseFeeBasisPoints,
-              quoteFeeBasisPoints,
-            });
-          }
         });
 
         it("migrates without overdrawing either vault below the outstanding claims", () => {
@@ -672,14 +623,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           ).eq(true);
         });
 
-        if (nonFixedSupplyAllowed) {
-          it("does not change the protocol migration base fee for a non-fixed-supply config", () => {
-            expect(protocolMigrationBaseFee(feeNonFixed!).toString()).eq(
-              protocolMigrationBaseFee(zeroFeeFixed).toString()
-            );
-          });
-        }
-
         it("books the quote the base fee scaled off as protocol migration quote fee on the compounding handler and strands none", () => {
           const plainProtocolBaseFee = protocolMigrationBaseFee(zeroFeeFixed);
           const plainProtocolQuoteFee = protocolMigrationQuoteFee(zeroFeeFixed);
@@ -724,19 +667,13 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           expect(feeLeftover.toString()).eq(zeroFeeLeftover.toString());
         });
 
-        if (nonFixedSupplyAllowed) {
-          it("burns the base leftover for a non-fixed-supply config", () => {
-            expect(baseLeftover(feeNonFixed!).toString()).eq("0");
-          });
-        }
-
-        it("burns a fixed-supply config down to the target supply and pays the leftover to leftover_receiver", async () => {
+        it("leaves the token supply unchanged and pays the leftover to leftover_receiver", async () => {
           const supply = getMint(
             feeFixed.svm,
             feeFixed.baseMint,
             TOKEN_2022_PROGRAM_ID
           ).supply;
-          expect(supply.toString()).eq(POST_MIGRATION_TOKEN_SUPPLY.toString());
+          expect(supply.toString()).eq(CONSTANT_TOKEN_SUPPLY.toString());
 
           const leftover = baseLeftover(feeFixed);
           const receiverAccount = getAssociatedTokenAddressSync(
@@ -770,12 +707,10 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
 
     it("compounding handler keeps the position split of a zero-fee pool", async () => {
       const zeroFee = await setupPool({
-        fixedSupply: false,
         baseFeeBasisPoints: 0,
         quoteFeeBasisPoints: 0,
       });
       const cappedFee = await setupPool({
-        fixedSupply: false,
         baseFeeBasisPoints: 0,
         quoteFeeBasisPoints: CAPPED_FEE_BPS,
         quoteMaximumFee: MAXIMUM_FEE,
@@ -806,7 +741,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
     it("fails when the quote fee leaves nothing for damm v2 to receive", async () => {
       const state = await setupPool(
         {
-          fixedSupply: false,
           baseFeeBasisPoints: 0,
           quoteFeeBasisPoints: QUOTE_FEE_BPS,
         },
@@ -867,7 +801,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
 
     function migrateWithOption(migratedTransferFeeAuthorityOption: number) {
       return setupPool({
-        fixedSupply: true,
         baseFeeBasisPoints: BASE_FEE_BPS,
         quoteFeeBasisPoints: 0,
         migratedTransferFeeAuthorityOption,
@@ -940,7 +873,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
     it("holds the authority with the pool authority until migration", async () => {
       const state = await setupPool(
         {
-          fixedSupply: true,
           baseFeeBasisPoints: BASE_FEE_BPS,
           quoteFeeBasisPoints: 0,
           migratedTransferFeeAuthorityOption:
@@ -966,7 +898,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
 
     it("leaves a mint without a base fee untouched", async () => {
       const state = await setupPool({
-        fixedSupply: true,
         baseFeeBasisPoints: 0,
         quoteFeeBasisPoints: QUOTE_FEE_BPS,
       });
@@ -989,7 +920,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
       // a badged quote mint with a fee authority. Its fee is set to zero, so the current epoch charges nothing
       const state = await setupPool(
         {
-          fixedSupply: false,
           baseFeeBasisPoints: 0,
           quoteFeeBasisPoints: QUOTE_FEE_BPS,
         },

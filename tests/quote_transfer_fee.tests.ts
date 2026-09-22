@@ -59,9 +59,8 @@ import {
 import { VirtualCurveProgram } from "./utils/types";
 
 // a quote mint with a transfer fee or a live fee authority is only accepted by create_config2, which requires
-// a fixed supply, no locked vesting and a customizable migrated pool
-const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
-const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
+// a constant token supply, no locked vesting and a customizable migrated pool
+const CONSTANT_TOKEN_SUPPLY = new BN(2_500_000_000);
 const CUSTOMIZABLE_MIGRATION_FEE_OPTION = 6;
 
 function buildConfigParams(): ConfigParameters {
@@ -157,8 +156,8 @@ function buildTransferFeeModeConfigParams(): ConfigParameters {
       poolFeeBps: 100,
     },
     tokenSupply: {
-      preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
-      postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
+      preMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+      postMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
     },
   };
 }

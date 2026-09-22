@@ -61,9 +61,8 @@ import {
 import { Pool, VirtualCurveProgram } from "./utils/types";
 
 const MIGRATION_QUOTE_THRESHOLD = new BN(LAMPORTS_PER_SOL * 5);
-// create_config2 requires a fixed supply and a customizable migrated pool once a base fee is set
-const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
-const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
+// create_config2 requires a constant token supply and a customizable migrated pool once a base fee is set
+const CONSTANT_TOKEN_SUPPLY = new BN(2_500_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
 const NO_BASE_FEE: TransferFeeParameters = {
@@ -210,8 +209,8 @@ function buildConfigParams(): ConfigParameters {
     },
     migrationFeeOption: 6,
     tokenSupply: {
-      preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
-      postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
+      preMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+      postMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
     },
     // non-zero creator and migration fee shares, so every payout below transfers tokens
     creatorTradingFeePercentage: 50,

@@ -440,39 +440,6 @@ export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
 }
 
 /**
- * Overwrites the transfer fee config authority of a Token-2022 mint in the account data.
- * Token-2022 cannot set the authority once it is revoked. This simulates a quote mint that was
- * badged with a live fee authority before the legacy config endpoints started to reject such mints.
- */
-export function setTransferFeeConfigAuthority(
-  svm: LiteSVM,
-  mint: PublicKey,
-  authority: PublicKey
-) {
-  const account = svm.getAccount(mint);
-  if (account === null) {
-    throw new Error(`Mint ${mint.toBase58()} not found`);
-  }
-  const extension = getMintExtensions(account.data).find(
-    (extension) => extension.type === ExtensionType.TransferFeeConfig
-  );
-  if (extension === undefined) {
-    throw new Error(
-      `Mint ${mint.toBase58()} has no TransferFeeConfig extension`
-    );
-  }
-  // transfer_fee_config_authority is the first field of the extension
-  const data = Buffer.from(account.data);
-  authority.toBuffer().copy(data, extension.offset);
-  svm.setAccount(mint, {
-    data: new Uint8Array(data),
-    executable: account.executable,
-    lamports: account.lamports,
-    owner: account.owner,
-  });
-}
-
-/**
  * Same as spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
  * transfer so the recipient receives `excludedAmount` after the fee.
  */

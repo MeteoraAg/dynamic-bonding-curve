@@ -39,9 +39,9 @@ import { createToken2022Mint, getMintExtensionTypes } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
 const MAX_BASE_TRANSFER_FEE_BPS = 1000;
-// in transfer fee mode create_config2 requires a fixed supply and a customizable migrated pool
+// in transfer fee mode create_config2 requires a constant token supply and a customizable migrated pool
 const PRE_MIGRATION_TOKEN_SUPPLY = new BN(2_500_000_000);
-const POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
+const UNEQUAL_POST_MIGRATION_TOKEN_SUPPLY = new BN(2_200_000_000);
 const CUSTOMIZABLE_MIGRATION_FEE_OPTION = 6;
 const LOCKED_VESTING = {
   amountPerPeriod: new BN(1_000_000),
@@ -104,7 +104,7 @@ function buildConfigParameters(tokenType: number): ConfigParameters {
     migrationFeeOption: CUSTOMIZABLE_MIGRATION_FEE_OPTION,
     tokenSupply: {
       preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
-      postMigrationTokenSupply: POST_MIGRATION_TOKEN_SUPPLY,
+      postMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
     },
     creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: 0,
@@ -215,6 +215,19 @@ describe("Create config2", () => {
       );
     });
 
+    it("Rejects a non-constant token supply", async () => {
+      await expectThrowsAsync(
+        () =>
+          create()({
+            tokenSupply: {
+              preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
+              postMigrationTokenSupply: UNEQUAL_POST_MIGRATION_TOKEN_SUPPLY,
+            },
+          }),
+        "InvalidTokenSupply"
+      );
+    });
+
     it("Rejects every fixed migration fee option", async () => {
       for (const migrationFeeOption of FIXED_MIGRATION_FEE_OPTIONS) {
         await expectThrowsAsync(
@@ -256,6 +269,18 @@ describe("Create config2", () => {
     it("Accepts a non-fixed token supply", async () => {
       const config = await create()({ tokenSupply: null });
       expect(getConfig(svm, program, config).fixedTokenSupplyFlag).eq(0);
+    });
+
+    it("Accepts a non-constant token supply", async () => {
+      const config = await create()({
+        tokenSupply: {
+          preMigrationTokenSupply: PRE_MIGRATION_TOKEN_SUPPLY,
+          postMigrationTokenSupply: UNEQUAL_POST_MIGRATION_TOKEN_SUPPLY,
+        },
+      });
+      expect(
+        getConfig(svm, program, config).postMigrationTokenSupply.toString()
+      ).eq(UNEQUAL_POST_MIGRATION_TOKEN_SUPPLY.toString());
     });
 
     it("Accepts a fixed migration fee option", async () => {

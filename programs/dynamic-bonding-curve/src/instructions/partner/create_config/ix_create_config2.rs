@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 
+#[allow(deprecated)]
+use crate::event::EvtCreateConfigV2;
 use crate::{
     event::EvtCreateConfig3,
     migration_handler::MigratedCollectFeeMode,
@@ -55,8 +57,9 @@ pub fn handle_create_config2<'info>(
 
     if has_transfer_fee {
         // require certain config parameters when config has transfer fee
+
         require!(
-            config_parameters.token_supply.is_some(),
+            config_parameters.is_constant_token_supply(),
             PoolError::InvalidTokenSupply
         );
         require!(
@@ -88,6 +91,17 @@ pub fn handle_create_config2<'info>(
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
     )?;
+
+    #[allow(deprecated)]
+    {
+        emit_cpi!(EvtCreateConfigV2 {
+            config: ctx.accounts.config.key(),
+            fee_claimer: ctx.accounts.fee_claimer.key(),
+            quote_mint: ctx.accounts.quote_mint.key(),
+            leftover_receiver: ctx.accounts.leftover_receiver.key(),
+            config_parameters: config_parameters.clone(),
+        });
+    }
 
     emit_cpi!(EvtCreateConfig3 {
         config: ctx.accounts.config.key(),

@@ -1,3 +1,4 @@
+use crate::instructions::get_migration_transfer_fee_amounts;
 use crate::migration_handler::calculate_concentrated_initial_liquidity;
 use crate::migration_handler::get_migration_handler;
 use crate::migration_handler::CompoundingLiquidity;
@@ -194,14 +195,13 @@ fn test_equal_transfer_fee_rates_leave_no_surplus() {
         let base_fee = fee(bps);
         let quote_fee = fee(bps);
 
-        let (base_fee_amount, quote_fee_amount) = liquidity_handler
-            .get_migration_transfer_fee_amounts(
-                Some(&base_fee),
-                Some(&quote_fee),
-                base_budget,
-                quote_budget,
-            )
-            .unwrap();
+        let (base_fee_amount, quote_fee_amount) = get_migration_transfer_fee_amounts(
+            Some(&base_fee),
+            Some(&quote_fee),
+            base_budget,
+            quote_budget,
+        )
+        .unwrap();
 
         let (base_amount, quote_amount) = liquidity_handler
             .get_migration_deposit_amounts(
@@ -237,14 +237,13 @@ fn test_equal_transfer_fee_rates_leave_no_surplus() {
     let base_budget: u64 = 2_500_000_000;
     let quote_budget: u64 = 5_000_000_000;
 
-    let (base_fee_amount, quote_fee_amount) = liquidity_handler
-        .get_migration_transfer_fee_amounts(
-            Some(&base_fee),
-            Some(&quote_fee),
-            base_budget,
-            quote_budget,
-        )
-        .unwrap();
+    let (base_fee_amount, quote_fee_amount) = get_migration_transfer_fee_amounts(
+        Some(&base_fee),
+        Some(&quote_fee),
+        base_budget,
+        quote_budget,
+    )
+    .unwrap();
 
     let (base_amount, quote_amount) = liquidity_handler
         .get_migration_deposit_amounts(
