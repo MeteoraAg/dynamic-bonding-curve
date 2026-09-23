@@ -1,3 +1,4 @@
+use crate::instructions::get_migration_transfer_fee_amounts;
 use crate::migration_handler::calculate_concentrated_initial_liquidity;
 use crate::migration_handler::get_migration_handler;
 use crate::migration_handler::CompoundingLiquidity;
@@ -168,4 +169,101 @@ proptest! {
         assert!(price_1 <= price_0);
 
     }
+}
+
+/// When both mints charge the same rate, each side gives up exactly its own fee and
+/// neither is scaled down to match the other, so neither mint is left with a surplus.
+/// No `FEE_CASES` entry covers equal rates, so this is the only guard on that path.
+#[test]
+fn test_equal_transfer_fee_rates_leave_no_surplus() {
+    use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFee;
+    use anchor_spl::token_interface::spl_pod::primitives::{PodU16, PodU64};
+
+    let liquidity_handler = CompoundingLiquidity {
+        migration_sqrt_price: MIN_SQRT_PRICE << 32,
+    };
+
+    let fee = |bps: u16| TransferFee {
+        epoch: PodU64::from(0),
+        transfer_fee_basis_points: PodU16::from(bps),
+        maximum_fee: PodU64::from(u64::MAX),
+    };
+
+    for bps in [1u16, 100, 250, 1000] {
+        let base_budget: u64 = 2_500_000_000;
+        let quote_budget: u64 = 5_000_000_000;
+        let base_fee = fee(bps);
+        let quote_fee = fee(bps);
+
+        let (base_fee_amount, quote_fee_amount) = get_migration_transfer_fee_amounts(
+            Some(&base_fee),
+            Some(&quote_fee),
+            base_budget,
+            quote_budget,
+        )
+        .unwrap();
+
+        let (base_amount, quote_amount) = liquidity_handler
+            .get_migration_deposit_amounts(
+                base_budget,
+                quote_budget,
+                base_budget.safe_sub(base_fee_amount).unwrap(),
+                quote_budget.safe_sub(quote_fee_amount).unwrap(),
+            )
+            .unwrap();
+
+        // the surplus is whatever the scaling holds back on top of the mint's own fee
+        let base_surplus = base_budget
+            .safe_sub(base_fee_amount)
+            .unwrap()
+            .saturating_sub(base_amount);
+        let quote_surplus = quote_budget
+            .safe_sub(quote_fee_amount)
+            .unwrap()
+            .saturating_sub(quote_amount);
+
+        assert_eq!(base_surplus, 0, "base surplus at {} bps on both mints", bps);
+        assert_eq!(
+            quote_surplus, 0,
+            "quote surplus at {} bps on both mints",
+            bps
+        );
+    }
+
+    // the same measurement must find a surplus when the rates differ, otherwise the
+    // assertions above would hold for any implementation
+    let base_fee = fee(250);
+    let quote_fee = fee(100);
+    let base_budget: u64 = 2_500_000_000;
+    let quote_budget: u64 = 5_000_000_000;
+
+    let (base_fee_amount, quote_fee_amount) = get_migration_transfer_fee_amounts(
+        Some(&base_fee),
+        Some(&quote_fee),
+        base_budget,
+        quote_budget,
+    )
+    .unwrap();
+
+    let (base_amount, quote_amount) = liquidity_handler
+        .get_migration_deposit_amounts(
+            base_budget,
+            quote_budget,
+            base_budget.safe_sub(base_fee_amount).unwrap(),
+            quote_budget.safe_sub(quote_fee_amount).unwrap(),
+        )
+        .unwrap();
+
+    let base_surplus = base_budget
+        .safe_sub(base_fee_amount)
+        .unwrap()
+        .saturating_sub(base_amount);
+    let quote_surplus = quote_budget
+        .safe_sub(quote_fee_amount)
+        .unwrap()
+        .saturating_sub(quote_amount);
+
+    // base charges the larger rate, so base binds and the surplus lands on quote
+    assert_eq!(base_surplus, 0);
+    assert!(quote_surplus > 0);
 }

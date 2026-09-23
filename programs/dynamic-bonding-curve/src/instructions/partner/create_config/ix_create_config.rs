@@ -2,10 +2,13 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 
 #[allow(deprecated)]
-use crate::event::{EvtCreateConfig, EvtCreateConfigV2};
-use crate::{state::PoolConfig, CreateConfigResult};
+use crate::event::EvtCreateConfigV2;
+use crate::{
+    event::EvtCreateConfig3, state::PoolConfig, token::has_transfer_fee_or_config_authority,
+    PoolError,
+};
 
-use super::{process_create_config, ConfigParameters};
+use super::{process_create_config, ConfigParameters, TransferFeeParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -21,6 +24,7 @@ pub struct CreateConfigCtx<'info> {
     /// CHECK: fee_claimer
     pub fee_claimer: UncheckedAccount<'info>,
     /// CHECK: owner extra base token in case token is fixed supply
+    /// for transfer fee case (create_config2) token is restricted to constant supply
     pub leftover_receiver: UncheckedAccount<'info>,
     /// quote mint
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -42,16 +46,17 @@ pub fn handle_create_config<'info>(
         false,
     )?;
 
+    require!(
+        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
     let mut config = ctx.accounts.config.load_init()?;
-    let CreateConfigResult {
-        swap_base_amount,
-        included_protocol_fee_migration_base_amount,
-        fixed_token_supply_flag,
-        pre_migration_token_supply,
-        post_migration_token_supply,
-    } = process_create_config(
+    let transfer_fee_parameters = TransferFeeParameters::default();
+    process_create_config(
         &mut config,
         &config_parameters,
+        &transfer_fee_parameters,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
@@ -59,42 +64,22 @@ pub fn handle_create_config<'info>(
 
     #[allow(deprecated)]
     {
-        emit_cpi!(EvtCreateConfig {
+        emit_cpi!(EvtCreateConfigV2 {
             config: ctx.accounts.config.key(),
             fee_claimer: ctx.accounts.fee_claimer.key(),
             quote_mint: ctx.accounts.quote_mint.key(),
-            owner: ctx.accounts.leftover_receiver.key(),
-            pool_fees: config_parameters.pool_fees.clone(),
-            collect_fee_mode: config_parameters.collect_fee_mode,
-            migration_option: config_parameters.migration_option,
-            activation_type: config_parameters.activation_type,
-            token_decimal: config_parameters.token_decimal,
-            token_type: config_parameters.token_type,
-            partner_permanent_locked_liquidity_percentage: config_parameters
-                .partner_permanent_locked_liquidity_percentage,
-            partner_liquidity_percentage: config_parameters.partner_liquidity_percentage,
-            creator_permanent_locked_liquidity_percentage: config_parameters
-                .creator_permanent_locked_liquidity_percentage,
-            creator_liquidity_percentage: config_parameters.creator_liquidity_percentage,
-            swap_base_amount,
-            migration_quote_threshold: config_parameters.migration_quote_threshold,
-            migration_base_amount: included_protocol_fee_migration_base_amount,
-            sqrt_start_price: config_parameters.sqrt_start_price,
-            fixed_token_supply_flag,
-            pre_migration_token_supply,
-            post_migration_token_supply,
-            locked_vesting: config_parameters.locked_vesting,
-            migration_fee_option: config_parameters.migration_fee_option,
-            curve: config_parameters.curve.clone(),
+            leftover_receiver: ctx.accounts.leftover_receiver.key(),
+            config_parameters: config_parameters.clone(),
         });
     }
 
-    emit_cpi!(EvtCreateConfigV2 {
+    emit_cpi!(EvtCreateConfig3 {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         config_parameters,
+        transfer_fee_parameters,
     });
 
     Ok(())

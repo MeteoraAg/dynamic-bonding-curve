@@ -2,24 +2,29 @@ use anchor_lang::prelude::*;
 use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
-    solana_program::system_instruction::transfer,
-};
-use anchor_spl::token_2022::spl_token_2022::extension::{
-    transfer_fee::TransferFeeConfig, transfer_hook,
 };
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
         self,
-        extension::{BaseStateWithExtensions, ExtensionType, StateWithExtensions},
+        extension::{
+            transfer_fee::{TransferFee, TransferFeeConfig},
+            transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+        },
     },
-    token_interface::{Mint, TokenAccount, TokenInterface},
+    token_interface::{
+        find_mint_account_size, initialize_account3, initialize_mint2, metadata_pointer_initialize,
+        transfer_fee_initialize, transfer_hook_initialize, InitializeAccount3, InitializeMint2,
+        MetadataPointerInitialize, Mint, TokenAccount, TokenInterface, TransferFeeInitialize,
+        TransferHookInitialize,
+    },
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
-use crate::state::{PoolState, TokenBadge};
+use crate::state::{MigratedTransferFeeAuthorityOption, PoolConfig, TokenBadge};
+use crate::utils::accounts::create_account;
 use crate::PoolError;
 
 #[derive(
@@ -169,10 +174,99 @@ pub fn transfer_token_from_pool_authority<'info>(
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct TransferFeeIncludedAmount {
+    pub amount: u64,
+    pub transfer_fee: u64,
+}
+
+#[derive(Debug)]
+pub struct TransferFeeExcludedAmount {
+    pub amount: u64,
+    pub transfer_fee: u64,
+}
+
+pub fn calculate_transfer_fee_excluded_amount(
+    transfer_fee: Option<&TransferFee>,
+    transfer_fee_included_amount: u64,
+) -> Result<TransferFeeExcludedAmount> {
+    if let Some(epoch_transfer_fee) = transfer_fee {
+        let transfer_fee = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+        let transfer_fee_excluded_amount = transfer_fee_included_amount.safe_sub(transfer_fee)?;
+        return Ok(TransferFeeExcludedAmount {
+            amount: transfer_fee_excluded_amount,
+            transfer_fee,
+        });
+    }
+
+    Ok(TransferFeeExcludedAmount {
+        amount: transfer_fee_included_amount,
+        transfer_fee: 0,
+    })
+}
+
+pub fn calculate_transfer_fee_included_amount(
+    transfer_fee: Option<&TransferFee>,
+    transfer_fee_excluded_amount: u64,
+) -> Result<TransferFeeIncludedAmount> {
+    if transfer_fee_excluded_amount == 0 {
+        return Ok(TransferFeeIncludedAmount {
+            amount: 0,
+            transfer_fee: 0,
+        });
+    }
+
+    if let Some(epoch_transfer_fee) = transfer_fee {
+        let transfer_fee = epoch_transfer_fee
+            .calculate_inverse_fee(transfer_fee_excluded_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+
+        let transfer_fee_included_amount = transfer_fee_excluded_amount.safe_add(transfer_fee)?;
+
+        // verify transfer fee calculation for safety
+        let transfer_fee_verification = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?; // should never fail
+
+        require!(
+            transfer_fee == transfer_fee_verification,
+            PoolError::FeeInverseIsIncorrect
+        );
+
+        return Ok(TransferFeeIncludedAmount {
+            amount: transfer_fee_included_amount,
+            transfer_fee,
+        });
+    }
+
+    Ok(TransferFeeIncludedAmount {
+        amount: transfer_fee_excluded_amount,
+        transfer_fee: 0,
+    })
+}
+
+pub fn get_epoch_transfer_fee(mint_info: &AccountInfo) -> Result<Option<TransferFee>> {
+    if mint_info.owner.eq(&Token::id()) {
+        return Ok(None);
+    }
+
+    let mint_data = mint_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
+        return Ok(Some(
+            *transfer_fee_config.get_epoch_fee(Clock::get()?.epoch),
+        ));
+    }
+
+    Ok(None)
+}
+
 fn is_transfer_fee_zero(
     mint: &StateWithExtensions<spl_token_2022::state::Mint>,
     current_epoch: u64,
-) -> Result<bool> {
+) -> bool {
     if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
         let older_transfer_fee_bps = u16::from(
             transfer_fee_config
@@ -188,33 +282,33 @@ fn is_transfer_fee_zero(
 
         if current_epoch < newer_transfer_fee_epoch {
             // older fee is active and newer fee is scheduled, both must be zero
-            return Ok(older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0);
+            return older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0;
         } else {
             // newer fee is active, older fee is historical
-            return Ok(newer_transfer_fee_bps == 0);
+            return newer_transfer_fee_bps == 0;
         }
     }
 
-    Ok(true)
+    true
 }
 
-pub fn validate_transfer_fee_is_zero(mint_account_info: &AccountInfo) -> Result<()> {
-    if mint_account_info.owner.eq(&Token::id()) {
-        return Ok(());
+pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<bool> {
+    if mint_info.owner.eq(&Token::id()) {
+        return Ok(false);
     }
 
-    let mint_data = mint_account_info.try_borrow_data()?;
+    let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-    require!(
-        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
-
-    Ok(())
+    if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
+        let authority: Option<Pubkey> = transfer_fee_config.transfer_fee_config_authority.into();
+        Ok(authority.is_some() || !is_transfer_fee_zero(&mint, Clock::get()?.epoch))
+    } else {
+        Ok(false)
+    }
 }
 
-/// Rule: quote mint must be SPL-Token, or Token-2022 (non-native) with only metadata extensions
-/// never allow a non-zero transfer fee
+/// Rule: quote mint must be SPL-Token or Token-2022 (non-native) with only metadata extensions and/or zero transfer fee with no authority
+/// Anything else requires a token badge
 pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
@@ -229,15 +323,22 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
     let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
 
-    require!(
-        is_transfer_fee_zero(&mint, Clock::get()?.epoch)?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
-
     let extensions = mint.get_extension_types()?;
     for e in extensions {
-        if e != ExtensionType::MetadataPointer && e != ExtensionType::TokenMetadata {
-            return Ok(false);
+        match e {
+            ExtensionType::MetadataPointer | ExtensionType::TokenMetadata => {
+                // permissionless supported
+            }
+            ExtensionType::TransferFeeConfig => {
+                // permissionless only when the transfer fee is zero and no authority
+                let transfer_fee_config = mint.get_extension::<TransferFeeConfig>()?;
+                let authority: Option<Pubkey> =
+                    transfer_fee_config.transfer_fee_config_authority.into();
+                if authority.is_some() || !is_transfer_fee_zero(&mint, Clock::get()?.epoch) {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
         }
     }
     Ok(true)
@@ -266,52 +367,156 @@ fn is_token_badge_initialized<'info>(
     Ok(token_badge.token_mint == mint)
 }
 
-pub fn update_account_lamports_to_minimum_balance<'info>(
-    account: AccountInfo<'info>,
-    payer: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
+pub struct BaseMintTransferFee {
+    pub transfer_fee_basis_points: u16,
+    pub maximum_fee: u64,
+    pub migrated_authority_option: MigratedTransferFeeAuthorityOption,
+    pub withdraw_withheld_authority: Pubkey,
+}
+
+impl BaseMintTransferFee {
+    pub fn from_config(config: &PoolConfig, creator: Pubkey) -> Result<Option<Self>> {
+        let Some(transfer_fee) = config.get_base_transfer_fee() else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            transfer_fee_basis_points: transfer_fee.transfer_fee_basis_points.into(),
+            maximum_fee: transfer_fee.maximum_fee.into(),
+            migrated_authority_option: config.get_migrated_transfer_fee_authority_option()?,
+            withdraw_withheld_authority: config.get_transfer_fee_withheld_authority(creator)?,
+        }))
+    }
+}
+
+// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L758-L1068
+#[allow(clippy::too_many_arguments)]
+pub fn create_token_2022_base_mint<'info>(
+    payer: &AccountInfo<'info>,
+    base_mint: &AccountInfo<'info>,
+    pool_authority: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+    system_program: &AccountInfo<'info>,
+    decimals: u8,
+    transfer_fee: Option<BaseMintTransferFee>,
+    transfer_hook_program: Option<Pubkey>,
 ) -> Result<()> {
-    let minimum_balance = Rent::get()?.minimum_balance(account.data_len());
-    let current_lamport = account.get_lamports();
-    if minimum_balance > current_lamport {
-        let extra_lamports = minimum_balance.safe_sub(current_lamport)?;
-        invoke(
-            &transfer(payer.key, account.key, extra_lamports),
-            &[payer, account, system_program],
+    let mut extensions = vec![ExtensionType::MetadataPointer];
+    if transfer_fee.is_some() {
+        extensions.push(ExtensionType::TransferFeeConfig);
+    }
+    if transfer_hook_program.is_some() {
+        extensions.push(ExtensionType::TransferHook);
+    }
+    let space = find_mint_account_size(Some(&extensions))?;
+
+    create_account(
+        base_mint,
+        space,
+        token_program.key,
+        payer,
+        system_program,
+        &[],
+    )?;
+
+    metadata_pointer_initialize(
+        CpiContext::new(
+            token_program.key(),
+            MetadataPointerInitialize {
+                token_program_id: token_program.clone(),
+                mint: base_mint.clone(),
+            },
+        ),
+        Some(pool_authority.key()),
+        Some(base_mint.key()),
+    )?;
+
+    if let Some(transfer_fee) = transfer_fee {
+        let config_authority = if transfer_fee.migrated_authority_option.is_immutable() {
+            None
+        } else {
+            Some(pool_authority.key)
+        };
+
+        transfer_fee_initialize(
+            CpiContext::new(
+                token_program.key(),
+                TransferFeeInitialize {
+                    token_program_id: token_program.clone(),
+                    mint: base_mint.clone(),
+                },
+            ),
+            config_authority,
+            Some(&transfer_fee.withdraw_withheld_authority),
+            transfer_fee.transfer_fee_basis_points,
+            transfer_fee.maximum_fee,
         )?;
     }
 
-    Ok(())
-}
+    if let Some(transfer_hook_program) = transfer_hook_program {
+        transfer_hook_initialize(
+            CpiContext::new(
+                token_program.key(),
+                TransferHookInitialize {
+                    token_program_id: token_program.clone(),
+                    mint: base_mint.clone(),
+                },
+            ),
+            Some(pool_authority.key()),
+            Some(transfer_hook_program),
+        )?;
+    }
 
-pub fn transfer_lamports_from_user<'info>(
-    from: AccountInfo<'info>,
-    to: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
-    lamports: u64,
-) -> Result<()> {
-    invoke(
-        &transfer(from.key, to.key, lamports),
-        &[from, to, system_program],
+    initialize_mint2(
+        CpiContext::new(
+            token_program.key(),
+            InitializeMint2 {
+                mint: base_mint.clone(),
+            },
+        ),
+        decimals,
+        pool_authority.key,
+        None,
     )?;
 
     Ok(())
 }
 
-pub fn transfer_lamports_from_pool_account<'info>(
-    pool: AccountInfo<'info>,
-    to: AccountInfo<'info>,
-    lamports: u64,
+// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L604-L682
+pub fn create_token_2022_base_vault<'info>(
+    payer: &AccountInfo<'info>,
+    base_vault: &AccountInfo<'info>,
+    base_mint: &AccountInfo<'info>,
+    pool_authority: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+    system_program: &AccountInfo<'info>,
+    vault_signer_seeds: &[&[u8]],
 ) -> Result<()> {
-    pool.sub_lamports(lamports)?;
-    to.add_lamports(lamports)?;
+    let mint_data = base_mint.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    let required_extensions =
+        ExtensionType::get_required_init_account_extensions(&mint.get_extension_types()?);
+    let space = ExtensionType::try_calculate_account_len::<spl_token_2022::state::Account>(
+        &required_extensions,
+    )?;
+    drop(mint_data);
 
-    let minimum_balance = Rent::get()?.minimum_balance(8 + PoolState::INIT_SPACE);
+    create_account(
+        base_vault,
+        space,
+        token_program.key,
+        payer,
+        system_program,
+        vault_signer_seeds,
+    )?;
 
-    require!(
-        pool.get_lamports() >= minimum_balance,
-        PoolError::InsufficientPoolLamports
-    );
+    initialize_account3(CpiContext::new(
+        token_program.key(),
+        InitializeAccount3 {
+            account: base_vault.clone(),
+            mint: base_mint.clone(),
+            authority: pool_authority.clone(),
+        },
+    ))?;
 
     Ok(())
 }

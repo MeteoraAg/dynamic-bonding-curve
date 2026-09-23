@@ -190,6 +190,76 @@ export async function createConfig(
   return config.publicKey;
 }
 
+export type TransferFeeParameters = {
+  transferFeeBasisPoints: number;
+  /// 0 partner (fee claimer), 1 creator
+  withheldAuthority: number;
+  /// What happens to the transfer fee config authority at migration.
+  /// 0 immutable fee, 1 revoke and zero the fee, 2 creator, 3 partner
+  migratedTransferFeeAuthorityOption: number;
+};
+
+export type CreateConfig2Params = CreateConfigParams<ConfigParameters> & {
+  transferFee: TransferFeeParameters;
+};
+
+export async function createConfig2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfig2Params
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferFee,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfig2(
+      {
+        ...instructionParams,
+        padding: new Array(2).fill(0),
+      },
+      transferFee
+    )
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+  expect(configState.transferFeeBasisPoints).equal(
+    transferFee.transferFeeBasisPoints
+  );
+
+  return config.publicKey;
+}
+
 export type CreateConfigWithTransferHookParams =
   CreateConfigParams<ConfigParameters> & {
     transferHookProgram: PublicKey;

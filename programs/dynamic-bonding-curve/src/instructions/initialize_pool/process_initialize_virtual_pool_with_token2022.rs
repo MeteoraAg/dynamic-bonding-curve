@@ -1,12 +1,12 @@
 use super::InitializePoolParameters;
 use crate::constants::MIN_LOCKED_LIQUIDITY_BPS;
-use crate::token::transfer_lamports_from_user;
+use crate::utils::accounts::transfer_lamports_from_user;
 use crate::{
     activation_handler::get_current_point,
     base_fee::BaseFeeEnumReader,
     const_pda,
     state::{BaseFeeMode, TokenType},
-    token::update_account_lamports_to_minimum_balance,
+    utils::accounts::update_account_lamports_to_minimum_balance,
     ConfigAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -15,8 +15,7 @@ use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_2022::{mint_to, MintTo};
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::token_interface::{
-    token_metadata_initialize, token_metadata_update_authority, Mint, TokenAccount,
-    TokenMetadataInitialize,
+    token_metadata_initialize, token_metadata_update_authority, TokenMetadataInitialize,
 };
 
 pub struct InitPoolData {
@@ -29,9 +28,9 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     config_info: &AccountInfo<'info>,
     pool_authority: &AccountInfo<'info>,
     creator: &AccountInfo<'info>,
-    base_mint: &InterfaceAccount<'info, Mint>,
+    base_mint: &AccountInfo<'info>,
     pool_info: &AccountInfo<'info>,
-    base_vault: &InterfaceAccount<'info, TokenAccount>,
+    base_vault: &AccountInfo<'info>,
     payer: &AccountInfo<'info>,
     token_program: &AccountInfo<'info>,
     system_program: &AccountInfo<'info>,

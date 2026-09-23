@@ -399,17 +399,11 @@ export async function swapPartialFill(
   };
 }
 
-export async function swap(
+export async function buildSwapTransaction(
   svm: LiteSVM,
   program: VirtualCurveProgram,
   params: SwapParams
-): Promise<{
-  pool: PublicKey;
-  computeUnitsConsumed: number;
-  message: any;
-  numInstructions: number;
-  completed: boolean;
-}> {
+): Promise<Transaction> {
   const {
     config,
     payer,
@@ -423,7 +417,7 @@ export async function swap(
   } = params;
 
   const poolAuthority = derivePoolAuthority();
-  let poolState = getVirtualPool(svm, program, pool);
+  const poolState = getVirtualPool(svm, program, pool);
 
   const configState = getConfig(svm, program, config);
 
@@ -519,11 +513,28 @@ export async function swap(
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(payer);
 
+  return transaction;
+}
+
+export async function swap(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: SwapParams
+): Promise<{
+  pool: PublicKey;
+  computeUnitsConsumed: number;
+  message: any;
+  numInstructions: number;
+  completed: boolean;
+}> {
+  const { config, payer, pool } = params;
+  const transaction = await buildSwapTransaction(svm, program, params);
+
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
   sendTransactionMaybeThrow(svm, transaction, [payer]);
 
-  poolState = getVirtualPool(svm, program, pool);
+  const poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
   return {
     pool,

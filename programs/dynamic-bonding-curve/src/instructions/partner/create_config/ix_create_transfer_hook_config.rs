@@ -5,10 +5,11 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     state::{ConfigWithTransferHook, TokenType},
+    token::has_transfer_fee_or_config_authority,
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters};
+use super::{process_create_config, ConfigParameters, TransferFeeParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -49,6 +50,11 @@ pub fn handle_create_config_with_transfer_hook<'info>(
         true,
     )?;
 
+    require!(
+        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
     let token_type = TokenType::try_from(config_parameters.token_type)
         .map_err(|_| PoolError::InvalidTokenType)?;
     require!(
@@ -69,6 +75,7 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     process_create_config(
         &mut config,
         &config_parameters,
+        &TransferFeeParameters::default(),
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
