@@ -939,6 +939,7 @@ dependencies = [
 name = "dynamic-bonding-curve-sdk"
 version = "0.1.0"
 dependencies = [
+ "anchor-spl",
  "anyhow",
  "bytemuck",
  "dynamic-bonding-curve",

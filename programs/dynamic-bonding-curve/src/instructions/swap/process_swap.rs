@@ -15,9 +15,7 @@ use crate::{
     params::swap::TradeDirection,
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     state::fee::FeeMode,
-    token::{
-        transfer_token_from_pool_authority, transfer_token_from_user, validate_transfer_fee_is_zero,
-    },
+    token::{get_epoch_transfer_fee, transfer_token_from_pool_authority, transfer_token_from_user},
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -80,6 +78,8 @@ pub struct SwapEventData {
     pub swap_in_parameters: SwapParameters,
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
+    pub excluded_transfer_fee_amount_out: u64,
+    pub fee_on_base_token: bool,
     pub current_timestamp: u64,
     pub curve_complete: Option<CurveCompleteEventData>,
 }
@@ -232,6 +232,9 @@ pub fn process_swap<'a: 'info, 'info>(
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
+    let transfer_fee_in = get_epoch_transfer_fee(&token_in_mint.to_account_info())?;
+    let transfer_fee_out = get_epoch_transfer_fee(&token_out_mint.to_account_info())?;
+
     let process_swap_params = ProcessSwapParams {
         pool: &mut *pool,
         config: &config,
@@ -241,11 +244,14 @@ pub fn process_swap<'a: 'info, 'info>(
         amount_0,
         amount_1,
         eligible_for_first_swap_with_min_fee,
+        transfer_fee_in: transfer_fee_in.as_ref(),
+        transfer_fee_out: transfer_fee_out.as_ref(),
     };
 
     let ProcessSwapResult {
         swap_result: swap_result_2,
         swap_in_parameters,
+        excluded_transfer_fee_amount_out,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
         SwapMode::PartialFill => process_swap_partial_fill(process_swap_params)?,
@@ -285,8 +291,6 @@ pub fn process_swap<'a: 'info, 'info>(
         TradeDirection::QuoteToBase => (None, transfer_hook_base_accounts),
     };
 
-    validate_transfer_fee_is_zero(&quote_mint.to_account_info())?;
-
     // send to reserve
     transfer_token_from_user(
         payer,
@@ -294,7 +298,7 @@ pub fn process_swap<'a: 'info, 'info>(
         input_token_account,
         input_vault_account,
         input_program,
-        swap_result_2.included_fee_input_amount,
+        swap_in_parameters.amount_in,
         transfer_hook_in,
     )?;
 
@@ -382,6 +386,8 @@ pub fn process_swap<'a: 'info, 'info>(
         swap_in_parameters,
         quote_reserve_amount: pool.quote_reserve,
         migration_threshold: migration_quote_threshold,
+        excluded_transfer_fee_amount_out,
+        fee_on_base_token: fee_mode.fees_on_base_token,
         current_timestamp,
         curve_complete,
     })

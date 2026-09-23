@@ -3,11 +3,8 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::{
-        fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
-    },
     state::{SwapResult, SwapResult2},
-    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
+    ConfigParameters, SwapParameters, SwapParameters2, TransferFeeParameters,
 };
 
 /// Create partner metadata
@@ -23,36 +20,7 @@ pub struct EvtVirtualPoolMetadata {
     pub virtual_pool: Pubkey,
 }
 
-/// Create config
-#[deprecated(since = "0.1.8")]
-#[event]
-pub struct EvtCreateConfig {
-    pub config: Pubkey,
-    pub quote_mint: Pubkey,
-    pub fee_claimer: Pubkey,
-    pub owner: Pubkey,
-    pub pool_fees: PoolFeeParameters,
-    pub collect_fee_mode: u8,
-    pub migration_option: u8,
-    pub activation_type: u8,
-    pub token_decimal: u8,
-    pub token_type: u8,
-    pub partner_permanent_locked_liquidity_percentage: u8,
-    pub partner_liquidity_percentage: u8,
-    pub creator_permanent_locked_liquidity_percentage: u8,
-    pub creator_liquidity_percentage: u8,
-    pub swap_base_amount: u64,
-    pub migration_quote_threshold: u64,
-    pub migration_base_amount: u64,
-    pub sqrt_start_price: u128,
-    pub locked_vesting: LockedVestingParams,
-    pub migration_fee_option: u8,
-    pub fixed_token_supply_flag: u8,
-    pub pre_migration_token_supply: u64,
-    pub post_migration_token_supply: u64,
-    pub curve: Vec<LiquidityDistributionParameters>,
-}
-
+#[deprecated(since = "0.2.2")]
 #[event]
 pub struct EvtCreateConfigV2 {
     pub config: Pubkey,
@@ -70,6 +38,16 @@ pub struct EvtCreateConfigV2WithTransferHook {
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
     pub transfer_hook_program: Pubkey,
+}
+
+#[event]
+pub struct EvtCreateConfig3 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_fee_parameters: TransferFeeParameters,
 }
 
 /// Create claim fee operator
@@ -140,6 +118,46 @@ pub struct EvtSwap2WithTransferHook {
     pub swap_result: SwapResult2,
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwap3 {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub swap_mode: u8,
+    pub has_referral: bool,
+    pub fee_on_base_token: bool,
+    pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
+    pub excluded_transfer_fee_amount_out: u64,
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwap3WithTransferHook {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub swap_mode: u8,
+    pub has_referral: bool,
+    pub fee_on_base_token: bool,
+    pub included_transfer_fee_amount_in: u64,
+    pub excluded_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
+    pub excluded_transfer_fee_amount_out: u64,
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub next_sqrt_price: u128,
+    pub quote_reserve: u64,
     pub current_timestamp: u64,
 }
 

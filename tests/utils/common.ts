@@ -154,7 +154,7 @@ export function sendTransactionMaybeThrow(
 }
 
 export async function expectThrowsAsync(
-  fn: () => Promise<void>,
+  fn: () => Promise<unknown>,
   errorMessage: String
 ) {
   try {

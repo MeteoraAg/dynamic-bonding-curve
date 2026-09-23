@@ -24,7 +24,8 @@ use crate::{
         fee::VolatilityTracker, BaseFeeMode, MigrationOption, PoolConfig, PoolType, TokenType,
         VirtualPool,
     },
-    token::{transfer_lamports_from_user, validate_quote_mint_with_token_badge},
+    token::validate_quote_mint_with_token_badge,
+    utils::accounts::transfer_lamports_from_user,
     PoolError, ProcessCreateTokenMetadataParams,
 };
 

@@ -1,6 +1,6 @@
 use crate::{
     const_pda,
-    event::{EvtCurveComplete, EvtSwap, EvtSwap2},
+    event::{EvtCurveComplete, EvtSwap, EvtSwap2, EvtSwap3},
     PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
@@ -91,6 +91,8 @@ pub fn handle_swap_wrapper<'info>(
         Default::default(),
     )?;
 
+    let included_transfer_fee_amount_in = result.swap_in_parameters.amount_in;
+
     emit_cpi!(EvtSwap {
         pool: ctx.accounts.pool.key(),
         config: ctx.accounts.config.key(),
@@ -110,6 +112,24 @@ pub fn handle_swap_wrapper<'info>(
         swap_result: result.swap_result_2,
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
+        current_timestamp: result.current_timestamp,
+    });
+    emit_cpi!(EvtSwap3 {
+        pool: ctx.accounts.pool.key(),
+        config: ctx.accounts.config.key(),
+        trade_direction: result.trade_direction.into(),
+        swap_mode: result.swap_parameters.swap_mode,
+        has_referral: result.has_referral,
+        fee_on_base_token: result.fee_on_base_token,
+        included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_in: result.swap_result_2.included_fee_input_amount,
+        included_transfer_fee_amount_out: result.swap_result_2.output_amount,
+        excluded_transfer_fee_amount_out: result.excluded_transfer_fee_amount_out,
+        trading_fee: result.swap_result_2.trading_fee,
+        protocol_fee: result.swap_result_2.protocol_fee,
+        referral_fee: result.swap_result_2.referral_fee,
+        next_sqrt_price: result.swap_result_2.next_sqrt_price,
+        quote_reserve: result.quote_reserve_amount,
         current_timestamp: result.current_timestamp,
     });
 
