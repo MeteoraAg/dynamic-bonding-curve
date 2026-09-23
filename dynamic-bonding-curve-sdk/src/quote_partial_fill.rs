@@ -61,11 +61,15 @@ pub fn quote_partial_fill(
         eligible_for_first_swap_with_min_fee,
     )?;
 
-    let included_transfer_fee_amount_in = calculate_transfer_fee_included_amount(
-        input_transfer_fee.as_ref(),
-        swap_result.included_fee_input_amount,
-    )?
-    .amount;
+    let included_transfer_fee_amount_in = if swap_result.amount_left == 0 {
+        in_amount
+    } else {
+        calculate_transfer_fee_included_amount(
+            input_transfer_fee.as_ref(),
+            swap_result.included_fee_input_amount,
+        )?
+        .amount
+    };
     let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
         output_transfer_fee.as_ref(),
         swap_result.output_amount,

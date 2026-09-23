@@ -24,6 +24,7 @@ pub struct CreateConfigCtx<'info> {
     /// CHECK: fee_claimer
     pub fee_claimer: UncheckedAccount<'info>,
     /// CHECK: owner extra base token in case token is fixed supply
+    /// for transfer fee case (create_config2) token is restricted to constant supply
     pub leftover_receiver: UncheckedAccount<'info>,
     /// quote mint
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,

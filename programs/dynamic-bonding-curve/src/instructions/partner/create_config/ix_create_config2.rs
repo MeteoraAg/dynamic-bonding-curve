@@ -1,44 +1,16 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
 
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
 use crate::{
-    event::EvtCreateConfig3,
-    migration_handler::MigratedCollectFeeMode,
-    state::{MigrationFeeOption, PoolConfig},
-    token::has_transfer_fee_or_config_authority,
-    PoolError,
+    event::EvtCreateConfig3, migration_handler::MigratedCollectFeeMode, state::MigrationFeeOption,
+    token::has_transfer_fee_or_config_authority, PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, TransferFeeParameters};
-
-#[event_cpi]
-#[derive(Accounts)]
-pub struct CreateConfig2Ctx<'info> {
-    #[account(
-        init,
-        signer,
-        payer = payer,
-        space = 8 + PoolConfig::INIT_SPACE
-    )]
-    pub config: AccountLoader<'info, PoolConfig>,
-
-    /// CHECK: fee_claimer
-    pub fee_claimer: UncheckedAccount<'info>,
-    /// CHECK: owner extra base token in case token is fixed supply
-    pub leftover_receiver: UncheckedAccount<'info>,
-    /// quote mint
-    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-}
+use super::{process_create_config, ConfigParameters, CreateConfigCtx, TransferFeeParameters};
 
 pub fn handle_create_config2<'info>(
-    ctx: Context<'info, CreateConfig2Ctx<'info>>,
+    ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
     transfer_fee_parameters: Option<TransferFeeParameters>,
 ) -> Result<()> {

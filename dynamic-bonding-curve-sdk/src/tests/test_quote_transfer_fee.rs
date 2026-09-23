@@ -287,6 +287,44 @@ fn test_quote_fee_partial_fill_charges_the_grossed_up_consumed_input() {
     );
 }
 
+#[test]
+fn test_quote_fee_partial_fill_charges_the_full_input_when_nothing_is_left() {
+    let TestAccounts {
+        config,
+        pool,
+        current_timestamp,
+        current_slot,
+    } = get_fee_in_quote_accounts();
+    let quote_fee = quote_fee();
+    // include(exclude(in_amount)) is one lamport short of in_amount at this rate
+    let in_amount = 1_000_000_001;
+    assert!(included(&quote_fee, excluded(&quote_fee, in_amount)) < in_amount);
+
+    let partial = quote_partial_fill(
+        &pool,
+        &config,
+        false,
+        current_timestamp,
+        current_slot,
+        CURRENT_EPOCH,
+        None,
+        Some(&quote_fee),
+        in_amount,
+        false,
+        false,
+    )
+    .unwrap();
+
+    // the whole input is consumed, so the user is charged the full in_amount
+    assert_eq!(partial.swap_result.amount_left, 0);
+    assert_eq!(partial.included_transfer_fee_amount_in, in_amount);
+    // the curve still receives only the net amount
+    assert_eq!(
+        partial.swap_result.included_fee_input_amount,
+        excluded(&quote_fee, in_amount)
+    );
+}
+
 // transfer fee on the base mint only
 
 #[test]

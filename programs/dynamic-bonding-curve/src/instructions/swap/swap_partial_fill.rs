@@ -40,11 +40,15 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         PoolError::ExceededSlippage
     );
 
-    let included_transfer_fee_amount_in = calculate_transfer_fee_included_amount(
-        transfer_fee_in,
-        swap_result.included_fee_input_amount,
-    )?
-    .amount;
+    let included_transfer_fee_amount_in = if swap_result.amount_left == 0 {
+        amount_in
+    } else {
+        calculate_transfer_fee_included_amount(
+            transfer_fee_in,
+            swap_result.included_fee_input_amount,
+        )?
+        .amount
+    };
 
     Ok(ProcessSwapResult {
         swap_result,

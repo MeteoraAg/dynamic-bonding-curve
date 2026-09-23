@@ -105,7 +105,7 @@ pub mod dynamic_bonding_curve {
     }
 
     pub fn create_config2<'info>(
-        ctx: Context<'info, CreateConfig2Ctx<'info>>,
+        ctx: Context<'info, CreateConfigCtx<'info>>,
         config_parameters: ConfigParameters,
         transfer_fee_parameters: Option<TransferFeeParameters>,
     ) -> Result<()> {
