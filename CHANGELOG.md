@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_creator_trading_fee`, `claim_protocol_fee2`, `partner_withdraw_surplus`, `creator_withdraw_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
+- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_trading_fee2`, `claim_creator_trading_fee`, `claim_creator_trading_fee2`, `claim_protocol_fee2`, `partner_withdraw_surplus`, `creator_withdraw_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
 - Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `QuoteMintHasNonZeroTransferFee`, even with a token badge. Such a quote mint is only accepted by `create_config2`. Previously a badged quote mint with a `TransferFeeConfig` extension and a zero fee was accepted by these endpoints.
 - Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
 - Swap endpoints account for the transfer fee on either mint: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
