@@ -1,10 +1,6 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { LiteSVM } from "litesvm";
 import {
   getConfig,
   getVirtualPool,
@@ -115,7 +111,7 @@ export async function revokeTransferHook(
     pool: PublicKey;
     baseMint?: PublicKey;
   }
-): Promise<TransactionMetadata> {
+) {
   const { operator, pool } = params;
   const baseMint =
     params.baseMint ?? getVirtualPool(svm, program, pool).baseMint;
@@ -132,16 +128,7 @@ export async function revokeTransferHook(
     })
     .transaction();
 
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(operator);
-  const transactionMeta = svm.sendTransaction(transaction);
-  svm.expireBlockhash();
-
-  if (transactionMeta instanceof FailedTransactionMetadata) {
-    throw Error(transactionMeta.meta().logs().toString());
-  }
-
-  return transactionMeta;
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
 export type ClaimLegacyPoolCreationFeeParams = {
