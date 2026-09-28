@@ -5,12 +5,17 @@ use anchor_lang::{
 };
 use anchor_spl::{
     token::Token,
-    token_2022::spl_token_2022::{
-        self,
-        extension::{
-            transfer_fee::{TransferFee, TransferFeeConfig},
-            transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    token_2022::{
+        set_authority,
+        spl_token_2022::{
+            self,
+            extension::{
+                transfer_fee::{TransferFee, TransferFeeConfig},
+                transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+            },
+            instruction::AuthorityType,
         },
+        SetAuthority,
     },
     token_interface::{
         find_mint_account_size, initialize_account3, initialize_mint2, metadata_pointer_initialize,
@@ -58,6 +63,47 @@ pub fn get_transfer_hook_program_id(token_mint: &InterfaceAccount<Mint>) -> Resu
     let token_mint_unpacked =
         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
     Ok(transfer_hook::get_program_id(&token_mint_unpacked))
+}
+
+pub fn revoke_transfer_hook<'info>(
+    token_program: &AccountInfo<'info>,
+    base_mint: &InterfaceAccount<'info, Mint>,
+    pool_authority: &UncheckedAccount<'info>,
+) -> Result<()> {
+    let pool_authority_seeds = pool_authority_seeds!(BUMP);
+
+    // revoke transfer_hook program
+    let update_hook_ix = transfer_hook::instruction::update(
+        &token_program.key(),
+        &base_mint.key(),
+        &pool_authority.key(),
+        &[],
+        None,
+    )?;
+    invoke_signed(
+        &update_hook_ix,
+        &[
+            base_mint.to_account_info(),
+            pool_authority.to_account_info(),
+        ],
+        &[&pool_authority_seeds[..]],
+    )?;
+
+    // revoke transfer_hook authority
+    set_authority(
+        CpiContext::new_with_signer(
+            token_program.key(),
+            SetAuthority {
+                current_authority: pool_authority.to_account_info(),
+                account_or_mint: base_mint.to_account_info(),
+            },
+            &[&pool_authority_seeds[..]],
+        ),
+        AuthorityType::TransferHookProgramId,
+        None,
+    )?;
+
+    Ok(())
 }
 
 pub fn transfer_token_from_user<'a, 'info>(
