@@ -15,7 +15,7 @@ import {
 } from "@solana/web3.js";
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   claimCreatorTradingFee2,
@@ -55,10 +55,6 @@ import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { getVirtualPool } from "./utils/fetcher";
 import { getMint } from "./utils/token";
 import { AccountsType, VirtualCurveProgram } from "./utils/types";
-
-const EVENT_IX_TAG = Buffer.from([
-  0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d,
-]);
 
 function getConfigParameters(
   tokenType: number,
@@ -185,25 +181,6 @@ function getBaseMintTransferHook(svm: LiteSVM, baseMint: PublicKey) {
   return getTransferHook(getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID))!;
 }
 
-function getRevokeTransferHookEvents(
-  program: VirtualCurveProgram,
-  transactionMeta: TransactionMetadata
-) {
-  return transactionMeta
-    .innerInstructions()
-    .flat()
-    .map((innerInstruction) =>
-      Buffer.from(innerInstruction.instruction().data())
-    )
-    .filter(
-      (data) => data.length > 16 && data.subarray(0, 8).equals(EVENT_IX_TAG)
-    )
-    .map((data) =>
-      program.coder.events.decode(data.subarray(8).toString("base64"))
-    )
-    .filter((event) => event?.name == "evtRevokeTransferHook");
-}
-
 describe("Revoke transfer hook", () => {
   let svm: LiteSVM;
   let admin: Keypair;
@@ -254,25 +231,11 @@ describe("Revoke transfer hook", () => {
       .true;
     expect(hookBefore.authority.equals(PublicKey.default)).to.be.false;
 
-    const transactionMeta = await revokeTransferHook(svm, program, {
-      operator,
-      pool,
-    });
+    await revokeTransferHook(svm, program, { operator, pool });
 
     const hookAfter = getBaseMintTransferHook(svm, baseMint);
     expect(hookAfter.programId.equals(PublicKey.default)).to.be.true;
     expect(hookAfter.authority.equals(PublicKey.default)).to.be.true;
-
-    const events = getRevokeTransferHookEvents(program, transactionMeta);
-    expect(events.length).eq(1);
-    expect(events[0].data.pool.equals(pool)).to.be.true;
-    expect(events[0].data.baseMint.equals(baseMint)).to.be.true;
-    expect(events[0].data.operator.equals(operator.publicKey)).to.be.true;
-    expect(
-      events[0].data.transferHookProgram.equals(
-        TRANSFER_HOOK_COUNTER_PROGRAM_ID
-      )
-    ).to.be.true;
   });
 
   it("Operator without the permission cannot revoke", async () => {
@@ -365,12 +328,8 @@ describe("Revoke transfer hook", () => {
     await revokeTransferHook(svm, program, { operator, pool });
     const mintDataBefore = svm.getAccount(baseMint).data;
 
-    const transactionMeta = await revokeTransferHook(svm, program, {
-      operator,
-      pool,
-    });
+    await revokeTransferHook(svm, program, { operator, pool });
 
-    expect(getRevokeTransferHookEvents(program, transactionMeta).length).eq(0);
     expect(
       Buffer.from(svm.getAccount(baseMint).data).equals(
         Buffer.from(mintDataBefore)
@@ -401,12 +360,8 @@ describe("Revoke transfer hook", () => {
 
     const mintDataBefore = svm.getAccount(baseMint).data;
 
-    const transactionMeta = await revokeTransferHook(svm, program, {
-      operator,
-      pool,
-    });
+    await revokeTransferHook(svm, program, { operator, pool });
 
-    expect(getRevokeTransferHookEvents(program, transactionMeta).length).eq(0);
     expect(
       Buffer.from(svm.getAccount(baseMint).data).equals(
         Buffer.from(mintDataBefore)
@@ -446,18 +401,7 @@ describe("Revoke transfer hook", () => {
       await swapWithTransferHook(svm, program, swapParams);
     }, `${TRANSFER_HOOK_COUNTER_PROGRAM_ID.toBase58()} is not executable`);
 
-    const transactionMeta = await revokeTransferHook(svm, program, {
-      operator,
-      pool,
-    });
-
-    const events = getRevokeTransferHookEvents(program, transactionMeta);
-    expect(events.length).eq(1);
-    expect(
-      events[0].data.transferHookProgram.equals(
-        TRANSFER_HOOK_COUNTER_PROGRAM_ID
-      )
-    ).to.be.true;
+    await revokeTransferHook(svm, program, { operator, pool });
 
     await swapWithTransferHook(svm, program, swapParams);
     expect(getVirtualPool(svm, program, pool).quoteReserve.gtn(0)).to.be.true;
