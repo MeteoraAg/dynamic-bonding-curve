@@ -1,6 +1,10 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import {
   getConfig,
   getVirtualPool,
@@ -21,6 +25,7 @@ export enum OperatorPermission {
   ZapProtocolFee,
   CreateTokenBadge,
   CloseTokenBadge,
+  RevokeTransferHook,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -100,6 +105,43 @@ export async function closeTokenBadge(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export async function revokeTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    pool: PublicKey;
+    baseMint?: PublicKey;
+  }
+): Promise<TransactionMetadata> {
+  const { operator, pool } = params;
+  const baseMint =
+    params.baseMint ?? getVirtualPool(svm, program, pool).baseMint;
+
+  const transaction = await program.methods
+    .revokeTransferHook()
+    .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
+      pool,
+      baseMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(operator);
+  const transactionMeta = svm.sendTransaction(transaction);
+  svm.expireBlockhash();
+
+  if (transactionMeta instanceof FailedTransactionMetadata) {
+    throw Error(transactionMeta.meta().logs().toString());
+  }
+
+  return transactionMeta;
 }
 
 export type ClaimLegacyPoolCreationFeeParams = {
