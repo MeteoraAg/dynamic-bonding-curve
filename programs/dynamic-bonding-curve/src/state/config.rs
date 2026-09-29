@@ -471,12 +471,14 @@ impl MigratedTransferFeeAuthorityOption {
     }
 
     pub fn get_migrated_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
-        match *self {
+        let authority = match *self {
             MigratedTransferFeeAuthorityOption::Immutable
             | MigratedTransferFeeAuthorityOption::RevokeZeroFee => None,
             MigratedTransferFeeAuthorityOption::Creator => Some(creator),
             MigratedTransferFeeAuthorityOption::Partner => Some(partner),
-        }
+        };
+        // if authority is Pubkey::default, the authority will be revoked
+        authority.filter(|authority| authority.ne(&Pubkey::default()))
     }
 
     pub fn should_zero_fee(&self) -> bool {
