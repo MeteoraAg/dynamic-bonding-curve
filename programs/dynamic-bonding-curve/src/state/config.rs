@@ -18,6 +18,7 @@ use crate::{
         calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
         BaseFeeMode as DammV2BaseFeeMode, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
     },
+    migration_handler::MigratedCollectFeeMode,
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
@@ -1057,6 +1058,40 @@ impl PoolConfig {
 
     pub fn is_fixed_token_supply(&self) -> bool {
         self.fixed_token_supply_flag == 1
+    }
+
+    pub fn is_constant_token_supply(&self) -> bool {
+        self.is_fixed_token_supply()
+            && self.pre_migration_token_supply == self.post_migration_token_supply
+    }
+
+    /// config with a transfer fee must follow the restrictions applied in create_config2
+    pub fn validate_transfer_fee_restrictions(&self) -> Result<()> {
+        require!(
+            self.is_constant_token_supply(),
+            PoolError::InvalidTokenSupply
+        );
+        require!(
+            !self
+                .locked_vesting_config
+                .to_locked_vesting_params()
+                .has_vesting(),
+            PoolError::InvalidVestingParameters
+        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+        require!(
+            migration_fee_option == MigrationFeeOption::Customizable,
+            PoolError::InvalidMigrationFeeOption
+        );
+        let migrated_collect_fee_mode =
+            MigratedCollectFeeMode::try_from(self.migrated_collect_fee_mode)
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        require!(
+            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
+            PoolError::InvalidMigratedPoolFee
+        );
+        Ok(())
     }
 
     pub fn get_liquidity_distribution(&self, liquidity: u128) -> Result<LiquidityDistribution> {
