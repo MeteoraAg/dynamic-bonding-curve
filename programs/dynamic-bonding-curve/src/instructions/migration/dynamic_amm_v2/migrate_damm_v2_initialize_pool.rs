@@ -905,6 +905,9 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
 
+    // the rest of this handler relies on these restrictions
+    config.validate_transfer_fee_restrictions()?;
+
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
@@ -1142,7 +1145,7 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
         protocol_migration_quote_fee,
     );
 
-    // the config is required to have a constant token supply when it has transfer fee,
+    // validate_transfer_fee_restrictions requires a constant token supply,
     // so there is no base token to burn here. the base that is not sent to the migrated pool
     // is attributed to the protocol above, so the leftover receiver gets the rest
 

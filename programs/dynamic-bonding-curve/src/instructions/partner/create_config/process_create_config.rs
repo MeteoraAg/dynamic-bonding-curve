@@ -42,7 +42,7 @@ use crate::{
     },
     token::{
         calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
-        validate_quote_mint_with_token_badge,
+        has_transfer_fee_or_config_authority, validate_quote_mint_with_token_badge,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
@@ -591,12 +591,6 @@ impl ConfigParameters {
 
         Ok(())
     }
-
-    pub fn is_constant_token_supply(&self) -> bool {
-        self.token_supply.as_ref().map_or(false, |token_supply| {
-            token_supply.pre_migration_token_supply == token_supply.post_migration_token_supply
-        })
-    }
 }
 
 pub struct CreateConfigResult {
@@ -814,6 +808,12 @@ pub fn process_create_config(
     )?;
 
     config.set_base_transfer_fee(transfer_fee_parameters);
+
+    if transfer_fee_parameters.has_transfer_fee()
+        || has_transfer_fee_or_config_authority(&quote_mint.to_account_info())?
+    {
+        config.validate_transfer_fee_restrictions()?;
+    }
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

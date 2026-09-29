@@ -1,11 +1,8 @@
 use anchor_lang::prelude::*;
 
+use crate::event::EvtCreateConfig3;
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
-use crate::{
-    event::EvtCreateConfig3, migration_handler::MigratedCollectFeeMode, state::MigrationFeeOption,
-    token::has_transfer_fee_or_config_authority, PoolError,
-};
 
 use super::{process_create_config, ConfigParameters, CreateConfigCtx, TransferFeeParameters};
 
@@ -23,36 +20,6 @@ pub fn handle_create_config2<'info>(
         false,
     )?;
     transfer_fee_parameters.validate(config_parameters.token_type)?;
-
-    let has_transfer_fee = transfer_fee_parameters.has_transfer_fee()
-        || has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?;
-
-    if has_transfer_fee {
-        // require certain config parameters when config has transfer fee
-
-        require!(
-            config_parameters.is_constant_token_supply(),
-            PoolError::InvalidTokenSupply
-        );
-        require!(
-            !config_parameters.locked_vesting.has_vesting(),
-            PoolError::InvalidVestingParameters
-        );
-        let migration_fee_option =
-            MigrationFeeOption::try_from(config_parameters.migration_fee_option)
-                .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-        require!(
-            migration_fee_option == MigrationFeeOption::Customizable,
-            PoolError::InvalidMigrationFeeOption
-        );
-        let migrated_collect_fee_mode =
-            MigratedCollectFeeMode::try_from(config_parameters.migrated_pool_fee.collect_fee_mode)
-                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        require!(
-            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
-            PoolError::InvalidMigratedPoolFee
-        );
-    }
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
