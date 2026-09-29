@@ -24,9 +24,7 @@ pub fn create_account<'info>(
     };
     let rent = Rent::get()?;
     // If the account being initialized already has lamports, then
-    // return them all back to the payer so that the account has
-    // zero lamports when the system program's create instruction
-    // is eventually called.
+    // fund the required lamports for rent exemption, allocate and assign
     let current_lamports = account.lamports();
     if current_lamports == 0 {
         let lamports = rent.minimum_balance(space);
