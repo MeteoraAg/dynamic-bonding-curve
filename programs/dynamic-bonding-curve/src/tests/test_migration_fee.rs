@@ -267,3 +267,35 @@ fn test_equal_transfer_fee_rates_leave_no_surplus() {
     assert_eq!(base_surplus, 0);
     assert!(quote_surplus > 0);
 }
+
+proptest! {
+    #[test]
+    fn test_compounding_deposit_amounts_price_at_or_below_budget_ratio(
+        base_budget in 1u64..u64::MAX,
+        quote_budget in 1u64..u64::MAX,
+        base_retained_bps in 1u64..=BASIS_POINT_MAX,
+        quote_retained_bps in 1u64..=BASIS_POINT_MAX,
+    ) {
+        let liquidity_handler = CompoundingLiquidity {
+            migration_sqrt_price: MIN_SQRT_PRICE,
+        };
+        let base_amount = safe_mul_div_cast_u64(base_budget, base_retained_bps, BASIS_POINT_MAX, Rounding::Down).unwrap();
+        let quote_amount = safe_mul_div_cast_u64(quote_budget, quote_retained_bps, BASIS_POINT_MAX, Rounding::Down).unwrap();
+
+        let Ok((deposit_base, deposit_quote)) = liquidity_handler.get_migration_deposit_amounts(
+            base_budget,
+            quote_budget,
+            base_amount,
+            quote_amount,
+        ) else {
+            return Ok(());
+        };
+
+        assert!(deposit_base <= base_amount);
+        assert!(deposit_quote <= quote_amount);
+        assert!(
+            u128::from(deposit_quote).safe_mul(base_budget.into()).unwrap()
+                <= u128::from(quote_budget).safe_mul(deposit_base.into()).unwrap()
+        );
+    }
+}

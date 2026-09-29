@@ -173,7 +173,8 @@ impl MigrationHandler for CompoundingLiquidity {
     ) -> Result<(u64, u64)> {
         // the price is derived from the deposited amounts. a transfer fee reduces what damm v2 receives on that side,
         // so the side that loses the larger share due to the transfer fee is deposited as is
-        // the other side is reduced by the same proportion, so the ratio between them and the initial price stays unchanged
+        // the other side is scaled by the same proportion, rounded so the price stays at or below the budget ratio
+        // this follows `get_constant_product_base_from_quote`, which rounds base up so the budget ratio is at or below the migration price
         if base_amount == base_budget && quote_amount == quote_budget {
             return Ok((base_budget, quote_budget));
         }
@@ -189,7 +190,7 @@ impl MigrationHandler for CompoundingLiquidity {
             )
         } else {
             (
-                safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Down)?,
+                safe_mul_div_cast_u64(base_budget, quote_amount, quote_budget, Rounding::Up)?,
                 quote_amount,
             )
         };
