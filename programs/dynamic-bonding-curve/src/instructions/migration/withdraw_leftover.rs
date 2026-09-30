@@ -2,8 +2,15 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda, event::EvtWithdrawLeftover, safe_math::SafeMath, state::MigrationProgress,
-    token::transfer_token_from_pool_authority, ConfigAccountLoader, PoolAccountLoader, PoolError,
+    const_pda,
+    event::EvtWithdrawLeftover,
+    safe_math::SafeMath,
+    state::MigrationProgress,
+    token::{
+        calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee,
+        transfer_token_from_pool_authority,
+    },
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for withdraw leftover
@@ -38,7 +45,7 @@ pub struct WithdrawLeftoverCtx<'info> {
     /// The mint of quote token
     pub base_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// CHECK: leftover receiver
+    /// CHECK: leftover receiver must sign when the withdrawal charges a transfer fee
     pub leftover_receiver: UncheckedAccount<'info>,
 
     /// Token base program
@@ -96,6 +103,18 @@ pub fn handle_withdraw_leftover<'info>(
         .amount
         .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?
         .safe_sub(virtual_pool.protocol_migration_base_fee_amount)?;
+
+    let base_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.base_mint.to_account_info())?;
+    let transfer_fee =
+        calculate_transfer_fee_excluded_amount(base_transfer_fee.as_ref(), leftover_amount)?
+            .transfer_fee;
+
+    if transfer_fee > 0 {
+        require!(
+            ctx.accounts.leftover_receiver.is_signer,
+            ErrorCode::AccountNotSigner
+        );
+    }
 
     transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
