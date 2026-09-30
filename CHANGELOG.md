@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the deprecated `EvtCreateConfig` event. The `create_config` endpoint no longer emits the event. Indexers must consume `EvtCreateConfigV2` or `EvtCreateConfig3`.
 
+### Fixed
+
+- Endpoints `create_config`, `create_config2` and `create_config_with_transfer_hook` reject a `Pubkey::default()` fee claimer with the error `InvalidFeeClaimer` when the token type is Token-2022 and `token_update_authority` is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority`. Previously such a config was created successfully and every pool initialization from it failed, because Token-2022 rejects the `Pubkey::default()` as an authority.
+
 ### Breaking Changes
 
 - Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `QuoteMintHasNonZeroTransferFee`, even with a token badge. A badged quote mint with a `TransferFeeConfig` extension and a zero fee was previously accepted by these endpoints. Such a quote mint is now only accepted by `create_config2`.

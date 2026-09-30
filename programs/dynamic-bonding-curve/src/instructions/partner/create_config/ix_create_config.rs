@@ -44,6 +44,7 @@ pub fn handle_create_config<'info>(
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
+        ctx.accounts.fee_claimer.key,
     )?;
 
     require!(

@@ -277,4 +277,7 @@ pub enum PoolError {
 
     #[msg("Legacy config does not support a quote mint that requires a token badge")]
     UnsupportedLegacyConfig,
+
+    #[msg("Invalid fee claimer")]
+    InvalidFeeClaimer,
 }

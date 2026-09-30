@@ -408,6 +408,14 @@ impl TokenAuthorityOption {
         )
     }
 
+    pub fn is_partner_authority(&self) -> bool {
+        matches!(
+            *self,
+            TokenAuthorityOption::PartnerUpdateAuthority
+                | TokenAuthorityOption::PartnerUpdateAndMintAuthority
+        )
+    }
+
     pub fn get_mint_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
         match *self {
             TokenAuthorityOption::CreatorUpdateAndMintAuthority => Some(creator),

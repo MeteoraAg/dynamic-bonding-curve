@@ -165,6 +165,39 @@ describe("Token authority with token2022", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
+  it("Token2022: PartnerUpdateAuthority with a zero fee claimer is rejected at config creation", async () => {
+    const tokenUpdateAuthority = 2;
+    const tokenType = 1;
+
+    const errorCode = getDbcProgramErrorCodeHexString("InvalidFeeClaimer");
+    await expectThrowsAsync(async () => {
+      await createPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        tokenUpdateAuthority,
+        tokenType,
+        PublicKey.default
+      );
+    }, errorCode);
+  });
+
+  it("Token2022: CreatorUpdateAuthority with a zero fee claimer is accepted", async () => {
+    const tokenUpdateAuthority = 0;
+    const tokenType = 1;
+
+    await createPool(
+      svm,
+      program,
+      partner,
+      poolCreator,
+      tokenUpdateAuthority,
+      tokenType,
+      PublicKey.default
+    );
+  });
+
   it("Token2022: CreatorUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 3;
     const tokenType = 1;
@@ -312,6 +345,20 @@ describe("Token authority with transfer-hook token2022", () => {
       partner.publicKey.toString()
     );
   });
+
+  it("Transfer hook: PartnerUpdateAndMintAuthority with a zero fee claimer is rejected at config creation", async () => {
+    const errorCode = getDbcProgramErrorCodeHexString("InvalidFeeClaimer");
+    await expectThrowsAsync(async () => {
+      await createTransferHookPool(
+        svm,
+        program,
+        partner,
+        poolCreator,
+        4,
+        PublicKey.default
+      );
+    }, errorCode);
+  });
 });
 
 describe("Token authority with spl token", () => {
@@ -438,6 +485,21 @@ describe("Token authority with spl token", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
+  it("Spl token: PartnerUpdateAuthority with a zero fee claimer is accepted", async () => {
+    const tokenUpdateAuthority = 2;
+    const tokenType = 0;
+
+    await createPool(
+      svm,
+      program,
+      partner,
+      poolCreator,
+      tokenUpdateAuthority,
+      tokenType,
+      PublicKey.default
+    );
+  });
+
   it("Spl token: CreatorUpdateAndMintAuthority is rejected at config creation", async () => {
     const tokenUpdateAuthority = 3;
     const tokenType = 0;
@@ -483,7 +545,8 @@ async function createPool(
   partner: Keypair,
   user: Keypair,
   tokenUpdateAuthority: number,
-  tokenType: number
+  tokenType: number,
+  feeClaimer: PublicKey = partner.publicKey
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
     cliffFeeNumerator: new BN(2_500_000),
@@ -569,7 +632,7 @@ async function createPool(
   const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
-    feeClaimer: partner.publicKey,
+    feeClaimer,
     quoteMint: NATIVE_MINT,
     instructionParams,
   };
@@ -611,7 +674,8 @@ async function createTransferHookPool(
   program: VirtualCurveProgram,
   partner: Keypair,
   user: Keypair,
-  tokenUpdateAuthority: number
+  tokenUpdateAuthority: number,
+  feeClaimer: PublicKey = partner.publicKey
 ): Promise<PublicKey> {
   const baseFee: BaseFee = {
     cliffFeeNumerator: new BN(2_500_000),
@@ -697,7 +761,7 @@ async function createTransferHookPool(
   const params: CreateConfigWithTransferHookParams = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
-    feeClaimer: partner.publicKey,
+    feeClaimer,
     quoteMint: NATIVE_MINT,
     instructionParams,
     transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
