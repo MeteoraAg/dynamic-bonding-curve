@@ -271,4 +271,7 @@ pub enum PoolError {
 
     #[msg("Invalid transfer fee parameters")]
     InvalidTransferFeeParameters,
+
+    #[msg("Legacy config does not support a quote mint that requires a token badge")]
+    UnsupportedLegacyConfig,
 }

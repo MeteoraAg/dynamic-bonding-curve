@@ -643,8 +643,24 @@ fn validate_config_key(
 }
 
 pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
+    let is_legacy_config = ConfigAccountLoader::try_from(&ctx.accounts.config)?
+        .load()?
+        .is_legacy_config();
+
     let base_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.base_mint.to_account_info())?;
     let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
+
+    if is_legacy_config {
+        // legacy configs were not checked against the transfer fee restrictions, so they must use
+        // the original path, which does not handle transfer fee
+        let has_quote_transfer_fee =
+            quote_transfer_fee.map_or(false, |fee| u16::from(fee.transfer_fee_basis_points) > 0);
+        require!(
+            !has_quote_transfer_fee,
+            PoolError::QuoteMintHasNonZeroTransferFee
+        );
+        return process_migrate_damm_v2(ctx);
+    }
 
     let has_base_transfer_fee =
         base_transfer_fee.map_or(false, |fee| u16::from(fee.transfer_fee_basis_points) > 0);

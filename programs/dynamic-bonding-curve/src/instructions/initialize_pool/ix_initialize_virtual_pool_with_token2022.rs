@@ -10,9 +10,10 @@ use crate::{
     event::EvtInitializePool,
     state::{PoolConfig, PoolType, VirtualPool},
     token::{
-        create_token_2022_base_mint, create_token_2022_base_vault,
+        create_token_2022_base_mint, create_token_2022_base_vault, is_supported_quote_mint,
         validate_quote_mint_with_token_badge, BaseMintTransferFee,
     },
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -103,9 +104,15 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    let config = ctx.accounts.config.load()?;
+
+    require!(
+        !config.is_legacy_config() || is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::UnsupportedLegacyConfig
+    );
+
     validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
 
-    let config = ctx.accounts.config.load()?;
     let decimals = config.token_decimal;
     let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;
     drop(config);
