@@ -37,6 +37,7 @@ pub struct CreateTokenBadgeCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// a token badge relies on trust in the management of the mint
 pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
     require!(
         !is_supported_quote_mint(&ctx.accounts.token_mint)?,
