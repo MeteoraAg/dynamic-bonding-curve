@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Config creation now sets `PoolConfig.version` to 1. Configs with version 0 are legacy configs.
 - Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_trading_fee2`, `claim_creator_trading_fee`, `claim_creator_trading_fee2`, `claim_protocol_fee2`, `partner_withdraw_surplus`, `creator_withdraw_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
 - Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `QuoteMintHasNonZeroTransferFee`, even with a token badge. Such a quote mint is only accepted by `create_config2`. Previously a badged quote mint with a `TransferFeeConfig` extension and a zero fee was accepted by these endpoints.
 - Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
@@ -42,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When a transfer fee is involved, the endpoint `migration_damm_v2` makes a single transfer per mint. The whole migrated liquidity is deposited into the first position, and the second position is carved out of it with `split_position2`, which moves liquidity between positions without transferring tokens. Each mint therefore pays its transfer fee once instead of once per position so more of the budget reaches the migrated pool.
 - For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
 - Endpoint `withdraw_leftover` requires the signature of `leftover_receiver` when the transfer fee on the leftover is non-zero. The endpoint stays permissionless when the transfer fee is zero.
+- Endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a legacy config whose quote mint requires a token badge with `UnsupportedLegacyConfig`. Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` also rejects a quote mint with a non-zero transfer fee or a live transfer fee config authority.
+- Endpoint `migration_damm_v2` migrates a legacy config without transfer fee handling and rejects a non-zero quote transfer fee. For other configs, it rejects a config that does not meet the transfer fee restrictions when a transfer fee applies.
 - Endpoint `create_config` emits the new `EvtCreateConfig3` event in addition to `EvtCreateConfigV2`. Endpoint `create_config2` emits the same pair, so an indexer that follows only one of the two events sees every config from these two endpoints. Endpoint `create_config_with_transfer_hook` still emits only `EvtCreateConfigV2WithTransferHook`.
 
 ### Deprecated
