@@ -692,7 +692,10 @@ pub fn process_create_config(
         let excluded_protocol_fee_migration_quote_amount =
             included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-        // limitation: the quote transfer fee validation is a snapshot of the current epoch, it can change before migration
+        // limitation:  the token badge relies on trust in the quote mint management
+        // the quote transfer fee validation is a snapshot of the current epoch, it can change before migration
+        // a higher fee at migration can reduce the migrated liquidity, add the undeposited base to the protocol migration fee,
+        // move the price outside the tolerance because of rounding, or block the migration
         let quote_transfer_fee = get_epoch_transfer_fee(&quote_mint.to_account_info())?;
 
         let excluded_transfer_fee_migration_base_amount = calculate_transfer_fee_excluded_amount(
