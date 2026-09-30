@@ -275,10 +275,16 @@ describe("Create config2", () => {
       expect(configState.migrationFeeOption).eq(
         CUSTOMIZABLE_MIGRATION_FEE_OPTION
       );
+      expect(configState.version).eq(1);
     });
   }
 
   function itIsNotRestricted(create: () => CreateWithOverrides) {
+    it("Sets the config version", async () => {
+      const config = await create()({});
+      expect(getConfig(svm, program, config).version).eq(1);
+    });
+
     it("Accepts a non-fixed token supply", async () => {
       const config = await create()({ tokenSupply: null });
       expect(getConfig(svm, program, config).fixedTokenSupplyFlag).eq(0);

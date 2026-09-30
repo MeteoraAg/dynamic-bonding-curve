@@ -12,7 +12,7 @@ use crate::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASE_TRANSFER_FEE, MAX_BASIS_POINT,
             MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
         },
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
+        CONFIG_VERSION, MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     damm_v2_utils::{
         calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
@@ -602,7 +602,7 @@ pub struct PoolConfig {
     pub activation_type: u8,
     /// token decimals
     pub token_decimal: u8,
-    /// version
+    /// config version, see `CONFIG_VERSION`
     pub version: u8,
     /// token type of base token
     pub token_type: u8,
@@ -849,7 +849,7 @@ impl PoolConfig {
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
     ) -> Result<()> {
-        self.version = 0;
+        self.version = CONFIG_VERSION;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.leftover_receiver = *leftover_receiver;
@@ -1058,6 +1058,11 @@ impl PoolConfig {
 
     pub fn is_fixed_token_supply(&self) -> bool {
         self.fixed_token_supply_flag == 1
+    }
+
+    /// legacy configs were created before the transfer fee restrictions
+    pub fn is_legacy_config(&self) -> bool {
+        self.version == 0
     }
 
     pub fn is_constant_token_supply(&self) -> bool {
