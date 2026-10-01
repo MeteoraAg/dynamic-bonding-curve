@@ -6,6 +6,7 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
+    auth,
     base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{
@@ -468,9 +469,9 @@ pub enum MigratedTransferFeeAuthorityOption {
     Immutable,
     /// Schedule the fee to zero, then revoke the authority. The fee change takes 2 epoch to land after migration
     RevokeZeroFee,
-    /// Set authority to the pool creator.
+    /// Set authority to the pool creator. Revoked if the creator is Pubkey::default()
     Creator,
-    /// Set authority to the partner.
+    /// Set authority to the partner. Revoked if the partner is Pubkey::default(), which should not be possible
     Partner,
 }
 
@@ -480,12 +481,15 @@ impl MigratedTransferFeeAuthorityOption {
     }
 
     pub fn get_migrated_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
-        match *self {
+        let authority = match *self {
             MigratedTransferFeeAuthorityOption::Immutable
             | MigratedTransferFeeAuthorityOption::RevokeZeroFee => None,
             MigratedTransferFeeAuthorityOption::Creator => Some(creator),
             MigratedTransferFeeAuthorityOption::Partner => Some(partner),
-        }
+        };
+
+        // can be Pubkey::default() if pool creator transfer_pool_creator to Pubkey::default to revoke their pool creator authority
+        authority.filter(|authority| authority.ne(&Pubkey::default()))
     }
 
     pub fn should_zero_fee(&self) -> bool {
