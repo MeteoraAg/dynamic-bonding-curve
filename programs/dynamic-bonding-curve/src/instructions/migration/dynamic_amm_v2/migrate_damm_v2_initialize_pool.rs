@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::token::{
     calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee,
-    has_transfer_fee_or_config_authority,
+    has_transfer_fee_or_config_authority, ZeroTransferFee,
 };
 use crate::{
     activation_handler::ActivationType,
@@ -653,8 +653,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     if is_legacy_config {
         // legacy configs were not checked against the transfer fee restrictions, so they must use
         // the original path, which does not handle transfer fee
-        let has_quote_transfer_fee =
-            quote_transfer_fee.map_or(false, |fee| u16::from(fee.transfer_fee_basis_points) > 0);
+        let has_quote_transfer_fee = quote_transfer_fee.map_or(false, |fee| !fee.is_zero());
         require!(
             !has_quote_transfer_fee,
             PoolError::QuoteMintHasNonZeroTransferFee
@@ -662,8 +661,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         return process_migrate_damm_v2(ctx);
     }
 
-    let has_base_transfer_fee =
-        base_transfer_fee.map_or(false, |fee| u16::from(fee.transfer_fee_basis_points) > 0);
+    let has_base_transfer_fee = base_transfer_fee.map_or(false, |fee| !fee.is_zero());
     if has_base_transfer_fee
         || has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?
     {
