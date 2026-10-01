@@ -271,4 +271,7 @@ pub enum PoolError {
 
     #[msg("Invalid transfer fee parameters")]
     InvalidTransferFeeParameters,
+
+    #[msg("Required input amount exceeds the provided amount in")]
+    ExceededInputAmount,
 }

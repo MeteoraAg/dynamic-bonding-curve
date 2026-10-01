@@ -53,7 +53,7 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
     // On a partial fill with an active rate limiter, rounding in the fee inverse can make the reconstructed input exceed amount_in
     require!(
         included_transfer_fee_amount_in <= amount_in,
-        PoolError::ExceededSlippage
+        PoolError::ExceededInputAmount
     );
 
     Ok(ProcessSwapResult {
