@@ -563,9 +563,10 @@ export async function withdrawLeftover(
   params: {
     payer: Keypair;
     virtualPool: PublicKey;
+    leftoverReceiver?: Keypair;
   }
 ): Promise<any> {
-  const { payer, virtualPool } = params;
+  const { payer, virtualPool, leftoverReceiver } = params;
   const poolState = getVirtualPool(svm, program, virtualPool);
   const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
@@ -601,7 +602,8 @@ export async function withdrawLeftover(
     .postInstructions(postInstructions)
     .transaction();
 
-  sendTransactionMaybeThrow(svm, transaction, [payer]);
+  const signers = leftoverReceiver ? [payer, leftoverReceiver] : [payer];
+  sendTransactionMaybeThrow(svm, transaction, signers);
 }
 
 export type PartnerWithdrawMigrationFeeParams = {

@@ -121,7 +121,7 @@ type MigratedState = {
   baseVault: PublicKey;
   // base vault balance right before migration
   preMigrationBaseVaultAmount: bigint;
-  leftoverReceiver: PublicKey;
+  leftoverReceiver: Keypair;
   poolCreator: Keypair;
   feeClaimer: PublicKey;
 };
@@ -376,7 +376,7 @@ async function setupPool(
     quoteVault: poolState.quoteVault,
     baseVault: poolState.baseVault,
     preMigrationBaseVaultAmount,
-    leftoverReceiver: partner.publicKey,
+    leftoverReceiver: partner,
     poolCreator,
     feeClaimer: partner.publicKey,
   };
@@ -678,7 +678,7 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           const leftover = baseLeftover(feeFixed);
           const receiverAccount = getAssociatedTokenAddressSync(
             feeFixed.baseMint,
-            feeFixed.leftoverReceiver,
+            feeFixed.leftoverReceiver.publicKey,
             true,
             TOKEN_2022_PROGRAM_ID
           );
@@ -687,6 +687,7 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           await withdrawLeftover(feeFixed.svm, feeFixed.program, {
             payer: feeFixed.admin,
             virtualPool: feeFixed.virtualPool,
+            leftoverReceiver: feeFixed.leftoverReceiver,
           });
 
           const received =
@@ -912,6 +913,118 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         TOKEN_2022_PROGRAM_ID
       );
       expect(getTransferFeeConfig(mint)).eq(null);
+    });
+  });
+
+  describe("withdraw leftover authorization", () => {
+    function receiverAccount(state: MigratedState): PublicKey {
+      return getAssociatedTokenAddressSync(
+        state.baseMint,
+        state.leftoverReceiver.publicKey,
+        true,
+        TOKEN_2022_PROGRAM_ID
+      );
+    }
+
+    it("rejects a permissionless withdrawal that charges a base transfer fee", async () => {
+      const state = await setupPool({
+        baseFeeBasisPoints: BASE_FEE_BPS,
+        quoteFeeBasisPoints: 0,
+      });
+      const leftover = baseLeftover(state);
+
+      await expectThrowsAsync(
+        () =>
+          withdrawLeftover(state.svm, state.program, {
+            payer: state.admin,
+            virtualPool: state.virtualPool,
+          }),
+        "AccountNotSigner"
+      );
+      expect(baseLeftover(state).toString()).eq(leftover.toString());
+      expect(
+        getVirtualPool(state.svm, state.program, state.virtualPool)
+          .isWithdrawLeftover
+      ).eq(0);
+    });
+
+    it("allows a permissionless withdrawal when the base mint has no transfer fee", async () => {
+      const state = await setupPool({
+        baseFeeBasisPoints: 0,
+        quoteFeeBasisPoints: QUOTE_FEE_BPS,
+      });
+      const leftover = baseLeftover(state);
+      const preReceiver = balanceOf(state.svm, receiverAccount(state));
+
+      await withdrawLeftover(state.svm, state.program, {
+        payer: state.admin,
+        virtualPool: state.virtualPool,
+      });
+
+      const received =
+        balanceOf(state.svm, receiverAccount(state)) - preReceiver;
+      expect(received.toString()).eq(leftover.toString());
+    });
+
+    it("waits for the zero fee of RevokeZeroFee before a permissionless withdrawal", async () => {
+      const state = await setupPool({
+        baseFeeBasisPoints: BASE_FEE_BPS,
+        quoteFeeBasisPoints: 0,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.RevokeZeroFee,
+      });
+      const leftover = baseLeftover(state);
+
+      await expectThrowsAsync(
+        () =>
+          withdrawLeftover(state.svm, state.program, {
+            payer: state.admin,
+            virtualPool: state.virtualPool,
+          }),
+        "AccountNotSigner"
+      );
+
+      warpEpochBy(state.svm, 2);
+      const preReceiver = balanceOf(state.svm, receiverAccount(state));
+      await withdrawLeftover(state.svm, state.program, {
+        payer: state.admin,
+        virtualPool: state.virtualPool,
+      });
+
+      const received =
+        balanceOf(state.svm, receiverAccount(state)) - preReceiver;
+      expect(received.toString()).eq(leftover.toString());
+    });
+
+    it("rejects a permissionless withdrawal after the fee authority raises the fee", async () => {
+      const state = await setupPool({
+        baseFeeBasisPoints: BASE_FEE_BPS,
+        quoteFeeBasisPoints: 0,
+        migratedTransferFeeAuthorityOption:
+          MigratedTransferFeeAuthorityOption.Creator,
+      });
+      setTransferFee(
+        state.svm,
+        state.poolCreator,
+        state.baseMint,
+        state.poolCreator,
+        10_000,
+        NO_CAP
+      );
+      warpEpochBy(state.svm, 2);
+
+      await expectThrowsAsync(
+        () =>
+          withdrawLeftover(state.svm, state.program, {
+            payer: state.poolCreator,
+            virtualPool: state.virtualPool,
+          }),
+        "AccountNotSigner"
+      );
+      expect(
+        getVirtualPool(state.svm, state.program, state.virtualPool)
+          .isWithdrawLeftover
+      ).eq(0);
     });
   });
 
