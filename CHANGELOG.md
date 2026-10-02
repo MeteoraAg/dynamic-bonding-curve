@@ -54,13 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the deprecated `EvtCreateConfig` event. The `create_config` endpoint no longer emits the event. Indexers must consume `EvtCreateConfigV2` or `EvtCreateConfig3`.
 
-### Fixed
-
-- Endpoints `create_config`, `create_config2` and `create_config_with_transfer_hook` reject a `Pubkey::default()` fee claimer with the error `InvalidFeeClaimer` when the token type is Token-2022 and `token_update_authority` is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority`. Previously such a config was created successfully and every pool initialization from it failed, because Token-2022 rejects the `Pubkey::default()` as an authority.
-
 ### Breaking Changes
 
 - Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `QuoteMintHasNonZeroTransferFee`, even with a token badge. A badged quote mint with a `TransferFeeConfig` extension and a zero fee was previously accepted by these endpoints. Such a quote mint is now only accepted by `create_config2`.
+- Endpoints `create_config`, `create_config2` and `create_config_with_transfer_hook` reject a `Pubkey::default()` fee claimer with the error `InvalidFeeClaimer` when the token type is Token-2022 and `token_update_authority` is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority`. Previously such a config was created successfully with the `create_config` and `create_config_with_transfer_hook` endpoints, but every pool initialization from it failed, because Token-2022 rejects the `Pubkey::default()` as an authority.
 - A base token transfer hook cannot be combined with a quote mint that has a non-zero transfer fee or a live transfer fee config authority. The endpoint `create_config_with_transfer_hook` rejects such a quote mint, and `create_config2` accepts it but does not take a transfer hook program.
 - Endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a legacy config whose quote mint requires a token badge with the error `UnsupportedLegacyConfig`, so an existing config with a badged quote mint can no longer create a pool.
 - Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` rejects a quote mint with a live transfer fee config authority, which was previously accepted with a token badge. A quote mint with a non-zero transfer fee was already rejected on this endpoint.
