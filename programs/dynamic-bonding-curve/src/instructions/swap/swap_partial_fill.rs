@@ -50,6 +50,12 @@ pub fn process_swap_partial_fill(params: ProcessSwapParams<'_>) -> Result<Proces
         .amount
     };
 
+    // On a partial fill with an active rate limiter, rounding in the fee inverse can make the reconstructed input exceed amount_in
+    require!(
+        included_transfer_fee_amount_in <= amount_in,
+        PoolError::ExceededInputAmount
+    );
+
     Ok(ProcessSwapResult {
         swap_result,
         // For backward compatibility because we are emitting EvtSwap and EvtSwap2

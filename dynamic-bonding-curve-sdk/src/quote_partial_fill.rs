@@ -70,6 +70,13 @@ pub fn quote_partial_fill(
         )?
         .amount
     };
+
+    // On a partial fill with an active rate limiter, rounding in the fee inverse can make the reconstructed input exceed in_amount
+    ensure!(
+        included_transfer_fee_amount_in <= in_amount,
+        "exceeded input amount"
+    );
+
     let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
         output_transfer_fee.as_ref(),
         swap_result.output_amount,
