@@ -1,5 +1,11 @@
 use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
-use anchor_spl::token_interface::Mint;
+use anchor_spl::{
+    token_2022::spl_token_2022::extension::transfer_fee::TransferFee,
+    token_interface::{
+        spl_pod::primitives::{PodU16, PodU64},
+        Mint,
+    },
+};
 use damm_v2::constants::MAX_BASIS_POINT;
 use locker::types::CreateVestingEscrowParameters;
 use static_assertions::const_assert_eq;
@@ -7,7 +13,10 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        fee::{MAX_POOL_CREATION_FEE, MIN_POOL_CREATION_FEE, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS},
+        fee::{
+            MAX_BASE_TRANSFER_FEE, MAX_BASE_TRANSFER_FEE_BPS, MAX_POOL_CREATION_FEE,
+            MIN_POOL_CREATION_FEE, PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        },
         MAX_CURVE_POINT, MAX_LOCK_DURATION_IN_SECONDS, MAX_MIGRATED_POOL_FEE_BPS,
         MAX_MIGRATION_FEE_PERCENTAGE, MAX_SQRT_PRICE, MIN_LOCKED_LIQUIDITY_BPS,
         MIN_MIGRATED_POOL_FEE_BPS, MIN_SQRT_PRICE,
@@ -27,10 +36,14 @@ use crate::{
     },
     safe_math::{SafeCast, SafeMath},
     state::{
-        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig, MigrationFeeOption,
-        MigrationOption, PoolConfig, TokenAuthorityOption, TokenType,
+        CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig,
+        MigratedTransferFeeAuthorityOption, MigrationFeeOption, MigrationOption, PoolConfig,
+        TokenAuthorityOption, TokenType, TransferFeeWithheldAuthority,
     },
-    token::{get_token_program_flags, validate_quote_mint_with_token_badge},
+    token::{
+        calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
+        validate_quote_mint_with_token_badge,
+    },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
     PoolError,
@@ -156,8 +169,9 @@ impl MigratedPoolFeeValidator {
 
         match migrated_collect_fee_mode {
             MigratedCollectFeeMode::Compounding => {
+                // compounding_fee_bps = 0 collects the whole trading fee in quote token
                 require!(
-                    self.compounding_fee_bps > 0 && self.compounding_fee_bps <= MAX_BASIS_POINT,
+                    self.compounding_fee_bps <= MAX_BASIS_POINT,
                     PoolError::InvalidMigratedPoolFee
                 );
             }
@@ -236,6 +250,70 @@ pub struct MigratedPoolMarketCapFeeSchedulerParams {
 }
 
 const_assert_eq!(MigratedPoolMarketCapFeeSchedulerParams::INIT_SPACE, 16);
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, InitSpace)]
+pub struct TransferFeeParameters {
+    pub transfer_fee_basis_points: u16,
+    pub withheld_authority: u8,
+    pub migrated_transfer_fee_authority_option: u8,
+}
+
+const_assert_eq!(TransferFeeParameters::INIT_SPACE, 4);
+
+impl TransferFeeParameters {
+    pub fn has_transfer_fee(&self) -> bool {
+        self.transfer_fee_basis_points > 0
+    }
+
+    pub fn to_transfer_fee(&self) -> Option<TransferFee> {
+        if !self.has_transfer_fee() {
+            return None;
+        }
+        Some(TransferFee {
+            epoch: PodU64::from(0),
+            transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
+            maximum_fee: PodU64::from(MAX_BASE_TRANSFER_FEE),
+        })
+    }
+
+    pub fn validate(&self, token_type: u8) -> Result<()> {
+        if !self.has_transfer_fee() {
+            require!(
+                self.withheld_authority == 0,
+                PoolError::InvalidTransferFeeParameters
+            );
+            require!(
+                self.migrated_transfer_fee_authority_option == 0,
+                PoolError::InvalidTransferFeeParameters
+            );
+            return Ok(());
+        }
+
+        let token_type =
+            TokenType::try_from(token_type).map_err(|_| PoolError::InvalidTokenType)?;
+
+        require!(
+            token_type == TokenType::Token2022,
+            PoolError::InvalidTokenType
+        );
+        require!(
+            self.transfer_fee_basis_points <= MAX_BASE_TRANSFER_FEE_BPS,
+            PoolError::InvalidTransferFeeParameters
+        );
+        require!(
+            TransferFeeWithheldAuthority::try_from(self.withheld_authority).is_ok(),
+            PoolError::InvalidTransferFeeParameters
+        );
+        require!(
+            MigratedTransferFeeAuthorityOption::try_from(
+                self.migrated_transfer_fee_authority_option
+            )
+            .is_ok(),
+            PoolError::InvalidTransferFeeParameters
+        );
+        Ok(())
+    }
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub struct TokenSupplyParams {
@@ -513,6 +591,12 @@ impl ConfigParameters {
 
         Ok(())
     }
+
+    pub fn is_constant_token_supply(&self) -> bool {
+        self.token_supply.as_ref().map_or(false, |token_supply| {
+            token_supply.pre_migration_token_supply == token_supply.post_migration_token_supply
+        })
+    }
 }
 
 pub struct CreateConfigResult {
@@ -526,6 +610,7 @@ pub struct CreateConfigResult {
 pub fn process_create_config(
     config: &mut PoolConfig,
     config_parameters: &ConfigParameters,
+    transfer_fee_parameters: &TransferFeeParameters,
     quote_mint: &InterfaceAccount<'_, Mint>,
     fee_claimer: &Pubkey,
     leftover_receiver: &Pubkey,
@@ -595,6 +680,8 @@ pub fn process_create_config(
         PoolError::InvalidCurve
     );
 
+    let base_transfer_fee = transfer_fee_parameters.to_transfer_fee();
+
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let compounding_liquidity = CompoundingLiquidity {
             migration_sqrt_price,
@@ -611,9 +698,31 @@ pub fn process_create_config(
         let excluded_protocol_fee_migration_quote_amount =
             included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-        CompoundingLiquidity::validate_initial_pool_information(
+        // limitation: the quote transfer fee validation is a snapshot of the current epoch, it can change before migration
+        let quote_transfer_fee = get_epoch_transfer_fee(&quote_mint.to_account_info())?;
+
+        let excluded_transfer_fee_migration_base_amount = calculate_transfer_fee_excluded_amount(
+            base_transfer_fee.as_ref(),
             excluded_protocol_fee_migration_base_amount,
+        )?
+        .amount;
+        let excluded_transfer_fee_migration_quote_amount = calculate_transfer_fee_excluded_amount(
+            quote_transfer_fee.as_ref(),
             excluded_protocol_fee_migration_quote_amount,
+        )?
+        .amount;
+
+        let (migration_base_amount, migration_quote_amount) = compounding_liquidity
+            .get_migration_deposit_amounts(
+                excluded_protocol_fee_migration_base_amount,
+                excluded_protocol_fee_migration_quote_amount,
+                excluded_transfer_fee_migration_base_amount,
+                excluded_transfer_fee_migration_quote_amount,
+            )?;
+
+        CompoundingLiquidity::validate_initial_pool_information(
+            migration_base_amount,
+            migration_quote_amount,
             migration_sqrt_price,
         )?;
     }
@@ -703,6 +812,8 @@ pub fn process_create_config(
         &curve,
         enable_first_swap_with_min_fee.into(),
     )?;
+
+    config.set_base_transfer_fee(transfer_fee_parameters);
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

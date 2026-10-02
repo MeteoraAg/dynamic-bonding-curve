@@ -85,6 +85,14 @@ pub trait MigrationHandler {
         migration_fee_percentage: u8,
         excluded_fee_base_reserve: u64,
     ) -> Result<(u64, u64)>;
+
+    fn get_migration_deposit_amounts(
+        &self,
+        base_budget: u64,
+        quote_budget: u64,
+        base_amount: u64,
+        quote_amount: u64,
+    ) -> Result<(u64, u64)>;
 }
 
 pub fn get_migration_handler(

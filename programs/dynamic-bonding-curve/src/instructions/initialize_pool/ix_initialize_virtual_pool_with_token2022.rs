@@ -9,7 +9,10 @@ use crate::{
     constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
     event::EvtInitializePool,
     state::{PoolConfig, PoolType, VirtualPool},
-    token::validate_quote_mint_with_token_badge,
+    token::{
+        create_token_2022_base_mint, create_token_2022_base_vault,
+        validate_quote_mint_with_token_badge, BaseMintTransferFee,
+    },
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -32,18 +35,9 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
 
     pub creator: Signer<'info>,
 
-    /// Unique token mint address, initialize in contract
-    #[account(
-        init,
-        signer,
-        payer = payer,
-        mint::token_program = token_program,
-        mint::decimals = config.load()?.token_decimal,
-        mint::authority = pool_authority,
-        extensions::metadata_pointer::authority = pool_authority,
-        extensions::metadata_pointer::metadata_address = base_mint,
-    )]
-    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+    /// Unique token mint address, initialized in the handler
+    #[account(mut)]
+    pub base_mint: Signer<'info>,
 
     #[account(
         mint::token_program = token_quote_program,
@@ -65,21 +59,17 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     )]
     pub pool: AccountLoader<'info, VirtualPool>,
 
-    /// CHECK: Token base vault for the pool
+    /// CHECK: Token base vault for the pool, initialized in the handler
     #[account(
-        init,
+        mut,
         seeds = [
             TOKEN_VAULT_PREFIX.as_ref(),
             base_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
-        token::mint = base_mint,
-        token::authority = pool_authority,
-        token::token_program = token_program,
-        payer = payer,
         bump,
     )]
-    pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub base_vault: UncheckedAccount<'info>,
 
     /// Token quote vault for the pool
     #[account(
@@ -115,6 +105,39 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
 ) -> Result<()> {
     validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
 
+    let config = ctx.accounts.config.load()?;
+    let decimals = config.token_decimal;
+    let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;
+    drop(config);
+
+    create_token_2022_base_mint(
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.base_mint.to_account_info(),
+        &ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        decimals,
+        transfer_fee,
+        None,
+    )?;
+
+    let base_mint_key = ctx.accounts.base_mint.key();
+    let pool_key = ctx.accounts.pool.key();
+    create_token_2022_base_vault(
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.base_vault.to_account_info(),
+        &ctx.accounts.base_mint.to_account_info(),
+        &ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &[
+            TOKEN_VAULT_PREFIX.as_ref(),
+            base_mint_key.as_ref(),
+            pool_key.as_ref(),
+            &[ctx.bumps.base_vault],
+        ],
+    )?;
+
     let InitPoolData {
         activation_point,
         initial_base_supply,
@@ -123,9 +146,9 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
-        &ctx.accounts.base_mint,
+        &ctx.accounts.base_mint.to_account_info(),
         ctx.accounts.pool.as_ref(),
-        &ctx.accounts.base_vault,
+        &ctx.accounts.base_vault.to_account_info(),
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,

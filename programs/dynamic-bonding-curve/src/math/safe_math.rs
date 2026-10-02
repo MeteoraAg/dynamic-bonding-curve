@@ -141,6 +141,7 @@ macro_rules! try_into_impl {
 }
 
 try_into_impl!(u128, u64);
+try_into_impl!(u128, u32);
 try_into_impl!(u8, TokenProgramFlags);
 try_into_impl!(u8, MigratedCollectFeeMode);
 try_into_impl!(u8, PoolType);

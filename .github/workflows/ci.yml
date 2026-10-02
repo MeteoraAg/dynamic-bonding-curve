@@ -9,7 +9,7 @@ on:
 env:
   SOLANA_CLI_VERSION: 3.1.10
   ANCHOR_CLI_VERSION: 1.0.2
-  TOOLCHAIN: 1.93.0
+  TOOLCHAIN: 1.94.0
 
 jobs:
   program_changed_files:
@@ -115,6 +115,8 @@ jobs:
         shell: bash
       # Run tests
       - run: bun run build-local-test
+        shell: bash
+      - run: bun run typecheck
         shell: bash
 
   backwards_compatibility_tests:
