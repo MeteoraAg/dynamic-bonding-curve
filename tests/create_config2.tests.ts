@@ -176,12 +176,13 @@ describe("Create config2", () => {
     overrides: Partial<ConfigParameters> = {},
     quote: { quoteMint: PublicKey; tokenBadge?: PublicKey } = {
       quoteMint: NATIVE_MINT,
-    }
+    },
+    feeClaimer: PublicKey = partner.publicKey
   ) {
     return createConfig2(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
-      feeClaimer: partner.publicKey,
+      feeClaimer,
       quoteMint: quote.quoteMint,
       tokenBadge: quote.tokenBadge,
       instructionParams: { ...buildConfigParameters(tokenType), ...overrides },
@@ -390,6 +391,54 @@ describe("Create config2", () => {
               MigratedTransferFeeAuthorityOption.Creator,
           }),
         "InvalidTransferFeeParameters"
+      );
+    });
+
+    it("Rejects a zero fee claimer as the withheld authority", async () => {
+      await expectThrowsAsync(
+        () =>
+          createFeeConfig(
+            1,
+            {
+              ...feeParameters,
+              withheldAuthority: TransferFeeWithheldAuthority.Partner,
+            },
+            {},
+            { quoteMint: NATIVE_MINT },
+            PublicKey.default
+          ),
+        "InvalidFeeClaimer"
+      );
+    });
+
+    it("Rejects a zero fee claimer as the migrated transfer fee authority", async () => {
+      await expectThrowsAsync(
+        () =>
+          createFeeConfig(
+            1,
+            {
+              ...feeParameters,
+              migratedTransferFeeAuthorityOption:
+                MigratedTransferFeeAuthorityOption.Partner,
+            },
+            {},
+            { quoteMint: NATIVE_MINT },
+            PublicKey.default
+          ),
+        "InvalidFeeClaimer"
+      );
+    });
+
+    it("Accepts a zero fee claimer when the partner holds no transfer fee authority", async () => {
+      const config = await createFeeConfig(
+        1,
+        feeParameters,
+        {},
+        { quoteMint: NATIVE_MINT },
+        PublicKey.default
+      );
+      expect(getConfig(svm, program, config).feeClaimer.toString()).eq(
+        PublicKey.default.toString()
       );
     });
 

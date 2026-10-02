@@ -276,7 +276,7 @@ impl TransferFeeParameters {
         })
     }
 
-    pub fn validate(&self, token_type: u8) -> Result<()> {
+    pub fn validate(&self, token_type: u8, fee_claimer: &Pubkey) -> Result<()> {
         if !self.has_transfer_fee() {
             require!(
                 self.withheld_authority == 0,
@@ -300,17 +300,22 @@ impl TransferFeeParameters {
             self.transfer_fee_basis_points <= MAX_BASE_TRANSFER_FEE_BPS,
             PoolError::InvalidTransferFeeParameters
         );
-        require!(
-            TransferFeeWithheldAuthority::try_from(self.withheld_authority).is_ok(),
-            PoolError::InvalidTransferFeeParameters
-        );
-        require!(
-            MigratedTransferFeeAuthorityOption::try_from(
-                self.migrated_transfer_fee_authority_option
-            )
-            .is_ok(),
-            PoolError::InvalidTransferFeeParameters
-        );
+        let withheld_authority = TransferFeeWithheldAuthority::try_from(self.withheld_authority)
+            .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
+
+        let migrated_authority_option = MigratedTransferFeeAuthorityOption::try_from(
+            self.migrated_transfer_fee_authority_option,
+        )
+        .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
+
+        let is_partner_authority = withheld_authority == TransferFeeWithheldAuthority::Partner
+            || migrated_authority_option == MigratedTransferFeeAuthorityOption::Partner;
+        if is_partner_authority {
+            require!(
+                fee_claimer.ne(&Pubkey::default()),
+                PoolError::InvalidFeeClaimer
+            );
+        }
         Ok(())
     }
 }
@@ -451,6 +456,7 @@ impl ConfigParameters {
         token_badge: Option<&'info AccountInfo<'info>>,
         current_timestamp: u64,
         is_transfer_hook: bool,
+        fee_claimer: &Pubkey,
     ) -> Result<()> {
         // validate quote mint
         validate_quote_mint_with_token_badge(quote_mint, token_badge)?;
@@ -484,7 +490,8 @@ impl ConfigParameters {
             .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
         // validate token type
-        TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+        let token_type =
+            TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
         let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
             &self.migrated_pool_fee,
@@ -522,6 +529,14 @@ impl ConfigParameters {
             is_transfer_hook || !token_authority_option.has_mint_authority(),
             PoolError::InvalidTokenAuthorityOption
         );
+
+        // validate partner pubkey exist if used in config
+        if token_type == TokenType::Token2022 && token_authority_option.is_partner_authority() {
+            require!(
+                fee_claimer.ne(&Pubkey::default()),
+                PoolError::InvalidFeeClaimer
+            );
+        }
 
         // validate token decimals
         require!(

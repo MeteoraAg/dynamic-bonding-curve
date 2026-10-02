@@ -18,8 +18,9 @@ pub fn handle_create_config2<'info>(
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
+        ctx.accounts.fee_claimer.key,
     )?;
-    transfer_fee_parameters.validate(config_parameters.token_type)?;
+    transfer_fee_parameters.validate(config_parameters.token_type, ctx.accounts.fee_claimer.key)?;
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
