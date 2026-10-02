@@ -978,12 +978,19 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
         creator: creator_liquidity_distribution,
     } = config.get_liquidity_distribution(distributable_liquidity)?;
 
+    let partner_liquidity_percentage = config
+        .partner_liquidity_percentage
+        .safe_add(config.partner_permanent_locked_liquidity_percentage)?
+        .safe_add(config.partner_liquidity_vesting_info.vesting_percentage)?;
+    let creator_liquidity_percentage = 100u8.safe_sub(partner_liquidity_percentage)?;
+
     let (
         first_position_liquidity_distribution,
         // we need mut to adjust second_position_liquidity_distribution later
         mut second_position_liquidity_distribution,
         first_position_owner,
         second_position_owner,
+        second_position_liquidity_percentage,
     ) = if partner_liquidity_distribution.get_total_liquidity()?
         > creator_liquidity_distribution.get_total_liquidity()?
     {
@@ -992,6 +999,7 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
             creator_liquidity_distribution,
             config.fee_claimer,
             virtual_pool.creator,
+            creator_liquidity_percentage,
         )
     } else {
         (
@@ -999,6 +1007,7 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
             partner_liquidity_distribution,
             virtual_pool.creator,
             config.fee_claimer,
+            partner_liquidity_percentage,
         )
     };
 
@@ -1016,13 +1025,9 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
     )?;
 
     // the second position is split out of the first, so the transfer fee is not charged twice.
-    let liquidity_numerator_for_second_position: u32 = safe_mul_div_cast_u128(
-        second_position_liquidity_distribution.get_total_liquidity()?,
-        SPLIT_POSITION_DENOMINATOR.into(),
-        distributable_liquidity,
-        Rounding::Down,
-    )?
-    .safe_cast()?;
+    let liquidity_numerator_for_second_position: u32 = SPLIT_POSITION_DENOMINATOR
+        .safe_div(100)?
+        .safe_mul(second_position_liquidity_percentage.into())?;
 
     // mirrors Position::get_unlocked_liquidity_by_numerator in damm-v2, which is used in apply_split_position
     // https://github.com/MeteoraAg/damm-v2/blob/f08b0d14876fcc52eb0bbf471f4fe74f206fc47b/programs/cp-amm/src/state/position.rs#L367-L376
