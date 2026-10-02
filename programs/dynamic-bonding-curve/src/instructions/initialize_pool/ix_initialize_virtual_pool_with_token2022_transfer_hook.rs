@@ -12,8 +12,10 @@ use crate::{
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
     token::{
         create_token_2022_base_mint, create_token_2022_base_vault,
+        has_transfer_fee_or_config_authority, is_supported_quote_mint,
         validate_quote_mint_with_token_badge, BaseMintTransferFee,
     },
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -100,9 +102,22 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    let config = ctx.accounts.config.load()?;
+
+    require!(
+        !config.is_legacy_config() || is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        PoolError::UnsupportedLegacyConfig
+    );
+
     validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
 
-    let config = ctx.accounts.config.load()?;
+    // quote mint transfer fee is not supported with transfer hook
+    // reject a legacy config where quote mint has transfer_config_authority. this was previously allowed
+    require!(
+        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
+        PoolError::QuoteMintHasNonZeroTransferFee
+    );
+
     let decimals = config.token_decimal;
     let transfer_hook_program = config.transfer_hook_program;
     let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;

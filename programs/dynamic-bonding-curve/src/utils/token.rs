@@ -263,7 +263,7 @@ pub fn get_epoch_transfer_fee(mint_info: &AccountInfo) -> Result<Option<Transfer
     Ok(None)
 }
 
-trait ZeroTransferFee {
+pub trait ZeroTransferFee {
     fn is_zero(&self) -> bool;
 }
 

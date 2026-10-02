@@ -42,7 +42,7 @@ use crate::{
     },
     token::{
         calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
-        validate_quote_mint_with_token_badge,
+        has_transfer_fee_or_config_authority, validate_quote_mint_with_token_badge,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
@@ -591,12 +591,6 @@ impl ConfigParameters {
 
         Ok(())
     }
-
-    pub fn is_constant_token_supply(&self) -> bool {
-        self.token_supply.as_ref().map_or(false, |token_supply| {
-            token_supply.pre_migration_token_supply == token_supply.post_migration_token_supply
-        })
-    }
 }
 
 pub struct CreateConfigResult {
@@ -698,7 +692,12 @@ pub fn process_create_config(
         let excluded_protocol_fee_migration_quote_amount =
             included_protocol_fee_migration_quote_amount.safe_sub(protocol_migration_quote_fee)?;
 
-        // limitation: the quote transfer fee validation is a snapshot of the current epoch, it can change before migration
+        // limitation:  the token badge relies on trust in the quote mint management
+        // the quote transfer fee validation is a snapshot of the current epoch, it can change before migration
+        // a higher fee at migration can reduce the migrated liquidity, add the undeposited base to the protocol migration fee,
+        // move the price outside the tolerance because of rounding, or block the migration
+        // a `TransferFeeConfig` can also be added after config creation through the mint close authority,
+        // and `migrate_damm_v2` then rejects a config that does not meet the transfer fee restrictions
         let quote_transfer_fee = get_epoch_transfer_fee(&quote_mint.to_account_info())?;
 
         let excluded_transfer_fee_migration_base_amount = calculate_transfer_fee_excluded_amount(
@@ -814,6 +813,12 @@ pub fn process_create_config(
     )?;
 
     config.set_base_transfer_fee(transfer_fee_parameters);
+
+    if transfer_fee_parameters.has_transfer_fee()
+        || has_transfer_fee_or_config_authority(&quote_mint.to_account_info())?
+    {
+        config.validate_transfer_fee_restrictions()?;
+    }
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

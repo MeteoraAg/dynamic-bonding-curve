@@ -50,6 +50,12 @@ const LOCKED_VESTING = {
   numberOfPeriod: new BN(10),
   cliffUnlockAmount: new BN(1_000_000_000),
 };
+// fits the locked vesting amount on top of PRE_MIGRATION_TOKEN_SUPPLY
+const LOCKED_VESTING_TOKEN_SUPPLY = PRE_MIGRATION_TOKEN_SUPPLY.add(
+  LOCKED_VESTING.cliffUnlockAmount.add(
+    LOCKED_VESTING.amountPerPeriod.mul(LOCKED_VESTING.numberOfPeriod)
+  )
+);
 const FIXED_MIGRATION_FEE_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 function buildConfigParameters(tokenType: number): ConfigParameters {
@@ -243,7 +249,14 @@ describe("Create config2", () => {
 
     it("Rejects locked vesting", async () => {
       await expectThrowsAsync(
-        () => create()({ lockedVesting: LOCKED_VESTING }),
+        () =>
+          create()({
+            lockedVesting: LOCKED_VESTING,
+            tokenSupply: {
+              preMigrationTokenSupply: LOCKED_VESTING_TOKEN_SUPPLY,
+              postMigrationTokenSupply: LOCKED_VESTING_TOKEN_SUPPLY,
+            },
+          }),
         "InvalidVestingParameters"
       );
     });
@@ -262,10 +275,16 @@ describe("Create config2", () => {
       expect(configState.migrationFeeOption).eq(
         CUSTOMIZABLE_MIGRATION_FEE_OPTION
       );
+      expect(configState.version).eq(1);
     });
   }
 
   function itIsNotRestricted(create: () => CreateWithOverrides) {
+    it("Sets the config version", async () => {
+      const config = await create()({});
+      expect(getConfig(svm, program, config).version).eq(1);
+    });
+
     it("Accepts a non-fixed token supply", async () => {
       const config = await create()({ tokenSupply: null });
       expect(getConfig(svm, program, config).fixedTokenSupplyFlag).eq(0);

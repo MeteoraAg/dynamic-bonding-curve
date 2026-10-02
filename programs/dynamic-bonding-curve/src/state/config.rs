@@ -12,12 +12,13 @@ use crate::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASE_TRANSFER_FEE, MAX_BASIS_POINT,
             MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
         },
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
+        CONFIG_VERSION, MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     damm_v2_utils::{
         calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
         BaseFeeMode as DammV2BaseFeeMode, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
     },
+    migration_handler::MigratedCollectFeeMode,
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
@@ -601,7 +602,7 @@ pub struct PoolConfig {
     pub activation_type: u8,
     /// token decimals
     pub token_decimal: u8,
-    /// version
+    /// config version, see `CONFIG_VERSION`
     pub version: u8,
     /// token type of base token
     pub token_type: u8,
@@ -848,7 +849,7 @@ impl PoolConfig {
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
     ) -> Result<()> {
-        self.version = 0;
+        self.version = CONFIG_VERSION;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.leftover_receiver = *leftover_receiver;
@@ -1057,6 +1058,45 @@ impl PoolConfig {
 
     pub fn is_fixed_token_supply(&self) -> bool {
         self.fixed_token_supply_flag == 1
+    }
+
+    /// legacy configs were created before the transfer fee restrictions
+    pub fn is_legacy_config(&self) -> bool {
+        self.version == 0
+    }
+
+    pub fn is_constant_token_supply(&self) -> bool {
+        self.is_fixed_token_supply()
+            && self.pre_migration_token_supply == self.post_migration_token_supply
+    }
+
+    /// config with a transfer fee must follow the restrictions applied in create_config2
+    pub fn validate_transfer_fee_restrictions(&self) -> Result<()> {
+        require!(
+            self.is_constant_token_supply(),
+            PoolError::InvalidTokenSupply
+        );
+        require!(
+            !self
+                .locked_vesting_config
+                .to_locked_vesting_params()
+                .has_vesting(),
+            PoolError::InvalidVestingParameters
+        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+        require!(
+            migration_fee_option == MigrationFeeOption::Customizable,
+            PoolError::InvalidMigrationFeeOption
+        );
+        let migrated_collect_fee_mode =
+            MigratedCollectFeeMode::try_from(self.migrated_collect_fee_mode)
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        require!(
+            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
+            PoolError::InvalidMigratedPoolFee
+        );
+        Ok(())
     }
 
     pub fn get_liquidity_distribution(&self, liquidity: u128) -> Result<LiquidityDistribution> {
