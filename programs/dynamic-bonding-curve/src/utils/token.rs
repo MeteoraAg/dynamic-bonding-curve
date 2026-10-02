@@ -263,29 +263,31 @@ pub fn get_epoch_transfer_fee(mint_info: &AccountInfo) -> Result<Option<Transfer
     Ok(None)
 }
 
+trait ZeroTransferFee {
+    fn is_zero(&self) -> bool;
+}
+
+impl ZeroTransferFee for TransferFee {
+    /// Token-2022 charges min((transfer_amount * transfer_fee_bps / 10_000), maximum_fee), so either being zero means no fee
+    fn is_zero(&self) -> bool {
+        u16::from(self.transfer_fee_basis_points) == 0 || u64::from(self.maximum_fee) == 0
+    }
+}
+
 fn is_transfer_fee_zero(
     mint: &StateWithExtensions<spl_token_2022::state::Mint>,
     current_epoch: u64,
 ) -> bool {
     if let Ok(transfer_fee_config) = mint.get_extension::<TransferFeeConfig>() {
-        let older_transfer_fee_bps = u16::from(
-            transfer_fee_config
-                .older_transfer_fee
-                .transfer_fee_basis_points,
-        );
-        let newer_transfer_fee_bps = u16::from(
-            transfer_fee_config
-                .newer_transfer_fee
-                .transfer_fee_basis_points,
-        );
         let newer_transfer_fee_epoch = u64::from(transfer_fee_config.newer_transfer_fee.epoch);
 
         if current_epoch < newer_transfer_fee_epoch {
             // older fee is active and newer fee is scheduled, both must be zero
-            return older_transfer_fee_bps == 0 && newer_transfer_fee_bps == 0;
+            return transfer_fee_config.older_transfer_fee.is_zero()
+                && transfer_fee_config.newer_transfer_fee.is_zero();
         } else {
             // newer fee is active, older fee is historical
-            return newer_transfer_fee_bps == 0;
+            return transfer_fee_config.newer_transfer_fee.is_zero();
         }
     }
 

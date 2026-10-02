@@ -386,6 +386,34 @@ describe("Quote mint with transfer fee extension", () => {
     });
   });
 
+  it("Treats a non-zero bps mint with zero maximum fee and no fee authority as permissionless", async () => {
+    const zeroMaxFeeMint = createToken2022Mint(svm, admin, {
+      transferFeeConfig: {
+        feeBasisPoints: 100,
+        maximumFee: BigInt(0),
+        transferFeeConfigAuthority: null,
+      },
+    });
+
+    await expectThrowsAsync(
+      () =>
+        createTokenBadge(svm, program, {
+          operator,
+          payer: operator,
+          tokenMint: zeroMaxFeeMint,
+        }).then(() => {}),
+      "CannotCreateTokenBadgeOnSupportedMint"
+    );
+
+    await createConfig(svm, program, {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: zeroMaxFeeMint,
+      instructionParams: buildConfigParams(),
+    });
+  });
+
   it("Requires a token badge and create_config2 for a non-zero fee even when the fee authority is revoked", async () => {
     const immutableFeeMint = createToken2022Mint(svm, admin, {
       transferFeeConfig: {
