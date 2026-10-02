@@ -44,7 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When a transfer fee is involved, the endpoint `migration_damm_v2` makes a single transfer per mint. The whole migrated liquidity is deposited into the first position, and the second position is carved out of it with `split_position2`, which moves liquidity between positions without transferring tokens. Each mint therefore pays its transfer fee once instead of once per position so more of the budget reaches the migrated pool.
 - For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
 - Endpoint `withdraw_leftover` requires the signature of `leftover_receiver` when the transfer fee on the leftover is non-zero. The endpoint stays permissionless when the transfer fee is zero.
-- Endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a legacy config whose quote mint requires a token badge with `UnsupportedLegacyConfig`. Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` also rejects a quote mint with a non-zero transfer fee or a live transfer fee config authority.
 - Endpoint `migration_damm_v2` migrates a legacy config without transfer fee handling and rejects a non-zero quote transfer fee. For other configs, it rejects a config that does not meet the transfer fee restrictions when a transfer fee applies.
 - Endpoint `create_config` emits the new `EvtCreateConfig3` event in addition to `EvtCreateConfigV2`. Endpoint `create_config2` emits the same pair, so an indexer that follows only one of the two events sees every config from these two endpoints. Endpoint `create_config_with_transfer_hook` still emits only `EvtCreateConfigV2WithTransferHook`.
 
@@ -59,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+- The endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a legacy config whose quote mint requires a token badge with the error `UnsupportedLegacyConfig`, so an existing config with a badged quote mint can no longer create a pool.
+- Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` rejects a quote mint with a live transfer fee config authority, which was previously accepted with a token badge. A quote mint with a non-zero transfer fee was already rejected on this endpoint.
 - Removed the deprecated `EvtCreateConfig` event. An indexer that consumes it must switch to `EvtCreateConfigV2` or `EvtCreateConfig3`.
 - Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` take new `current_epoch: u64`, `base_mint_transfer_fee_config: Option<&TransferFeeConfig>` and `quote_mint_transfer_fee_config: Option<&TransferFeeConfig>` parameters.
 - Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` return `SwapResultWithTransferFee` instead of `SwapResult2`. `SwapResultWithTransferFee` contains `swap_result: SwapResult2`, `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.

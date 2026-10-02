@@ -112,6 +112,7 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
     validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
 
     // quote mint transfer fee is not supported with transfer hook
+    // reject a legacy config where quote mint has transfer_config_authority. this was previously allowed
     require!(
         !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
         PoolError::QuoteMintHasNonZeroTransferFee

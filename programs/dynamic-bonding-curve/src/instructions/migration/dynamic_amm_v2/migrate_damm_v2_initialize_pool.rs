@@ -651,8 +651,9 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
 
     if is_legacy_config {
-        // legacy configs were not checked against the transfer fee restrictions, so they must use
-        // the original path, which does not handle transfer fee
+        // legacy configs were not checked against the transfer fee restrictions
+        // so they must use the original migration path, which does not handle transfer fee
+        // only a fee that is non-zero at migration is rejected. this is the original handling for legacy config
         let has_quote_transfer_fee = quote_transfer_fee.map_or(false, |fee| !fee.is_zero());
         require!(
             !has_quote_transfer_fee,
