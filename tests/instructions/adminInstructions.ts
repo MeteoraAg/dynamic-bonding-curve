@@ -21,6 +21,7 @@ export enum OperatorPermission {
   ZapProtocolFee,
   CreateTokenBadge,
   CloseTokenBadge,
+  RevokeTransferHook,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -96,6 +97,34 @@ export async function closeTokenBadge(
       operator: deriveOperatorAddress(operator.publicKey),
       signer: operator.publicKey,
       rentReceiver,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export async function revokeTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    pool: PublicKey;
+    baseMint?: PublicKey;
+  }
+) {
+  const { operator, pool } = params;
+  const baseMint =
+    params.baseMint ?? getVirtualPool(svm, program, pool).baseMint;
+
+  const transaction = await program.methods
+    .revokeTransferHook()
+    .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
+      pool,
+      baseMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
     .transaction();
 

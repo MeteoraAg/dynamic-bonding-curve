@@ -70,6 +70,12 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_token_badge(ctx)
     }
 
+    /// Accepts: TransferHookPool only.
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::RevokeTransferHook))]
+    pub fn revoke_transfer_hook(ctx: Context<RevokeTransferHookCtx>) -> Result<()> {
+        instructions::handle_revoke_transfer_hook(ctx)
+    }
+
     /// Accepts: VirtualPool or TransferHookPool.
     pub fn claim_protocol_fee2<'info>(
         ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
