@@ -76,7 +76,7 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     process_create_config(
         &mut config,
         &config_parameters,
-        &TransferFeeParameters::default(),
+        None,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,

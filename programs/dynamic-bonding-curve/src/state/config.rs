@@ -601,8 +601,10 @@ pub struct PoolConfig {
     pub transfer_fee_withheld_authority: u8,
     /// See MigratedTransferFeeAuthorityOption
     pub migrated_transfer_fee_authority_option: u8,
+    /// Transfer fee flag
+    pub transfer_fee_flag: u8,
     /// Padding for future use
-    pub padding_0: [u8; 10],
+    pub padding_0: [u8; 9],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -859,6 +861,7 @@ impl PoolConfig {
         migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
+        transfer_fee_parameters: Option<TransferFeeParameters>,
     ) -> Result<()> {
         self.version = CONFIG_VERSION;
         self.quote_mint = *quote_mint;
@@ -919,18 +922,23 @@ impl PoolConfig {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
 
+        if let Some(transfer_fee) = transfer_fee_parameters {
+            self.transfer_fee_flag = 1;
+            self.transfer_fee_basis_points = transfer_fee.transfer_fee_basis_points;
+            self.transfer_fee_withheld_authority = transfer_fee.withheld_authority;
+            self.migrated_transfer_fee_authority_option =
+                transfer_fee.migrated_transfer_fee_authority_option;
+        }
+
         Ok(())
     }
 
-    pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
-        self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
-        self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
-        self.migrated_transfer_fee_authority_option =
-            transfer_fee_parameters.migrated_transfer_fee_authority_option;
+    pub fn has_base_transfer_fee(&self) -> bool {
+        self.transfer_fee_flag == 1
     }
 
     pub fn get_base_transfer_fee(&self) -> Option<TransferFee> {
-        if self.transfer_fee_basis_points == 0 {
+        if !self.has_base_transfer_fee() {
             return None;
         }
         Some(TransferFee {
