@@ -643,11 +643,13 @@ fn validate_config_key(
 }
 
 pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
-    let is_legacy_config = ConfigAccountLoader::try_from(&ctx.accounts.config)?
-        .load()?
-        .is_legacy_config();
+    // before migration, transfer fee is locked, so we can get it directly from config key
+    let (is_legacy_config, base_transfer_fee) = {
+        let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+        let config = config_loader.load()?;
+        (config.is_legacy_config(), config.get_base_transfer_fee())
+    };
 
-    let base_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.base_mint.to_account_info())?;
     let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
 
     if is_legacy_config {
@@ -662,8 +664,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         return process_migrate_damm_v2(ctx);
     }
 
-    let has_base_transfer_fee = base_transfer_fee.map_or(false, |fee| !fee.is_zero());
-    if has_base_transfer_fee
+    if base_transfer_fee.is_some()
         || has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?
     {
         process_migrate_damm_v2_with_transfer_fee(ctx, base_transfer_fee, quote_transfer_fee)
