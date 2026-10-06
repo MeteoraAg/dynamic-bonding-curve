@@ -10,8 +10,9 @@ use crate::{
     event::EvtInitializePool,
     state::{PoolConfig, PoolType, VirtualPool},
     token::{
-        create_token_2022_base_mint, create_token_2022_base_vault, is_supported_quote_mint,
-        validate_quote_mint_with_token_badge, BaseMintTransferFee,
+        create_token_2022_base_mint, create_token_2022_base_vault,
+        is_permissionless_supported_quote_mint, validate_quote_mint_with_token_badge,
+        BaseMintTransferFee,
     },
     PoolError,
 };
@@ -107,7 +108,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        !config.is_legacy_config() || is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        !config.is_legacy_config()
+            || is_permissionless_supported_quote_mint(&ctx.accounts.quote_mint)?,
         PoolError::UnsupportedLegacyConfig
     );
 

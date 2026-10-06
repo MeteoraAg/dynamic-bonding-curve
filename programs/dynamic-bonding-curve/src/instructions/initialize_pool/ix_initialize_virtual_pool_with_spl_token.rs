@@ -24,7 +24,7 @@ use crate::{
         fee::VolatilityTracker, BaseFeeMode, MigrationOption, PoolConfig, PoolType, TokenType,
         VirtualPool,
     },
-    token::{is_supported_quote_mint, validate_quote_mint_with_token_badge},
+    token::{is_permissionless_supported_quote_mint, validate_quote_mint_with_token_badge},
     utils::accounts::transfer_lamports_from_user,
     PoolError, ProcessCreateTokenMetadataParams,
 };
@@ -150,7 +150,8 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     let config = ctx.accounts.config.load()?;
 
     require!(
-        !config.is_legacy_config() || is_supported_quote_mint(&ctx.accounts.quote_mint)?,
+        !config.is_legacy_config()
+            || is_permissionless_supported_quote_mint(&ctx.accounts.quote_mint)?,
         PoolError::UnsupportedLegacyConfig
     );
 

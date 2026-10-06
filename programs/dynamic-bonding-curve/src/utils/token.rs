@@ -311,7 +311,10 @@ pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<b
 
 /// Rule: quote mint must be SPL-Token or Token-2022 (non-native) with only metadata extensions and/or zero transfer fee with no authority
 /// Anything else requires a token badge
-pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
+/// A legacy config previously accepted a badged quote mint. Now it only accepts permissionless supported quote mint
+pub fn is_permissionless_supported_quote_mint(
+    mint_account: &InterfaceAccount<Mint>,
+) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
         return Ok(true);
@@ -350,7 +353,7 @@ pub fn validate_quote_mint_with_token_badge<'info>(
     quote_mint: &InterfaceAccount<'info, Mint>,
     token_badge: Option<&'info AccountInfo<'info>>,
 ) -> Result<()> {
-    if !is_supported_quote_mint(quote_mint)? {
+    if !is_permissionless_supported_quote_mint(quote_mint)? {
         let token_badge = token_badge.ok_or_else(|| PoolError::InvalidTokenBadge)?;
         require!(
             is_token_badge_initialized(quote_mint.key(), token_badge)?,
