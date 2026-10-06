@@ -8,7 +8,7 @@ use crate::{
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, TransferFeeParameters};
+use super::{process_create_config, ConfigParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
