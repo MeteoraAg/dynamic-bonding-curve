@@ -261,34 +261,15 @@ pub struct TransferFeeParameters {
 const_assert_eq!(TransferFeeParameters::INIT_SPACE, 4);
 
 impl TransferFeeParameters {
-    pub fn has_transfer_fee(&self) -> bool {
-        self.transfer_fee_basis_points > 0
-    }
-
-    pub fn to_transfer_fee(&self) -> Option<TransferFee> {
-        if !self.has_transfer_fee() {
-            return None;
-        }
-        Some(TransferFee {
+    pub fn to_transfer_fee(&self) -> TransferFee {
+        TransferFee {
             epoch: PodU64::from(0),
             transfer_fee_basis_points: PodU16::from(self.transfer_fee_basis_points),
             maximum_fee: PodU64::from(MAX_BASE_TRANSFER_FEE),
-        })
+        }
     }
 
-    pub fn validate(&self, token_type: u8) -> Result<()> {
-        if !self.has_transfer_fee() {
-            require!(
-                self.withheld_authority == 0,
-                PoolError::InvalidTransferFeeParameters
-            );
-            require!(
-                self.migrated_transfer_fee_authority_option == 0,
-                PoolError::InvalidTransferFeeParameters
-            );
-            return Ok(());
-        }
-
+    pub fn validate(&self, token_type: u8, fee_claimer: &Pubkey) -> Result<()> {
         let token_type =
             TokenType::try_from(token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
@@ -300,17 +281,30 @@ impl TransferFeeParameters {
             self.transfer_fee_basis_points <= MAX_BASE_TRANSFER_FEE_BPS,
             PoolError::InvalidTransferFeeParameters
         );
+        let withheld_authority = TransferFeeWithheldAuthority::try_from(self.withheld_authority)
+            .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
+
+        let migrated_authority_option = MigratedTransferFeeAuthorityOption::try_from(
+            self.migrated_transfer_fee_authority_option,
+        )
+        .map_err(|_| PoolError::InvalidTransferFeeParameters)?;
+
+        // not make sense to have zero transfer in pre and post migration
         require!(
-            TransferFeeWithheldAuthority::try_from(self.withheld_authority).is_ok(),
+            !(self.transfer_fee_basis_points == 0
+                && (migrated_authority_option.is_immutable()
+                    || migrated_authority_option.should_zero_fee())),
             PoolError::InvalidTransferFeeParameters
         );
-        require!(
-            MigratedTransferFeeAuthorityOption::try_from(
-                self.migrated_transfer_fee_authority_option
-            )
-            .is_ok(),
-            PoolError::InvalidTransferFeeParameters
-        );
+
+        let is_partner_authority = withheld_authority == TransferFeeWithheldAuthority::Partner
+            || migrated_authority_option == MigratedTransferFeeAuthorityOption::Partner;
+        if is_partner_authority {
+            require!(
+                fee_claimer.ne(&Pubkey::default()),
+                PoolError::InvalidFeeClaimer
+            );
+        }
         Ok(())
     }
 }
@@ -451,6 +445,7 @@ impl ConfigParameters {
         token_badge: Option<&'info AccountInfo<'info>>,
         current_timestamp: u64,
         is_transfer_hook: bool,
+        fee_claimer: &Pubkey,
     ) -> Result<()> {
         // validate quote mint
         validate_quote_mint_with_token_badge(quote_mint, token_badge)?;
@@ -484,7 +479,8 @@ impl ConfigParameters {
             .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
         // validate token type
-        TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+        let token_type =
+            TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
 
         let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
             &self.migrated_pool_fee,
@@ -522,6 +518,14 @@ impl ConfigParameters {
             is_transfer_hook || !token_authority_option.has_mint_authority(),
             PoolError::InvalidTokenAuthorityOption
         );
+
+        // validate partner pubkey exist if used in config
+        if token_type == TokenType::Token2022 && token_authority_option.is_partner_authority() {
+            require!(
+                fee_claimer.ne(&Pubkey::default()),
+                PoolError::InvalidFeeClaimer
+            );
+        }
 
         // validate token decimals
         require!(
@@ -604,7 +608,7 @@ pub struct CreateConfigResult {
 pub fn process_create_config(
     config: &mut PoolConfig,
     config_parameters: &ConfigParameters,
-    transfer_fee_parameters: &TransferFeeParameters,
+    transfer_fee_parameters: Option<TransferFeeParameters>,
     quote_mint: &InterfaceAccount<'_, Mint>,
     fee_claimer: &Pubkey,
     leftover_receiver: &Pubkey,
@@ -674,7 +678,7 @@ pub fn process_create_config(
         PoolError::InvalidCurve
     );
 
-    let base_transfer_fee = transfer_fee_parameters.to_transfer_fee();
+    let base_transfer_fee = transfer_fee_parameters.map(|t| t.to_transfer_fee());
 
     if migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding {
         let compounding_liquidity = CompoundingLiquidity {
@@ -810,11 +814,10 @@ pub fn process_create_config(
         migrated_pool_market_cap_fee_scheduler_params,
         &curve,
         enable_first_swap_with_min_fee.into(),
+        transfer_fee_parameters,
     )?;
 
-    config.set_base_transfer_fee(transfer_fee_parameters);
-
-    if transfer_fee_parameters.has_transfer_fee()
+    if transfer_fee_parameters.is_some()
         || has_transfer_fee_or_config_authority(&quote_mint.to_account_info())?
     {
         config.validate_transfer_fee_restrictions()?;

@@ -42,8 +42,6 @@ import {
   MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
-  MigratedTransferFeeAuthorityOption,
-  TransferFeeWithheldAuthority,
   U64_MAX,
   warpEpochBy,
 } from "./utils";
@@ -203,12 +201,8 @@ describe("Quote mint with transfer fee extension", () => {
       quoteMint,
       instructionParams: buildTransferFeeModeConfigParams(),
       tokenBadge: deriveTokenBadgeAddress(quoteMint),
-      transferFee: {
-        transferFeeBasisPoints: 0,
-        withheldAuthority: TransferFeeWithheldAuthority.Partner,
-        migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Immutable,
-      },
+      // only the quote mint carries a fee in this suite; the base mint has none
+      transferFee: null,
     });
   }
 

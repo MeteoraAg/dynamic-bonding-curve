@@ -303,12 +303,8 @@ async function setupPool(
   } else if (quoteHasFee) {
     config = await createConfig2(svm, program, {
       ...configParams,
-      transferFee: {
-        transferFeeBasisPoints: 0,
-        withheldAuthority: TransferFeeWithheldAuthority.Partner,
-        migratedTransferFeeAuthorityOption:
-          MigratedTransferFeeAuthorityOption.Immutable,
-      },
+      // the fee is on the quote mint only, so the base mint gets no transfer fee
+      transferFee: null,
     });
   } else {
     config = await createConfig(svm, program, configParams);

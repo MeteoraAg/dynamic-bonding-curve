@@ -11,21 +11,22 @@ pub fn handle_create_config2<'info>(
     config_parameters: ConfigParameters,
     transfer_fee_parameters: Option<TransferFeeParameters>,
 ) -> Result<()> {
-    let transfer_fee_parameters = transfer_fee_parameters.unwrap_or_default();
-
     config_parameters.validate(
         &ctx.accounts.quote_mint,
         ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
+        ctx.accounts.fee_claimer.key,
     )?;
-    transfer_fee_parameters.validate(config_parameters.token_type)?;
+    if let Some(transfer_fee) = transfer_fee_parameters {
+        transfer_fee.validate(config_parameters.token_type, ctx.accounts.fee_claimer.key)?;
+    }
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
         &mut config,
         &config_parameters,
-        &transfer_fee_parameters,
+        transfer_fee_parameters,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,

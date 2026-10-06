@@ -200,7 +200,9 @@ export type TransferFeeParameters = {
 };
 
 export type CreateConfig2Params = CreateConfigParams<ConfigParameters> & {
-  transferFee: TransferFeeParameters;
+  // null means the config is created without a base transfer fee at all, which is
+  // not the same thing as a transfer fee of zero basis points
+  transferFee: TransferFeeParameters | null;
 };
 
 export async function createConfig2(
@@ -254,7 +256,7 @@ export async function createConfig2(
   const configState = getConfig(svm, program, config.publicKey);
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
   expect(configState.transferFeeBasisPoints).equal(
-    transferFee.transferFeeBasisPoints
+    transferFee?.transferFeeBasisPoints ?? 0
   );
 
   return config.publicKey;
