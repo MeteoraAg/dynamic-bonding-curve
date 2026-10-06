@@ -8,7 +8,7 @@ use crate::{
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, TransferFeeParameters};
+use super::{process_create_config, ConfigParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -53,11 +53,10 @@ pub fn handle_create_config<'info>(
     );
 
     let mut config = ctx.accounts.config.load_init()?;
-    let transfer_fee_parameters = TransferFeeParameters::default();
     process_create_config(
         &mut config,
         &config_parameters,
-        &transfer_fee_parameters,
+        None,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
@@ -80,7 +79,7 @@ pub fn handle_create_config<'info>(
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         config_parameters,
-        transfer_fee_parameters,
+        transfer_fee_parameters: None,
     });
 
     Ok(())
