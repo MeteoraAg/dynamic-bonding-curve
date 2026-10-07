@@ -224,7 +224,7 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: feeMint,
           instructionParams: buildConfigParams(),
         }).then(() => {}),
-      "InvalidTokenBadge"
+      "InvalidQuoteMint"
     );
 
     await expectThrowsAsync(
@@ -237,7 +237,7 @@ describe("Quote mint with transfer fee extension", () => {
           instructionParams: buildConfigParams(),
           transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
         }).then(() => {}),
-      "InvalidTokenBadge"
+      "InvalidQuoteMint"
     );
 
     await createTokenBadge(svm, program, {
@@ -257,7 +257,7 @@ describe("Quote mint with transfer fee extension", () => {
           instructionParams: buildConfigParams(),
           tokenBadge: deriveTokenBadgeAddress(feeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidQuoteMint"
     );
 
     await expectThrowsAsync(
@@ -271,7 +271,7 @@ describe("Quote mint with transfer fee extension", () => {
           transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
           tokenBadge: deriveTokenBadgeAddress(feeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidQuoteMint"
     );
 
     await createTransferFeeModeConfig(feeMint);
@@ -304,7 +304,7 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: scheduledFeeMint,
           instructionParams: buildConfigParams(),
         }).then(() => {}),
-      "InvalidTokenBadge"
+      "InvalidQuoteMint"
     );
 
     await createTokenBadge(svm, program, {
@@ -323,7 +323,7 @@ describe("Quote mint with transfer fee extension", () => {
           instructionParams: buildConfigParams(),
           tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidQuoteMint"
     );
 
     await createTransferFeeModeConfig(scheduledFeeMint);
@@ -347,7 +347,7 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: zeroFeeMintWithoutBadge,
           instructionParams: buildConfigParams(),
         }).then(() => {}),
-      "InvalidTokenBadge"
+      "InvalidQuoteMint"
     );
   });
 
@@ -426,7 +426,7 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: immutableFeeMint,
           instructionParams: buildConfigParams(),
         }).then(() => {}),
-      "InvalidTokenBadge"
+      "InvalidQuoteMint"
     );
 
     await createTokenBadge(svm, program, {
@@ -445,7 +445,7 @@ describe("Quote mint with transfer fee extension", () => {
           instructionParams: buildConfigParams(),
           tokenBadge: deriveTokenBadgeAddress(immutableFeeMint),
         }).then(() => {}),
-      "QuoteMintHasNonZeroTransferFee"
+      "InvalidQuoteMint"
     );
 
     await createTransferFeeModeConfig(immutableFeeMint);
@@ -483,7 +483,7 @@ describe("Quote mint with transfer fee extension", () => {
             instructionParams: buildConfigParams(),
             tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
           }).then(() => {}),
-        "QuoteMintHasNonZeroTransferFee"
+        "InvalidQuoteMint"
       );
 
       config = await createTransferFeeModeConfig(zeroFeeMint);

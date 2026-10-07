@@ -4,7 +4,9 @@ use anchor_spl::token_interface::Mint;
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
 use crate::{
-    event::EvtCreateConfig3, state::PoolConfig, token::has_transfer_fee_or_config_authority,
+    event::EvtCreateConfig3,
+    state::PoolConfig,
+    token::{get_mint_score, MintScore},
     PoolError,
 };
 
@@ -39,18 +41,17 @@ pub fn handle_create_config<'info>(
     ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    require!(
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
+    );
+
     config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
         ctx.accounts.fee_claimer.key,
     )?;
-
-    require!(
-        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
-        PoolError::QuoteMintHasNonZeroTransferFee
-    );
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(

@@ -42,7 +42,7 @@ use crate::{
     },
     token::{
         calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
-        has_transfer_fee_or_config_authority, validate_quote_mint_with_token_badge,
+        has_transfer_fee_or_config_authority,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
@@ -439,17 +439,12 @@ impl LiquidityVestingInfoParams {
 }
 
 impl ConfigParameters {
-    pub fn validate<'info>(
+    pub fn validate(
         &self,
-        quote_mint: &InterfaceAccount<'info, Mint>,
-        token_badge: Option<&'info AccountInfo<'info>>,
         current_timestamp: u64,
         is_transfer_hook: bool,
         fee_claimer: &Pubkey,
     ) -> Result<()> {
-        // validate quote mint
-        validate_quote_mint_with_token_badge(quote_mint, token_badge)?;
-
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;
 
