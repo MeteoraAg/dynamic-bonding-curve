@@ -337,8 +337,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
 
       if (quoteFeeBasisPoints > 0) {
         it("Rejects config creation for the fee-bearing quote mint without a badge", async () => {
-          const errorCode =
-            getDbcProgramErrorCodeHexString("InvalidTokenBadge");
+          const errorCode = getDbcProgramErrorCodeHexString("InvalidQuoteMint");
           await expectThrowsAsync(async () => {
             await createConfig(svm, program, {
               payer: partner,
@@ -361,9 +360,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         });
 
         it("Rejects the legacy create_config for the fee-bearing quote mint even with a badge", async () => {
-          const errorCode = getDbcProgramErrorCodeHexString(
-            "QuoteMintHasNonZeroTransferFee"
-          );
+          const errorCode = getDbcProgramErrorCodeHexString("InvalidQuoteMint");
           await expectThrowsAsync(async () => {
             await createConfig(svm, program, {
               payer: partner,

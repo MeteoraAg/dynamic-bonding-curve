@@ -1,8 +1,12 @@
 use anchor_lang::prelude::*;
 
-use crate::event::EvtCreateConfig3;
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
+use crate::{
+    event::EvtCreateConfig3,
+    token::{get_mint_score, MintScore},
+    PoolError,
+};
 
 use super::{process_create_config, ConfigParameters, CreateConfigCtx, TransferFeeParameters};
 
@@ -11,9 +15,13 @@ pub fn handle_create_config2<'info>(
     config_parameters: ConfigParameters,
     transfer_fee_parameters: Option<TransferFeeParameters>,
 ) -> Result<()> {
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    require!(
+        mint_score >= MintScore::PermissionedWithTransferFee,
+        PoolError::InvalidQuoteMint
+    );
+
     config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         false,
         ctx.accounts.fee_claimer.key,

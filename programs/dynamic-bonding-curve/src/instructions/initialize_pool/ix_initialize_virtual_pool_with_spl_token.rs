@@ -24,7 +24,7 @@ use crate::{
         fee::VolatilityTracker, BaseFeeMode, MigrationOption, PoolConfig, PoolType, TokenType,
         VirtualPool,
     },
-    token::{is_permissionless_supported_quote_mint, validate_quote_mint_with_token_badge},
+    token::{get_mint_score, MintScore},
     utils::accounts::transfer_lamports_from_user,
     PoolError, ProcessCreateTokenMetadataParams,
 };
@@ -149,13 +149,18 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
-    require!(
-        !config.is_legacy_config()
-            || is_permissionless_supported_quote_mint(&ctx.accounts.quote_mint)?,
-        PoolError::UnsupportedLegacyConfig
-    );
-
-    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    if config.is_legacy_config() {
+        require!(
+            mint_score >= MintScore::PermissionedWithoutTransferFee,
+            PoolError::InvalidQuoteMint
+        );
+    } else {
+        require!(
+            mint_score >= MintScore::PermissionedWithTransferFee,
+            PoolError::InvalidQuoteMint
+        );
+    }
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

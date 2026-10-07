@@ -275,9 +275,6 @@ pub enum PoolError {
     #[msg("Required input amount exceeds the provided amount in")]
     ExceededInputAmount,
 
-    #[msg("Legacy config does not support a quote mint that requires a token badge")]
-    UnsupportedLegacyConfig,
-
     #[msg("Invalid fee claimer")]
     InvalidFeeClaimer,
 }

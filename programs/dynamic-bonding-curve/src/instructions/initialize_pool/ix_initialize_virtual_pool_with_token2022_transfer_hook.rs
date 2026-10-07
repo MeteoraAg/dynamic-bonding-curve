@@ -4,17 +4,14 @@ use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::constants::seeds::POOL_PREFIX;
 use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
 use crate::state::fee::VolatilityTracker;
+use crate::token::{get_mint_score, MintScore};
 use crate::InitPoolData;
 use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
-    token::{
-        create_token_2022_base_mint, create_token_2022_base_vault,
-        has_transfer_fee_or_config_authority, is_permissionless_supported_quote_mint,
-        validate_quote_mint_with_token_badge, BaseMintTransferFee,
-    },
+    token::{create_token_2022_base_mint, create_token_2022_base_vault, BaseMintTransferFee},
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -104,19 +101,10 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
     require!(
-        !config.is_legacy_config()
-            || is_permissionless_supported_quote_mint(&ctx.accounts.quote_mint)?,
-        PoolError::UnsupportedLegacyConfig
-    );
-
-    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
-
-    // quote mint transfer fee is not supported with transfer hook
-    // reject a legacy config where quote mint has transfer_config_authority. this was previously allowed
-    require!(
-        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
-        PoolError::QuoteMintHasNonZeroTransferFee
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
     );
 
     let decimals = config.token_decimal;
