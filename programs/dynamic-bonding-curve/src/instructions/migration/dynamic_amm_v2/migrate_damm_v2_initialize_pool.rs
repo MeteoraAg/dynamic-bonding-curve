@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::damm_v2_utils::BaseFeeMode as DammV2BaseFeeMode;
 use crate::token::{
     calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee,
-    has_transfer_fee_or_config_authority,
+    has_transfer_fee_or_config_authority, ZeroTransferFee,
 };
 use crate::{
     activation_handler::ActivationType,
@@ -643,12 +643,28 @@ fn validate_config_key(
 }
 
 pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
-    let base_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.base_mint.to_account_info())?;
+    // before migration, transfer fee is locked, so we can get it directly from config key
+    let (is_legacy_config, base_transfer_fee) = {
+        let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+        let config = config_loader.load()?;
+        (config.is_legacy_config(), config.get_base_transfer_fee())
+    };
+
     let quote_transfer_fee = get_epoch_transfer_fee(&ctx.accounts.quote_mint.to_account_info())?;
 
-    let has_base_transfer_fee =
-        base_transfer_fee.map_or(false, |fee| u16::from(fee.transfer_fee_basis_points) > 0);
-    if has_base_transfer_fee
+    if is_legacy_config {
+        // legacy configs were not checked against the transfer fee restrictions
+        // so they must use the original migration path, which does not handle transfer fee
+        // only a fee that is non-zero at migration is rejected. this is the original handling for legacy config
+        let has_quote_transfer_fee = quote_transfer_fee.map_or(false, |fee| !fee.is_zero());
+        require!(
+            !has_quote_transfer_fee,
+            PoolError::QuoteMintHasNonZeroTransferFee
+        );
+        return process_migrate_damm_v2(ctx);
+    }
+
+    if base_transfer_fee.is_some()
         || has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?
     {
         process_migrate_damm_v2_with_transfer_fee(ctx, base_transfer_fee, quote_transfer_fee)
@@ -905,6 +921,9 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
 
+    // the rest of this handler relies on these restrictions
+    config.validate_transfer_fee_restrictions()?;
+
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
 
@@ -1147,7 +1166,7 @@ fn process_migrate_damm_v2_with_transfer_fee<'info>(
         protocol_migration_quote_fee,
     );
 
-    // the config is required to have a constant token supply when it has transfer fee,
+    // validate_transfer_fee_restrictions requires a constant token supply,
     // so there is no base token to burn here. the base that is not sent to the migrated pool
     // is attributed to the protocol above, so the leftover receiver gets the rest
 

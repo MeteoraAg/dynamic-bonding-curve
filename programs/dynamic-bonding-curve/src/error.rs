@@ -29,7 +29,6 @@ pub enum PoolError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
-    /// deprecated
     #[msg("Invalid quote mint")]
     InvalidQuoteMint,
 
@@ -274,4 +273,7 @@ pub enum PoolError {
 
     #[msg("Required input amount exceeds the provided amount in")]
     ExceededInputAmount,
+
+    #[msg("Invalid fee claimer")]
+    InvalidFeeClaimer,
 }

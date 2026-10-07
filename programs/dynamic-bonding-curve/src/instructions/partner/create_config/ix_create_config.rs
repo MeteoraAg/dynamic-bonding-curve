@@ -4,11 +4,13 @@ use anchor_spl::token_interface::Mint;
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
 use crate::{
-    event::EvtCreateConfig3, state::PoolConfig, token::has_transfer_fee_or_config_authority,
+    event::EvtCreateConfig3,
+    state::PoolConfig,
+    token::{get_mint_score, MintScore},
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters, TransferFeeParameters};
+use super::{process_create_config, ConfigParameters};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -39,24 +41,23 @@ pub fn handle_create_config<'info>(
     ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
-    config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        ctx.remaining_accounts.first(),
-        Clock::get()?.unix_timestamp as u64,
-        false,
-    )?;
-
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
     require!(
-        !has_transfer_fee_or_config_authority(&ctx.accounts.quote_mint.to_account_info())?,
-        PoolError::QuoteMintHasNonZeroTransferFee
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
     );
 
+    config_parameters.validate(
+        Clock::get()?.unix_timestamp as u64,
+        false,
+        ctx.accounts.fee_claimer.key,
+    )?;
+
     let mut config = ctx.accounts.config.load_init()?;
-    let transfer_fee_parameters = TransferFeeParameters::default();
     process_create_config(
         &mut config,
         &config_parameters,
-        &transfer_fee_parameters,
+        None,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
@@ -79,7 +80,7 @@ pub fn handle_create_config<'info>(
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         config_parameters,
-        transfer_fee_parameters,
+        transfer_fee_parameters: None,
     });
 
     Ok(())

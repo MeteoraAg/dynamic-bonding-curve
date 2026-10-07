@@ -12,12 +12,13 @@ use crate::{
             FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASE_TRANSFER_FEE, MAX_BASIS_POINT,
             MAX_FEE_NUMERATOR, PROTOCOL_FEE_PERCENT, PROTOCOL_POOL_CREATION_FEE_PERCENT,
         },
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
+        CONFIG_VERSION, MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     damm_v2_utils::{
         calculate_dynamic_fee_params, get_max_unlocked_liquidity_at_current_point,
         BaseFeeMode as DammV2BaseFeeMode, DammV2DynamicFee, DammV2PodAlignedFeeMarketCapScheduler,
     },
+    migration_handler::MigratedCollectFeeMode,
     params::{
         fee_parameters::{to_numerator, PoolFeeParameters},
         liquidity_distribution::{get_base_token_for_swap, LiquidityDistributionParameters},
@@ -407,6 +408,14 @@ impl TokenAuthorityOption {
         )
     }
 
+    pub fn is_partner_authority(&self) -> bool {
+        matches!(
+            *self,
+            TokenAuthorityOption::PartnerUpdateAuthority
+                | TokenAuthorityOption::PartnerUpdateAndMintAuthority
+        )
+    }
+
     pub fn get_mint_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
         match *self {
             TokenAuthorityOption::CreatorUpdateAndMintAuthority => Some(creator),
@@ -459,9 +468,9 @@ pub enum MigratedTransferFeeAuthorityOption {
     Immutable,
     /// Schedule the fee to zero, then revoke the authority. The fee change takes 2 epoch to land after migration
     RevokeZeroFee,
-    /// Set authority to the pool creator.
+    /// Set authority to the pool creator. Revoked if the creator is Pubkey::default()
     Creator,
-    /// Set authority to the partner.
+    /// Set authority to the partner. Revoked if the partner is Pubkey::default(), which should not be possible
     Partner,
 }
 
@@ -471,12 +480,15 @@ impl MigratedTransferFeeAuthorityOption {
     }
 
     pub fn get_migrated_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
-        match *self {
+        let authority = match *self {
             MigratedTransferFeeAuthorityOption::Immutable
             | MigratedTransferFeeAuthorityOption::RevokeZeroFee => None,
             MigratedTransferFeeAuthorityOption::Creator => Some(creator),
             MigratedTransferFeeAuthorityOption::Partner => Some(partner),
-        }
+        };
+
+        // can be Pubkey::default() if pool creator transfer_pool_creator to Pubkey::default to revoke their pool creator authority
+        authority.filter(|authority| authority.ne(&Pubkey::default()))
     }
 
     pub fn should_zero_fee(&self) -> bool {
@@ -589,8 +601,10 @@ pub struct PoolConfig {
     pub transfer_fee_withheld_authority: u8,
     /// See MigratedTransferFeeAuthorityOption
     pub migrated_transfer_fee_authority_option: u8,
+    /// Transfer fee flag
+    pub transfer_fee_flag: u8,
     /// Padding for future use
-    pub padding_0: [u8; 10],
+    pub padding_0: [u8; 9],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -601,7 +615,7 @@ pub struct PoolConfig {
     pub activation_type: u8,
     /// token decimals
     pub token_decimal: u8,
-    /// version
+    /// config version, see `CONFIG_VERSION`
     pub version: u8,
     /// token type of base token
     pub token_type: u8,
@@ -847,8 +861,9 @@ impl PoolConfig {
         migrated_pool_market_cap_fee_scheduler: MigratedPoolMarketCapFeeSchedulerParams,
         curve: &[LiquidityDistributionParameters],
         enable_creator_first_swap_with_min_fee: u8,
+        transfer_fee_parameters: Option<TransferFeeParameters>,
     ) -> Result<()> {
-        self.version = 0;
+        self.version = CONFIG_VERSION;
         self.quote_mint = *quote_mint;
         self.fee_claimer = *fee_claimer;
         self.leftover_receiver = *leftover_receiver;
@@ -907,18 +922,23 @@ impl PoolConfig {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
 
+        if let Some(transfer_fee) = transfer_fee_parameters {
+            self.transfer_fee_flag = 1;
+            self.transfer_fee_basis_points = transfer_fee.transfer_fee_basis_points;
+            self.transfer_fee_withheld_authority = transfer_fee.withheld_authority;
+            self.migrated_transfer_fee_authority_option =
+                transfer_fee.migrated_transfer_fee_authority_option;
+        }
+
         Ok(())
     }
 
-    pub fn set_base_transfer_fee(&mut self, transfer_fee_parameters: &TransferFeeParameters) {
-        self.transfer_fee_basis_points = transfer_fee_parameters.transfer_fee_basis_points;
-        self.transfer_fee_withheld_authority = transfer_fee_parameters.withheld_authority;
-        self.migrated_transfer_fee_authority_option =
-            transfer_fee_parameters.migrated_transfer_fee_authority_option;
+    pub fn has_base_transfer_fee(&self) -> bool {
+        self.transfer_fee_flag == 1
     }
 
     pub fn get_base_transfer_fee(&self) -> Option<TransferFee> {
-        if self.transfer_fee_basis_points == 0 {
+        if !self.has_base_transfer_fee() {
             return None;
         }
         Some(TransferFee {
@@ -1057,6 +1077,45 @@ impl PoolConfig {
 
     pub fn is_fixed_token_supply(&self) -> bool {
         self.fixed_token_supply_flag == 1
+    }
+
+    /// legacy configs were created before the transfer fee restrictions
+    pub fn is_legacy_config(&self) -> bool {
+        self.version == 0
+    }
+
+    pub fn is_constant_token_supply(&self) -> bool {
+        self.is_fixed_token_supply()
+            && self.pre_migration_token_supply == self.post_migration_token_supply
+    }
+
+    /// config with a transfer fee must follow the restrictions applied in create_config2
+    pub fn validate_transfer_fee_restrictions(&self) -> Result<()> {
+        require!(
+            self.is_constant_token_supply(),
+            PoolError::InvalidTokenSupply
+        );
+        require!(
+            !self
+                .locked_vesting_config
+                .to_locked_vesting_params()
+                .has_vesting(),
+            PoolError::InvalidVestingParameters
+        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+        require!(
+            migration_fee_option == MigrationFeeOption::Customizable,
+            PoolError::InvalidMigrationFeeOption
+        );
+        let migrated_collect_fee_mode =
+            MigratedCollectFeeMode::try_from(self.migrated_collect_fee_mode)
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        require!(
+            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
+            PoolError::InvalidMigratedPoolFee
+        );
+        Ok(())
     }
 
     pub fn get_liquidity_distribution(&self, liquidity: u128) -> Result<LiquidityDistribution> {

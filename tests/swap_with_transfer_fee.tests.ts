@@ -33,7 +33,6 @@ import {
   swap,
   SwapMode,
   SwapParams,
-  TransferFeeParameters,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -65,11 +64,7 @@ const MIGRATION_QUOTE_THRESHOLD = new BN(LAMPORTS_PER_SOL * 5);
 const CONSTANT_TOKEN_SUPPLY = new BN(2_500_000_000);
 const USER_QUOTE_BALANCE = BigInt(LAMPORTS_PER_SOL) * BigInt(100);
 const NO_CAP = BigInt(U64_MAX.toString());
-const NO_BASE_FEE: TransferFeeParameters = {
-  transferFeeBasisPoints: 0,
-  withheldAuthority: TransferFeeWithheldAuthority.Partner,
-  migratedTransferFeeAuthorityOption: MigratedTransferFeeAuthorityOption.Immutable,
-};
+const NO_BASE_FEE = null;
 
 const BASE_FEE_BPS = 250; // 2.5%
 const QUOTE_FEE_BPS = 100; // 1%
@@ -342,8 +337,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
 
       if (quoteFeeBasisPoints > 0) {
         it("Rejects config creation for the fee-bearing quote mint without a badge", async () => {
-          const errorCode =
-            getDbcProgramErrorCodeHexString("InvalidTokenBadge");
+          const errorCode = getDbcProgramErrorCodeHexString("InvalidQuoteMint");
           await expectThrowsAsync(async () => {
             await createConfig(svm, program, {
               payer: partner,
@@ -366,9 +360,7 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         });
 
         it("Rejects the legacy create_config for the fee-bearing quote mint even with a badge", async () => {
-          const errorCode = getDbcProgramErrorCodeHexString(
-            "QuoteMintHasNonZeroTransferFee"
-          );
+          const errorCode = getDbcProgramErrorCodeHexString("InvalidQuoteMint");
           await expectThrowsAsync(async () => {
             await createConfig(svm, program, {
               payer: partner,

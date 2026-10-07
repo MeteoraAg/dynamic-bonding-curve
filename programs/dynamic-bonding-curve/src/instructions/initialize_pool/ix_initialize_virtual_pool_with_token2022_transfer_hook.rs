@@ -4,16 +4,15 @@ use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::constants::seeds::POOL_PREFIX;
 use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
 use crate::state::fee::VolatilityTracker;
+use crate::token::{get_mint_score, MintScore};
 use crate::InitPoolData;
 use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
-    token::{
-        create_token_2022_base_mint, create_token_2022_base_vault,
-        validate_quote_mint_with_token_badge, BaseMintTransferFee,
-    },
+    token::{create_token_2022_base_mint, create_token_2022_base_vault, BaseMintTransferFee},
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -100,9 +99,14 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
-
     let config = ctx.accounts.config.load()?;
+
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    require!(
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
+    );
+
     let decimals = config.token_decimal;
     let transfer_hook_program = config.transfer_hook_program;
     let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;

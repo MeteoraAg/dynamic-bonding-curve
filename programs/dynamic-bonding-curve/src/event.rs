@@ -47,7 +47,7 @@ pub struct EvtCreateConfig3 {
     pub fee_claimer: Pubkey,
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
-    pub transfer_fee_parameters: TransferFeeParameters,
+    pub transfer_fee_parameters: Option<TransferFeeParameters>,
 }
 
 /// Create claim fee operator

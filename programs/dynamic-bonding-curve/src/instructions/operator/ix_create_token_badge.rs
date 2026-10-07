@@ -5,7 +5,7 @@ use crate::{
     constants::seeds::TOKEN_BADGE_PREFIX,
     event::EvtCreateTokenBadge,
     state::{Operator, TokenBadge},
-    token::is_supported_quote_mint,
+    token::{get_mint_score, MintScore},
     PoolError,
 };
 
@@ -37,9 +37,11 @@ pub struct CreateTokenBadgeCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// a token badge relies on trust in the management of the mint
 pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+    let mint_score = get_mint_score(&ctx.accounts.token_mint, None)?;
     require!(
-        !is_supported_quote_mint(&ctx.accounts.token_mint)?,
+        mint_score == MintScore::Unsupported,
         PoolError::CannotCreateTokenBadgeOnSupportedMint
     );
 

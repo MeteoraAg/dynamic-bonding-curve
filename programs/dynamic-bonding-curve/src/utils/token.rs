@@ -263,7 +263,7 @@ pub fn get_epoch_transfer_fee(mint_info: &AccountInfo) -> Result<Option<Transfer
     Ok(None)
 }
 
-trait ZeroTransferFee {
+pub trait ZeroTransferFee {
     fn is_zero(&self) -> bool;
 }
 
@@ -294,6 +294,36 @@ fn is_transfer_fee_zero(
     true
 }
 
+#[derive(PartialOrd, PartialEq, Debug, Clone, Copy, Eq, Ord)]
+#[repr(u8)]
+pub enum MintScore {
+    Unsupported,
+    PermissionedWithTransferFee,
+    PermissionedWithoutTransferFee,
+    Permissionless,
+}
+
+pub fn get_mint_score<'info>(
+    mint_account: &InterfaceAccount<Mint>,
+    token_badge: Option<&'info AccountInfo<'info>>,
+) -> Result<MintScore> {
+    if is_permissionless_supported_quote_mint(mint_account)? {
+        return Ok(MintScore::Permissionless);
+    }
+    if let Some(token_badge) = token_badge {
+        require!(
+            is_token_badge_initialized(mint_account.key(), token_badge)?,
+            PoolError::InvalidTokenBadge
+        );
+        if !has_transfer_fee_or_config_authority(&mint_account.to_account_info())? {
+            return Ok(MintScore::PermissionedWithoutTransferFee);
+        } else {
+            return Ok(MintScore::PermissionedWithTransferFee);
+        }
+    }
+    Ok(MintScore::Unsupported)
+}
+
 pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<bool> {
     if mint_info.owner.eq(&Token::id()) {
         return Ok(false);
@@ -309,9 +339,9 @@ pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<b
     }
 }
 
-/// Rule: quote mint must be SPL-Token or Token-2022 (non-native) with only metadata extensions and/or zero transfer fee with no authority
-/// Anything else requires a token badge
-pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
+/// A legacy config accepts a badged quote mint too, but only one with no transfer fee and no
+/// fee config authority, because it was never validated against the transfer fee restrictions
+fn is_permissionless_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
         return Ok(true);
@@ -344,20 +374,6 @@ pub fn is_supported_quote_mint(mint_account: &InterfaceAccount<Mint>) -> Result<
         }
     }
     Ok(true)
-}
-
-pub fn validate_quote_mint_with_token_badge<'info>(
-    quote_mint: &InterfaceAccount<'info, Mint>,
-    token_badge: Option<&'info AccountInfo<'info>>,
-) -> Result<()> {
-    if !is_supported_quote_mint(quote_mint)? {
-        let token_badge = token_badge.ok_or_else(|| PoolError::InvalidTokenBadge)?;
-        require!(
-            is_token_badge_initialized(quote_mint.key(), token_badge)?,
-            PoolError::InvalidTokenBadge
-        );
-    }
-    Ok(())
 }
 
 fn is_token_badge_initialized<'info>(

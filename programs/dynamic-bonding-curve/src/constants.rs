@@ -57,6 +57,10 @@ static_assertions::const_assert_eq!(
 
 pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
+/// 0 - legacy
+/// 1 - configs created following the transfer fee restrictions
+pub const CONFIG_VERSION: u8 = 1;
+
 pub const MIN_LOCKED_LIQUIDITY_BPS: u16 = 1000; // 10%
 
 // Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
