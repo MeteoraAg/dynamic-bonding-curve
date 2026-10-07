@@ -29,7 +29,6 @@ pub enum PoolError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
-    /// deprecated
     #[msg("Invalid quote mint")]
     InvalidQuoteMint,
 

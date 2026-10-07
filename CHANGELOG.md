@@ -54,7 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed the deprecated `EvtCreateConfig` event. The `create_config` endpoint no longer emits the event. Indexers must consume `EvtCreateConfigV2` or `EvtCreateConfig3`.
-- Removed the `UnsupportedLegacyConfig` error, which is no longer returned. It was introduced in this release and never shipped, so the only knock-on is `InvalidFeeClaimer` — also new in this release — moving from 6086 to 6085.
 
 ### Breaking Changes
 
