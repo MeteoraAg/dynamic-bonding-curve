@@ -218,7 +218,7 @@ describe("Token badge", () => {
       // without the badge in remaining accounts the mint is rejected
       await expectThrowsAsync(
         () => createConfig(svm, program, params).then(() => {}),
-        "InvalidTokenBadge"
+        "InvalidQuoteMint"
       );
       await expectThrowsAsync(
         () =>
@@ -226,7 +226,7 @@ describe("Token badge", () => {
             ...params,
             transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
           }).then(() => {}),
-        "InvalidTokenBadge"
+        "InvalidQuoteMint"
       );
     });
   });
@@ -288,7 +288,7 @@ describe("Token badge", () => {
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
       });
 
@@ -339,7 +339,7 @@ describe("Token badge", () => {
               quoteMint: badgedQuoteMint,
               instructionParams: buildConfigParams(),
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
 
         await expectThrowsAsync(
@@ -356,7 +356,7 @@ describe("Token badge", () => {
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
 
         const poolState = getVirtualPool(svm, program, virtualPool);
@@ -440,7 +440,7 @@ describe("Token badge", () => {
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
       });
 
@@ -483,7 +483,7 @@ describe("Token badge", () => {
               instructionParams: buildConfigParams(),
               transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
 
         await expectThrowsAsync(
@@ -501,7 +501,7 @@ describe("Token badge", () => {
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
 
         const hookPoolState = getVirtualPool(svm, program, hookPool);
@@ -570,7 +570,7 @@ describe("Token badge", () => {
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
             }).then(() => {}),
-          "InvalidTokenBadge"
+          "InvalidQuoteMint"
         );
       });
 

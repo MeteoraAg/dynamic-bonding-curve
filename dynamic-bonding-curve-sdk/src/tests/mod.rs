@@ -4,6 +4,7 @@ use dynamic_bonding_curve::state::{PoolConfig, VirtualPool};
 
 mod test_quote_exact_out;
 mod test_quote_partial_fill;
+mod test_quote_transfer_fee;
 
 struct TestAccounts {
     config: PoolConfig,

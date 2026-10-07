@@ -1,49 +1,23 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
 
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2;
 use crate::{
     event::EvtCreateConfig3,
-    state::PoolConfig,
     token::{get_mint_score, MintScore},
     PoolError,
 };
 
-use super::{process_create_config, ConfigParameters};
+use super::{process_create_config, ConfigParameters, CreateConfigCtx, TransferFeeParameters};
 
-#[event_cpi]
-#[derive(Accounts)]
-pub struct CreateConfigCtx<'info> {
-    #[account(
-        init,
-        signer,
-        payer = payer,
-        space = 8 + PoolConfig::INIT_SPACE
-    )]
-    pub config: AccountLoader<'info, PoolConfig>,
-
-    /// CHECK: fee_claimer
-    pub fee_claimer: UncheckedAccount<'info>,
-    /// CHECK: owner extra base token in case token is fixed supply
-    /// for transfer fee case (create_config2) token is restricted to constant supply
-    pub leftover_receiver: UncheckedAccount<'info>,
-    /// quote mint
-    pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-pub fn handle_create_config<'info>(
+pub fn handle_create_config2<'info>(
     ctx: Context<'info, CreateConfigCtx<'info>>,
     config_parameters: ConfigParameters,
+    transfer_fee_parameters: Option<TransferFeeParameters>,
 ) -> Result<()> {
     let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
     require!(
-        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        mint_score >= MintScore::PermissionedWithTransferFee,
         PoolError::InvalidQuoteMint
     );
 
@@ -52,12 +26,15 @@ pub fn handle_create_config<'info>(
         false,
         ctx.accounts.fee_claimer.key,
     )?;
+    if let Some(transfer_fee) = transfer_fee_parameters {
+        transfer_fee.validate(config_parameters.token_type, ctx.accounts.fee_claimer.key)?;
+    }
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
         &mut config,
         &config_parameters,
-        None,
+        transfer_fee_parameters,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,
@@ -80,7 +57,7 @@ pub fn handle_create_config<'info>(
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         config_parameters,
-        transfer_fee_parameters: None,
+        transfer_fee_parameters,
     });
 
     Ok(())

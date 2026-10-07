@@ -1,4 +1,6 @@
 import {
+  ACCOUNT_SIZE,
+  ACCOUNT_TYPE_SIZE,
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
@@ -12,11 +14,15 @@ import {
   getAssociatedTokenAddressSync,
   getMintLen,
   getTransferHook,
+  LENGTH_SIZE,
+  MAX_FEE_BASIS_POINTS,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  TransferFee,
+  TYPE_SIZE,
   unpackMint,
 } from "@solana/spl-token";
 import {
@@ -109,7 +115,8 @@ export function createToken2022Mint(
     transferFeeConfig?: {
       feeBasisPoints: number;
       maximumFee: bigint;
-      transferFeeConfigAuthority?: PublicKey;
+      // undefined uses the payer, null makes the fee immutable
+      transferFeeConfigAuthority?: PublicKey | null;
     };
   } = {}
 ): PublicKey {
@@ -149,8 +156,12 @@ export function createToken2022Mint(
     transaction.add(
       createInitializeTransferFeeConfigInstruction(
         mintKeypair.publicKey,
-        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
-        transferFeeConfig.transferFeeConfigAuthority ?? payer.publicKey,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
         transferFeeConfig.feeBasisPoints,
         transferFeeConfig.maximumFee,
         TOKEN_2022_PROGRAM_ID
@@ -393,4 +404,62 @@ export async function getRemainingAccountsForTransferHook(
   const accounts = accountTypes.flatMap(() => transferHookAccounts);
 
   return { info: { slices }, accounts };
+}
+
+type MintExtension = {
+  type: ExtensionType;
+  // offset of the extension data in the account data
+  offset: number;
+  length: number;
+};
+
+/**
+ * Extensions of a Token-2022 mint, read from the raw account data.
+ * Token-2022 adds two padding bytes when the mint length would equal the multisig
+ * account size. getExtensionTypes from spl-token fails on that padding.
+ */
+function getMintExtensions(data: Uint8Array): MintExtension[] {
+  const buffer = Buffer.from(data);
+  const extensions: MintExtension[] = [];
+  let index = ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE;
+  while (index + TYPE_SIZE + LENGTH_SIZE <= buffer.length) {
+    const type = buffer.readUInt16LE(index);
+    const length = buffer.readUInt16LE(index + TYPE_SIZE);
+    if (type === ExtensionType.Uninitialized) {
+      break;
+    }
+    const offset = index + TYPE_SIZE + LENGTH_SIZE;
+    extensions.push({ type, offset, length });
+    index = offset + length;
+  }
+  return extensions;
+}
+
+export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
+  return getMintExtensions(data).map((extension) => extension.type);
+}
+
+/**
+ * Same as spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
+ * transfer so the recipient receives `excludedAmount` after the fee.
+ */
+export function getTransferFeeIncludedAmount(
+  transferFee: TransferFee,
+  excludedAmount: bigint
+): bigint {
+  const bps = BigInt(transferFee.transferFeeBasisPoints);
+  const ONE = BigInt(MAX_FEE_BASIS_POINTS);
+  if (bps === BigInt(0) || excludedAmount === BigInt(0)) {
+    return excludedAmount;
+  }
+  if (bps === ONE) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  const numerator = excludedAmount * ONE;
+  const denominator = ONE - bps;
+  const raw = (numerator + denominator - BigInt(1)) / denominator;
+  if (raw - excludedAmount >= transferFee.maximumFee) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  return raw;
 }
