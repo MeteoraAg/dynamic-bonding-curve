@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for a zero `compounding_fee_bps` with `MigratedCollectFeeMode::Compounding` when migrating to DAMMv2.
 - Added endpoint `create_config2` that takes the new optional `TransferFeeParameters` argument. Passing None creates a config with no base transfer fee. Passing Some always gives the base mint a TransferFeeConfig extension, so it requires the Token-2022 token type and is otherwise rejected with InvalidTokenType, including when the basis points are zero. It emits the new `EvtCreateConfig3` event and the `EvtCreateConfigV2` event. When there is a base transfer fee or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config is restricted to a constant token supply (fixed token supply and `pre_migration_token_supply` equals `post_migration_token_supply`), no locked vesting, `MigrationFeeOption::Customizable`, and `MigratedCollectFeeMode::Compounding`.
 - Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+- Added operator endpoint `revoke_transfer_hook` to revoke a transfer hook program id and the transfer hook authority on a base mint. This keeps the pair tradeable when the transfer hook program blocks transfers, for example because it was closed. Swaps must still go through `swap2_with_transfer_hook` with no transfer hook accounts.
 
 ### Changed
 

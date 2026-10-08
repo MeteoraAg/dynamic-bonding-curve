@@ -11,18 +11,17 @@ use crate::state::MigrationProgress;
 use crate::state::SwapResult2;
 use crate::{
     activation_handler::get_current_point,
-    const_pda,
     params::swap::TradeDirection,
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     state::fee::FeeMode,
-    token::{get_epoch_transfer_fee, transfer_token_from_pool_authority, transfer_token_from_user},
+    token::{
+        get_epoch_transfer_fee, get_transfer_hook_program_id, revoke_transfer_hook,
+        transfer_token_from_pool_authority, transfer_token_from_user,
+    },
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
-use anchor_spl::token_2022::{
-    set_authority, spl_token_2022::instruction::AuthorityType, SetAuthority,
-};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use solana_instruction::syscalls::get_processed_sibling_instruction;
@@ -366,7 +365,8 @@ pub fn process_swap<'a: 'info, 'info>(
             pool.set_migration_progress(MigrationProgress::LockedVesting.into());
         }
 
-        if pool_loader.is_transfer_hook_pool() {
+        if pool_loader.is_transfer_hook_pool() && get_transfer_hook_program_id(base_mint)?.is_some()
+        {
             revoke_transfer_hook(token_base_program, base_mint, pool_authority)?;
         }
 
@@ -391,48 +391,6 @@ pub fn process_swap<'a: 'info, 'info>(
         current_timestamp,
         curve_complete,
     })
-}
-
-fn revoke_transfer_hook<'info>(
-    token_program: &Interface<'info, TokenInterface>,
-    base_mint: &InterfaceAccount<'info, Mint>,
-    pool_authority: &UncheckedAccount<'info>,
-) -> Result<()> {
-    let pool_authority_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
-
-    // revoke transfer_hook program
-    let update_hook_ix =
-        anchor_spl::token_2022::spl_token_2022::extension::transfer_hook::instruction::update(
-            &token_program.key(),
-            &base_mint.key(),
-            &pool_authority.key(),
-            &[],
-            None,
-        )?;
-    anchor_lang::solana_program::program::invoke_signed(
-        &update_hook_ix,
-        &[
-            base_mint.to_account_info(),
-            pool_authority.to_account_info(),
-        ],
-        &[&pool_authority_seeds[..]],
-    )?;
-
-    // revoke transfer_hook authority
-    set_authority(
-        CpiContext::new_with_signer(
-            token_program.key(),
-            SetAuthority {
-                current_authority: pool_authority.to_account_info(),
-                account_or_mint: base_mint.to_account_info(),
-            },
-            &[&pool_authority_seeds[..]],
-        ),
-        AuthorityType::TransferHookProgramId,
-        None,
-    )?;
-
-    Ok(())
 }
 
 pub fn validate_single_swap_instruction<'info>(
