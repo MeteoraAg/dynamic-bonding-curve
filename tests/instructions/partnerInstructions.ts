@@ -319,6 +319,80 @@ export async function createConfigWithTransferHook(
   return config.publicKey;
 }
 
+export type CreateConfigWithTransferHook2Params =
+  CreateConfigWithTransferHookParams & {
+    // null means the config is created without a base transfer fee at all, which is
+    // not the same thing as a transfer fee of zero basis points
+    transferFee: TransferFeeParameters | null;
+  };
+
+export async function createConfigWithTransferHook2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigWithTransferHook2Params
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferHookProgram,
+    transferFee,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfigWithTransferHook2(
+      {
+        ...instructionParams,
+        padding: new Array(2).fill(0),
+      },
+      transferFee
+    )
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      transferHookProgram,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configWithTransferHook = program.coder.accounts.decode(
+    "configWithTransferHook",
+    Buffer.from(svm.getAccount(config.publicKey).data)
+  );
+  expect(configWithTransferHook.transferHookProgram.toString()).equal(
+    transferHookProgram.toString()
+  );
+  expect(configWithTransferHook.config.quoteMint.toString()).equal(
+    quoteMint.toString()
+  );
+  expect(configWithTransferHook.config.transferFeeBasisPoints).equal(
+    transferFee?.transferFeeBasisPoints ?? 0
+  );
+
+  return config.publicKey;
+}
+
 export async function createPartnerMetadata(
   svm: LiteSVM,
   program: VirtualCurveProgram,

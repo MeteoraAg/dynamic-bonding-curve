@@ -4,6 +4,7 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 #[allow(deprecated)]
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
+    event::EvtCreateConfig3WithTransferHook,
     state::{ConfigWithTransferHook, TokenType},
     token::{get_mint_score, MintScore},
     PoolError,
@@ -39,6 +40,20 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
+impl<'info> CreateConfigWithTransferHookCtx<'info> {
+    /// to be safe we disallow programs involved in the transfer chain (DBC, spl token, token 2022)
+    pub fn validate_transfer_hook_program(&self) -> Result<()> {
+        let transfer_hook_program = self.transfer_hook_program.key();
+        require!(
+            transfer_hook_program.ne(&crate::ID)
+                && transfer_hook_program.ne(&token::ID)
+                && transfer_hook_program.ne(&token_2022::ID),
+            PoolError::InvalidTransferHookProgram
+        );
+        Ok(())
+    }
+}
+
 pub fn handle_create_config_with_transfer_hook<'info>(
     ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
@@ -62,14 +77,7 @@ pub fn handle_create_config_with_transfer_hook<'info>(
         PoolError::InvalidTokenType
     );
 
-    let transfer_hook_program = &ctx.accounts.transfer_hook_program;
-    // to be safe we disallow programs involved in the transfer chain (DBC, spl token, token 2022)
-    require!(
-        transfer_hook_program.key().ne(&crate::ID)
-            && transfer_hook_program.key().ne(&token::ID)
-            && transfer_hook_program.key().ne(&token_2022::ID),
-        PoolError::InvalidTransferHookProgram
-    );
+    ctx.accounts.validate_transfer_hook_program()?;
 
     let mut config = ctx.accounts.config.load_init()?;
     process_create_config(
@@ -82,13 +90,26 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     )?;
     config.transfer_hook_program = ctx.accounts.transfer_hook_program.key();
 
-    emit_cpi!(EvtCreateConfigV2WithTransferHook {
+    #[allow(deprecated)]
+    {
+        emit_cpi!(EvtCreateConfigV2WithTransferHook {
+            config: ctx.accounts.config.key(),
+            fee_claimer: ctx.accounts.fee_claimer.key(),
+            quote_mint: ctx.accounts.quote_mint.key(),
+            leftover_receiver: ctx.accounts.leftover_receiver.key(),
+            transfer_hook_program: ctx.accounts.transfer_hook_program.key(),
+            config_parameters: config_parameters.clone(),
+        });
+    }
+
+    emit_cpi!(EvtCreateConfig3WithTransferHook {
         config: ctx.accounts.config.key(),
         fee_claimer: ctx.accounts.fee_claimer.key(),
         quote_mint: ctx.accounts.quote_mint.key(),
         leftover_receiver: ctx.accounts.leftover_receiver.key(),
         transfer_hook_program: ctx.accounts.transfer_hook_program.key(),
         config_parameters,
+        transfer_fee_parameters: None,
     });
 
     Ok(())
