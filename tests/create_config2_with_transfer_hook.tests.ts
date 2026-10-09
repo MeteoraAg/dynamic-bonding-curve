@@ -15,7 +15,7 @@ import {
   BaseFee,
   ConfigParameters,
   createConfigWithTransferHook,
-  createConfigWithTransferHook2,
+  createConfig2WithTransferHook,
   createOperatorAccount,
   createPoolWithToken2022TransferHook,
   createTokenBadge,
@@ -177,7 +177,7 @@ describe("Create config with transfer hook 2", () => {
     transferHookProgram: PublicKey = TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     feeClaimer: PublicKey = partner.publicKey
   ) {
-    return createConfigWithTransferHook2(svm, program, {
+    return createConfig2WithTransferHook(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer,

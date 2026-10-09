@@ -13,7 +13,7 @@ use super::{
     process_create_config, ConfigParameters, CreateConfigWithTransferHookCtx, TransferFeeParameters,
 };
 
-pub fn handle_create_config_with_transfer_hook_2<'info>(
+pub fn handle_create_config2_with_transfer_hook<'info>(
     ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
     transfer_fee_parameters: Option<TransferFeeParameters>,

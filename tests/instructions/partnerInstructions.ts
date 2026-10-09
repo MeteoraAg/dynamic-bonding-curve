@@ -319,17 +319,17 @@ export async function createConfigWithTransferHook(
   return config.publicKey;
 }
 
-export type CreateConfigWithTransferHook2Params =
+export type CreateConfig2WithTransferHookParams =
   CreateConfigWithTransferHookParams & {
     // null means the config is created without a base transfer fee at all, which is
     // not the same thing as a transfer fee of zero basis points
     transferFee: TransferFeeParameters | null;
   };
 
-export async function createConfigWithTransferHook2(
+export async function createConfig2WithTransferHook(
   svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateConfigWithTransferHook2Params
+  params: CreateConfig2WithTransferHookParams
 ): Promise<PublicKey> {
   const {
     payer,
@@ -352,7 +352,7 @@ export async function createConfigWithTransferHook2(
   }
 
   const transaction = await program.methods
-    .createConfigWithTransferHook2(
+    .createConfig2WithTransferHook(
       {
         ...instructionParams,
         padding: new Array(2).fill(0),
