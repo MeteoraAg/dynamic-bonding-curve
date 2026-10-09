@@ -165,7 +165,7 @@ describe("Token authority with token2022", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
-  it("Token2022: PartnerUpdateAuthority with a zero fee claimer is rejected at config creation", async () => {
+  it("Token2022: PartnerUpdateAuthority with a fee claimer with pubkey default is rejected at config creation", async () => {
     const tokenUpdateAuthority = 2;
     const tokenType = 1;
 
@@ -183,7 +183,7 @@ describe("Token authority with token2022", () => {
     }, errorCode);
   });
 
-  it("Token2022: CreatorUpdateAuthority with a zero fee claimer is accepted", async () => {
+  it("Token2022: CreatorUpdateAuthority with a fee claimer with pubkey default is accepted", async () => {
     const tokenUpdateAuthority = 0;
     const tokenType = 1;
 
@@ -346,7 +346,7 @@ describe("Token authority with transfer-hook token2022", () => {
     );
   });
 
-  it("Transfer hook: PartnerUpdateAndMintAuthority with a zero fee claimer is rejected at config creation", async () => {
+  it("Transfer hook: PartnerUpdateAndMintAuthority with a fee claimer with pubkey default is rejected at config creation", async () => {
     const errorCode = getDbcProgramErrorCodeHexString("InvalidFeeClaimer");
     await expectThrowsAsync(async () => {
       await createTransferHookPool(
@@ -485,7 +485,7 @@ describe("Token authority with spl token", () => {
     expect(baseMintData.mintAuthorityOption).eq(0);
   });
 
-  it("Spl token: PartnerUpdateAuthority with a zero fee claimer is accepted", async () => {
+  it("Spl token: PartnerUpdateAuthority with a fee claimer with pubkey default is accepted", async () => {
     const tokenUpdateAuthority = 2;
     const tokenType = 0;
 
