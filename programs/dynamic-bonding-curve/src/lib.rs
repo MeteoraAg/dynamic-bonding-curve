@@ -99,7 +99,7 @@ pub mod dynamic_bonding_curve {
 
     #[deprecated(
         since = "0.2.3",
-        note = "Use create_config_with_transfer_hook_2 instead. Will be removed in a future version"
+        note = "Use create_config2_with_transfer_hook instead. Will be removed in a future version"
     )]
     pub fn create_config_with_transfer_hook<'info>(
         ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
@@ -116,12 +116,12 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config2(ctx, config_parameters, transfer_fee_parameters)
     }
 
-    pub fn create_config_with_transfer_hook_2<'info>(
+    pub fn create_config2_with_transfer_hook<'info>(
         ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
         config_parameters: ConfigParameters,
         transfer_fee_parameters: Option<TransferFeeParameters>,
     ) -> Result<()> {
-        instructions::handle_create_config_with_transfer_hook_2(
+        instructions::handle_create_config2_with_transfer_hook(
             ctx,
             config_parameters,
             transfer_fee_parameters,

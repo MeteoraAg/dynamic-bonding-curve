@@ -14,7 +14,7 @@ import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
-  createConfigWithTransferHook2,
+  createConfig2WithTransferHook,
   createMeteoraDammV2Metadata,
   createOperatorAccount,
   createPoolWithToken2022TransferHook,
@@ -298,7 +298,7 @@ async function setupPool(
     instructionParams: buildConfigParams(scenario),
     tokenBadge,
   };
-  const config = await createConfigWithTransferHook2(svm, program, {
+  const config = await createConfig2WithTransferHook(svm, program, {
     ...configParams,
     transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     transferFee:
