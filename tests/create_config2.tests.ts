@@ -422,7 +422,7 @@ describe("Create config2", () => {
       }
     });
 
-    it("Rejects a zero fee claimer as the withheld authority", async () => {
+    it("Rejects a fee claimer with pubkey default as the withheld authority", async () => {
       await expectThrowsAsync(
         () =>
           createFeeConfig(
@@ -439,7 +439,7 @@ describe("Create config2", () => {
       );
     });
 
-    it("Rejects a zero fee claimer as the migrated transfer fee authority", async () => {
+    it("Rejects a fee claimer with pubkey default as the migrated transfer fee authority", async () => {
       await expectThrowsAsync(
         () =>
           createFeeConfig(
@@ -457,7 +457,7 @@ describe("Create config2", () => {
       );
     });
 
-    it("Accepts a zero fee claimer when the partner holds no transfer fee authority", async () => {
+    it("Accepts a fee claimer with pubkey default when the partner holds no transfer fee authority", async () => {
       const config = await createFeeConfig(
         1,
         feeParameters,
