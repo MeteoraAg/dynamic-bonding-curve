@@ -1,11 +1,14 @@
 import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
+  calculateFee,
   ExtensionType,
   getAccountLen,
   getExtensionData,
+  getTransferFeeConfig,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
+  unpackMint,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
@@ -22,13 +25,14 @@ import {
   claimTradingFee2,
   ConfigParameters,
   createOperatorAccount,
-  createConfigWithTransferHook,
-  CreateConfigWithTransferHookParams,
+  createConfigWithTransferHook2,
+  CreateConfigWithTransferHook2Params,
   createPoolWithToken2022TransferHook,
   swapWithTransferHook,
   SwapMode,
   SwapParams,
   OperatorPermission,
+  TransferFeeParameters,
 } from "./instructions";
 import {
   createVirtualCurveProgram,
@@ -41,8 +45,11 @@ import {
   getTransferHookCounter,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
+  MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
   startSvm,
+  MigratedTransferFeeAuthorityOption,
+  TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
 import {
@@ -53,7 +60,38 @@ import { getVirtualPool } from "./utils/fetcher";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 
-describe("Create pool with token2022 transfer hook", () => {
+const CONSTANT_TOKEN_SUPPLY = new BN(2_500_000_000);
+const BASE_FEE_BPS = 250; // 2.5%
+
+const feeParameters: TransferFeeParameters = {
+  transferFeeBasisPoints: BASE_FEE_BPS,
+  withheldAuthority: TransferFeeWithheldAuthority.Creator,
+  migratedTransferFeeAuthorityOption:
+    MigratedTransferFeeAuthorityOption.Immutable,
+};
+
+function excludedBase(amount: bigint): bigint {
+  return (
+    amount -
+    calculateFee(
+      {
+        epoch: BigInt(0),
+        maximumFee: BigInt(U64_MAX.toString()),
+        transferFeeBasisPoints: BASE_FEE_BPS,
+      },
+      amount
+    )
+  );
+}
+
+function balanceOf(svm: LiteSVM, tokenAccount: PublicKey): bigint {
+  if (svm.getAccount(tokenAccount) === null) {
+    return BigInt(0);
+  }
+  return getTokenAccount(svm, tokenAccount).amount;
+}
+
+describe("Create pool with token2022 transfer hook and transfer fee", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
@@ -64,6 +102,30 @@ describe("Create pool with token2022 transfer hook", () => {
   let config: PublicKey;
   let virtualPool: PublicKey;
   let virtualPoolState: Pool;
+
+  const baseAccountOf = (owner: PublicKey) =>
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      virtualPoolState.baseMint,
+      owner,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+  async function expectBaseNetPayout(
+    recipient: PublicKey,
+    action: () => Promise<unknown>
+  ) {
+    const recipientAccount = baseAccountOf(recipient);
+    const preVault = balanceOf(svm, virtualPoolState.baseVault);
+    const preRecipient = balanceOf(svm, recipientAccount);
+    await action();
+    const paid = preVault - balanceOf(svm, virtualPoolState.baseVault);
+    expect(paid > BigInt(0)).eq(true);
+    expect((balanceOf(svm, recipientAccount) - preRecipient).toString()).eq(
+      excludedBase(paid).toString()
+    );
+  }
 
   before(async () => {
     svm = startSvm();
@@ -129,8 +191,11 @@ describe("Create pool with token2022 transfer hook", () => {
         numberOfPeriod: new BN(0),
         cliffUnlockAmount: new BN(0),
       },
-      migrationFeeOption: 0,
-      tokenSupply: null,
+      migrationFeeOption: 6,
+      tokenSupply: {
+        preMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+        postMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
+      },
       creatorTradingFeePercentage: 50,
       tokenUpdateAuthority: 0,
       migrationFee: {
@@ -138,9 +203,9 @@ describe("Create pool with token2022 transfer hook", () => {
         creatorFeePercentage: 0,
       },
       migratedPoolFee: {
-        collectFeeMode: 0,
+        collectFeeMode: MigratedCollectFeeMode.Compounding,
         dynamicFee: 0,
-        poolFeeBps: 0,
+        poolFeeBps: 100,
       },
       creatorLiquidityVestingInfo: {
         vestingPercentage: 0,
@@ -163,21 +228,22 @@ describe("Create pool with token2022 transfer hook", () => {
       migratedPoolMarketCapFeeSchedulerParams: null,
       curve: curves,
     };
-    const params: CreateConfigWithTransferHookParams = {
+    const params: CreateConfigWithTransferHook2Params = {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint: NATIVE_MINT,
       instructionParams,
       transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+      transferFee: feeParameters,
     };
-    config = await createConfigWithTransferHook(svm, program, params);
+    config = await createConfigWithTransferHook2(svm, program, params);
   });
 
-  it("Create token2022 pool with transfer hook", async () => {
-    const name = "test token 2022 hook";
-    const symbol = "HOOK2022";
-    const uri = "hook2022.com";
+  it("Create token2022 pool with transfer hook and transfer fee", async () => {
+    const name = "test token 2022 hook fee";
+    const symbol = "HOOKFEE";
+    const uri = "hookfee.com";
 
     virtualPool = await createPoolWithToken2022TransferHook(svm, program, {
       payer: operator,
@@ -220,6 +286,24 @@ describe("Create pool with token2022 transfer hook", () => {
     );
     expect(hookAuthority.toString()).eq(derivePoolAuthority().toString());
 
+    // validate transfer fee extension
+    const mintAccount = svm.getAccount(virtualPoolState.baseMint);
+    const mint = unpackMint(
+      virtualPoolState.baseMint,
+      { ...mintAccount, data: Buffer.from(mintAccount.data) },
+      TOKEN_2022_PROGRAM_ID
+    );
+    const transferFeeConfig = getTransferFeeConfig(mint);
+    expect(transferFeeConfig.transferFeeConfigAuthority.toString()).eq(
+      PublicKey.default.toString()
+    );
+    expect(transferFeeConfig.withdrawWithheldAuthority.toString()).eq(
+      poolCreator.publicKey.toString()
+    );
+    expect(transferFeeConfig.newerTransferFee.transferFeeBasisPoints).eq(
+      BASE_FEE_BPS
+    );
+
     // validate freeze authority
     const baseMintData = getMint(svm, virtualPoolState.baseMint);
     expect(baseMintData.freezeAuthority.toString()).eq(
@@ -227,16 +311,19 @@ describe("Create pool with token2022 transfer hook", () => {
     );
     expect(baseMintData.mintAuthorityOption).eq(0);
 
-    // a zero-fee config creates the same extensions as the old Anchor init
     expect(
       getMintExtensionTypes(svm.getAccount(virtualPoolState.baseMint).data)
     ).deep.eq([
       ExtensionType.MetadataPointer,
+      ExtensionType.TransferFeeConfig,
       ExtensionType.TransferHook,
       ExtensionType.TokenMetadata,
     ]);
     expect(svm.getAccount(virtualPoolState.baseVault).data.length).eq(
-      getAccountLen([ExtensionType.TransferHookAccount])
+      getAccountLen([
+        ExtensionType.TransferFeeAmount,
+        ExtensionType.TransferHookAccount,
+      ])
     );
   });
 
@@ -304,7 +391,9 @@ describe("Create pool with token2022 transfer hook", () => {
       maxBaseAmount: new BN(U64_MAX),
       maxQuoteAmount: new BN(U64_MAX),
     };
-    await claimTradingFee2(svm, program, claimTradingFeeParams);
+    await expectBaseNetPayout(partner.publicKey, () =>
+      claimTradingFee2(svm, program, claimTradingFeeParams)
+    );
   });
 
   it("Creator claim trading fee", async () => {
@@ -314,7 +403,9 @@ describe("Create pool with token2022 transfer hook", () => {
       maxBaseAmount: new BN(U64_MAX),
       maxQuoteAmount: new BN(U64_MAX),
     };
-    await claimCreatorTradingFee2(svm, program, claimCreatorTradingFeeParams);
+    await expectBaseNetPayout(poolCreator.publicKey, () =>
+      claimCreatorTradingFee2(svm, program, claimCreatorTradingFeeParams)
+    );
   });
 
   it("Partner claim trading fee rejects transfer hook pool", async () => {

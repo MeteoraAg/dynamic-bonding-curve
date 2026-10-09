@@ -2,6 +2,7 @@ import {
   calculateFee,
   getAssociatedTokenAddressSync,
   getTransferFeeConfig,
+  getTransferHook,
   TOKEN_2022_PROGRAM_ID,
   TransferFee,
   unpackMint,
@@ -13,16 +14,15 @@ import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
-  createConfig,
-  createConfig2,
+  createConfigWithTransferHook2,
   createMeteoraDammV2Metadata,
   createOperatorAccount,
-  createPoolWithToken2022,
+  createPoolWithToken2022TransferHook,
   createTokenBadge,
   migrateToDammV2,
   OperatorPermission,
-  swap,
   SwapMode,
+  swapWithTransferHook,
   withdrawLeftover,
 } from "./instructions";
 import {
@@ -38,6 +38,7 @@ import {
   expectThrowsAsync,
   generateAndFund,
   getDbcProgramErrorCodeHexString,
+  initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
   MigratedCollectFeeMode,
   MIN_SQRT_PRICE,
@@ -48,6 +49,7 @@ import {
   warpEpochBy,
 } from "./utils";
 import { deriveTokenBadgeAddress } from "./utils/accounts";
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
 import {
   createToken2022Mint,
@@ -99,10 +101,7 @@ const FEE_CASES: FeeCase[] = [
 type Scenario = {
   baseFeeBasisPoints: number;
   quoteFeeBasisPoints: number;
-  // maximum fee of the quote mint, defaults to no cap
   quoteMaximumFee?: bigint;
-  // what happens to the base mint fee authority at migration, defaults to
-  // an immutable fee
   migratedTransferFeeAuthorityOption?: number;
 };
 
@@ -194,7 +193,6 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     },
-    // create_config2 requires a customizable migrated pool once a base fee is set, which uses a damm v2 dynamic config
     migrationFeeOption: 6,
     tokenSupply: {
       preMigrationTokenSupply: CONSTANT_TOKEN_SUPPLY,
@@ -222,8 +220,20 @@ function buildConfigParams(scenario: Scenario): ConfigParameters {
   };
 }
 
-// Creates a pool with a transfer fee on the base mint, the quote mint, or both, completes the curve and migrates.
-// With `migrate` false the pool stays complete but not migrated, so the caller can change the quote fee first.
+function expectTransferHookConfigured(svm: LiteSVM, baseMint: PublicKey) {
+  const hook = getTransferHook(getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID));
+  expect(hook!.programId.toString()).eq(
+    TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
+  );
+  expect(hook!.authority.toString()).eq(derivePoolAuthority().toString());
+}
+
+function expectTransferHookRevoked(svm: LiteSVM, baseMint: PublicKey) {
+  const hook = getTransferHook(getMint(svm, baseMint, TOKEN_2022_PROGRAM_ID));
+  expect(hook!.programId.toString()).eq(PublicKey.default.toString());
+  expect(hook!.authority.toString()).eq(PublicKey.default.toString());
+}
+
 async function setupPool(
   scenario: Scenario,
   migrate: boolean = true
@@ -288,33 +298,27 @@ async function setupPool(
     instructionParams: buildConfigParams(scenario),
     tokenBadge,
   };
-  let config: PublicKey;
-  if (scenario.baseFeeBasisPoints > 0) {
-    config = await createConfig2(svm, program, {
-      ...configParams,
-      transferFee: {
-        transferFeeBasisPoints: scenario.baseFeeBasisPoints,
-        withheldAuthority: TransferFeeWithheldAuthority.Partner,
-        migratedTransferFeeAuthorityOption:
-          scenario.migratedTransferFeeAuthorityOption ??
-          MigratedTransferFeeAuthorityOption.Immutable,
-      },
-    });
-  } else if (quoteHasFee) {
-    config = await createConfig2(svm, program, {
-      ...configParams,
-      // the fee is on the quote mint only, so the base mint gets no transfer fee
-      transferFee: null,
-    });
-  } else {
-    config = await createConfig(svm, program, configParams);
-  }
+  const config = await createConfigWithTransferHook2(svm, program, {
+    ...configParams,
+    transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+    transferFee:
+      scenario.baseFeeBasisPoints > 0
+        ? {
+            transferFeeBasisPoints: scenario.baseFeeBasisPoints,
+            withheldAuthority: TransferFeeWithheldAuthority.Partner,
+            migratedTransferFeeAuthorityOption:
+              scenario.migratedTransferFeeAuthorityOption ??
+              MigratedTransferFeeAuthorityOption.Immutable,
+          }
+        : null,
+  });
 
-  const virtualPool = await createPoolWithToken2022(svm, program, {
+  const virtualPool = await createPoolWithToken2022TransferHook(svm, program, {
     payer: poolCreator,
     poolCreator,
     quoteMint,
     config,
+    transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     instructionParams: {
       name: "fee",
       symbol: "FEE",
@@ -324,8 +328,10 @@ async function setupPool(
     tokenBadge,
   });
   const poolState = getVirtualPool(svm, program, virtualPool);
+  await initializeExtraAccountMetaList(svm, operator, poolState.baseMint);
+  expectTransferHookConfigured(svm, poolState.baseMint);
 
-  const { completed } = await swap(svm, program, {
+  const { completed } = await swapWithTransferHook(svm, program, {
     config,
     payer: user,
     pool: virtualPool,
@@ -337,6 +343,7 @@ async function setupPool(
     referralTokenAccount: null,
   });
   expect(completed).eq(true);
+  expectTransferHookRevoked(svm, poolState.baseMint);
 
   await createMeteoraDammV2Metadata(svm, program, {
     payer: admin,
@@ -416,7 +423,6 @@ function positionLiquidity(svm: LiteSVM, position: PublicKey): bigint {
   );
 }
 
-// share of the pool liquidity held by the second position, in parts per million
 function secondPositionSharePpm(state: MigratedState): bigint {
   const first = positionLiquidity(state.svm, state.firstPosition);
   const second = positionLiquidity(state.svm, state.secondPosition);
@@ -425,7 +431,6 @@ function secondPositionSharePpm(state: MigratedState): bigint {
 
 function owedQuote(state: MigratedState): bigint {
   const pool = getVirtualPool(state.svm, state.program, state.virtualPool);
-  // the migration fee percentage is 0 in every scenario, so this is all the quote still owed
   return (
     BigInt(pool.protocolQuoteFee.toString()) +
     BigInt(pool.partnerQuoteFee.toString()) +
@@ -451,12 +456,10 @@ function balanceOf(svm: LiteSVM, tokenAccount: PublicKey): bigint {
   return getTokenAccount(svm, tokenAccount).amount;
 }
 
-// Base in the vault that is not owed as fees. withdraw_leftover acts on this amount.
 function baseLeftover(state: MigratedState): bigint {
   return balanceOf(state.svm, state.baseVault) - owedBase(state);
 }
 
-// Quote in the vault that is not owed as fees or as surplus above the threshold.
 function quoteLeftover(state: MigratedState): bigint {
   const pool = getVirtualPool(state.svm, state.program, state.virtualPool);
   const config = getConfig(state.svm, state.program, state.config);
@@ -476,7 +479,6 @@ function protocolMigrationQuoteFee(state: MigratedState): bigint {
   return BigInt(pool.protocolMigrationQuoteFeeAmount.toString());
 }
 
-// Base deposited into damm v2. No pool here shrinks its supply, so nothing is burned out of the vault.
 function depositedBase(state: MigratedState): bigint {
   return (
     state.preMigrationBaseVaultAmount - balanceOf(state.svm, state.baseVault)
@@ -507,7 +509,7 @@ function expectWithinRelative(actual: bigint, expected: bigint, ppm: bigint) {
   ).eq(true);
 }
 
-describe("Migrate to damm v2 with a transfer fee on the base mint, the quote mint, or both", () => {
+describe("Migrate to damm v2 with transfer hook and a transfer fee on the base mint, the quote mint, or both", () => {
   let zeroFeeFixed: MigratedState;
 
   before(async () => {
@@ -519,8 +521,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
 
   for (const feeCase of FEE_CASES) {
     const { baseFeeBasisPoints, quoteFeeBasisPoints } = feeCase;
-    // on the compounding handler the side with the larger fee limits the deposit and the other side is
-    // scaled down to match, so both sides shrink by the larger fee
     const compoundingFeeBasisPoints = Math.max(
       baseFeeBasisPoints,
       quoteFeeBasisPoints
@@ -552,6 +552,12 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         }
       });
 
+      it("transfer hook stays revoked across migration", () => {
+        for (const state of states()) {
+          expectTransferHookRevoked(state.svm, state.baseMint);
+        }
+      });
+
       it("preserves the migration price", () => {
         const feePrice = BigInt(
           getDammV2Pool(feeFixed.svm, feeFixed.dammPool).sqrtPrice.toString()
@@ -580,8 +586,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
           zeroFeeDammPool.tokenBAmount.toString()
         );
 
-        // the base budget is the migration threshold, so both sides shrink by the larger fee.
-        // damm v2 pulls the quote fee on top of the deposit, so the quote in the pool is not reduced a second time
         expectWithinRelative(
           baseInPool,
           excluded(compoundingFeeBasisPoints, zeroFeeBaseInPool),
@@ -598,8 +602,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         const surplus =
           protocolMigrationBaseFee(feeFixed) -
           protocolMigrationBaseFee(zeroFeeFixed);
-        // the surplus is the base the zero-fee pool deposited and this pool did not. With a base fee the
-        // deposit is grossed up, so this pool deposits at least as much and books no surplus.
         const expected = saturatingSub(
           depositedBase(zeroFeeFixed),
           depositedBase(feeFixed)
@@ -611,7 +613,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         }
         expectWithinAbsolute(surplus, expected, BigInt(2));
 
-        // the surplus is kept in the vault for claim_protocol_fee2 and is not burned
         expect(
           balanceOf(feeFixed.svm, feeFixed.baseVault) >= owedBase(feeFixed)
         ).eq(true);
@@ -621,17 +622,14 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         const plainProtocolBaseFee = protocolMigrationBaseFee(zeroFeeFixed);
         const plainProtocolQuoteFee = protocolMigrationQuoteFee(zeroFeeFixed);
         for (const state of states()) {
-          // damm v2 pulls the quote deposit plus its fee, so only rounding dust stays in the vault
           expectWithinAbsolute(quoteLeftover(state), BigInt(0), BigInt(2));
           const routedQuote =
             protocolMigrationQuoteFee(state) - plainProtocolQuoteFee;
           if (baseFeeBasisPoints === 0) {
-            // without a base fee nothing is scaled down
             expect(routedQuote.toString()).eq("0");
             continue;
           }
           const config = getConfig(state.svm, state.program, state.config);
-          // quote_to_damm = quote_budget * excluded(base_budget) / base_budget, and damm v2 pulls included(quote_to_damm)
           const baseBudget =
             BigInt(config.migrationBaseThreshold.toString()) -
             plainProtocolBaseFee;
@@ -654,7 +652,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         const zeroFeeLeftover = baseLeftover(zeroFeeFixed);
         const feeLeftover = baseLeftover(feeFixed);
         if (baseFeeBasisPoints === 0) {
-          // no base fee: the base kept out by the quote fee goes to the protocol, so the leftover does not change
           expectWithinAbsolute(feeLeftover, zeroFeeLeftover, BigInt(2));
           return;
         }
@@ -685,7 +682,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         });
 
         const received = balanceOf(feeFixed.svm, receiverAccount) - preReceiver;
-        // the receiver pays the base transfer fee on the payout
         expect(received.toString()).eq(
           excluded(baseFeeBasisPoints, leftover).toString()
         );
@@ -740,7 +736,6 @@ describe("Migrate to damm v2 with a transfer fee on the base mint, the quote min
         false
       );
 
-      // a 100% fee with no cap makes excluded(quote_budget) 0, so the liquidity is 0
       setTransferFee(
         state.svm,
         state.admin,

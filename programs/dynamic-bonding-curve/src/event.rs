@@ -30,6 +30,7 @@ pub struct EvtCreateConfigV2 {
     pub config_parameters: ConfigParameters,
 }
 
+#[deprecated(since = "0.2.3")]
 #[event]
 pub struct EvtCreateConfigV2WithTransferHook {
     pub config: Pubkey,
@@ -48,6 +49,17 @@ pub struct EvtCreateConfig3 {
     pub leftover_receiver: Pubkey,
     pub config_parameters: ConfigParameters,
     pub transfer_fee_parameters: Option<TransferFeeParameters>,
+}
+
+#[event]
+pub struct EvtCreateConfig3WithTransferHook {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+    pub transfer_fee_parameters: Option<TransferFeeParameters>,
+    pub transfer_hook_program: Pubkey,
 }
 
 /// Create claim fee operator
