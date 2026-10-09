@@ -3,7 +3,7 @@ use super::{max_key, min_key};
 use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
 use crate::state::fee::VolatilityTracker;
-use crate::token::{get_mint_score, MintScore};
+use crate::token::validate_quote_mint_on_pool_init;
 use crate::InitPoolData;
 use crate::{
     const_pda,
@@ -11,7 +11,6 @@ use crate::{
     event::EvtInitializePool,
     state::{PoolConfig, PoolType, VirtualPool},
     token::{create_token_2022_base_mint, create_token_2022_base_vault, BaseMintTransferFee},
-    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -104,18 +103,11 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
-    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
-    if config.is_legacy_config() {
-        require!(
-            mint_score >= MintScore::PermissionedWithoutTransferFee,
-            PoolError::InvalidQuoteMint
-        );
-    } else {
-        require!(
-            mint_score >= MintScore::PermissionedWithTransferFee,
-            PoolError::InvalidQuoteMint
-        );
-    }
+    validate_quote_mint_on_pool_init(
+        &config,
+        &ctx.accounts.quote_mint,
+        ctx.remaining_accounts.first(),
+    )?;
 
     let decimals = config.token_decimal;
     let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;

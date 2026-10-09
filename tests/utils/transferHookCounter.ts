@@ -47,3 +47,12 @@ export async function initializeExtraAccountMetaList(
 
   sendTransactionMaybeThrow(svm, transaction, [payer]);
 }
+
+export function getTransferHookCounter(svm: LiteSVM, mint: PublicKey): number {
+  const account = svm.getAccount(deriveCounterAccount(mint));
+  const decoded = createTransferHookCounterProgram().coder.accounts.decode(
+    "counterAccount",
+    Buffer.from(account.data)
+  );
+  return decoded.counter;
+}
