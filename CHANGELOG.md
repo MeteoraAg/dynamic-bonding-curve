@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Rust SDK: `quote_exact_out` now accounts for a referral fee.
+
 ### Security
 
 ### Breaking Changes
