@@ -162,6 +162,7 @@ fn test_quote_fee_exact_out_base_to_quote_round_trips_through_exact_in() {
         Some(&quote_fee),
         out_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -214,6 +215,7 @@ fn test_quote_fee_exact_out_quote_to_base_grosses_up_the_input() {
         None,
         Some(&quote_fee),
         out_amount,
+        false,
         false,
     )
     .unwrap();
@@ -439,6 +441,7 @@ fn test_base_fee_exact_out_quote_to_base_grosses_up_the_output() {
         None,
         out_amount,
         false,
+        false,
     )
     .unwrap();
 
@@ -492,6 +495,7 @@ fn test_base_fee_exact_out_base_to_quote_grosses_up_the_input() {
         Some(&base_fee),
         None,
         out_amount,
+        false,
         false,
     )
     .unwrap();
@@ -634,6 +638,7 @@ fn test_both_fees_apply_to_their_own_legs() {
         Some(&quote_fee),
         out_amount,
         false,
+        false,
     )
     .unwrap();
     assert_eq!(
@@ -688,6 +693,7 @@ fn test_zero_fee_config_matches_none_on_either_slot() {
                 base_fee,
                 quote_fee,
                 amount,
+                false,
                 false,
             )
             .unwrap(),
