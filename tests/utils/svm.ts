@@ -20,7 +20,7 @@ export function startSvm() {
   const sourceFileDbcPath = path.resolve(
     "./target/deploy/dynamic_bonding_curve.so"
   );
-  const sourceFileDammV2Path = path.resolve("./tests/fixtures/damm_v2.so");
+  const sourceFileDammV2Path = path.resolve("./tests/fixtures/cp_amm.so");
   const sourceFileDammV1Path = path.resolve("./tests/fixtures/amm.so");
   const sourceFileAlphaVaultPath = path.resolve("./tests/fixtures/vault.so");
   const sourceFileLockerPath = path.resolve("./tests/fixtures/locker.so");

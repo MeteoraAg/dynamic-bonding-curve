@@ -26,6 +26,7 @@ fn test_quote_exact_out_fee_in_quote_from_base_for_quote() {
         None,
         output_amount,
         false,
+        false,
     )
     .unwrap()
     .swap_result;
@@ -82,6 +83,7 @@ fn test_quote_exact_out_fee_in_quote_from_quote_to_base() {
         None,
         output_amount,
         false,
+        false,
     )
     .unwrap()
     .swap_result;
@@ -131,6 +133,7 @@ fn test_quote_exact_out_fee_in_both_from_base_for_quote() {
         None,
         None,
         output_amount,
+        false,
         false,
     )
     .unwrap()
@@ -188,6 +191,7 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
         None,
         output_amount,
         false,
+        false,
     )
     .unwrap()
     .swap_result;
@@ -211,4 +215,57 @@ fn test_quote_exact_out_fee_in_both_from_quote_to_base() {
     println!("exact_in_swap_result {:?}", exact_in_swap_result);
 
     assert!(exact_in_swap_result.output_amount >= output_amount);
+}
+
+#[test]
+fn test_quote_exact_out_referral_takes_part_of_the_protocol_fee() {
+    let TestAccounts {
+        config,
+        pool,
+        current_timestamp,
+        current_slot,
+    } = get_fee_in_quote_accounts();
+
+    let without_referral = quote_exact_out(
+        &pool,
+        &config,
+        true,
+        current_timestamp,
+        current_slot,
+        0,
+        None,
+        None,
+        4_005_059,
+        false,
+        false,
+    )
+    .unwrap()
+    .swap_result;
+    let with_referral = quote_exact_out(
+        &pool,
+        &config,
+        true,
+        current_timestamp,
+        current_slot,
+        0,
+        None,
+        None,
+        4_005_059,
+        true,
+        false,
+    )
+    .unwrap()
+    .swap_result;
+
+    assert_eq!(without_referral.referral_fee, 0);
+    assert!(with_referral.referral_fee > 0);
+    assert_eq!(
+        without_referral.protocol_fee,
+        with_referral.protocol_fee + with_referral.referral_fee
+    );
+    assert_eq!(without_referral.output_amount, with_referral.output_amount);
+    assert_eq!(
+        without_referral.included_fee_input_amount,
+        with_referral.included_fee_input_amount
+    );
 }
