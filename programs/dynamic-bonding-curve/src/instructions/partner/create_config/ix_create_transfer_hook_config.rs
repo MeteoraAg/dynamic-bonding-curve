@@ -5,6 +5,7 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     state::{ConfigWithTransferHook, TokenType},
+    token::{get_mint_score, MintScore},
     PoolError,
 };
 
@@ -42,11 +43,16 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
     config_parameters: ConfigParameters,
 ) -> Result<()> {
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    require!(
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
+    );
+
     config_parameters.validate(
-        &ctx.accounts.quote_mint,
-        ctx.remaining_accounts.first(),
         Clock::get()?.unix_timestamp as u64,
         true,
+        ctx.accounts.fee_claimer.key,
     )?;
 
     let token_type = TokenType::try_from(config_parameters.token_type)
@@ -69,6 +75,7 @@ pub fn handle_create_config_with_transfer_hook<'info>(
     process_create_config(
         &mut config,
         &config_parameters,
+        None,
         &ctx.accounts.quote_mint,
         ctx.accounts.fee_claimer.key,
         ctx.accounts.leftover_receiver.key,

@@ -142,6 +142,17 @@ impl MigrationHandler for ConcentratedLiquidity {
         // we use base vault balance for backward-compatible
         Ok((excluded_fee_base_reserve, quote_amount))
     }
+
+    fn get_migration_deposit_amounts(
+        &self,
+        _base_budget: u64,
+        _quote_budget: u64,
+        base_amount: u64,
+        quote_amount: u64,
+    ) -> Result<(u64, u64)> {
+        require!(base_amount > 0 && quote_amount > 0, PoolError::AmountIsZero);
+        Ok((base_amount, quote_amount))
+    }
 }
 // calculate liquidity for concentrated pool
 // https://github.com/MeteoraAg/damm-v2/blob/8168ac6e94bfb1940488593d14014f0c30d34aa7/rust-sdk/src/tests/test_calculate_concentrated_initial_sqrt_price.rs#L44-L62

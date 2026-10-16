@@ -26,6 +26,10 @@ pub struct TransferPoolCreatorCtx<'info> {
     pub new_creator: UncheckedAccount<'info>,
 }
 
+/// Transfer the DBC pool creator role to `new_creator`
+///
+/// Authorities held by the creator's wallet (such as Token-2022 and Metaplex metadata authorities) are not moved
+/// They can be transferred separately with the instructions from the respective programs
 pub fn handle_transfer_pool_creator<'info>(
     ctx: Context<'info, TransferPoolCreatorCtx>,
 ) -> Result<()> {

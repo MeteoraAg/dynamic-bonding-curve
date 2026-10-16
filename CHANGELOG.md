@@ -21,6 +21,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
+
+### Added
+
+- Added support for creating base mints with a transfer fee. The fee is configured per config through the optional `transfer_fee_parameters` argument in `create_config2`.
+- Added support for quote mints with a non-zero transfer fee using a token badge through `create_config2`. Previously a token badge only allowed a zero transfer fee.
+- Note that a token badge for a quote mint relies on trust in the management of that mint. As a limitation of this design, the badge does not restrict transfer fee changes. `migration_damm_v2` uses the fee of the current epoch and does not repeat the 1% price check, so a higher fee can reduce the migrated liquidity, add the undeposited base to the protocol migration fee, change the price, or block the migration.
+- Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
+- Added support for a zero `compounding_fee_bps` with `MigratedCollectFeeMode::Compounding` when migrating to DAMMv2.
+- Added endpoint `create_config2` that takes the new optional `TransferFeeParameters` argument. Passing None creates a config with no base transfer fee. Passing Some always gives the base mint a TransferFeeConfig extension, so it requires the Token-2022 token type and is otherwise rejected with InvalidTokenType, including when the basis points are zero. It emits the new `EvtCreateConfig3` event and the `EvtCreateConfigV2` event. When there is a base transfer fee or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config is restricted to a constant token supply (fixed token supply and `pre_migration_token_supply` equals `post_migration_token_supply`), no locked vesting, `MigrationFeeOption::Customizable`, and `MigratedCollectFeeMode::Compounding`.
+- Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+
+### Changed
+
+- Config creation now sets `PoolConfig.version` to 1. Configs with version 0 are legacy configs.
+- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_trading_fee2`, `claim_creator_trading_fee`, `claim_creator_trading_fee2`, `claim_protocol_fee2`, `partner_withdraw_surplus`, `creator_withdraw_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee. Except a legacy config in `migration_damm_v2` which migrates through the original path, which does not account for transfer fees. So `migration_damm_v2` still rejects a non-zero quote transfer fee for a legacy config.
+- Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
+- Swap endpoints account for the transfer fee on either mint: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
+- When there is a base transfer fee, or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the endpoint `migration_damm_v2` deposits the transfer-fee-excluded amounts of both mints. Such a config always migrates in compounding mode, where the side with the smaller transfer fee is scaled down by the same ratio to keep the migration price. The initial liquidity of the migrated pool is reduced by the larger of the two transfer fees. The budget of the scaled-down side that is not deposited stays in the vault and is added to `protocol_migration_base_fee_amount` or `protocol_migration_quote_fee_amount`, claimable through `claim_protocol_fee2`. This transfer fee path is used for `PoolConfig.version` 1 only.
+- When a transfer fee is involved, the endpoint `migration_damm_v2` makes a single transfer per mint. The whole migrated liquidity is deposited into the first position, and the second position is carved out of it with `split_position2`, which moves liquidity between positions without transferring tokens. Each mint therefore pays its transfer fee once instead of once per position so more of the budget reaches the migrated pool.
+- For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
+- Endpoint `withdraw_leftover` requires the signature of `leftover_receiver` when the transfer fee on the leftover is non-zero. The endpoint stays permissionless when the transfer fee is zero.
+- Endpoint `create_config` emits the new `EvtCreateConfig3` event in addition to `EvtCreateConfigV2`. Endpoint `create_config2` emits the same pair, so an indexer that follows only one of the two events sees every config from these two endpoints. Endpoint `create_config_with_transfer_hook` still emits only `EvtCreateConfigV2WithTransferHook`.
+
+### Deprecated
+
+- Deprecated `create_config` endpoint in favour of `create_config2`.
+- Deprecated `EvtCreateConfigV2` event in favour of `EvtCreateConfig3`.
+
+### Removed
+
+- Removed the deprecated `EvtCreateConfig` event. The `create_config` endpoint no longer emits the event. Indexers must consume `EvtCreateConfigV2` or `EvtCreateConfig3`.
+
+### Breaking Changes
+
+- Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `InvalidQuoteMint`, even with a token badge. A badged quote mint with a `TransferFeeConfig` extension and a zero fee was previously accepted by these endpoints. Such a quote mint is now only accepted by `create_config2`.
+- Endpoints `create_config`, `create_config2`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a quote mint that is not permissionless-supported and has no token badge with the error `InvalidQuoteMint`. Previously these endpoints returned `InvalidTokenBadge`, which is now returned only when the supplied token badge does not match the quote mint.
+- Endpoints `create_config`, `create_config2` and `create_config_with_transfer_hook` reject a `Pubkey::default()` fee claimer with the error `InvalidFeeClaimer` when the token type is Token-2022 and `token_update_authority` is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority`. Previously such a config was created successfully with the `create_config` and `create_config_with_transfer_hook` endpoints, but every pool initialization from it failed, because Token-2022 rejects the `Pubkey::default()` as an authority.
+- A base token transfer hook cannot be combined with a quote mint that has a non-zero transfer fee or a live transfer fee config authority. The endpoint `create_config_with_transfer_hook` rejects such a quote mint, and `create_config2` accepts it but does not take a transfer hook program.
+- Endpoints `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` reject a legacy config whose quote mint has a non-zero transfer fee or a live transfer fee config authority, with the error `InvalidQuoteMint`. A badged quote mint is still accepted for a legacy config as long as it carries neither: the restriction exists only to keep a legacy config, which was never validated against the transfer fee restrictions, off the transfer fee path.
+- Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` rejects a quote mint with a live transfer fee config authority, which was previously accepted with a token badge. A quote mint with a non-zero transfer fee was already rejected on this endpoint.
+- Removed the deprecated `EvtCreateConfig` event. An indexer that consumes it must switch to `EvtCreateConfigV2` or `EvtCreateConfig3`.
+- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` take new `current_epoch: u64`, `base_mint_transfer_fee_config: Option<&TransferFeeConfig>` and `quote_mint_transfer_fee_config: Option<&TransferFeeConfig>` parameters.
+- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` return `SwapResultWithTransferFee` instead of `SwapResult2`. `SwapResultWithTransferFee` contains `swap_result: SwapResult2`, `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+
 ## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
 
 ### Added

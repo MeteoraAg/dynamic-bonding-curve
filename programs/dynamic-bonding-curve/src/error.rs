@@ -29,7 +29,6 @@ pub enum PoolError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
-    /// deprecated
     #[msg("Invalid quote mint")]
     InvalidQuoteMint,
 
@@ -260,9 +259,21 @@ pub enum PoolError {
     #[msg("Invalid token badge")]
     InvalidTokenBadge,
 
-    #[msg("Quote mint has a non zero transfer fee")]
+    #[msg("Quote mint has a non zero transfer fee or a live transfer fee config authority")]
     QuoteMintHasNonZeroTransferFee,
 
     #[msg("Deprecated migration option")]
     DeprecatedMigrationOption,
+
+    #[msg("Transfer fee inverse calculation is incorrect")]
+    FeeInverseIsIncorrect,
+
+    #[msg("Invalid transfer fee parameters")]
+    InvalidTransferFeeParameters,
+
+    #[msg("Required input amount exceeds the provided amount in")]
+    ExceededInputAmount,
+
+    #[msg("Invalid fee claimer")]
+    InvalidFeeClaimer,
 }

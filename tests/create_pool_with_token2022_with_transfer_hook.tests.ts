@@ -2,6 +2,7 @@ import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
   ExtensionType,
+  getAccountLen,
   getExtensionData,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
@@ -43,7 +44,10 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
-import { getOrCreateAssociatedTokenAccount } from "./utils/token";
+import {
+  getMintExtensionTypes,
+  getOrCreateAssociatedTokenAccount,
+} from "./utils/token";
 import { getVirtualPool } from "./utils/fetcher";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
@@ -221,6 +225,18 @@ describe("Create pool with token2022 transfer hook", () => {
       PublicKey.default.toString()
     );
     expect(baseMintData.mintAuthorityOption).eq(0);
+
+    // a zero-fee config creates the same extensions as the old Anchor init
+    expect(
+      getMintExtensionTypes(svm.getAccount(virtualPoolState.baseMint).data)
+    ).deep.eq([
+      ExtensionType.MetadataPointer,
+      ExtensionType.TransferHook,
+      ExtensionType.TokenMetadata,
+    ]);
+    expect(svm.getAccount(virtualPoolState.baseVault).data.length).eq(
+      getAccountLen([ExtensionType.TransferHookAccount])
+    );
   });
 
   it("Initialize extra account meta list for transfer hook", async () => {

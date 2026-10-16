@@ -8,7 +8,7 @@ export type CpAmm = {
   "address": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
   "metadata": {
     "name": "cpAmm",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },

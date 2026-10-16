@@ -1,3 +1,4 @@
+pub mod accounts;
 pub mod activation_handler;
 pub mod bits;
 pub use bits::*;

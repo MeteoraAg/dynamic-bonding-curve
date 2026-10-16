@@ -4,13 +4,15 @@ use crate::constants::fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS;
 use crate::constants::seeds::POOL_PREFIX;
 use crate::instructions::initialize_pool::process_initialize_virtual_pool_with_token2022::process_initialize_virtual_pool_with_token2022;
 use crate::state::fee::VolatilityTracker;
+use crate::token::{get_mint_score, MintScore};
 use crate::InitPoolData;
 use crate::{
     const_pda,
     constants::seeds::TOKEN_VAULT_PREFIX,
     event::EvtInitializePoolWithTransferHook,
     state::{ConfigWithTransferHook, PoolType, TransferHookPool},
-    token::validate_quote_mint_with_token_badge,
+    token::{create_token_2022_base_mint, create_token_2022_base_vault, BaseMintTransferFee},
+    PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -33,20 +35,9 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
 
     pub creator: Signer<'info>,
 
-    /// Unique token mint address, initialize in contract
-    #[account(
-        init,
-        signer,
-        payer = payer,
-        mint::token_program = token_program,
-        mint::decimals = config.load()?.token_decimal,
-        mint::authority = pool_authority,
-        extensions::metadata_pointer::authority = pool_authority,
-        extensions::metadata_pointer::metadata_address = base_mint,
-        extensions::transfer_hook::authority = pool_authority,
-        extensions::transfer_hook::program_id = config.load()?.transfer_hook_program,
-    )]
-    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+    /// Unique token mint address, initialized in the handler
+    #[account(mut)]
+    pub base_mint: Signer<'info>,
 
     #[account(mint::token_program = token_quote_program)]
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -65,21 +56,17 @@ pub struct InitializeVirtualPoolWithToken2022TransferHookCtx<'info> {
     )]
     pub pool: AccountLoader<'info, TransferHookPool>,
 
-    /// CHECK: Token base vault for the pool
+    /// CHECK: Token base vault for the pool, initialized in the handler
     #[account(
-        init,
+        mut,
         seeds = [
             TOKEN_VAULT_PREFIX.as_ref(),
             base_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
-        token::mint = base_mint,
-        token::authority = pool_authority,
-        token::token_program = token_program,
-        payer = payer,
         bump,
     )]
-    pub base_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub base_vault: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -112,7 +99,46 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithToken2022TransferHookCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    let config = ctx.accounts.config.load()?;
+
+    let mint_score = get_mint_score(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+    require!(
+        mint_score >= MintScore::PermissionedWithoutTransferFee,
+        PoolError::InvalidQuoteMint
+    );
+
+    let decimals = config.token_decimal;
+    let transfer_hook_program = config.transfer_hook_program;
+    let transfer_fee = BaseMintTransferFee::from_config(&config, ctx.accounts.creator.key())?;
+    drop(config);
+
+    create_token_2022_base_mint(
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.base_mint.to_account_info(),
+        &ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        decimals,
+        transfer_fee,
+        Some(transfer_hook_program),
+    )?;
+
+    let base_mint_key = ctx.accounts.base_mint.key();
+    let pool_key = ctx.accounts.pool.key();
+    create_token_2022_base_vault(
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.base_vault.to_account_info(),
+        &ctx.accounts.base_mint.to_account_info(),
+        &ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &[
+            TOKEN_VAULT_PREFIX.as_ref(),
+            base_mint_key.as_ref(),
+            pool_key.as_ref(),
+            &[ctx.bumps.base_vault],
+        ],
+    )?;
 
     let InitPoolData {
         activation_point,
@@ -122,9 +148,9 @@ pub fn handle_initialize_virtual_pool_with_token2022_transfer_hook<'info>(
         ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
         &ctx.accounts.creator,
-        &ctx.accounts.base_mint,
+        &ctx.accounts.base_mint.to_account_info(),
         ctx.accounts.pool.as_ref(),
-        &ctx.accounts.base_vault,
+        &ctx.accounts.base_vault.to_account_info(),
         &ctx.accounts.payer,
         &ctx.accounts.token_program,
         &ctx.accounts.system_program,
