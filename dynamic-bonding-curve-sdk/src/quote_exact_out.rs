@@ -18,6 +18,7 @@ pub fn quote_exact_out(
     base_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     quote_mint_transfer_fee_config: Option<&TransferFeeConfig>,
     out_amount: u64,
+    has_referral: bool,
     eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
 ) -> Result<SwapResultWithTransferFee> {
     ensure!(
@@ -40,7 +41,7 @@ pub fn quote_exact_out(
         TradeDirection::QuoteToBase
     };
 
-    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false)?;
+    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
     let (input_transfer_fee, output_transfer_fee) = get_transfer_fees(
         base_mint_transfer_fee_config,
