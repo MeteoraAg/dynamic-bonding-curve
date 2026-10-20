@@ -2,13 +2,10 @@ use std::u64;
 
 use crate::{
     activation_handler::ActivationType,
-    constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
-        MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS,
-    },
+    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
     params::{fee_parameters::to_numerator, swap::TradeDirection},
     safe_math::SafeMath,
-    state::{CollectFeeMode, PoolFeesConfig},
+    state::PoolFeesConfig,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, sqrt_u256},
     PoolError,
@@ -64,10 +61,6 @@ impl FeeRateLimiter {
 
     fn is_zero_rate_limiter(&self) -> bool {
         self.reference_amount == 0 && self.max_limiter_duration == 0 && self.fee_increment_bps == 0
-    }
-
-    fn is_non_zero_rate_limiter(&self) -> bool {
-        self.reference_amount != 0 && self.max_limiter_duration != 0 && self.fee_increment_bps != 0
     }
 
     pub fn get_max_index(&self) -> Result<u64> {
@@ -282,54 +275,8 @@ impl FeeRateLimiter {
 }
 
 impl BaseFeeHandler for FeeRateLimiter {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
-        let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        // can only be applied in quote token collect fee mode
-        require!(
-            collect_fee_mode == CollectFeeMode::QuoteToken,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        require!(
-            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        if self.is_zero_rate_limiter() {
-            return Ok(());
-        }
-
-        require!(
-            self.is_non_zero_rate_limiter(),
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        let max_limiter_duration = match activation_type {
-            ActivationType::Slot => MAX_RATE_LIMITER_DURATION_IN_SLOTS,
-            ActivationType::Timestamp => MAX_RATE_LIMITER_DURATION_IN_SECONDS,
-        };
-        require!(
-            self.max_limiter_duration <= max_limiter_duration,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        let fee_increment_numerator =
-            to_numerator(self.fee_increment_bps.into(), FEE_DENOMINATOR.into())?;
-        require!(
-            fee_increment_numerator < FEE_DENOMINATOR,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        // validate max fee (more amount, then more fee)
-        let min_fee_numerator = self.get_fee_numerator_from_included_fee_amount(0)?;
-        let max_fee_numerator = self.get_fee_numerator_from_included_fee_amount(u64::MAX)?;
-        require!(
-            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
-            PoolError::InvalidFeeRateLimiter
-        );
-        Ok(())
+    fn validate(&self, _: u8, _: ActivationType) -> Result<()> {
+        Err(PoolError::DeprecatedBaseFeeMode.into())
     }
 
     fn get_base_fee_numerator_from_included_fee_amount(
@@ -361,11 +308,7 @@ impl BaseFeeHandler for FeeRateLimiter {
     }
 
     fn validate_min_base_fee(&self) -> Result<()> {
-        require!(
-            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR,
-            PoolError::InvalidMinBaseFee
-        );
-        Ok(())
+        Err(PoolError::DeprecatedBaseFeeMode.into())
     }
 
     fn get_min_base_fee_numerator(&self) -> Result<u64> {

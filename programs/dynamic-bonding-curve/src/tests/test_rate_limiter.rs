@@ -7,9 +7,8 @@ use crate::constants::fee::MAX_FEE_BPS;
 use crate::constants::fee::MIN_FEE_BPS;
 use crate::state::PoolFeesConfig;
 use crate::{
-    activation_handler::ActivationType,
     base_fee::{BaseFeeHandler, FeeRateLimiter},
-    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
+    constants::fee::FEE_DENOMINATOR,
     params::{
         fee_parameters::{to_bps, to_numerator},
         swap::TradeDirection,
@@ -17,64 +16,6 @@ use crate::{
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
 };
-
-#[test]
-fn test_validate_rate_limiter() {
-    // validate collect fee mode
-    {
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 2_500_000,  // min base fee is 25 bps (0.25%)
-            reference_amount: 1_000_000_000, // 1SOL
-            max_limiter_duration: 60,        // 60 seconds
-            fee_increment_bps: 10,           // 10 bps
-        };
-        assert!(rate_limiter.validate(1, ActivationType::Slot).is_err());
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_ok());
-    }
-
-    // validate zero rate limiter
-    {
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 2_500_000,
-            reference_amount: 1,     // 1SOL
-            max_limiter_duration: 0, // 60 seconds
-            fee_increment_bps: 0,    // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 2_500_000,
-            reference_amount: 0,     // 1SOL
-            max_limiter_duration: 1, // 60 seconds
-            fee_increment_bps: 0,    // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: 2_500_000,
-            reference_amount: 0,     // 1SOL
-            max_limiter_duration: 0, // 60 seconds
-            fee_increment_bps: 1,    // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-    }
-
-    // validate cliff fee numerator
-    {
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: MIN_FEE_NUMERATOR - 1,
-            reference_amount: 1_000_000_000, // 1SOL
-            max_limiter_duration: 60,        // 60 seconds
-            fee_increment_bps: 10,           // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-        let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: MAX_FEE_NUMERATOR + 1,
-            reference_amount: 1_000_000_000, // 1SOL
-            max_limiter_duration: 60,        // 60 seconds
-            fee_increment_bps: 10,           // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-    }
-}
 
 // that test show that more amount, then more fee numerator
 #[test]
@@ -90,7 +31,6 @@ fn test_rate_limiter_behavior() {
         max_limiter_duration: 60, // 60 seconds
         fee_increment_bps,        // 10 bps
     };
-    assert!(rate_limiter.validate(0, ActivationType::Slot).is_ok());
 
     {
         let fee_numerator = rate_limiter
