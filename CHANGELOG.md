@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument. The endpoint
+- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument.
 
 ### Changed
 
