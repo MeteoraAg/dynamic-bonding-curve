@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument. The endpoint
+- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument.
 - Added operator endpoint `revoke_transfer_hook` to revoke a transfer hook program id and the transfer hook authority on a base mint. This keeps the pair tradeable when the transfer hook program blocks transfers, for example because it was closed. Swaps must still go through `swap2_with_transfer_hook` with no transfer hook accounts.
 
 ### Changed
