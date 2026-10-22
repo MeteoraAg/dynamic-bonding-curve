@@ -15,7 +15,7 @@ use crate::{
     remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
     state::fee::FeeMode,
     token::{
-        get_epoch_transfer_fee, get_transfer_hook_program_id, revoke_transfer_hook,
+        get_epoch_transfer_fee, get_transfer_hook_program_id, revoke_transfer_hook_and_authority,
         transfer_token_from_pool_authority, transfer_token_from_user,
     },
     ConfigAccountLoader, PoolAccountLoader, PoolError,
@@ -365,9 +365,8 @@ pub fn process_swap<'a: 'info, 'info>(
             pool.set_migration_progress(MigrationProgress::LockedVesting.into());
         }
 
-        if pool_loader.is_transfer_hook_pool() && get_transfer_hook_program_id(base_mint)?.is_some()
-        {
-            revoke_transfer_hook(token_base_program, base_mint, pool_authority)?;
+        if get_transfer_hook_program_id(base_mint)?.is_some() {
+            revoke_transfer_hook_and_authority(token_base_program, base_mint, pool_authority)?;
         }
 
         Some(CurveCompleteEventData {

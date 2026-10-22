@@ -65,7 +65,7 @@ pub fn get_transfer_hook_program_id(token_mint: &InterfaceAccount<Mint>) -> Resu
     Ok(transfer_hook::get_program_id(&token_mint_unpacked))
 }
 
-pub fn revoke_transfer_hook<'info>(
+pub fn revoke_transfer_hook_and_authority<'info>(
     token_program: &AccountInfo<'info>,
     base_mint: &InterfaceAccount<'info, Mint>,
     pool_authority: &UncheckedAccount<'info>,

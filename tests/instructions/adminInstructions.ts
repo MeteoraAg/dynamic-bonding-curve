@@ -225,8 +225,11 @@ export async function claimProtocolFee2(
     params.maxAmount ??
     getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
+  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+    await getRemainingAccountsForTransferHook(svm, program, pool);
+
   const transaction = await program.methods
-    .claimProtocolFee2(maxAmount)
+    .claimProtocolFee2(maxAmount, transferHookAccountsInfo)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
@@ -240,6 +243,7 @@ export async function claimProtocolFee2(
       tokenBaseProgram,
       tokenQuoteProgram,
     })
+    .remainingAccounts(transferHookAccounts)
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [signerKP]);

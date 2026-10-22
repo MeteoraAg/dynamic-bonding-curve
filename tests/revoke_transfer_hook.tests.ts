@@ -265,7 +265,7 @@ describe("Revoke transfer hook", () => {
     }, getDbcProgramErrorCodeHexString("InvalidPermission"));
   });
 
-  it("Revoke on a VirtualPool fails with PoolTypeMismatch", async () => {
+  it("Revoke on a VirtualPool fails with AccountDiscriminatorMismatch", async () => {
     const config = await createConfig(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
@@ -287,7 +287,7 @@ describe("Revoke transfer hook", () => {
         operator,
         pool,
       });
-    }, getDbcProgramErrorCodeHexString("PoolTypeMismatch"));
+    }, "AccountDiscriminatorMismatch");
   });
 
   it("Revoke with another pool's base mint fails with ConstraintHasOne", async () => {
