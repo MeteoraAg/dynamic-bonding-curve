@@ -26,7 +26,7 @@ import {
 } from "@solana/spl-token";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Swap V2", () => {

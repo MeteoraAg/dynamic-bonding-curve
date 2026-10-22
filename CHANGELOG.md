@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.3] [PR #232](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/232)
 
+## Changed
+
+- Update to anchor 1.2.1 and solana 4.1.2
+
 ## Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.

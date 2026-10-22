@@ -1,6 +1,6 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   getConfig,
   getVirtualPool,
