@@ -36,7 +36,7 @@ import { Pool, VirtualCurveProgram } from "./utils/types";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { getMint } from "./utils/token";
 import {
   createMeteoraDammV2Metadata,

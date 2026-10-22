@@ -11,7 +11,7 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../../utils/litesvmCompat";
 import { SwapMode } from "../../instructions";
 import {
   deriveVirtualPoolMetadata,

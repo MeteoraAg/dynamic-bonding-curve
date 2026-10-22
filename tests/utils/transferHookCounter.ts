@@ -3,7 +3,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./constants";
 import { createTransferHookCounterProgram } from "./common";
 import { sendTransactionMaybeThrow } from "./common";

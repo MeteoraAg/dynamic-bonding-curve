@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Endpoint `claim_protocol_fee2` can now claim the protocol fee of a base token that has an active transfer hook. To do so, the caller passes the new optional `transfer_hook_accounts_info` argument after `max_amount`, and the transfer hook accounts of the base mint are passed as remaining accounts. The argument can be omitted from the instruction data, so existing callers keep working.
+- Update to anchor 1.2.1 and solana 4.1.2
 
 ### Fixed
 

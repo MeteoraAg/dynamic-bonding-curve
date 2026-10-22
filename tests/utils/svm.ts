@@ -1,6 +1,6 @@
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import path from "path";
 import { derivePoolAuthority } from "./accounts";
 import {
@@ -16,6 +16,8 @@ import {
 
 export function startSvm() {
   const svm = new LiteSVM();
+  // litesvm 1.x starts the clock at a mainnet-like slot. The tests assume the chain starts at slot 0 and advance the slot themselves
+  svm.warpToSlot(BigInt(0));
 
   const sourceFileDbcPath = path.resolve(
     "./target/deploy/dynamic_bonding_curve.so"

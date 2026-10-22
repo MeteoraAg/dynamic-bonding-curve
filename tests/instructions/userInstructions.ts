@@ -14,7 +14,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   deriveVirtualPoolMetadata,
   getOrCreateAssociatedTokenAccount,
