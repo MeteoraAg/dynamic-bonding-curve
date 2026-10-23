@@ -4,7 +4,10 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     event::EvtClaimProtocolFee2,
-    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, TransferHookAccountsInfo},
+    remaining_accounts::{
+        parse_transfer_hook_accounts, AccountsType, ParsedRemainingAccounts,
+        TransferHookAccountsInfo,
+    },
     state::{PoolConfig, PoolState},
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
@@ -78,7 +81,7 @@ fn get_claim_direction_and_validate_accounts(
 pub fn handle_claim_protocol_fee2<'info>(
     ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
     max_amount: u64,
-    transfer_hook_accounts_info: TransferHookAccountsInfo,
+    transfer_hook_accounts_info: Option<TransferHookAccountsInfo>,
 ) -> Result<()> {
     let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
     let config = config_loader.load()?;
@@ -116,16 +119,22 @@ pub fn handle_claim_protocol_fee2<'info>(
         &ctx.accounts.token_quote_program,
     )?;
 
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
-        &mut remaining_accounts,
-        &transfer_hook_accounts_info.slices,
-        &[AccountsType::TransferHookBase],
-    )?;
-    require!(
-        remaining_accounts.is_empty(),
-        PoolError::InvalidRemainingAccountsLength
-    );
+    let parsed_transfer_hook_accounts = match transfer_hook_accounts_info {
+        Some(transfer_hook_accounts_info) => {
+            let mut remaining_accounts = ctx.remaining_accounts;
+            let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+                &mut remaining_accounts,
+                &transfer_hook_accounts_info.slices,
+                &[AccountsType::TransferHookBase],
+            )?;
+            require!(
+                remaining_accounts.is_empty(),
+                PoolError::InvalidRemainingAccountsLength
+            );
+            parsed_transfer_hook_accounts
+        }
+        None => ParsedRemainingAccounts::default(),
+    };
 
     let amount = if is_claiming_base {
         pool.claim_protocol_base_fee(max_amount)?
