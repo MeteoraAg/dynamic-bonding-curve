@@ -23,9 +23,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.3] [PR #232](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/232)
 
-## Fixed
+### Added
+
+- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument.
+
+### Changed
+
+- Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` now accepts a badged quote mint with a non-zero transfer fee or a live transfer fee config authority when the config is not a legacy config.
+- Endpoints `create_config_with_transfer_hook` and `create_config2_with_transfer_hook` emit the new `EvtCreateConfig3WithTransferHook` alongside existing `EvtCreateConfigV2WithTransferHook`.
+
+### Deprecated
+
+- Deprecated `create_config_with_transfer_hook` endpoint in favour of `create_config2_with_transfer_hook`.
+- Deprecated the `EvtCreateConfigV2WithTransferHook` event in favour of `EvtCreateConfig3WithTransferHook`.
+
+### Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.
+
+### Breaking Changes
+
+- Endpoint `create_config_with_transfer_hook` rejects the System Program as the `transfer_hook_program`. The System Program cannot act as a transfer hook, so every transfer of a base mint created from such a config failed. The endpoint now rejects the config when it is created, instead of letting it fail at the first transfer.
 
 ## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
 

@@ -324,6 +324,21 @@ pub fn get_mint_score<'info>(
     Ok(MintScore::Unsupported)
 }
 
+pub fn validate_quote_mint_on_pool_init<'info>(
+    config: &PoolConfig,
+    quote_mint: &InterfaceAccount<'info, Mint>,
+    token_badge: Option<&'info AccountInfo<'info>>,
+) -> Result<()> {
+    let mint_score = get_mint_score(quote_mint, token_badge)?;
+    let minimum_score = if config.is_legacy_config() {
+        MintScore::PermissionedWithoutTransferFee
+    } else {
+        MintScore::PermissionedWithTransferFee
+    };
+    require!(mint_score >= minimum_score, PoolError::InvalidQuoteMint);
+    Ok(())
+}
+
 pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<bool> {
     if mint_info.owner.eq(&Token::id()) {
         return Ok(false);

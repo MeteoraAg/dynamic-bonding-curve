@@ -38,6 +38,7 @@ import {
   getDbcProgramErrorCodeHexString,
   getMint,
   getTokenAccount,
+  getTransferHookCounter,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -286,7 +287,14 @@ describe("Create pool with token2022 transfer hook", () => {
       swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
+    const counterBefore = getTransferHookCounter(
+      svm,
+      virtualPoolState.baseMint
+    );
     await swapWithTransferHook(svm, program, params);
+    expect(getTransferHookCounter(svm, virtualPoolState.baseMint)).eq(
+      counterBefore + 1
+    );
   });
 
   it("Partner claim trading fee", async () => {
