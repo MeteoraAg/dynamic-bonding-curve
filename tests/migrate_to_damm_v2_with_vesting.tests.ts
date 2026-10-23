@@ -26,7 +26,7 @@ import { PoolConfig, VirtualCurveProgram } from "./utils/types";
 import { BN, IdlAccounts } from "@anchor-lang/core";
 import { expect } from "chai";
 import Decimal from "decimal.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   MigrateMeteoraDammV2Params,
   migrateToDammV2,

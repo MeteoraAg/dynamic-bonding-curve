@@ -11,7 +11,7 @@ import { unpack } from "@solana/spl-token-metadata";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   BaseFee,
   ClaimCreatorTradeFeeParams,

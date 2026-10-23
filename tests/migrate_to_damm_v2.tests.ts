@@ -29,7 +29,7 @@ import {
 import { getVirtualPool } from "./utils/fetcher";
 import { Pool, VirtualCurveProgram } from "./utils/types";
 
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   createMeteoraDammV2Metadata,
   MigrateMeteoraDammV2Params,

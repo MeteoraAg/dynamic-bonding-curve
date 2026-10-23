@@ -1,4 +1,4 @@
-import { NATIVE_MINT } from "@solana/spl-token";
+import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -6,6 +6,7 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import { BN } from "@anchor-lang/core";
+import { expect } from "chai";
 import {
   createConfig,
   createConfigWithTransferHook,
@@ -28,7 +29,7 @@ import {
 import { VirtualCurveProgram } from "./utils/types";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { wrapSOL } from "./utils/token";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 
 describe("Swap pool-type mismatch", () => {
   let svm: LiteSVM;
@@ -120,9 +121,8 @@ describe("Swap pool-type mismatch", () => {
     });
 
     it("swap2WithTransferHook fails because hook program CPI fails", async () => {
-      // Guard passes (kinds match); failure must come from token program CPI
-      // into the now-non-executable hook program. Match the specific log.
-      await expectThrowsAsync(async () => {
+      let error: unknown;
+      try {
         await swapWithTransferHook(svm, program, {
           config,
           payer: poolCreator,
@@ -134,7 +134,16 @@ describe("Swap pool-type mismatch", () => {
           swapMode: SwapMode.ExactIn,
           referralTokenAccount: null,
         });
-      }, `${TRANSFER_HOOK_COUNTER_PROGRAM_ID.toBase58()} is not executable`);
+      } catch (err) {
+        error = err;
+      }
+      expect(error).instanceOf(Error);
+      const token2022 = TOKEN_2022_PROGRAM_ID.toBase58();
+      expect((error as Error).message).to.match(
+        new RegExp(
+          `Instruction: TransferChecked,Program ${token2022} consumed \\d+ of \\d+ compute units,Program ${token2022} failed: Unsupported program id`
+        )
+      );
     });
 
     it("swap2 still fails with PoolTypeMismatch, before any hook CPI", async () => {

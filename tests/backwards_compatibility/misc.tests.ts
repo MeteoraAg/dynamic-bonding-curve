@@ -1,6 +1,6 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   createVirtualCurveProgram,
   expectThrowsAsync,
