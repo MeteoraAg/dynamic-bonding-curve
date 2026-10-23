@@ -4,7 +4,6 @@ use anchor_lang::prelude::*;
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     event::EvtCreateConfig3WithTransferHook,
-    state::TokenType,
     token::{get_mint_score, MintScore},
     PoolError,
 };
@@ -28,17 +27,11 @@ pub fn handle_create_config2_with_transfer_hook<'info>(
         Clock::get()?.unix_timestamp as u64,
         true,
         ctx.accounts.fee_claimer.key,
+        transfer_fee_parameters.is_some() || mint_score == MintScore::PermissionedWithTransferFee,
     )?;
     if let Some(transfer_fee) = transfer_fee_parameters {
         transfer_fee.validate(config_parameters.token_type, ctx.accounts.fee_claimer.key)?;
     }
-
-    let token_type = TokenType::try_from(config_parameters.token_type)
-        .map_err(|_| PoolError::InvalidTokenType)?;
-    require!(
-        token_type == TokenType::Token2022,
-        PoolError::InvalidTokenType
-    );
 
     ctx.accounts.validate_transfer_hook_program()?;
 

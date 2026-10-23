@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.
 
+### Breaking Changes
+
+- Endpoint `create_config_with_transfer_hook` rejects the System Program as the `transfer_hook_program`. The System Program cannot act as a transfer hook, so every transfer of a base mint created from such a config failed. The endpoint now rejects the config when it is created, instead of letting it fail at the first transfer.
+
 ## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
 
 ### Added
