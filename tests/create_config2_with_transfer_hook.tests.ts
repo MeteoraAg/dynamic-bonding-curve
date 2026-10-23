@@ -7,7 +7,12 @@ import {
   TOKEN_PROGRAM_ID,
   unpackMint,
 } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+} from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
@@ -543,11 +548,12 @@ describe("Create config with transfer hook 2", () => {
       );
     });
 
-    it("Rejects this program, SPL Token, and Token-2022 as the hook program", async () => {
+    it("Rejects this program, SPL Token, Token-2022, and the System Program as the hook program", async () => {
       for (const transferHookProgram of [
         program.programId,
         TOKEN_PROGRAM_ID,
         TOKEN_2022_PROGRAM_ID,
+        SystemProgram.programId,
       ]) {
         await expectThrowsAsync(
           () =>

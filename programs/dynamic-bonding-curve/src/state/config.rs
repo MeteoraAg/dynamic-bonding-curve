@@ -820,6 +820,61 @@ impl LiquidityDistributionConfig {
     }
 }
 
+/// config with a transfer fee must follow these restrictions,
+/// checked on the parameters in create_config2 and on the stored config in migration
+pub trait TransferFeeRestrictions {
+    fn is_constant_token_supply(&self) -> bool;
+    fn has_locked_vesting(&self) -> bool;
+    fn migration_fee_option(&self) -> u8;
+    fn migrated_collect_fee_mode(&self) -> u8;
+
+    fn validate_transfer_fee_restrictions(&self) -> Result<()> {
+        require!(
+            self.is_constant_token_supply(),
+            PoolError::InvalidTokenSupply
+        );
+        require!(
+            !self.has_locked_vesting(),
+            PoolError::InvalidVestingParameters
+        );
+        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option())
+            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
+        require!(
+            migration_fee_option == MigrationFeeOption::Customizable,
+            PoolError::InvalidMigrationFeeOption
+        );
+        let migrated_collect_fee_mode =
+            MigratedCollectFeeMode::try_from(self.migrated_collect_fee_mode())
+                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        require!(
+            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
+            PoolError::InvalidMigratedPoolFee
+        );
+        Ok(())
+    }
+}
+
+impl TransferFeeRestrictions for PoolConfig {
+    fn is_constant_token_supply(&self) -> bool {
+        self.is_fixed_token_supply()
+            && self.pre_migration_token_supply == self.post_migration_token_supply
+    }
+
+    fn has_locked_vesting(&self) -> bool {
+        self.locked_vesting_config
+            .to_locked_vesting_params()
+            .has_vesting()
+    }
+
+    fn migration_fee_option(&self) -> u8 {
+        self.migration_fee_option
+    }
+
+    fn migrated_collect_fee_mode(&self) -> u8 {
+        self.migrated_collect_fee_mode
+    }
+}
+
 impl PoolConfig {
     pub fn init(
         &mut self,
@@ -1082,40 +1137,6 @@ impl PoolConfig {
     /// legacy configs were created before the transfer fee restrictions
     pub fn is_legacy_config(&self) -> bool {
         self.version == 0
-    }
-
-    pub fn is_constant_token_supply(&self) -> bool {
-        self.is_fixed_token_supply()
-            && self.pre_migration_token_supply == self.post_migration_token_supply
-    }
-
-    /// config with a transfer fee must follow the restrictions applied in create_config2
-    pub fn validate_transfer_fee_restrictions(&self) -> Result<()> {
-        require!(
-            self.is_constant_token_supply(),
-            PoolError::InvalidTokenSupply
-        );
-        require!(
-            !self
-                .locked_vesting_config
-                .to_locked_vesting_params()
-                .has_vesting(),
-            PoolError::InvalidVestingParameters
-        );
-        let migration_fee_option = MigrationFeeOption::try_from(self.migration_fee_option)
-            .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
-        require!(
-            migration_fee_option == MigrationFeeOption::Customizable,
-            PoolError::InvalidMigrationFeeOption
-        );
-        let migrated_collect_fee_mode =
-            MigratedCollectFeeMode::try_from(self.migrated_collect_fee_mode)
-                .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        require!(
-            migrated_collect_fee_mode == MigratedCollectFeeMode::Compounding,
-            PoolError::InvalidMigratedPoolFee
-        );
-        Ok(())
     }
 
     pub fn get_liquidity_distribution(&self, liquidity: u128) -> Result<LiquidityDistribution> {

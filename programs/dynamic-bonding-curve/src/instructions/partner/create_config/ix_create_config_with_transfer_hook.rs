@@ -5,7 +5,7 @@ use anchor_spl::{token, token_2022, token_interface::Mint};
 use crate::event::EvtCreateConfigV2WithTransferHook;
 use crate::{
     event::EvtCreateConfig3WithTransferHook,
-    state::{ConfigWithTransferHook, TokenType},
+    state::ConfigWithTransferHook,
     token::{get_mint_score, MintScore},
     PoolError,
 };
@@ -41,13 +41,14 @@ pub struct CreateConfigWithTransferHookCtx<'info> {
 }
 
 impl<'info> CreateConfigWithTransferHookCtx<'info> {
-    /// to be safe we disallow programs involved in the transfer chain (DBC, spl token, token 2022)
+    /// to be safe we disallow programs involved in the transfer chain (DBC, spl token, token 2022) and the system program
     pub fn validate_transfer_hook_program(&self) -> Result<()> {
         let transfer_hook_program = self.transfer_hook_program.key();
         require!(
             transfer_hook_program.ne(&crate::ID)
                 && transfer_hook_program.ne(&token::ID)
-                && transfer_hook_program.ne(&token_2022::ID),
+                && transfer_hook_program.ne(&token_2022::ID)
+                && transfer_hook_program.ne(&system_program::ID),
             PoolError::InvalidTransferHookProgram
         );
         Ok(())
@@ -68,14 +69,8 @@ pub fn handle_create_config_with_transfer_hook<'info>(
         Clock::get()?.unix_timestamp as u64,
         true,
         ctx.accounts.fee_claimer.key,
+        false,
     )?;
-
-    let token_type = TokenType::try_from(config_parameters.token_type)
-        .map_err(|_| PoolError::InvalidTokenType)?;
-    require!(
-        token_type == TokenType::Token2022,
-        PoolError::InvalidTokenType
-    );
 
     ctx.accounts.validate_transfer_hook_program()?;
 
