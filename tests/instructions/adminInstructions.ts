@@ -204,8 +204,6 @@ export type ClaimProtocolFee2Params = {
   isTokenBase: boolean;
   receiverTokenAccount: PublicKey;
   maxAmount?: BN;
-  // sends the instruction data of clients built before transfer_hook_accounts_info was added
-  omitTransferHookAccountsInfo?: boolean;
 };
 
 export async function claimProtocolFee2(
@@ -247,12 +245,6 @@ export async function claimProtocolFee2(
     })
     .remainingAccounts(transferHookAccounts)
     .transaction();
-
-  if (params.omitTransferHookAccountsInfo) {
-    // 8 bytes discriminator + 8 bytes max_amount
-    const ix = transaction.instructions[transaction.instructions.length - 1];
-    ix.data = ix.data.subarray(0, 16);
-  }
 
   sendTransactionMaybeThrow(svm, transaction, [signerKP]);
 }

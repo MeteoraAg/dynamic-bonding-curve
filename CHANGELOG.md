@@ -23,15 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## dynamic_bonding_curve [0.2.3] [PR #232](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/232)
 
-## Added
+### Added
 
 - Added operator endpoint `revoke_transfer_hook` to revoke a transfer hook program id and the transfer hook authority on a base mint. This keeps the pair tradeable when the transfer hook program blocks transfers, for example because it was closed. Swaps must still go through `swap2_with_transfer_hook` with no transfer hook accounts.
 
-## Changed
+### Changed
 
-- Endpoint `claim_protocol_fee2` can now claim the protocol fee of a base token that has an active transfer hook. To do so, the caller passes the new optional `transfer_hook_accounts_info` argument after `max_amount`, and the transfer hook accounts of the base mint are passed as remaining accounts. The argument can be ommitted from the instruction data, so existing callers keep working.
+- Endpoint `claim_protocol_fee2` can now claim the protocol fee of a base token that has an active transfer hook. To do so, the caller passes the new optional `transfer_hook_accounts_info` argument after `max_amount`, and the transfer hook accounts of the base mint are passed as remaining accounts. The argument can be omitted from the instruction data, so existing callers keep working.
 
-## Fixed
+### Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.
 
