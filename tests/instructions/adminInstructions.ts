@@ -1,6 +1,6 @@
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   getConfig,
   getVirtualPool,
@@ -21,6 +21,7 @@ export enum OperatorPermission {
   ZapProtocolFee,
   CreateTokenBadge,
   CloseTokenBadge,
+  RevokeTransferHook,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -96,6 +97,34 @@ export async function closeTokenBadge(
       operator: deriveOperatorAddress(operator.publicKey),
       signer: operator.publicKey,
       rentReceiver,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export async function revokeTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    pool: PublicKey;
+    baseMint?: PublicKey;
+  }
+) {
+  const { operator, pool } = params;
+  const baseMint =
+    params.baseMint ?? getVirtualPool(svm, program, pool).baseMint;
+
+  const transaction = await program.methods
+    .revokeTransferHook()
+    .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
+      pool,
+      baseMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
     })
     .transaction();
 
@@ -196,8 +225,11 @@ export async function claimProtocolFee2(
     params.maxAmount ??
     getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
+  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+    await getRemainingAccountsForTransferHook(svm, program, pool);
+
   const transaction = await program.methods
-    .claimProtocolFee2(maxAmount)
+    .claimProtocolFee2(maxAmount, transferHookAccountsInfo)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
@@ -211,6 +243,7 @@ export async function claimProtocolFee2(
       tokenBaseProgram,
       tokenQuoteProgram,
     })
+    .remainingAccounts(transferHookAccounts)
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [signerKP]);

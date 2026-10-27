@@ -1,5 +1,5 @@
 import { Keypair } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { createPartnerMetadata } from "./instructions";
 import { createVirtualCurveProgram, generateAndFund, startSvm } from "./utils";
 import { VirtualCurveProgram } from "./utils/types";

@@ -11,7 +11,7 @@ import { unpack } from "@solana/spl-token-metadata";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   BaseFee,
   ClaimCreatorTradeFeeParams,
@@ -38,6 +38,7 @@ import {
   getDbcProgramErrorCodeHexString,
   getMint,
   getTokenAccount,
+  getTransferHookCounter,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -286,7 +287,14 @@ describe("Create pool with token2022 transfer hook", () => {
       swapMode: SwapMode.PartialFill,
       referralTokenAccount: null,
     };
+    const counterBefore = getTransferHookCounter(
+      svm,
+      virtualPoolState.baseMint
+    );
     await swapWithTransferHook(svm, program, params);
+    expect(getTransferHookCounter(svm, virtualPoolState.baseMint)).eq(
+      counterBefore + 1
+    );
   });
 
   it("Partner claim trading fee", async () => {

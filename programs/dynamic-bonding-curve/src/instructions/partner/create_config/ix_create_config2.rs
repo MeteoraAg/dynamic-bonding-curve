@@ -25,6 +25,7 @@ pub fn handle_create_config2<'info>(
         Clock::get()?.unix_timestamp as u64,
         false,
         ctx.accounts.fee_claimer.key,
+        transfer_fee_parameters.is_some() || mint_score == MintScore::PermissionedWithTransferFee,
     )?;
     if let Some(transfer_fee) = transfer_fee_parameters {
         transfer_fee.validate(config_parameters.token_type, ctx.accounts.fee_claimer.key)?;

@@ -6,7 +6,7 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   DAMM_V2_PROGRAM_ID,
   deriveDammV2PoolAddress,
@@ -100,7 +100,6 @@ export async function migrateToDammV2(
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
-
   const remainingAccounts: AccountMeta[] = [
     {
       isSigner: false,
@@ -148,7 +147,7 @@ export async function migrateToDammV2(
   sendTransactionMaybeThrow(
     svm,
     transaction,
-    [payer, firstPositionNftKP, secondPositionNftKP],
+    [payer, firstPositionNftKP, secondPositionNftKP]
     // true
   );
 
@@ -180,7 +179,6 @@ export function derivePositionNftAccount(
     DAMM_V2_PROGRAM_ID
   )[0];
 }
-
 
 export function deriveDammV2PoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(

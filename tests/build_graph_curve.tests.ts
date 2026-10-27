@@ -31,7 +31,7 @@ import { VirtualCurveProgram } from "./utils/types";
 
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Build graph curve", () => {

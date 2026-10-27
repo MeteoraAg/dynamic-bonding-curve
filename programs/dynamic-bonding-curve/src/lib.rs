@@ -28,7 +28,7 @@ pub mod params;
 
 declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 
-#[program]
+#[program(legacy_idl)]
 pub mod dynamic_bonding_curve {
     use super::*;
 
@@ -70,12 +70,19 @@ pub mod dynamic_bonding_curve {
         instructions::handle_close_token_badge(ctx)
     }
 
+    /// Accepts: TransferHookPool only.
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::RevokeTransferHook))]
+    pub fn revoke_transfer_hook(ctx: Context<RevokeTransferHookCtx>) -> Result<()> {
+        instructions::handle_revoke_transfer_hook(ctx)
+    }
+
     /// Accepts: VirtualPool or TransferHookPool.
     pub fn claim_protocol_fee2<'info>(
         ctx: Context<'info, ClaimProtocolFee2Ctx<'info>>,
         max_amount: u64,
+        transfer_hook_accounts_info: OptionalTransferHookAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_claim_protocol_fee2(ctx, max_amount)
+        instructions::handle_claim_protocol_fee2(ctx, max_amount, transfer_hook_accounts_info.0)
     }
 
     /// PARTNER FUNCTIONS ///
@@ -97,6 +104,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
+    #[deprecated(
+        since = "0.2.3",
+        note = "Use create_config2_with_transfer_hook instead. Will be removed in a future version"
+    )]
     pub fn create_config_with_transfer_hook<'info>(
         ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
         config_parameters: ConfigParameters,
@@ -110,6 +121,18 @@ pub mod dynamic_bonding_curve {
         transfer_fee_parameters: Option<TransferFeeParameters>,
     ) -> Result<()> {
         instructions::handle_create_config2(ctx, config_parameters, transfer_fee_parameters)
+    }
+
+    pub fn create_config2_with_transfer_hook<'info>(
+        ctx: Context<'info, CreateConfigWithTransferHookCtx<'info>>,
+        config_parameters: ConfigParameters,
+        transfer_fee_parameters: Option<TransferFeeParameters>,
+    ) -> Result<()> {
+        instructions::handle_create_config2_with_transfer_hook(
+            ctx,
+            config_parameters,
+            transfer_fee_parameters,
+        )
     }
 
     /// Accepts: VirtualPool only.

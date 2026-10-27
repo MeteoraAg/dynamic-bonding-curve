@@ -9,11 +9,8 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
 import VaultIDL from "../../idls/dynamic_vault.json";
