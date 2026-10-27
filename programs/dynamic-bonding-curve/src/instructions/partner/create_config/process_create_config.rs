@@ -476,10 +476,12 @@ impl ConfigParameters {
         // validate token type
         let token_type =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
-        require!(
-            !is_transfer_hook || token_type == TokenType::Token2022,
-            PoolError::InvalidTokenType
-        );
+        if is_transfer_hook {
+            require!(
+                token_type == TokenType::Token2022,
+                PoolError::InvalidTokenType
+            );
+        }
 
         let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
             &self.migrated_pool_fee,
