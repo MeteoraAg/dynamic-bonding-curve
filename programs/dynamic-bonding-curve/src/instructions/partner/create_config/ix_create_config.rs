@@ -51,6 +51,7 @@ pub fn handle_create_config<'info>(
         Clock::get()?.unix_timestamp as u64,
         false,
         ctx.accounts.fee_claimer.key,
+        false,
     )?;
 
     let mut config = ctx.accounts.config.load_init()?;

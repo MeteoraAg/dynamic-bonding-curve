@@ -25,15 +25,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument.
 - Added operator endpoint `revoke_transfer_hook` to revoke a transfer hook program id and the transfer hook authority on a base mint. This keeps the pair tradeable when the transfer hook program blocks transfers, for example because it was closed. Swaps must still go through `swap2_with_transfer_hook` with no transfer hook accounts.
 
 ### Changed
 
+- Endpoint `initialize_virtual_pool_with_token2022_transfer_hook` now accepts a badged quote mint with a non-zero transfer fee or a live transfer fee config authority when the config is not a legacy config.
+- Endpoints `create_config_with_transfer_hook` and `create_config2_with_transfer_hook` emit the new `EvtCreateConfig3WithTransferHook` alongside existing `EvtCreateConfigV2WithTransferHook`.
 - Endpoint `claim_protocol_fee2` can now claim the protocol fee of a base token that has an active transfer hook. To do so, the caller passes the new optional `transfer_hook_accounts_info` argument after `max_amount`, and the transfer hook accounts of the base mint are passed as remaining accounts. The argument can be omitted from the instruction data, so existing callers keep working.
+
+### Deprecated
+
+- Deprecated `create_config_with_transfer_hook` endpoint in favour of `create_config2_with_transfer_hook`.
+- Deprecated the `EvtCreateConfigV2WithTransferHook` event in favour of `EvtCreateConfig3WithTransferHook`.
 
 ### Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.
+
+### Breaking Changes
+
+- Endpoint `create_config_with_transfer_hook` rejects the System Program as the `transfer_hook_program`. The System Program cannot act as a transfer hook, so every transfer of a base mint created from such a config failed. The endpoint now rejects the config when it is created, instead of letting it fail at the first transfer.
 
 ## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
 
