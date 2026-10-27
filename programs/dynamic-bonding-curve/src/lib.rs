@@ -28,7 +28,7 @@ pub mod params;
 
 declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 
-#[program]
+#[program(legacy_idl)]
 pub mod dynamic_bonding_curve {
     use super::*;
 

@@ -34,7 +34,8 @@ import {
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import {
   AccountsType,
   TransferHookAccountsInfo,

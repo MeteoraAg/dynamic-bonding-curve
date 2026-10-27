@@ -7,7 +7,7 @@ use crate::safe_math::SafeMath;
 use crate::state::PoolState;
 use crate::PoolError;
 
-/// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L1722C1-L1723C1
+/// reference: https://github.com/otter-sec/anchor/blob/v1.2.1/lang/syn/src/codegen/accounts/constraints.rs#L1769-L1820
 pub fn create_account<'info>(
     account: &AccountInfo<'info>,
     space: usize,

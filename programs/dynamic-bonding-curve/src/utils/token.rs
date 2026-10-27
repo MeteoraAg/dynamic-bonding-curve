@@ -467,7 +467,7 @@ impl BaseMintTransferFee {
     }
 }
 
-// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L758-L1068
+// reference: https://github.com/otter-sec/anchor/blob/v1.2.1/lang/syn/src/codegen/accounts/constraints.rs#L777-L1110
 #[allow(clippy::too_many_arguments)]
 pub fn create_token_2022_base_mint<'info>(
     payer: &AccountInfo<'info>,
@@ -560,7 +560,7 @@ pub fn create_token_2022_base_mint<'info>(
     Ok(())
 }
 
-// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L604-L682
+// reference: https://github.com/otter-sec/anchor/blob/v1.2.1/lang/syn/src/codegen/accounts/constraints.rs#L622-L701
 pub fn create_token_2022_base_vault<'info>(
     payer: &AccountInfo<'info>,
     base_vault: &AccountInfo<'info>,

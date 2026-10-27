@@ -21,7 +21,8 @@ import { VirtualCurveProgram } from "./utils/types";
 
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { FailedTransactionMetadata, LiteSVM } from "litesvm";
+import { FailedTransactionMetadata } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Rate limiter", () => {
