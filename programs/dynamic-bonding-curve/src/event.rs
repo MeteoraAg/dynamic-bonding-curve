@@ -261,3 +261,11 @@ pub struct EvtCreateTokenBadge {
 pub struct EvtCloseTokenBadge {
     pub token_mint: Pubkey,
 }
+
+#[event]
+pub struct EvtRevokeTransferHook {
+    pub pool: Pubkey,
+    pub base_mint: Pubkey,
+    pub operator: Pubkey,
+    pub transfer_hook_program: Pubkey,
+}

@@ -48,3 +48,6 @@ mod test_fee_mode;
 
 #[cfg(test)]
 mod test_activation_handler;
+
+#[cfg(test)]
+mod test_optional_transfer_hook_accounts_info;
