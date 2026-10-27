@@ -15,7 +15,7 @@ import {
 } from "@solana/web3.js";
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   BaseFee,
   claimCreatorTradingFee2,
@@ -397,9 +397,19 @@ describe("Revoke transfer hook", () => {
       referralTokenAccount: null,
     };
 
-    await expectThrowsAsync(async () => {
+    let error: unknown;
+    try {
       await swapWithTransferHook(svm, program, swapParams);
-    }, `${TRANSFER_HOOK_COUNTER_PROGRAM_ID.toBase58()} is not executable`);
+    } catch (err) {
+      error = err;
+    }
+    expect(error).instanceOf(Error);
+    const token2022 = TOKEN_2022_PROGRAM_ID.toBase58();
+    expect((error as Error).message).to.match(
+      new RegExp(
+        `Instruction: TransferChecked,Program ${token2022} consumed \\d+ of \\d+ compute units,Program ${token2022} failed: Unsupported program id`
+      )
+    );
 
     await revokeTransferHook(svm, program, { operator, pool });
 
