@@ -15,7 +15,7 @@ import {
 } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   BaseFee,
   ConfigParameters,
