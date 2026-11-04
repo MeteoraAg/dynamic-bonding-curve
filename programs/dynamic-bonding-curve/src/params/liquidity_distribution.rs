@@ -1,5 +1,3 @@
-use std::u64;
-
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
 
@@ -89,17 +87,17 @@ pub fn get_migration_threshold_price(
             .map_err(|_| PoolError::TypeCastFailed)?;
         let mut amount_left = migration_threshold.safe_sub(total_amount)?;
         next_sqrt_price = curve[0].sqrt_price;
-        for i in 1..curve.len() {
+        for item in curve.iter().skip(1) {
             let max_amount = get_delta_amount_quote_unsigned_256(
                 next_sqrt_price,
-                curve[i].sqrt_price,
-                curve[i].liquidity,
+                item.sqrt_price,
+                item.liquidity,
                 Rounding::Up, // TODO check whether we should use round down or round up
             )?;
             if max_amount > U256::from(amount_left) {
                 next_sqrt_price = get_next_sqrt_price_from_input(
                     next_sqrt_price,
-                    curve[i].liquidity,
+                    item.liquidity,
                     amount_left,
                     false,
                 )?;
@@ -111,7 +109,7 @@ pub fn get_migration_threshold_price(
                         .try_into()
                         .map_err(|_| PoolError::TypeCastFailed)?,
                 )?;
-                next_sqrt_price = curve[i].sqrt_price
+                next_sqrt_price = item.sqrt_price
             }
         }
         require!(amount_left == 0, PoolError::NotEnoughLiquidity);

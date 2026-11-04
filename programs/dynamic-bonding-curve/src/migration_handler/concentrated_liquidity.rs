@@ -197,7 +197,7 @@ pub fn get_initial_liquidity_from_delta_quote(
     let price_delta = U256::from(sqrt_price.safe_sub(sqrt_min_price)?);
     let quote_amount = U256::from(quote_amount).safe_shl(128)?;
     let liquidity = quote_amount.safe_div(price_delta)?; // round down
-    return Ok(liquidity
+    Ok(liquidity
         .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?);
+        .map_err(|_| PoolError::TypeCastFailed)?)
 }

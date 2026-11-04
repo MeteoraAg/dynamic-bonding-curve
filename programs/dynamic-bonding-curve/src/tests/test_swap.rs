@@ -1,7 +1,5 @@
-use std::u64;
-
 use crate::{
-    constants::{MAX_CURVE_POINT, MAX_SQRT_PRICE},
+    constants::MAX_SQRT_PRICE,
     curve::get_delta_amount_quote_unsigned_256,
     params::{
         liquidity_distribution::{get_migration_threshold_price, LiquidityDistributionParameters},
@@ -14,7 +12,7 @@ use crate::{
     u128x128_math::Rounding,
     PoolError,
 };
-use anchor_lang::{prelude::Pubkey, require};
+use anchor_lang::prelude::Pubkey;
 use rand::prelude::*;
 
 use super::price_math::get_price_from_id;
@@ -42,15 +40,15 @@ fn initialize_pool_and_config() -> (PoolConfig, VirtualPool, UserBalance) {
         ..Default::default()
     };
     let curve_length = curve.len();
-    for i in 0..MAX_CURVE_POINT {
-        if i < curve_length {
-            config.curve[i] = curve[i].to_liquidity_distribution_config();
+    for (i, slot) in config.curve.iter_mut().enumerate() {
+        *slot = if i < curve_length {
+            curve[i].to_liquidity_distribution_config()
         } else {
-            config.curve[i] = LiquidityDistributionConfig {
+            LiquidityDistributionConfig {
                 sqrt_price: MAX_SQRT_PRICE, // set max
                 liquidity: 0,
             }
-        }
+        };
     }
 
     let mut pool = VirtualPool::default();
@@ -85,7 +83,7 @@ fn test_swap() {
         .get_swap_result_from_exact_input(
             &config,
             amount_in,
-            &fee_mode,
+            fee_mode,
             TradeDirection::QuoteToBase,
             0,
             false,
@@ -139,9 +137,9 @@ fn simulate_swap_partiall_fill(
     let current_timestamp = 0;
     let swap_exact_in_result = pool
         .get_swap_result_from_partial_input(
-            &config,
+            config,
             amount_in,
-            &fee_mode,
+            fee_mode,
             trade_direction,
             current_timestamp,
             false,
@@ -149,9 +147,9 @@ fn simulate_swap_partiall_fill(
         .unwrap();
 
     pool.apply_swap_result(
-        &config,
+        config,
         &swap_exact_in_result.get_swap_result(),
-        &fee_mode,
+        fee_mode,
         trade_direction,
         current_timestamp,
     )
@@ -170,9 +168,9 @@ fn simulate_swap_exact_out(
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, false).unwrap();
     let current_timestamp = 0;
     match pool.get_swap_result_from_exact_output(
-        &config,
+        config,
         amount_out,
-        &fee_mode,
+        fee_mode,
         trade_direction,
         current_timestamp,
         false,
@@ -182,9 +180,9 @@ fn simulate_swap_exact_out(
                 && swap_exact_out_result.included_fee_input_amount <= user.base_balance
             {
                 pool.apply_swap_result(
-                    &config,
+                    config,
                     &swap_exact_out_result.get_swap_result(),
-                    &fee_mode,
+                    fee_mode,
                     trade_direction,
                     current_timestamp,
                 )
@@ -197,7 +195,7 @@ fn simulate_swap_exact_out(
             assert_eq!(err, PoolError::InsufficientLiquidity.into());
         }
     }
-    return false;
+    false
 }
 
 #[test]
@@ -257,7 +255,7 @@ fn test_swap_wont_depelete_reserve() {
                 continue;
             }
             simulate_swap_partiall_fill(&config, &mut pool, &mut user, amount, trade_direction);
-            count_exact_in = count_exact_in + 1;
+            count_exact_in += 1;
         } else {
             if trade_direction == TradeDirection::BaseToQuote && pool.quote_reserve < amount {
                 continue;
@@ -266,7 +264,7 @@ fn test_swap_wont_depelete_reserve() {
                 continue;
             }
             if simulate_swap_exact_out(&config, &mut pool, &mut user, amount, trade_direction) {
-                count_exact_out = count_exact_out + 1;
+                count_exact_out += 1;
             }
         }
     }
@@ -310,7 +308,7 @@ fn test_swap_exact_out_overflow() {
     let result = pool.get_swap_result_from_exact_output(
         &config,
         quote_amount_in_curve + 1,
-        &fee_mode,
+        fee_mode,
         trade_direction,
         0,
         false,

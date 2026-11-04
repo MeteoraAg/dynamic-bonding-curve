@@ -24,6 +24,7 @@ pub struct InitPoolData {
     pub sqrt_start_price: u128,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn process_initialize_virtual_pool_with_token2022<'info>(
     config_info: &AccountInfo<'info>,
     pool_authority: &AccountInfo<'info>,

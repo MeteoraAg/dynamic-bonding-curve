@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::{
     activation_handler::ActivationType,
     constants::{
@@ -157,9 +155,8 @@ impl FeeRateLimiter {
 
             // solve quaratic equation
             // check it again, why sub, not add
-            let included_fee_amount = (y - sqrt_u256(y * y - four * x * z)
-                .ok_or_else(|| PoolError::MathOverflow)?)
-                / (two * x);
+            let included_fee_amount =
+                (y - sqrt_u256(y * y - four * x * z).ok_or(PoolError::MathOverflow)?) / (two * x);
             let a_plus_one = included_fee_amount.safe_div(x0)?;
 
             let first_excluded_fee_amount = self.get_excluded_fee_amount(
@@ -181,10 +178,10 @@ impl FeeRateLimiter {
 
             let total_in_amount =
                 included_fee_amount.safe_add(U256::from(included_fee_remaining_amount))?;
-            let total_in_amount = total_in_amount
-                .try_into()
-                .map_err(|_| PoolError::TypeCastFailed)?;
+
             total_in_amount
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?
         } else {
             // excluded_fee_amount > checked_excluded_fee_amount
             if is_overflow {
@@ -198,9 +195,7 @@ impl FeeRateLimiter {
                 excluded_fee_remaining_amount,
             )?;
 
-            let total_amount_in =
-                included_fee_remaining_amount.safe_add(checked_included_fee_amount)?;
-            total_amount_in
+            included_fee_remaining_amount.safe_add(checked_included_fee_amount)?
         };
 
         let trading_fee = included_fee_amount.safe_sub(excluded_fee_amount)?;
@@ -272,9 +267,8 @@ impl FeeRateLimiter {
             // reverse to fee numerator
             // input_amount * numerator / FEE_DENOMINATOR = trading_fee
             // then numerator = trading_fee * FEE_DENOMINATOR / input_amount
-            let fee_numerator =
-                safe_mul_div_cast_u64(trading_fee, FEE_DENOMINATOR, input_amount, Rounding::Up)?;
-            fee_numerator
+
+            safe_mul_div_cast_u64(trading_fee, FEE_DENOMINATOR, input_amount, Rounding::Up)?
         };
 
         Ok(fee_numerator)

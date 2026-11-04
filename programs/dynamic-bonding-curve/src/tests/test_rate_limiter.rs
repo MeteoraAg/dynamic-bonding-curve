@@ -1,5 +1,3 @@
-use std::u64;
-
 use proptest::prelude::*;
 use proptest::proptest;
 
@@ -176,7 +174,7 @@ fn test_rate_limiter_routing_friendly() {
     let mut currrent_output_amount = calculate_output_amount(&rate_limiter, input_amount);
 
     for _i in 0..500 {
-        input_amount = input_amount + reference_amount / 2;
+        input_amount += reference_amount / 2;
         let output_amount = calculate_output_amount(&rate_limiter, input_amount);
         assert!(output_amount > currrent_output_amount);
         currrent_output_amount = output_amount

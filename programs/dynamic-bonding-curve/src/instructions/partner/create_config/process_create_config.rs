@@ -683,7 +683,7 @@ pub fn process_create_config(
             .get_migration_protocol_fees(
                 included_protocol_fee_migration_base_amount,
                 included_protocol_fee_migration_quote_amount,
-                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS.into(),
+                PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
             )?;
 
         let excluded_protocol_fee_migration_base_amount =

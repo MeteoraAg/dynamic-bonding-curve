@@ -55,8 +55,8 @@ pub fn handle_transfer_pool_creator<'info>(
                 // Can only transfer pool creator after liquidity token claimed + locked
                 let migration_metadata_account = ctx
                     .remaining_accounts
-                    .get(0)
-                    .ok_or_else(|| PoolError::InvalidAccount)?;
+                    .first()
+                    .ok_or(PoolError::InvalidAccount)?;
                 let migration_metadata_loader: AccountLoader<'_, MeteoraDammMigrationMetadata> =
                     AccountLoader::try_from(migration_metadata_account)?;
                 let migration_metadata = migration_metadata_loader.load()?;

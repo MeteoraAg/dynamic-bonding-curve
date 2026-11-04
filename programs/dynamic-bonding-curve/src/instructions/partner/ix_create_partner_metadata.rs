@@ -20,7 +20,7 @@ pub struct CreatePartnerMetadataCtx<'info> {
     #[account(
         init,
         seeds = [
-            PARTNER_METADATA_PREFIX.as_ref(),
+            PARTNER_METADATA_PREFIX,
             fee_claimer.key().as_ref()
         ],
         bump,

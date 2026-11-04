@@ -79,7 +79,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         init,
         seeds = [
-            POOL_PREFIX.as_ref(),
+            POOL_PREFIX,
             config.key().as_ref(),
             &max_key(&base_mint.key(), &quote_mint.key()),
             &min_key(&base_mint.key(), &quote_mint.key()),
@@ -94,7 +94,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             base_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -110,7 +110,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             quote_mint.key().as_ref(),
             pool.key().as_ref(),
         ],

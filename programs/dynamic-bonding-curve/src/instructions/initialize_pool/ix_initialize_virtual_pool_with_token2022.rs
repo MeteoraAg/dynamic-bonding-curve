@@ -47,7 +47,7 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     #[account(
         init,
         seeds = [
-            POOL_PREFIX.as_ref(),
+            POOL_PREFIX,
             config.key().as_ref(),
             &max_key(&base_mint.key(), &quote_mint.key()),
             &min_key(&base_mint.key(), &quote_mint.key()),
@@ -62,7 +62,7 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     #[account(
         mut,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             base_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -74,7 +74,7 @@ pub struct InitializeVirtualPoolWithToken2022Ctx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             quote_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -142,7 +142,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         &ctx.accounts.token_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &[
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             base_mint_key.as_ref(),
             pool_key.as_ref(),
             &[ctx.bumps.base_vault],

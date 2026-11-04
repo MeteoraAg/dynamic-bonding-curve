@@ -22,10 +22,10 @@ impl VirtualPoolMetadata {
         std::mem::size_of::<Pubkey>()
             + 16 * 6
             + 4
-            + metadata.name.as_bytes().len()
+            + metadata.name.len()
             + 4
-            + metadata.website.as_bytes().len()
+            + metadata.website.len()
             + 4
-            + metadata.logo.as_bytes().len()
+            + metadata.logo.len()
     }
 }

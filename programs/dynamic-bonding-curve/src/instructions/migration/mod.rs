@@ -4,8 +4,10 @@ pub mod dynamic_amm_v2;
 pub use dynamic_amm_v2::*;
 pub mod create_locker;
 pub use create_locker::*;
+#[allow(deprecated)]
 pub mod withdraw_leftover;
 pub use withdraw_leftover::*;
+#[allow(deprecated)]
 pub mod ix_withdraw_migration_fee;
 pub use ix_withdraw_migration_fee::*;
 pub mod flash_rent;

@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::instruction::InitializeVirtualPoolWithSplToken;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
@@ -89,7 +87,7 @@ pub struct CurveCompleteEventData {
     pub quote_reserve: u64,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::borrowed_box)]
 pub fn process_swap<'a: 'info, 'info>(
     pool_loader: &PoolAccountLoader<'a, 'info>,
     config_account: &'a UncheckedAccount<'info>,
@@ -236,7 +234,7 @@ pub fn process_swap<'a: 'info, 'info>(
     let transfer_fee_out = get_epoch_transfer_fee(&token_out_mint.to_account_info())?;
 
     let process_swap_params = ProcessSwapParams {
-        pool: &mut *pool,
+        pool: &mut pool,
         config: &config,
         fee_mode,
         trade_direction,
@@ -439,8 +437,8 @@ pub fn validate_single_swap_instruction<'info>(
     pool: &Pubkey,
     instruction_sysvar_account_info: Option<&AccountInfo<'info>>,
 ) -> Result<()> {
-    let instruction_sysvar_account_info = instruction_sysvar_account_info
-        .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
+    let instruction_sysvar_account_info =
+        instruction_sysvar_account_info.ok_or(PoolError::FailToValidateSingleSwapInstruction)?;
 
     // get current index of instruction
     let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
@@ -517,7 +515,7 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
     );
 
     let instruction_sysvar_account_info =
-        instruction_sysvar_account_info.ok_or_else(|| PoolError::UndeterminedError)?;
+        instruction_sysvar_account_info.ok_or(PoolError::UndeterminedError)?;
 
     let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
 
