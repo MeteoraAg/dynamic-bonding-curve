@@ -67,6 +67,21 @@ jobs:
       - run: anchor build --ignore-keys
         shell: bash
 
+  clippy:
+    runs-on: ubuntu-latest
+    needs: program_changed_files
+    if: needs.program_changed_files.outputs.program == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: clippy
+      # Cache rust, cargo
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --locked --all-targets -- -D warnings
+        shell: bash
+
   unit_test:
     runs-on: ubuntu-latest
     needs: program_changed_files
