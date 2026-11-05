@@ -34,7 +34,8 @@ import { VirtualCurveProgram } from "./utils/types";
 
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import { wrapSOL } from "./utils/token";
 
 describe("First swap", () => {

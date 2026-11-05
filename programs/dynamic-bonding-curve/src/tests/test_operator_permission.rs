@@ -6,7 +6,7 @@ use crate::{
 #[test]
 fn test_initialize_with_full_permission() {
     let permission: u128 = bitmask_max(OperatorPermission::VARIANT_COUNT);
-    assert_eq!(permission, 0b1111);
+    assert_eq!(permission, 0b11111);
 
     let operator = Operator {
         permission,
@@ -20,6 +20,8 @@ fn test_initialize_with_full_permission() {
     assert!(operator.is_permission_allow(OperatorPermission::CreateTokenBadge));
 
     assert!(operator.is_permission_allow(OperatorPermission::CloseTokenBadge));
+
+    assert!(operator.is_permission_allow(OperatorPermission::RevokeTransferHook));
 }
 
 #[test]

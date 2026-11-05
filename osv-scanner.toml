@@ -108,3 +108,11 @@ reason = "serialize-javascript 6.0.0 (dev), pinned by mocha 9: mocha only uses i
 [[IgnoredVulns]]
 id = "GHSA-qj8w-gfj5-8c6v"
 reason = "serialize-javascript 6.0.0 (dev), pinned by mocha 9: mocha only uses it in --parallel mode, which the test script doesn't use"
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+reason = "glob 10.5.0 (dev), pinned by mocha 11 (`glob` ^10, fixed in 14 which is outside that range). mocha only globs the repo's own test files, and the tests don't pass an AbortSignal"
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+reason = "minimatch 9.0.9 (dev), pinned by mocha 11 (`minimatch` ^9, fixed in 11 which is outside that range). mocha only matches the repo's own patterns"

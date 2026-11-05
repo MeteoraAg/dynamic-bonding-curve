@@ -74,18 +74,29 @@ Then the bonding curve will function of 2 price ranges: `(l = 100, pa = 1, pb = 
 
 ## Development
 
-### Dependencies
+### Toolchain
 
-- anchor 1.0.2
-- solana 3.1.10
-- rust 1.94.0
+| Tool           | Version                                                     |
+| -------------- | ----------------------------------------------------------- |
+| Rust           | `1.95.0` (pinned via `rust-toolchain.toml`)                 |
+| Solana (Agave) | `4.1.2` (declared in `Anchor.toml`)                         |
+| Anchor         | `1.2.1` (declared in `Anchor.toml`), `solana-v4` crates     |
+| platform-tools | `v1.57`, building for SBPF `v3` (set in `package.json`)     |
+| Node.js        | `>= 20.18` (required by `@solana/kit`, used by LiteSVM 1.x) |
+| Bun            | latest stable                                               |
 
 ### Build
 
 Program
 
 ```
-anchor build -p dynamic_bonding_curve --ignore-keys
+anchor build -p dynamic_bonding_curve --ignore-keys --tools-version v1.57 --arch v3
+```
+
+Solana verifiable build
+
+```
+solana-verify build --library-name dynamic_bonding_curve --arch v3
 ```
 
 ### Test

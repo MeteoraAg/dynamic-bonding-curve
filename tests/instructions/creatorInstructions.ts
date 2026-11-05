@@ -5,7 +5,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import {
   deriveMigrationMetadataAddress,
   derivePoolAuthority,
@@ -119,10 +119,18 @@ export async function claimCreatorTradingFee2(
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
   ] = [
     getOrCreateAssociatedTokenAccount(
-      svm, creator, poolState.baseMint, creator.publicKey, tokenBaseProgram
+      svm,
+      creator,
+      poolState.baseMint,
+      creator.publicKey,
+      tokenBaseProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      svm, creator, quoteMintInfo.mint, creator.publicKey, tokenQuoteProgram
+      svm,
+      creator,
+      quoteMintInfo.mint,
+      creator.publicKey,
+      tokenQuoteProgram
     ),
   ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);

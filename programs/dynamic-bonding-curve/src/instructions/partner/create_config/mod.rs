@@ -3,8 +3,9 @@ pub use process_create_config::*;
 #[allow(deprecated)]
 pub mod ix_create_config;
 pub use ix_create_config::*;
-#[allow(deprecated)]
-pub mod ix_create_transfer_hook_config;
-pub use ix_create_transfer_hook_config::*;
+pub mod ix_create_config_with_transfer_hook;
+pub use ix_create_config_with_transfer_hook::*;
 pub mod ix_create_config2;
 pub use ix_create_config2::*;
+pub mod ix_create_config2_with_transfer_hook;
+pub use ix_create_config2_with_transfer_hook::*;

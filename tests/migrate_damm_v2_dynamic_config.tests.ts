@@ -34,7 +34,7 @@ import {
 
 import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   convertMigratedCollectFeeModeToDammv2,
   createMeteoraDammV2Metadata,
@@ -149,12 +149,12 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     );
 
     const marketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams =
-    {
-      schedulerExpirationDuration: 86400,
-      sqrtPriceStepBps: 100,
-      reductionFactor: new BN(900000),
-      numberOfPeriod: 100,
-    };
+      {
+        schedulerExpirationDuration: 86400,
+        sqrtPriceStepBps: 100,
+        reductionFactor: new BN(900000),
+        numberOfPeriod: 100,
+      };
 
     const { pool, poolConfig } = await fullFlow(
       svm,
@@ -249,17 +249,13 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     expect(poolConfigState.migratedCollectFeeMode).eq(
       migratedPoolFee.collectFeeMode
     );
-    expect(poolConfigState.migratedCompoundingFeeBps).eq(
-      compoundingFeeBps
-    );
+    expect(poolConfigState.migratedCompoundingFeeBps).eq(compoundingFeeBps);
 
     // validate damm v2 pool state
     expect(dammPoolState.collectFeeMode).eq(
       convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
     );
-    expect(dammPoolState.poolFees.compoundingFeeBps).eq(
-      compoundingFeeBps
-    );
+    expect(dammPoolState.poolFees.compoundingFeeBps).eq(compoundingFeeBps);
   });
 });
 

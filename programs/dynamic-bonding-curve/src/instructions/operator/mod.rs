@@ -9,3 +9,5 @@ pub use ix_create_token_badge::*;
 #[allow(deprecated)]
 pub mod ix_close_token_badge;
 pub use ix_close_token_badge::*;
+pub mod ix_revoke_transfer_hook;
+pub use ix_revoke_transfer_hook::*;

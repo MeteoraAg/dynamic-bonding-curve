@@ -3,12 +3,12 @@ description: "Setup anchor cli"
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v4
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       name: Cache Anchor CLI
       id: cache-anchor
       with:
         path: ~/.cargo/bin/anchor
         key: anchor-cli-${{ runner.os }}-${{ env.ANCHOR_CLI_VERSION }}
-    - run: cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_CLI_VERSION }} anchor-cli --locked
+    - run: cargo install --git https://github.com/otter-sec/anchor --tag v${{ env.ANCHOR_CLI_VERSION }} anchor-cli --locked
       if: steps.cache-anchor.outputs.cache-hit != 'true'
       shell: bash

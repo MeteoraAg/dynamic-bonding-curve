@@ -38,11 +38,10 @@ use crate::{
     state::{
         CollectFeeMode, LiquidityVestingInfo, LockedVestingConfig,
         MigratedTransferFeeAuthorityOption, MigrationFeeOption, MigrationOption, PoolConfig,
-        TokenAuthorityOption, TokenType, TransferFeeWithheldAuthority,
+        TokenAuthorityOption, TokenType, TransferFeeRestrictions, TransferFeeWithheldAuthority,
     },
     token::{
         calculate_transfer_fee_excluded_amount, get_epoch_transfer_fee, get_token_program_flags,
-        has_transfer_fee_or_config_authority,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,
@@ -444,6 +443,7 @@ impl ConfigParameters {
         current_timestamp: u64,
         is_transfer_hook: bool,
         fee_claimer: &Pubkey,
+        has_transfer_fee: bool,
     ) -> Result<()> {
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;
@@ -476,6 +476,12 @@ impl ConfigParameters {
         // validate token type
         let token_type =
             TokenType::try_from(self.token_type).map_err(|_| PoolError::InvalidTokenType)?;
+        if is_transfer_hook {
+            require!(
+                token_type == TokenType::Token2022,
+                PoolError::InvalidTokenType
+            );
+        }
 
         let migrated_pool_fee_validator = MigratedPoolFeeValidator::new(
             &self.migrated_pool_fee,
@@ -588,7 +594,31 @@ impl ConfigParameters {
             PoolError::InvalidCurve
         );
 
+        if has_transfer_fee {
+            self.validate_transfer_fee_restrictions()?;
+        }
+
         Ok(())
+    }
+}
+
+impl TransferFeeRestrictions for ConfigParameters {
+    fn is_constant_token_supply(&self) -> bool {
+        self.token_supply.is_some_and(|token_supply| {
+            token_supply.pre_migration_token_supply == token_supply.post_migration_token_supply
+        })
+    }
+
+    fn has_locked_vesting(&self) -> bool {
+        self.locked_vesting.has_vesting()
+    }
+
+    fn migration_fee_option(&self) -> u8 {
+        self.migration_fee_option
+    }
+
+    fn migrated_collect_fee_mode(&self) -> u8 {
+        self.migrated_pool_fee.collect_fee_mode
     }
 }
 
@@ -811,12 +841,6 @@ pub fn process_create_config(
         enable_first_swap_with_min_fee.into(),
         transfer_fee_parameters,
     )?;
-
-    if transfer_fee_parameters.is_some()
-        || has_transfer_fee_or_config_authority(&quote_mint.to_account_info())?
-    {
-        config.validate_transfer_fee_restrictions()?;
-    }
 
     require!(
         config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?

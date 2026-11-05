@@ -3,7 +3,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./constants";
 import { createTransferHookCounterProgram } from "./common";
 import { sendTransactionMaybeThrow } from "./common";
@@ -46,4 +46,13 @@ export async function initializeExtraAccountMetaList(
     .transaction();
 
   sendTransactionMaybeThrow(svm, transaction, [payer]);
+}
+
+export function getTransferHookCounter(svm: LiteSVM, mint: PublicKey): number {
+  const account = svm.getAccount(deriveCounterAccount(mint));
+  const decoded = createTransferHookCounterProgram().coder.accounts.decode(
+    "counterAccount",
+    Buffer.from(account.data)
+  );
+  return decoded.counter;
 }
