@@ -1,7 +1,7 @@
 import { BN } from "@anchor-lang/core";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   ClaimCreatorTradeFeeParams,
   claimCreatorTradingFee,

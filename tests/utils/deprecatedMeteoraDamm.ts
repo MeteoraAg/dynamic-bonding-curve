@@ -1,5 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 
 export const METEORA_DAMM_MIGRATION_OPTION = 0;
 

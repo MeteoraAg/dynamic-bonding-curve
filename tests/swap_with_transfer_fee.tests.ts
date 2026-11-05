@@ -13,7 +13,8 @@ import {
 } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM, SimulatedTransactionInfo } from "litesvm";
+import { SimulatedTransactionInfo } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 import {
   BaseFee,
   buildSwapTransaction,
@@ -130,9 +131,9 @@ function simulatedVaultDelta(
   expect(simulation).instanceOf(SimulatedTransactionInfo);
   const post = (simulation as SimulatedTransactionInfo)
     .postAccounts()
-    .find(([key]) => key.equals(vault));
+    .find((account) => account.address === vault.toBase58());
   expect(post).not.eq(undefined);
-  const postAmount = AccountLayout.decode(post![1].data()).amount;
+  const postAmount = AccountLayout.decode(new Uint8Array(post!.data)).amount;
   return postAmount > pre ? postAmount - pre : pre - postAmount;
 }
 

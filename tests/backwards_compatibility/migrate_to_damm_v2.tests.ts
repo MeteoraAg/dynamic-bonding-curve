@@ -23,7 +23,7 @@ import {
   withdrawLeftover,
 } from "./instructions";
 
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import { SwapMode } from "../instructions";
 import {
   createMeteoraDammV2Metadata,

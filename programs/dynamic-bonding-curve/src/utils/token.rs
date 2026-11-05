@@ -5,12 +5,17 @@ use anchor_lang::{
 };
 use anchor_spl::{
     token::Token,
-    token_2022::spl_token_2022::{
-        self,
-        extension::{
-            transfer_fee::{TransferFee, TransferFeeConfig},
-            transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    token_2022::{
+        set_authority,
+        spl_token_2022::{
+            self,
+            extension::{
+                transfer_fee::{TransferFee, TransferFeeConfig},
+                transfer_hook, BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+            },
+            instruction::AuthorityType,
         },
+        SetAuthority,
     },
     token_interface::{
         find_mint_account_size, initialize_account3, initialize_mint2, metadata_pointer_initialize,
@@ -58,6 +63,47 @@ pub fn get_transfer_hook_program_id(token_mint: &InterfaceAccount<Mint>) -> Resu
     let token_mint_unpacked =
         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
     Ok(transfer_hook::get_program_id(&token_mint_unpacked))
+}
+
+pub fn revoke_transfer_hook_and_authority<'info>(
+    token_program: &AccountInfo<'info>,
+    base_mint: &InterfaceAccount<'info, Mint>,
+    pool_authority: &UncheckedAccount<'info>,
+) -> Result<()> {
+    let pool_authority_seeds = pool_authority_seeds!(BUMP);
+
+    // revoke transfer_hook program
+    let update_hook_ix = transfer_hook::instruction::update(
+        &token_program.key(),
+        &base_mint.key(),
+        &pool_authority.key(),
+        &[],
+        None,
+    )?;
+    invoke_signed(
+        &update_hook_ix,
+        &[
+            base_mint.to_account_info(),
+            pool_authority.to_account_info(),
+        ],
+        &[&pool_authority_seeds[..]],
+    )?;
+
+    // revoke transfer_hook authority
+    set_authority(
+        CpiContext::new_with_signer(
+            token_program.key(),
+            SetAuthority {
+                current_authority: pool_authority.to_account_info(),
+                account_or_mint: base_mint.to_account_info(),
+            },
+            &[&pool_authority_seeds[..]],
+        ),
+        AuthorityType::TransferHookProgramId,
+        None,
+    )?;
+
+    Ok(())
 }
 
 pub fn transfer_token_from_user<'a, 'info>(
@@ -324,6 +370,21 @@ pub fn get_mint_score<'info>(
     Ok(MintScore::Unsupported)
 }
 
+pub fn validate_quote_mint_on_pool_init<'info>(
+    config: &PoolConfig,
+    quote_mint: &InterfaceAccount<'info, Mint>,
+    token_badge: Option<&'info AccountInfo<'info>>,
+) -> Result<()> {
+    let mint_score = get_mint_score(quote_mint, token_badge)?;
+    let minimum_score = if config.is_legacy_config() {
+        MintScore::PermissionedWithoutTransferFee
+    } else {
+        MintScore::PermissionedWithTransferFee
+    };
+    require!(mint_score >= minimum_score, PoolError::InvalidQuoteMint);
+    Ok(())
+}
+
 pub fn has_transfer_fee_or_config_authority(mint_info: &AccountInfo) -> Result<bool> {
     if mint_info.owner.eq(&Token::id()) {
         return Ok(false);
@@ -406,7 +467,7 @@ impl BaseMintTransferFee {
     }
 }
 
-// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L758-L1068
+// reference: https://github.com/otter-sec/anchor/blob/v1.2.1/lang/syn/src/codegen/accounts/constraints.rs#L777-L1110
 #[allow(clippy::too_many_arguments)]
 pub fn create_token_2022_base_mint<'info>(
     payer: &AccountInfo<'info>,
@@ -499,7 +560,7 @@ pub fn create_token_2022_base_mint<'info>(
     Ok(())
 }
 
-// reference: https://github.com/otter-sec/anchor/blob/v1.0.2/lang/syn/src/codegen/accounts/constraints.rs#L604-L682
+// reference: https://github.com/otter-sec/anchor/blob/v1.2.1/lang/syn/src/codegen/accounts/constraints.rs#L622-L701
 pub fn create_token_2022_base_vault<'info>(
     payer: &AccountInfo<'info>,
     base_vault: &AccountInfo<'info>,

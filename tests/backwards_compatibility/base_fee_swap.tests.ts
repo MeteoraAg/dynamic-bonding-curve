@@ -1,7 +1,7 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../utils/litesvmCompat";
 import { createVirtualCurveProgram, generateAndFund, startSvm } from "../utils";
 import { VirtualCurveProgram } from "../utils/types";
 import {

@@ -18,7 +18,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{
         LiquidityDistribution, LiquidityDistributionItem, MigrationFeeOption, MigrationOption,
-        MigrationProgress, PoolConfig, PoolState,
+        MigrationProgress, PoolConfig, PoolState, TransferFeeRestrictions,
     },
     u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u128,

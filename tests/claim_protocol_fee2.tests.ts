@@ -20,7 +20,7 @@ import { wrapSOL } from "./utils/token";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { VirtualCurveProgram } from "./utils/types";
 
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./utils/litesvmCompat";
 
 const ANCHOR_CONSTRAINT_ADDRESS_ERROR = "ConstraintAddress";
 

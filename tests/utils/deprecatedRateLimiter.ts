@@ -1,6 +1,6 @@
 import { BN } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 
 export type RateLimiterParams = {
   cliffFeeNumerator: BN;
