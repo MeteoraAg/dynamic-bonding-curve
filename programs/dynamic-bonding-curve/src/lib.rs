@@ -1,3 +1,8 @@
+// `#[program]` type checks the instruction arguments with `let _: T = panic!();` in the handlers
+// it generates next to the program module. It also emits wrappers for the two #[deprecated]
+// instructions that stay in the IDL.
+#![allow(clippy::diverging_sub_expression)]
+#![allow(deprecated)]
 use anchor_lang::prelude::*;
 
 #[macro_use]
@@ -28,6 +33,9 @@ pub mod params;
 
 declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 
+// `create_config` and `migration_damm_v2_create_metadata` are already #[deprecated]; the
+// generated #[program] wrappers still call them so the IDL keeps those instructions
+#[allow(deprecated)]
 #[program(legacy_idl)]
 pub mod dynamic_bonding_curve {
     use super::*;

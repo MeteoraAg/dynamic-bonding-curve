@@ -13,30 +13,15 @@ fn test_initialize_with_full_permission() {
         ..Default::default()
     };
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::ZapProtocolFee));
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::ClaimProtocolFee));
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::CreateTokenBadge));
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CloseTokenBadge),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::CloseTokenBadge));
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::RevokeTransferHook),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::RevokeTransferHook));
 }
 
 #[test]
@@ -45,17 +30,11 @@ fn test_is_permission_not_allow() {
         permission: 0b01,
         ..Default::default()
     };
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
-        false
-    );
+    assert!(!operator.is_permission_allow(OperatorPermission::ZapProtocolFee));
 
     let operator = Operator {
         permission: 0b10,
         ..Default::default()
     };
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
-        false
-    );
+    assert!(!operator.is_permission_allow(OperatorPermission::ClaimProtocolFee));
 }

@@ -21,7 +21,7 @@ pub struct MigrationMeteoraDammCreateMetadataCtx<'info> {
         init,
         payer = payer,
         seeds = [
-            METEORA_METADATA_PREFIX.as_ref(),
+            METEORA_METADATA_PREFIX,
             virtual_pool.key().as_ref(),
         ],
         bump,

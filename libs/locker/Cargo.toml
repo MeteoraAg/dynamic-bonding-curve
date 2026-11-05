@@ -3,6 +3,7 @@ name = "locker"
 version = "0.0.1"
 authors = [""]
 edition = "2021"
+publish = false
 
 [lib]
 doctest = false

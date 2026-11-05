@@ -3,6 +3,7 @@ name = "damm-v2"
 version = "0.2.0"
 authors = [""]
 edition = "2021"
+publish = false
 
 [lib]
 doctest = false

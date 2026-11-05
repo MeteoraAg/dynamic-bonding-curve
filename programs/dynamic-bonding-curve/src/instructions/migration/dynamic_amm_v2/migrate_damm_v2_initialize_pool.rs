@@ -48,6 +48,7 @@ pub struct MigrateDammV2Ctx<'info> {
     pub virtual_pool: UncheckedAccount<'info>,
 
     /// CHECK: Deprecated. Unused anymore.
+    #[allow(deprecated)]
     #[deprecated]
     pub migration_metadata: UncheckedAccount<'info>,
 
@@ -142,6 +143,7 @@ pub struct MigrateDammV2Ctx<'info> {
 }
 
 impl<'info> MigrateDammV2Ctx<'info> {
+    #[allow(clippy::too_many_arguments)]
     fn create_pool(
         &self,
         pool_config: AccountInfo<'info>,
@@ -260,7 +262,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         )
     }
 
-    fn lock_liquidity_position<'a>(
+    fn lock_liquidity_position(
         &self,
         liquidity_distribution: &LiquidityDistributionItem,
         position: &AccountInfo<'info>,
@@ -520,7 +522,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         migration_fee_option: MigrationFeeOption,
     ) -> Result<()> {
         require!(
-            remaining_accounts.len() >= 1,
+            !remaining_accounts.is_empty(),
             PoolError::MissingPoolConfigInRemainingAccount
         );
         let damm_config_loader: AccountLoader<'_, damm_v2::accounts::Config> =
@@ -656,7 +658,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         // legacy configs were not checked against the transfer fee restrictions
         // so they must use the original migration path, which does not handle transfer fee
         // only a fee that is non-zero at migration is rejected. this is the original handling for legacy config
-        let has_quote_transfer_fee = quote_transfer_fee.map_or(false, |fee| !fee.is_zero());
+        let has_quote_transfer_fee = quote_transfer_fee.is_some_and(|fee| !fee.is_zero());
         require!(
             !has_quote_transfer_fee,
             PoolError::QuoteMintHasNonZeroTransferFee

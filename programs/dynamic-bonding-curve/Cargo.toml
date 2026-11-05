@@ -3,6 +3,7 @@ name = "dynamic-bonding-curve"
 version = "0.2.3"
 description = "Created with Anchor"
 edition = "2021"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "lib"]

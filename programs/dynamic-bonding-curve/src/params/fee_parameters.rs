@@ -99,7 +99,7 @@ pub struct DynamicFeeParameters {
 }
 
 impl DynamicFeeParameters {
-    fn to_dynamic_fee_config(&self) -> DynamicFeeConfig {
+    fn to_dynamic_fee_config(self) -> DynamicFeeConfig {
         DynamicFeeConfig {
             initialized: 1,
             bin_step: self.bin_step,

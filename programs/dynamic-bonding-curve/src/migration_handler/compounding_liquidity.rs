@@ -24,10 +24,10 @@ impl CompoundingLiquidity {
     ) -> Result<()> {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
-                .ok_or_else(|| PoolError::MathOverflow)?;
+                .ok_or(PoolError::MathOverflow)?;
 
         require!(
-            sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+            (MIN_SQRT_PRICE..=MAX_SQRT_PRICE).contains(&sqrt_price),
             PoolError::InvalidCompoundingParameters
         );
 
@@ -78,7 +78,7 @@ impl MigrationHandler for CompoundingLiquidity {
     ) -> Result<InitialPoolInformation> {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
-                .ok_or_else(|| PoolError::MathOverflow)?;
+                .ok_or(PoolError::MathOverflow)?;
 
         let distributable_liquidity =
             total_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;
@@ -217,7 +217,7 @@ fn calculate_compounding_initial_sqrt_price_and_liquidity(
             .div_ceil(U256::from(token_a_amount)),
     )?;
     let sqrt_price_1 = u128::try_from(sqrt_price_1).ok()?;
-    if sqrt_price_1 < MIN_SQRT_PRICE || sqrt_price_1 > MAX_SQRT_PRICE {
+    if !(MIN_SQRT_PRICE..=MAX_SQRT_PRICE).contains(&sqrt_price_1) {
         return None;
     }
 

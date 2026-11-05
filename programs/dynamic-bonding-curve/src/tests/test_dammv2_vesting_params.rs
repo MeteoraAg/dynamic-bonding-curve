@@ -169,14 +169,15 @@ fn test_get_locked_bps_at_day_one() {
 
     assert_eq!(creator_liquidity_locked_bps_at_day_one, 1519);
 
-    let partner_liquidity_vesting_info = creator_liquidity_vesting_info.clone();
+    let partner_liquidity_vesting_info = creator_liquidity_vesting_info;
 
-    let mut config = PoolConfig::default();
-    config.partner_permanent_locked_liquidity_percentage = 1;
-    config.creator_permanent_locked_liquidity_percentage = 1;
-
-    config.partner_liquidity_vesting_info = partner_liquidity_vesting_info;
-    config.creator_liquidity_vesting_info = creator_liquidity_vesting_info;
+    let config = PoolConfig {
+        partner_permanent_locked_liquidity_percentage: 1,
+        creator_permanent_locked_liquidity_percentage: 1,
+        partner_liquidity_vesting_info,
+        creator_liquidity_vesting_info,
+        ..Default::default()
+    };
 
     let total_locked_liquidity_bps_at_day_one = config
         .get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)

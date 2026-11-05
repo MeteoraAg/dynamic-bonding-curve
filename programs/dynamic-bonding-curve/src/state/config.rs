@@ -325,7 +325,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or_else(|| PoolError::MathOverflow)?;
+            .ok_or(PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -876,6 +876,7 @@ impl TransferFeeRestrictions for PoolConfig {
 }
 
 impl PoolConfig {
+    #[allow(clippy::too_many_arguments)]
     pub fn init(
         &mut self,
         quote_mint: &Pubkey,
@@ -973,8 +974,8 @@ impl PoolConfig {
 
         self.enable_first_swap_with_min_fee = enable_creator_first_swap_with_min_fee;
 
-        for i in 0..curve.len() {
-            self.curve[i] = curve[i].to_liquidity_distribution_config();
+        for (i, item) in curve.iter().enumerate() {
+            self.curve[i] = item.to_liquidity_distribution_config();
         }
 
         if let Some(transfer_fee) = transfer_fee_parameters {
@@ -1069,7 +1070,7 @@ impl PoolConfig {
             .safe_div(100)?
             .safe_add(swap_base_amount.into())?;
         let max_base_amount_on_curve =
-            get_base_token_for_swap(sqrt_start_price, MAX_SQRT_PRICE, &curve)?;
+            get_base_token_for_swap(sqrt_start_price, MAX_SQRT_PRICE, curve)?;
 
         if U256::from(swap_amount_buffer) < max_base_amount_on_curve {
             Ok(u64::try_from(swap_amount_buffer).map_err(|_| PoolError::MathOverflow)?)
