@@ -42,7 +42,15 @@ damm-v2 = { workspace = true }
 locker = { workspace = true }
 mpl-token-metadata = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
+# Direct dep so the workspace pin (^0.11.1) keeps de_escalate_account_meta.
+# spl-transfer-hook-interface pulls the crate in; the program source does not name it.
+spl-tlv-account-resolution = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
 rand = { workspace = true }
+
+# Direct dependency is a version pin for de_escalate_account_meta. The program
+# source does not name the crate, so machete cannot see the use.
+[package.metadata.cargo-machete]
+ignored = ["spl-tlv-account-resolution"]
