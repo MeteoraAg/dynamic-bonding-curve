@@ -21,7 +21,7 @@ pub fn get_fee_in_period(
         .safe_div(BASIS_POINT_MAX.into())?;
     // Add 1 to bps, we get 1.0001 in Q64.64
     let base = ONE_Q64.safe_sub(bps)?;
-    let result = pow(base, passed_period.into()).ok_or(PoolError::MathOverflow)?;
+    let result = pow(base, passed_period.into()).ok_or_else(|| PoolError::MathOverflow)?;
 
     let (fee, _) = result
         .safe_mul(cliff_fee_numerator.into())?

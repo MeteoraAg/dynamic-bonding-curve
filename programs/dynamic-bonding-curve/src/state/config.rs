@@ -325,7 +325,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;

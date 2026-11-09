@@ -56,7 +56,7 @@ pub fn handle_transfer_pool_creator<'info>(
                 let migration_metadata_account = ctx
                     .remaining_accounts
                     .first()
-                    .ok_or(PoolError::InvalidAccount)?;
+                    .ok_or_else(|| PoolError::InvalidAccount)?;
                 let migration_metadata_loader: AccountLoader<'_, MeteoraDammMigrationMetadata> =
                     AccountLoader::try_from(migration_metadata_account)?;
                 let migration_metadata = migration_metadata_loader.load()?;

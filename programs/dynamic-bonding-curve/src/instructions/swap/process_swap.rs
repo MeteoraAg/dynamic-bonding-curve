@@ -394,8 +394,8 @@ pub fn validate_single_swap_instruction<'info>(
     pool: &Pubkey,
     instruction_sysvar_account_info: Option<&AccountInfo<'info>>,
 ) -> Result<()> {
-    let instruction_sysvar_account_info =
-        instruction_sysvar_account_info.ok_or(PoolError::FailToValidateSingleSwapInstruction)?;
+    let instruction_sysvar_account_info = instruction_sysvar_account_info
+        .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
 
     // get current index of instruction
     let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
@@ -472,7 +472,7 @@ pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
     );
 
     let instruction_sysvar_account_info =
-        instruction_sysvar_account_info.ok_or(PoolError::UndeterminedError)?;
+        instruction_sysvar_account_info.ok_or_else(|| PoolError::UndeterminedError)?;
 
     let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
 

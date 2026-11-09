@@ -24,7 +24,7 @@ impl CompoundingLiquidity {
     ) -> Result<()> {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
-                .ok_or(PoolError::MathOverflow)?;
+                .ok_or_else(|| PoolError::MathOverflow)?;
 
         require!(
             (MIN_SQRT_PRICE..=MAX_SQRT_PRICE).contains(&sqrt_price),
@@ -78,7 +78,7 @@ impl MigrationHandler for CompoundingLiquidity {
     ) -> Result<InitialPoolInformation> {
         let (sqrt_price, total_liquidity) =
             calculate_compounding_initial_sqrt_price_and_liquidity(base_amount, quote_amount)
-                .ok_or(PoolError::MathOverflow)?;
+                .ok_or_else(|| PoolError::MathOverflow)?;
 
         let distributable_liquidity =
             total_liquidity.safe_sub(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)?;

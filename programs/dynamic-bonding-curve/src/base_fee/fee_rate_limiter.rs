@@ -155,8 +155,9 @@ impl FeeRateLimiter {
 
             // solve quaratic equation
             // check it again, why sub, not add
-            let included_fee_amount =
-                (y - sqrt_u256(y * y - four * x * z).ok_or(PoolError::MathOverflow)?) / (two * x);
+            let included_fee_amount = (y - sqrt_u256(y * y - four * x * z)
+                .ok_or_else(|| PoolError::MathOverflow)?)
+                / (two * x);
             let a_plus_one = included_fee_amount.safe_div(x0)?;
 
             let first_excluded_fee_amount = self.get_excluded_fee_amount(

@@ -1055,7 +1055,6 @@ dependencies = [
  "ruint",
  "solana-instruction 4.0.0",
  "solana-instructions-sysvar 4.0.0",
- "spl-tlv-account-resolution",
  "spl-transfer-hook-interface",
  "static_assertions",
 ]
@@ -1068,7 +1067,6 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "dynamic-bonding-curve",
- "ruint",
 ]
 
 [[package]]

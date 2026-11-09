@@ -18,7 +18,6 @@ workspace = true
 anchor-spl = { workspace = true }
 anyhow = { workspace = true }
 dynamic-bonding-curve = { workspace = true }
-ruint = { workspace = true }
 
 [dev-dependencies]
 bytemuck = { workspace = true }
