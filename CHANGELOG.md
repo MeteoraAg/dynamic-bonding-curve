@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to the admin.
+
 ### Deprecated
 
 ### Removed
@@ -20,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Breaking Changes
+
+- Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 
 ## dynamic_bonding_curve [0.2.3] [PR #232](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/232)
 
