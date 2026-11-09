@@ -76,7 +76,7 @@ jobs:
         shell: bash
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: &runner ubuntu-26.04
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
