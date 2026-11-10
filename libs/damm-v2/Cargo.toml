@@ -3,6 +3,7 @@ name = "damm-v2"
 version = "0.2.0"
 authors = [""]
 edition = "2021"
+publish = false
 
 [lib]
 doctest = false
@@ -16,3 +17,8 @@ idl-build = ["anchor-lang/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true }
 bytemuck = { workspace = true, features = ["min_const_generics"] }
+
+# `declare_program!` expands to `bytemuck::Pod`/`Zeroable` impls of the zero copy accounts,
+# which cargo-machete can't see in the source
+[package.metadata.cargo-machete]
+ignored = ["bytemuck"]

@@ -1,7 +1,4 @@
-use std::{
-    ops::{BitAnd, BitXor, Deref, DerefMut},
-    u128,
-};
+use std::ops::{BitAnd, BitXor, Deref, DerefMut};
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -243,6 +240,7 @@ impl PoolMetrics {
 }
 
 impl PoolState {
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize(
         &mut self,
         volatility_tracker: VolatilityTracker,

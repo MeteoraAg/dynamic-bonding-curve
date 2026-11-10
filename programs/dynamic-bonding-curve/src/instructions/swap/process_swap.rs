@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::instruction::InitializeVirtualPoolWithSplToken;
 use crate::instruction::InitializeVirtualPoolWithToken2022;
 use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
@@ -88,7 +86,7 @@ pub struct CurveCompleteEventData {
     pub quote_reserve: u64,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::borrowed_box)]
 pub fn process_swap<'a: 'info, 'info>(
     pool_loader: &PoolAccountLoader<'a, 'info>,
     config_account: &'a UncheckedAccount<'info>,
@@ -235,7 +233,7 @@ pub fn process_swap<'a: 'info, 'info>(
     let transfer_fee_out = get_epoch_transfer_fee(&token_out_mint.to_account_info())?;
 
     let process_swap_params = ProcessSwapParams {
-        pool: &mut *pool,
+        pool: &mut pool,
         config: &config,
         fee_mode,
         trade_direction,

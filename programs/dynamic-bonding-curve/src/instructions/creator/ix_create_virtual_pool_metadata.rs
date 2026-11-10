@@ -22,7 +22,7 @@ pub struct CreateVirtualPoolMetadataCtx<'info> {
     #[account(
         init,
         seeds = [
-            VIRTUAL_POOL_METADATA_PREFIX.as_ref(),
+            VIRTUAL_POOL_METADATA_PREFIX,
             virtual_pool.key().as_ref()
         ],
         bump,

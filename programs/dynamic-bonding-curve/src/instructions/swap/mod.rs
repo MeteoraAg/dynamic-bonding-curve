@@ -1,5 +1,7 @@
+#[allow(deprecated)]
 pub mod ix_swap;
 pub use ix_swap::*;
+#[allow(deprecated)]
 pub mod ix_swap2_with_transfer_hook;
 pub use ix_swap2_with_transfer_hook::*;
 pub mod process_swap;

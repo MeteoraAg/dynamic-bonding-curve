@@ -8,6 +8,7 @@ use dynamic_bonding_curve::{
     token::calculate_transfer_fee_excluded_amount,
 };
 
+#[allow(clippy::too_many_arguments)]
 pub fn quote_exact_in(
     pool: &PoolState,
     config: &PoolConfig,

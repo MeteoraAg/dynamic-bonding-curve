@@ -16,13 +16,13 @@ use proptest::prelude::*;
 
 fn get_sqrt_price_from_price(price: f64) -> u128 {
     let sqrt_price = price.sqrt();
-    let sqrt_price_q64 = (sqrt_price * (1u128.shl(64) as f64)).floor() as u128;
-    return sqrt_price_q64;
+
+    (sqrt_price * (1u128.shl(64) as f64)).floor() as u128
 }
 
 fn get_migration_amount(total_supply: u64, migration_percentage: f64) -> u64 {
     let supply = (migration_percentage * (total_supply as f64) / 100.0).floor();
-    return supply as u64;
+    supply as u64
 }
 
 fn get_liquidity(
@@ -65,7 +65,7 @@ fn get_first_curve(
         liquidity,
     }];
 
-    return (sqrt_start_price, curve);
+    (sqrt_start_price, curve)
 }
 
 pub struct ConstantProductParams {
@@ -134,28 +134,27 @@ fn get_constant_product_curve(
         });
     }
 
-    return ConstantProductParams {
+    ConstantProductParams {
         sqrt_start_price,
         curve,
-    };
+    }
 }
 
 fn get_total_supply_from_curve(
     migration_quote_threshold: u64,
     sqrt_start_price: u128,
-    curve: &Vec<LiquidityDistributionParameters>,
+    curve: &[LiquidityDistributionParameters],
     locked_vesting: LockedVestingParams,
     migration_option: MigrationOption,
 ) -> u64 {
     let migration_sqrt_price =
-        get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, &curve).unwrap();
+        get_migration_threshold_price(migration_quote_threshold, sqrt_start_price, curve).unwrap();
 
     let swap_base_amount_256 =
-        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, &curve).unwrap();
+        get_base_token_for_swap(sqrt_start_price, migration_sqrt_price, curve).unwrap();
     let swap_base_amount: u64 = swap_base_amount_256.try_into().unwrap();
     let swap_base_amount_buffer =
-        PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, &curve)
-            .unwrap();
+        PoolConfig::get_swap_amount_with_buffer(swap_base_amount, sqrt_start_price, curve).unwrap();
 
     let liquidity_handler = get_migration_handler(
         migration_option,
@@ -166,14 +165,12 @@ fn get_total_supply_from_curve(
         .get_included_protocol_fee_migration_amounts_1(migration_quote_threshold, 0)
         .unwrap();
 
-    let minimum_base_supply_with_buffer = PoolConfig::get_total_token_supply(
+    PoolConfig::get_total_token_supply(
         swap_base_amount_buffer,
         migration_base_amount,
         &locked_vesting,
     )
-    .unwrap();
-
-    return minimum_base_supply_with_buffer;
+    .unwrap()
 }
 #[test]
 fn test_total_supply_without_lock_vesting() {

@@ -40,7 +40,7 @@ pub fn get_delta_amount_base_unsigned(
     let result =
         get_delta_amount_base_unsigned_256(lower_sqrt_price, upper_sqrt_price, liquidity, round)?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 pub fn get_delta_amount_base_unsigned_256(
@@ -55,7 +55,7 @@ pub fn get_delta_amount_base_unsigned_256(
         liquidity,
         round,
     )?;
-    return Ok(result);
+    Ok(result)
 }
 
 /// * i.e. `L * (√P_upper - √P_lower) / (√P_upper * √P_lower)`
@@ -73,7 +73,7 @@ pub fn get_delta_amount_base_unsigned_unchecked(
     assert!(denominator > U256::ZERO);
     let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
         .ok_or_else(|| PoolError::MathOverflow)?;
-    return Ok(result);
+    Ok(result)
 }
 
 /// Gets the delta amount_b for given liquidity and price range
@@ -87,7 +87,7 @@ pub fn get_delta_amount_quote_unsigned(
     let result =
         get_delta_amount_quote_unsigned_256(lower_sqrt_price, upper_sqrt_price, liquidity, round)?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 pub fn get_delta_amount_quote_unsigned_256(
@@ -207,10 +207,10 @@ pub fn get_next_sqrt_price_from_base_amount_out_rounding_up(
 ///
 /// Always round up because
 /// 1. In the exact output case, token 0 supply decreases leading to price increase.
-/// Move price up so that exact output is met.
+///    Move price up so that exact output is met.
 /// 2. In the exact input case, token 0 supply increases leading to price decrease.
-/// Do not round down to minimize price impact. We only need to meet input
-/// change and not guarantee exact output.
+///    Do not round down to minimize price impact. We only need to meet input
+///    change and not guarantee exact output.
 ///
 /// Use function for exact input or exact output swaps for token 0
 ///
@@ -246,17 +246,17 @@ pub fn get_next_sqrt_price_from_base_amount_in_rounding_up(
     let denominator = liquidity.safe_add(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
         .ok_or_else(|| PoolError::MathOverflow)?;
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 /// Gets the next sqrt price given a delta of token_quote
 ///
 /// Always round down because
 /// 1. In the exact output case, token 1 supply decreases leading to price decrease.
-/// Move price down by rounding down so that exact output of token 0 is met.
+///    Move price down by rounding down so that exact output of token 0 is met.
 /// 2. In the exact input case, token 1 supply increases leading to price increase.
-/// Do not round down to minimize price impact. We only need to meet input
-/// change and not guarantee exact output for token 0.
+///    Do not round down to minimize price impact. We only need to meet input
+///    change and not guarantee exact output for token 0.
 ///
 ///
 /// # Formula

@@ -1,0 +1,4 @@
+[install]
+# only resolve versions published at least a week ago (in seconds), a compromised release is
+# usually caught and unpublished within days
+minimumReleaseAge = 604800

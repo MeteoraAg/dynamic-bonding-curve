@@ -34,7 +34,7 @@ pub struct CreateLockerCtx<'info> {
     #[account(
         mut,
         seeds = [
-            BASE_LOCKER_PREFIX.as_ref(),
+            BASE_LOCKER_PREFIX,
             virtual_pool.key().as_ref(),
         ],
         bump,
