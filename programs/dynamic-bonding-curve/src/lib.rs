@@ -48,9 +48,9 @@ pub mod dynamic_bonding_curve {
         instructions::handle_create_operator_account(ctx, permission)
     }
 
-    #[access_control(is_admin(ctx.accounts.signer.key))]
+    #[access_control(is_admin_or_operator_self(&ctx.accounts.operator, ctx.accounts.signer.key))]
     pub fn close_operator_account(ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
-        Ok(())
+        instructions::handle_close_operator_account(ctx)
     }
 
     #[access_control(is_admin(ctx.accounts.signer.key))]
