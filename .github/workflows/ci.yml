@@ -28,6 +28,7 @@ jobs:
             programs/dynamic-bonding-curve/**
             dynamic-bonding-curve-sdk/**
             libs/**
+            idls/**
             Cargo.toml
             Cargo.lock
             rust-toolchain.toml

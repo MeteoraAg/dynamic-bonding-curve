@@ -7,6 +7,7 @@ on:
     paths:
       - "programs/**"
       - "libs/**"
+      - "idls/**" # read at compile time by declare_program! in libs/
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/verifiable-build.yml"
