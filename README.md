@@ -1,6 +1,6 @@
 # Dynamic Bonding Curve
 
-The Dynamic Bonding Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Cuvre program provides a few benefits:
+The Dynamic Bonding Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Curve program provides a few benefits:
 
 - Launch partners can have different configurations for their launch pools, for example, customizable quote token (SOL/USDC/etc), customizable curve for token graduation, customizable fees, etc.
 - Users on these launch platforms can easily create tokens and launch pools directly with the partners' configurations directly on their partners' UI.
