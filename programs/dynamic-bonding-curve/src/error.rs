@@ -276,4 +276,7 @@ pub enum PoolError {
 
     #[msg("Invalid fee claimer")]
     InvalidFeeClaimer,
+
+    #[msg("Rent receiver must be the admin")]
+    InvalidRentReceiver,
 }

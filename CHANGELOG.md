@@ -9,22 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-### Breaking Changes
-
-## dynamic_bonding_curve [0.2.3] [PR #232](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/232)
-
-### Added
-
 - Added endpoint `create_config2_with_transfer_hook` to support creating a base mint with a transfer hook and a transfer fee. The endpoint takes an optional `TransferFeeParameters` argument.
 - Added operator endpoint `revoke_transfer_hook` to revoke a transfer hook program id and the transfer hook authority on a base mint. This keeps the pair tradeable when the transfer hook program blocks transfers, for example because it was closed. Swaps must still go through `swap2_with_transfer_hook` with no transfer hook accounts.
 
@@ -35,19 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Endpoint `claim_protocol_fee2` can now claim the protocol fee of a base token that has an active transfer hook. To do so, the caller passes the new optional `transfer_hook_accounts_info` argument after `max_amount`, and the transfer hook accounts of the base mint are passed as remaining accounts. The argument can be omitted from the instruction data, so existing callers keep working.
 - Update to anchor 1.2.1 and solana 4.1.2
 - Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
+- Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to the admin.
 
 ### Deprecated
 
 - Deprecated `create_config_with_transfer_hook` endpoint in favour of `create_config2_with_transfer_hook`.
 - Deprecated the `EvtCreateConfigV2WithTransferHook` event in favour of `EvtCreateConfig3WithTransferHook`.
 
+### Removed
+
 ### Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.
 
+### Security
+
 ### Breaking Changes
 
 - Endpoint `create_config_with_transfer_hook` rejects the System Program as the `transfer_hook_program`. The System Program cannot act as a transfer hook, so every transfer of a base mint created from such a config failed. The endpoint now rejects the config when it is created, instead of letting it fail at the first transfer.
+- Replaced the two admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` with a single admin, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r`. Admin endpoints signed by the old keys now fail.
+- Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 
 ## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
 
