@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed the `EvtCreateTokenBadge` event. It was only emitted by `create_token_badge`, which now always fails.
+
 ### Fixed
 
 - Rust SDK: `quote_exact_out` now accounts for a referral fee.

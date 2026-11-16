@@ -2,9 +2,7 @@
  * Helpers for the external access-registry program, which owns the TokenBadge accounts
  * that DBC accepts for a quote mint.
  *
- * `tests/fixtures/access_registry.so` and `tests/utils/idl/access_registry.ts` are copied from
- * https://github.com/MeteoraAg/damm-v2. The fixture is built with the `local` feature, which
- * drops the hardcoded admin check so tests can create operators.
+ * The fixture is built with the `local` feature, which drops the hardcoded admin check so tests can create operators.
  */
 import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
 import {
