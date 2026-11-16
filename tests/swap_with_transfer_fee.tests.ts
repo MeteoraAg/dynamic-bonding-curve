@@ -23,12 +23,9 @@ import {
   ConfigParameters,
   createConfig,
   createConfig2,
-  createOperatorAccount,
   createPoolWithToken2022,
-  createTokenBadge,
   creatorWithdrawMigrationFee,
   creatorWithdrawSurplus,
-  OperatorPermission,
   partnerWithdrawMigrationFee,
   partnerWithdrawSurplus,
   swap,
@@ -49,7 +46,12 @@ import {
   TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
+import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
+  deriveAccessRegistryTokenBadge,
+} from "./utils/accessRegistry";
 import { getVirtualPool } from "./utils/fetcher";
 import {
   createToken2022Mint,
@@ -308,11 +310,9 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         referrer = generateAndFund(svm);
         program = createVirtualCurveProgram();
 
-        await createOperatorAccount(svm, program, {
-          admin,
-          whitelistedAddress: operator.publicKey,
-          permissions: [OperatorPermission.CreateTokenBadge],
-        });
+        await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+          AccessRegistryOperatorPermission.CreateTokenBadge,
+        ]);
 
         quoteMint = createToken2022Mint(
           svm,
@@ -351,12 +351,8 @@ describe("Swap with a transfer fee on the base mint, the quote mint, or both", (
         });
 
         it("Creates a token badge for the fee-bearing quote mint", async () => {
-          await createTokenBadge(svm, program, {
-            operator,
-            payer: operator,
-            tokenMint: quoteMint,
-          });
-          tokenBadge = deriveTokenBadgeAddress(quoteMint);
+          await createAccessRegistryTokenBadge(svm, operator, quoteMint);
+          tokenBadge = deriveAccessRegistryTokenBadge(quoteMint);
           expect(svm.getAccount(tokenBadge)).not.eq(null);
         });
 

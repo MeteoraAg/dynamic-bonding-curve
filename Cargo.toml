@@ -41,6 +41,7 @@ static_assertions = "1.1.0"
 derive-variant-count = { path = "libs/derive-variant-count" }
 dynamic-amm = { path = "libs/dynamic-amm" }
 damm-v2 = { path = "libs/damm-v2" }
+access-registry = { path = "libs/access-registry" }
 locker = { path = "libs/locker" }
 dynamic-bonding-curve = { path = "programs/dynamic-bonding-curve" }
 spl-transfer-hook-interface = "2.1.0"

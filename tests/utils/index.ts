@@ -8,3 +8,4 @@ export * from "./create_curve";
 export * from "./deprecatedRateLimiter";
 export * from "./deprecatedMeteoraDamm";
 export * from "./transferHookCounter";
+export * from "./accessRegistry";

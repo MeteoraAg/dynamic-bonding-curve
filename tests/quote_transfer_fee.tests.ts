@@ -12,15 +12,12 @@ import {
   createConfig,
   createConfig2,
   createConfigWithTransferHook,
-  createOperatorAccount,
   claimCreatorTradingFee,
   claimTradingFee,
   createMeteoraDammV2Metadata,
   createPoolWithToken2022,
-  createTokenBadge,
   creatorWithdrawSurplus,
   migrateToDammV2,
-  OperatorPermission,
   partnerWithdrawMigrationFee,
   partnerWithdrawSurplus,
   swap,
@@ -45,8 +42,13 @@ import {
   U64_MAX,
   warpEpochBy,
 } from "./utils";
+import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
+  deriveAccessRegistryTokenBadge,
+} from "./utils/accessRegistry";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
 import { getVirtualPool } from "./utils/fetcher";
 import {
   createToken2022Mint,
@@ -178,11 +180,9 @@ describe("Quote mint with transfer fee extension", () => {
     user = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createOperatorAccount(svm, program, {
-      admin,
-      whitelistedAddress: operator.publicKey,
-      permissions: [OperatorPermission.CreateTokenBadge],
-    });
+    await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+      AccessRegistryOperatorPermission.CreateTokenBadge,
+    ]);
 
     await createDammV2Operator(svm, {
       whitelistAddress: admin.publicKey,
@@ -200,7 +200,7 @@ describe("Quote mint with transfer fee extension", () => {
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams: buildTransferFeeModeConfigParams(),
-      tokenBadge: deriveTokenBadgeAddress(quoteMint),
+      tokenBadge: deriveAccessRegistryTokenBadge(quoteMint),
       // only the quote mint carries a fee in this suite; the base mint has none
       transferFee: null,
     });
@@ -240,11 +240,7 @@ describe("Quote mint with transfer fee extension", () => {
       "InvalidQuoteMint"
     );
 
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: feeMint,
-    });
+    await createAccessRegistryTokenBadge(svm, operator, feeMint);
 
     // the legacy endpoints reject the mint even with a badge
     await expectThrowsAsync(
@@ -255,7 +251,7 @@ describe("Quote mint with transfer fee extension", () => {
           feeClaimer: partner.publicKey,
           quoteMint: feeMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(feeMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(feeMint),
         }).then(() => {}),
       "InvalidQuoteMint"
     );
@@ -269,7 +265,7 @@ describe("Quote mint with transfer fee extension", () => {
           quoteMint: feeMint,
           instructionParams: buildConfigParams(),
           transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(feeMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(feeMint),
         }).then(() => {}),
       "InvalidQuoteMint"
     );
@@ -307,11 +303,7 @@ describe("Quote mint with transfer fee extension", () => {
       "InvalidQuoteMint"
     );
 
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: scheduledFeeMint,
-    });
+    await createAccessRegistryTokenBadge(svm, operator, scheduledFeeMint);
 
     await expectThrowsAsync(
       () =>
@@ -321,7 +313,7 @@ describe("Quote mint with transfer fee extension", () => {
           feeClaimer: partner.publicKey,
           quoteMint: scheduledFeeMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(scheduledFeeMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(scheduledFeeMint),
         }).then(() => {}),
       "InvalidQuoteMint"
     );
@@ -360,17 +352,7 @@ describe("Quote mint with transfer fee extension", () => {
       },
     });
 
-    // the fee can never be set, so no badge is needed and none can be created
-    await expectThrowsAsync(
-      () =>
-        createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: immutableZeroFeeMint,
-        }).then(() => {}),
-      "CannotCreateTokenBadgeOnSupportedMint"
-    );
-
+    // the fee can never be set, so no badge is needed
     await createConfig(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
@@ -388,16 +370,6 @@ describe("Quote mint with transfer fee extension", () => {
         transferFeeConfigAuthority: null,
       },
     });
-
-    await expectThrowsAsync(
-      () =>
-        createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: zeroMaxFeeMint,
-        }).then(() => {}),
-      "CannotCreateTokenBadgeOnSupportedMint"
-    );
 
     await createConfig(svm, program, {
       payer: partner,
@@ -429,11 +401,7 @@ describe("Quote mint with transfer fee extension", () => {
       "InvalidQuoteMint"
     );
 
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: immutableFeeMint,
-    });
+    await createAccessRegistryTokenBadge(svm, operator, immutableFeeMint);
 
     await expectThrowsAsync(
       () =>
@@ -443,7 +411,7 @@ describe("Quote mint with transfer fee extension", () => {
           feeClaimer: partner.publicKey,
           quoteMint: immutableFeeMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(immutableFeeMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(immutableFeeMint),
         }).then(() => {}),
       "InvalidQuoteMint"
     );
@@ -464,11 +432,7 @@ describe("Quote mint with transfer fee extension", () => {
           transferFeeConfigAuthority: admin.publicKey,
         },
       });
-      await createTokenBadge(svm, program, {
-        operator,
-        payer: operator,
-        tokenMint: zeroFeeMint,
-      });
+      await createAccessRegistryTokenBadge(svm, operator, zeroFeeMint);
     });
 
     it("Creates config and pool with a badged zero-fee quote mint", async () => {
@@ -481,7 +445,7 @@ describe("Quote mint with transfer fee extension", () => {
             feeClaimer: partner.publicKey,
             quoteMint: zeroFeeMint,
             instructionParams: buildConfigParams(),
-            tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
+            tokenBadge: deriveAccessRegistryTokenBadge(zeroFeeMint),
           }).then(() => {}),
         "InvalidQuoteMint"
       );
@@ -499,7 +463,7 @@ describe("Quote mint with transfer fee extension", () => {
           uri: "zerofee.com",
         },
         tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-        tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
+        tokenBadge: deriveAccessRegistryTokenBadge(zeroFeeMint),
       });
       expect(svm.getAccount(virtualPool)).not.eq(null);
     });
@@ -518,7 +482,7 @@ describe("Quote mint with transfer fee extension", () => {
           uri: "feeset.com",
         },
         tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-        tokenBadge: deriveTokenBadgeAddress(zeroFeeMint),
+        tokenBadge: deriveAccessRegistryTokenBadge(zeroFeeMint),
       });
       expect(svm.getAccount(newPool)).not.eq(null);
     });
@@ -776,11 +740,7 @@ describe("Quote mint with transfer fee extension", () => {
       setTransferFee(svm, admin, mint, admin, 0, BigInt(0));
 
       // the zero fee is only scheduled and the active fee is still 100 bps. A badge is allowed in both cases
-      await createTokenBadge(svm, program, {
-        operator,
-        payer: operator,
-        tokenMint: mint,
-      });
+      await createAccessRegistryTokenBadge(svm, operator, mint);
 
       warpEpochBy(svm, 2);
 
@@ -796,7 +756,7 @@ describe("Quote mint with transfer fee extension", () => {
           uri: "histfee.com",
         },
         tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-        tokenBadge: deriveTokenBadgeAddress(mint),
+        tokenBadge: deriveAccessRegistryTokenBadge(mint),
       });
 
       mintToken2022To(
@@ -826,11 +786,7 @@ describe("Quote mint with transfer fee extension", () => {
           transferFeeConfigAuthority: admin.publicKey,
         },
       });
-      await createTokenBadge(svm, program, {
-        operator,
-        payer: operator,
-        tokenMint: mint,
-      });
+      await createAccessRegistryTokenBadge(svm, operator, mint);
       const config = await createTransferFeeModeConfig(mint);
       const pool = await createPoolWithToken2022(svm, program, {
         payer: poolCreator,
@@ -843,7 +799,7 @@ describe("Quote mint with transfer fee extension", () => {
           uri: "schedfee.com",
         },
         tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-        tokenBadge: deriveTokenBadgeAddress(mint),
+        tokenBadge: deriveAccessRegistryTokenBadge(mint),
       });
       mintToken2022To(
         svm,

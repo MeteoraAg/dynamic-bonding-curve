@@ -15,10 +15,7 @@ import {
   BaseFee,
   ConfigParameters,
   createConfig2,
-  createOperatorAccount,
   createPoolWithToken2022,
-  createTokenBadge,
-  OperatorPermission,
   TransferFeeParameters,
 } from "./instructions";
 import {
@@ -33,7 +30,13 @@ import {
   TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
-import { derivePoolAuthority, deriveTokenBadgeAddress } from "./utils/accounts";
+import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
+  deriveAccessRegistryTokenBadge,
+} from "./utils/accessRegistry";
+import { derivePoolAuthority } from "./utils/accounts";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken2022Mint, getMintExtensionTypes } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
@@ -157,11 +160,9 @@ describe("Create config2", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createOperatorAccount(svm, program, {
-      admin,
-      whitelistedAddress: operator.publicKey,
-      permissions: [OperatorPermission.CreateTokenBadge],
-    });
+    await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+      AccessRegistryOperatorPermission.CreateTokenBadge,
+    ]);
   });
 
   function createFeeConfig(
@@ -190,12 +191,8 @@ describe("Create config2", () => {
     options: Parameters<typeof createToken2022Mint>[2]
   ): Promise<{ quoteMint: PublicKey; tokenBadge: PublicKey }> {
     const quoteMint = createToken2022Mint(svm, admin, options);
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: quoteMint,
-    });
-    return { quoteMint, tokenBadge: deriveTokenBadgeAddress(quoteMint) };
+    await createAccessRegistryTokenBadge(svm, operator, quoteMint);
+    return { quoteMint, tokenBadge: deriveAccessRegistryTokenBadge(quoteMint) };
   }
 
   // the migrated pool fee must be empty for a fixed migration fee option
