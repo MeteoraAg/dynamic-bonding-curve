@@ -265,11 +265,6 @@ pub struct EvtPartnerClaimPoolCreationFee {
 }
 
 #[event]
-pub struct EvtCreateTokenBadge {
-    pub token_mint: Pubkey,
-}
-
-#[event]
 pub struct EvtCloseTokenBadge {
     pub token_mint: Pubkey,
 }

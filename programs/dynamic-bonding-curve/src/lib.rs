@@ -1,7 +1,3 @@
-// `#[program]` type checks the instruction arguments with `let _: T = panic!();` in the handlers
-// it generates next to the program module. It also emits wrappers for the two #[deprecated]
-// instructions that stay in the IDL.
-#![allow(clippy::diverging_sub_expression)]
 #![allow(deprecated)]
 use anchor_lang::prelude::*;
 
@@ -33,8 +29,6 @@ pub mod params;
 
 declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 
-// `create_config` and `migration_damm_v2_create_metadata` are already #[deprecated]; the
-// generated #[program] wrappers still call them so the IDL keeps those instructions
 #[allow(deprecated)]
 #[program(legacy_idl)]
 pub mod dynamic_bonding_curve {
@@ -68,6 +62,10 @@ pub mod dynamic_bonding_curve {
         instructions::handle_claim_protocol_pool_creation_fee(ctx)
     }
 
+    #[deprecated(
+        since = "0.2.3",
+        note = "Use create_token_badge in the access-registry program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateTokenBadge))]
     pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
         instructions::handle_create_token_badge(ctx)

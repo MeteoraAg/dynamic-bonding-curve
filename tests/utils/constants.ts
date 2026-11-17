@@ -44,6 +44,10 @@ export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new PublicKey(
   "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
 );
 
+export const ACCESS_REGISTRY_PROGRAM_ID = new PublicKey(
+  "regUFehW9oycnaV2auYyfqyYjKG1W1uLNT7rtUeemQr"
+);
+
 export const MigratedCollectFeeMode = {
   QuoteToken: 0,
   OutputToken: 1,

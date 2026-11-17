@@ -16,11 +16,8 @@ import {
   ConfigParameters,
   createConfig2WithTransferHook,
   createMeteoraDammV2Metadata,
-  createOperatorAccount,
   createPoolWithToken2022TransferHook,
-  createTokenBadge,
   migrateToDammV2,
-  OperatorPermission,
   SwapMode,
   swapWithTransferHook,
   withdrawLeftover,
@@ -48,7 +45,12 @@ import {
   U64_MAX,
   warpEpochBy,
 } from "./utils";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
+import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
+  deriveAccessRegistryTokenBadge,
+} from "./utils/accessRegistry";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
 import {
@@ -246,11 +248,9 @@ async function setupPool(
   const user = generateAndFund(svm);
   const program = createVirtualCurveProgram();
 
-  await createOperatorAccount(svm, program, {
-    admin,
-    whitelistedAddress: operator.publicKey,
-    permissions: [OperatorPermission.CreateTokenBadge],
-  });
+  await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+    AccessRegistryOperatorPermission.CreateTokenBadge,
+  ]);
   await createDammV2Operator(svm, {
     whitelistAddress: admin.publicKey,
     admin,
@@ -282,12 +282,8 @@ async function setupPool(
   );
   let tokenBadge: PublicKey | undefined;
   if (quoteHasFee) {
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: quoteMint,
-    });
-    tokenBadge = deriveTokenBadgeAddress(quoteMint);
+    await createAccessRegistryTokenBadge(svm, operator, quoteMint);
+    tokenBadge = deriveAccessRegistryTokenBadge(quoteMint);
   }
 
   const configParams = {

@@ -253,6 +253,7 @@ pub enum PoolError {
     #[msg("Deprecated base fee mode")]
     DeprecatedBaseFeeMode,
 
+    /// deprecated
     #[msg("Cannot create token badge on supported mint")]
     CannotCreateTokenBadgeOnSupportedMint,
 
@@ -279,4 +280,7 @@ pub enum PoolError {
 
     #[msg("Rent receiver must be the admin")]
     InvalidRentReceiver,
+
+    #[msg("Deprecated endpoint")]
+    DeprecatedEndpoint,
 }

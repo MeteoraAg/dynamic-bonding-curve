@@ -4,6 +4,7 @@ import { LiteSVM } from "./litesvmCompat";
 import path from "path";
 import { derivePoolAuthority } from "./accounts";
 import {
+  ACCESS_REGISTRY_PROGRAM_ID,
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
@@ -39,6 +40,10 @@ export function startSvm() {
   svm.addProgramFromFile(
     TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     sourceFileTransferHookCounterPath
+  );
+  svm.addProgramFromFile(
+    ACCESS_REGISTRY_PROGRAM_ID,
+    path.resolve("./tests/fixtures/access_registry.so")
   );
 
   // set wrap sol mint account

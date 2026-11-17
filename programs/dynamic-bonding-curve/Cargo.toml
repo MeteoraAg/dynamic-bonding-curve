@@ -39,6 +39,7 @@ solana-instructions-sysvar = { workspace = true }
 derive-variant-count = { workspace = true }
 dynamic-amm = { workspace = true }
 damm-v2 = { workspace = true }
+access-registry = { workspace = true }
 locker = { workspace = true }
 mpl-token-metadata = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }

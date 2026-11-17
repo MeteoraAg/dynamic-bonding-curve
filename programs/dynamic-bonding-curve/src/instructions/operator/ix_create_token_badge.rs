@@ -3,9 +3,7 @@ use anchor_spl::token_interface::Mint;
 
 use crate::{
     constants::seeds::TOKEN_BADGE_PREFIX,
-    event::EvtCreateTokenBadge,
     state::{Operator, TokenBadge},
-    token::{get_mint_score, MintScore},
     PoolError,
 };
 
@@ -37,20 +35,8 @@ pub struct CreateTokenBadgeCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// a token badge relies on trust in the management of the mint
-pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
-    let mint_score = get_mint_score(&ctx.accounts.token_mint, None)?;
-    require!(
-        mint_score == MintScore::Unsupported,
-        PoolError::CannotCreateTokenBadgeOnSupportedMint
-    );
-
-    let mut token_badge = ctx.accounts.token_badge.load_init()?;
-    token_badge.initialize(ctx.accounts.token_mint.key())?;
-
-    emit_cpi!(EvtCreateTokenBadge {
-        token_mint: ctx.accounts.token_mint.key(),
-    });
-
-    Ok(())
+/// Deprecated: token badges are created in the access-registry program, which `get_mint_score` accepts.
+/// Existing DBC token badges stay valid during the transition and can still be closed.
+pub fn handle_create_token_badge(_ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+    err!(PoolError::DeprecatedEndpoint)
 }

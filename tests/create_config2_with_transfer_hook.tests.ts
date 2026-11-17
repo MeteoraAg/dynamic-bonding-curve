@@ -21,10 +21,7 @@ import {
   ConfigParameters,
   createConfigWithTransferHook,
   createConfig2WithTransferHook,
-  createOperatorAccount,
   createPoolWithToken2022TransferHook,
-  createTokenBadge,
-  OperatorPermission,
   TransferFeeParameters,
 } from "./instructions";
 import {
@@ -40,7 +37,12 @@ import {
   TransferFeeWithheldAuthority,
   U64_MAX,
 } from "./utils";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
+import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
+  deriveAccessRegistryTokenBadge,
+} from "./utils/accessRegistry";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
 import { createToken2022Mint, getMintExtensionTypes } from "./utils/token";
@@ -165,11 +167,9 @@ describe("Create config with transfer hook 2", () => {
     poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
 
-    await createOperatorAccount(svm, program, {
-      admin,
-      whitelistedAddress: operator.publicKey,
-      permissions: [OperatorPermission.CreateTokenBadge],
-    });
+    await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+      AccessRegistryOperatorPermission.CreateTokenBadge,
+    ]);
   });
 
   function createHookFeeConfig(
@@ -198,12 +198,8 @@ describe("Create config with transfer hook 2", () => {
     options: Parameters<typeof createToken2022Mint>[2]
   ): Promise<{ quoteMint: PublicKey; tokenBadge: PublicKey }> {
     const quoteMint = createToken2022Mint(svm, admin, options);
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: quoteMint,
-    });
-    return { quoteMint, tokenBadge: deriveTokenBadgeAddress(quoteMint) };
+    await createAccessRegistryTokenBadge(svm, operator, quoteMint);
+    return { quoteMint, tokenBadge: deriveAccessRegistryTokenBadge(quoteMint) };
   }
 
   // the migrated pool fee must be empty for a fixed migration fee option
@@ -599,18 +595,14 @@ describe("Create config with transfer hook 2", () => {
     });
 
     it("Accepts the fee-bearing quote mint with a badge", async () => {
-      await createTokenBadge(svm, program, {
-        operator,
-        payer: operator,
-        tokenMint: feeQuoteMint,
-      });
+      await createAccessRegistryTokenBadge(svm, operator, feeQuoteMint);
       const config = await createHookFeeConfig(
         TOKEN_2022_TYPE,
         feeParameters,
         {},
         {
           quoteMint: feeQuoteMint,
-          tokenBadge: deriveTokenBadgeAddress(feeQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(feeQuoteMint),
         }
       );
       expect(getConfig(svm, program, config).quoteMint.toString()).eq(
@@ -626,7 +618,7 @@ describe("Create config with transfer hook 2", () => {
             leftoverReceiver: partner.publicKey,
             feeClaimer: partner.publicKey,
             quoteMint: feeQuoteMint,
-            tokenBadge: deriveTokenBadgeAddress(feeQuoteMint),
+            tokenBadge: deriveAccessRegistryTokenBadge(feeQuoteMint),
             instructionParams: buildConfigParameters(TOKEN_2022_TYPE),
             transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
           }),

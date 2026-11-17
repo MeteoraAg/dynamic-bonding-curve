@@ -26,6 +26,8 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use access_registry::accounts::TokenBadge as AccessRegistryTokenBadge;
+
 use crate::const_pda::pool_authority::BUMP;
 use crate::safe_math::SafeMath;
 use crate::state::{MigratedTransferFeeAuthorityOption, PoolConfig, TokenBadge};
@@ -441,9 +443,21 @@ fn is_token_badge_initialized<'info>(
     mint: Pubkey,
     token_badge: &'info AccountInfo<'info>,
 ) -> Result<bool> {
-    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
-    let token_badge = token_badge.load()?;
-    Ok(token_badge.token_mint == mint)
+    // Both badges share the "account:TokenBadge" discriminator and keep token_mint at the same offset,
+    // so the owner is what tells them apart. AccountLoader::try_from checks owner and discriminator.
+    // Note: we do not use the access-registry badge's mint_score. We derive the score from the mint itself.
+    let badge_token_mint = if token_badge.owner.eq(&access_registry::ID) {
+        let token_badge: AccountLoader<'_, AccessRegistryTokenBadge> =
+            AccountLoader::try_from(token_badge)?;
+        let token_mint = token_badge.load()?.token_mint;
+        token_mint
+    } else {
+        // TODO: remove once every legacy DBC token badge is recreated in access-registry
+        let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
+        let token_mint = token_badge.load()?.token_mint;
+        token_mint
+    };
+    Ok(badge_token_mint == mint)
 }
 
 pub struct BaseMintTransferFee {

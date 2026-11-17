@@ -7,10 +7,7 @@ import {
   BaseFee,
   ConfigParameters,
   createConfig,
-  createOperatorAccount,
   createPoolWithToken2022,
-  createTokenBadge,
-  OperatorPermission,
   swap,
   SwapMode,
   SwapParams,
@@ -20,11 +17,15 @@ import {
   migrateToDammV2,
 } from "./instructions/dammV2Migration";
 import {
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
   createDammV2Config,
   createDammV2Operator,
   createVirtualCurveProgram,
   DammV2ConfigPermission,
   DammV2OperatorPermission,
+  deriveAccessRegistryTokenBadge,
   derivePoolAuthority,
   encodeConfigPermissions,
   encodePermissions,
@@ -34,7 +35,6 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
-import { deriveTokenBadgeAddress } from "./utils/accounts";
 import { getVirtualPool } from "./utils/fetcher";
 import { createToken2022Mint, mintToken2022To } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
@@ -154,11 +154,9 @@ describe("Migrate to damm v2 with token badge and CreatePoolWithoutMintValidatio
       permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
     });
 
-    await createOperatorAccount(svm, program, {
-      admin,
-      whitelistedAddress: operator.publicKey,
-      permissions: [OperatorPermission.CreateTokenBadge],
-    });
+    await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+      AccessRegistryOperatorPermission.CreateTokenBadge,
+    ]);
 
     badgedQuoteMint = createToken2022Mint(svm, admin, {
       permanentDelegate: admin.publicKey,
@@ -178,15 +176,11 @@ describe("Migrate to damm v2 with token badge and CreatePoolWithoutMintValidatio
     expect(svm.getAccount(dammConfig)).not.eq(null);
   });
 
-  it("Creates the dbc token badge", async () => {
-    await createTokenBadge(svm, program, {
-      operator,
-      payer: operator,
-      tokenMint: badgedQuoteMint,
-    });
-    expect(svm.getAccount(deriveTokenBadgeAddress(badgedQuoteMint))).not.eq(
-      null
-    );
+  it("Creates the access-registry token badge", async () => {
+    await createAccessRegistryTokenBadge(svm, operator, badgedQuoteMint);
+    expect(
+      svm.getAccount(deriveAccessRegistryTokenBadge(badgedQuoteMint))
+    ).not.eq(null);
   });
 
   it("Creates config and pool with the badged quote mint", async () => {
@@ -196,7 +190,7 @@ describe("Migrate to damm v2 with token badge and CreatePoolWithoutMintValidatio
       feeClaimer: partner.publicKey,
       quoteMint: badgedQuoteMint,
       instructionParams: buildConfigParams(),
-      tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+      tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
     });
 
     virtualPool = await createPoolWithToken2022(svm, program, {
@@ -210,7 +204,7 @@ describe("Migrate to damm v2 with token badge and CreatePoolWithoutMintValidatio
         uri: "badge.com",
       },
       tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-      tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+      tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
     });
     expect(svm.getAccount(virtualPool)).not.eq(null);
   });

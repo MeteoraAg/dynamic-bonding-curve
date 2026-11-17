@@ -22,23 +22,25 @@ import {
   swapWithTransferHook,
 } from "./instructions";
 import {
+  AccessRegistryOperatorPermission,
+  closeAccessRegistryTokenBadge,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
   createVirtualCurveProgram,
+  deriveAccessRegistryTokenBadge,
   expectThrowsAsync,
   generateAndFund,
   initializeExtraAccountMetaList,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  setLegacyTokenBadge,
   startSvm,
   U64_MAX,
 } from "./utils";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./utils/constants";
 import { deriveTokenBadgeAddress } from "./utils/accounts";
 import { getConfig, getVirtualPool } from "./utils/fetcher";
-import {
-  createToken,
-  createToken2022Mint,
-  mintToken2022To,
-} from "./utils/token";
+import { createToken2022Mint, mintToken2022To } from "./utils/token";
 import { VirtualCurveProgram } from "./utils/types";
 
 function buildConfigParams(): ConfigParameters {
@@ -162,6 +164,10 @@ describe("Token badge", () => {
       whitelistedAddress: operatorWithoutBadgePermission.publicKey,
       permissions: [OperatorPermission.ClaimProtocolFee],
     });
+    await createAccessRegistryOperator(svm, admin, operator.publicKey, [
+      AccessRegistryOperatorPermission.CreateTokenBadge,
+      AccessRegistryOperatorPermission.CloseTokenBadge,
+    ]);
 
     badgedQuoteMint = createToken2022Mint(svm, admin, {
       permanentDelegate: admin.publicKey,
@@ -181,29 +187,40 @@ describe("Token badge", () => {
       );
     });
 
-    it("Fails to create token badge on a supported spl token mint", async () => {
-      const splMint = createToken(svm, admin, admin.publicKey, 9);
+    it("Fails to create token badge because create_token_badge is deprecated", async () => {
       await expectThrowsAsync(
         () =>
           createTokenBadge(svm, program, {
             operator,
             payer: operator,
-            tokenMint: splMint,
+            tokenMint: badgedQuoteMint,
           }),
-        "CannotCreateTokenBadgeOnSupportedMint"
+        "DeprecatedEndpoint"
       );
+      expect(svm.getAccount(deriveTokenBadgeAddress(badgedQuoteMint))).eq(null);
     });
 
-    it("Fails to create token badge on a supported token2022 mint", async () => {
-      const plain2022Mint = createToken2022Mint(svm, admin);
+    it("Fails to create config with a TokenBadge layout owned by another program", async () => {
+      // same discriminator and token_mint as a real badge, but owned by
+      // neither access-registry nor DBC
+      const fakeBadge = Keypair.generate().publicKey;
+      setLegacyTokenBadge(
+        svm,
+        fakeBadge,
+        badgedQuoteMint,
+        TOKEN_2022_PROGRAM_ID
+      );
       await expectThrowsAsync(
         () =>
-          createTokenBadge(svm, program, {
-            operator,
-            payer: operator,
-            tokenMint: plain2022Mint,
-          }),
-        "CannotCreateTokenBadgeOnSupportedMint"
+          createConfig(svm, program, {
+            payer: partner,
+            leftoverReceiver: partner.publicKey,
+            feeClaimer: partner.publicKey,
+            quoteMint: badgedQuoteMint,
+            instructionParams: buildConfigParams(),
+            tokenBadge: fakeBadge,
+          }).then(() => {}),
+        "AccountOwnedByWrongProgram"
       );
     });
 
@@ -234,11 +251,7 @@ describe("Token badge", () => {
   describe("Lifecycle", () => {
     describe("Token2022", () => {
       before(async () => {
-        await createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: badgedQuoteMint,
-        });
+        await createAccessRegistryTokenBadge(svm, operator, badgedQuoteMint);
       });
 
       it("Creates config with a badged quote mint", async () => {
@@ -248,7 +261,7 @@ describe("Token badge", () => {
           feeClaimer: partner.publicKey,
           quoteMint: badgedQuoteMint,
           instructionParams: buildConfigParams(),
-          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
         };
         config = await createConfig(svm, program, params);
       });
@@ -265,7 +278,7 @@ describe("Token badge", () => {
             uri: "badge.com",
           },
           tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
         });
 
         const configState = getConfig(svm, program, config);
@@ -318,13 +331,14 @@ describe("Token badge", () => {
       });
 
       it("Close badge blocks new configs and new pools while existing pools keep working", async () => {
-        await closeTokenBadge(svm, program, {
+        await closeAccessRegistryTokenBadge(
+          svm,
           operator,
-          tokenMint: badgedQuoteMint,
-          rentReceiver: admin.publicKey,
-        });
+          badgedQuoteMint,
+          admin.publicKey
+        );
         const closedBadge = svm.getAccount(
-          deriveTokenBadgeAddress(badgedQuoteMint)
+          deriveAccessRegistryTokenBadge(badgedQuoteMint)
         );
         expect(closedBadge === null || Number(closedBadge.lamports) === 0).eq(
           true
@@ -380,11 +394,7 @@ describe("Token badge", () => {
       let hookPool: PublicKey;
 
       before(async () => {
-        await createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: badgedQuoteMint,
-        });
+        await createAccessRegistryTokenBadge(svm, operator, badgedQuoteMint);
       });
 
       it("Creates transfer hook config with a badged quote mint", async () => {
@@ -395,7 +405,7 @@ describe("Token badge", () => {
           quoteMint: badgedQuoteMint,
           instructionParams: buildConfigParams(),
           transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
         });
       });
 
@@ -412,7 +422,7 @@ describe("Token badge", () => {
             uri: "badgedhook.com",
           },
           tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(badgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(badgedQuoteMint),
         });
         expect(svm.getAccount(hookPool)).not.eq(null);
 
@@ -461,13 +471,14 @@ describe("Token badge", () => {
       });
 
       it("Close badge blocks new configs and new pools while existing pools keep working", async () => {
-        await closeTokenBadge(svm, program, {
+        await closeAccessRegistryTokenBadge(
+          svm,
           operator,
-          tokenMint: badgedQuoteMint,
-          rentReceiver: admin.publicKey,
-        });
+          badgedQuoteMint,
+          admin.publicKey
+        );
         const closedBadge = svm.getAccount(
-          deriveTokenBadgeAddress(badgedQuoteMint)
+          deriveAccessRegistryTokenBadge(badgedQuoteMint)
         );
         expect(closedBadge === null || Number(closedBadge.lamports) === 0).eq(
           true
@@ -529,19 +540,11 @@ describe("Token badge", () => {
         splBadgedQuoteMint = createToken2022Mint(svm, admin, {
           permanentDelegate: admin.publicKey,
         });
-        await createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: splBadgedQuoteMint,
-        });
+        await createAccessRegistryTokenBadge(svm, operator, splBadgedQuoteMint);
         otherBadgedMint = createToken2022Mint(svm, admin, {
           permanentDelegate: admin.publicKey,
         });
-        await createTokenBadge(svm, program, {
-          operator,
-          payer: operator,
-          tokenMint: otherBadgedMint,
-        });
+        await createAccessRegistryTokenBadge(svm, operator, otherBadgedMint);
 
         const instructionParams = buildConfigParams();
         instructionParams.tokenType = 0; // spl token base
@@ -551,7 +554,7 @@ describe("Token badge", () => {
           feeClaimer: partner.publicKey,
           quoteMint: splBadgedQuoteMint,
           instructionParams,
-          tokenBadge: deriveTokenBadgeAddress(splBadgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(splBadgedQuoteMint),
         });
       });
 
@@ -588,7 +591,7 @@ describe("Token badge", () => {
                 uri: "wrongbadgespl.com",
               },
               tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-              tokenBadge: deriveTokenBadgeAddress(otherBadgedMint),
+              tokenBadge: deriveAccessRegistryTokenBadge(otherBadgedMint),
             }).then(() => {}),
           "InvalidTokenBadge"
         );
@@ -606,10 +609,90 @@ describe("Token badge", () => {
             uri: "badgedspl.com",
           },
           tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
-          tokenBadge: deriveTokenBadgeAddress(splBadgedQuoteMint),
+          tokenBadge: deriveAccessRegistryTokenBadge(splBadgedQuoteMint),
         });
         expect(svm.getAccount(splPool)).not.eq(null);
       });
+    });
+  });
+
+  describe("Legacy DBC token badge", () => {
+    let legacyQuoteMint: PublicKey;
+    let legacyConfig: PublicKey;
+
+    before(async () => {
+      legacyQuoteMint = createToken2022Mint(svm, admin, {
+        permanentDelegate: admin.publicKey,
+      });
+      setLegacyTokenBadge(
+        svm,
+        deriveTokenBadgeAddress(legacyQuoteMint),
+        legacyQuoteMint
+      );
+    });
+
+    it("Still creates config and pool with a legacy badge", async () => {
+      legacyConfig = await createConfig(svm, program, {
+        payer: partner,
+        leftoverReceiver: partner.publicKey,
+        feeClaimer: partner.publicKey,
+        quoteMint: legacyQuoteMint,
+        instructionParams: buildConfigParams(),
+        tokenBadge: deriveTokenBadgeAddress(legacyQuoteMint),
+      });
+
+      const legacyPool = await createPoolWithToken2022(svm, program, {
+        payer: poolCreator,
+        poolCreator,
+        quoteMint: legacyQuoteMint,
+        config: legacyConfig,
+        instructionParams: {
+          name: "legacy badge",
+          symbol: "LEGACY",
+          uri: "legacybadge.com",
+        },
+        tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+        tokenBadge: deriveTokenBadgeAddress(legacyQuoteMint),
+      });
+      expect(svm.getAccount(legacyPool)).not.eq(null);
+    });
+
+    it("Fails to create pool with a legacy badge for a different mint", async () => {
+      const otherMint = createToken2022Mint(svm, admin, {
+        permanentDelegate: admin.publicKey,
+      });
+      setLegacyTokenBadge(svm, deriveTokenBadgeAddress(otherMint), otherMint);
+      await expectThrowsAsync(
+        () =>
+          createPoolWithToken2022(svm, program, {
+            payer: poolCreator,
+            poolCreator,
+            quoteMint: legacyQuoteMint,
+            config: legacyConfig,
+            instructionParams: {
+              name: "wrong legacy badge",
+              symbol: "WLEGACY",
+              uri: "wronglegacybadge.com",
+            },
+            tokenQuoteProgram: TOKEN_2022_PROGRAM_ID,
+            tokenBadge: deriveTokenBadgeAddress(otherMint),
+          }).then(() => {}),
+        "InvalidTokenBadge"
+      );
+    });
+
+    it("Operator closes a legacy badge", async () => {
+      await closeTokenBadge(svm, program, {
+        operator,
+        tokenMint: legacyQuoteMint,
+        rentReceiver: admin.publicKey,
+      });
+      const closedBadge = svm.getAccount(
+        deriveTokenBadgeAddress(legacyQuoteMint)
+      );
+      expect(closedBadge === null || Number(closedBadge.lamports) === 0).eq(
+        true
+      );
     });
   });
 });

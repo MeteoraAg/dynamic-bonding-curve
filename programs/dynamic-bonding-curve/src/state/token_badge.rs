@@ -12,10 +12,3 @@ pub struct TokenBadge {
 }
 
 const_assert_eq!(TokenBadge::INIT_SPACE, 160);
-
-impl TokenBadge {
-    pub fn initialize(&mut self, token_mint: Pubkey) -> Result<()> {
-        self.token_mint = token_mint;
-        Ok(())
-    }
-}

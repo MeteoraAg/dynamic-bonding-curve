@@ -18,10 +18,12 @@ use static_assertions::const_assert_eq;
     VariantCount,
 )]
 pub enum OperatorPermission {
-    ClaimProtocolFee,   // 0
-    ZapProtocolFee,     // 1 - Deprecated. Kept for enum ordering
-    CreateTokenBadge,   // 2
-    CloseTokenBadge,    // 3
+    ClaimProtocolFee, // 0
+    #[deprecated]
+    ZapProtocolFee, // 1
+    #[deprecated]
+    CreateTokenBadge, // 2
+    CloseTokenBadge,  // 3
     RevokeTransferHook, // 4
 }
 

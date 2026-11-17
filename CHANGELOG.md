@@ -20,13 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update to anchor 1.2.1 and solana 4.1.2
 - Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
 - Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to the admin.
+- Clients should pass the access-registry `TokenBadge` (PDA `["token_badge", token_mint]` under `regUFehW9oycnaV2auYyfqyYjKG1W1uLNT7rtUeemQr`) to `create_config`, `create_config_with_transfer_hook`, `create_config2`, `create_config2_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook`. The legacy DBC token badge is still accepted during the transition and will stop working once support for it is removed.
 
 ### Deprecated
 
 - Deprecated `create_config_with_transfer_hook` endpoint in favour of `create_config2_with_transfer_hook`.
 - Deprecated the `EvtCreateConfigV2WithTransferHook` event in favour of `EvtCreateConfig3WithTransferHook`.
+- `create_token_badge` is deprecated in favour of creating the badge in the access-registry program.
 
 ### Removed
+
+- Removed the `EvtCreateTokenBadge` event. It was only emitted by `create_token_badge`, which now always fails.
 
 ### Fixed
 
@@ -39,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Endpoint `create_config_with_transfer_hook` rejects the System Program as the `transfer_hook_program`. The System Program cannot act as a transfer hook, so every transfer of a base mint created from such a config failed. The endpoint now rejects the config when it is created, instead of letting it fail at the first transfer.
 - Replaced the two admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` with a single admin, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r`. Admin endpoints signed by the old keys now fail.
 - Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
+- `create_token_badge` now always fails with the new `DeprecatedEndpoint` error.
 
 ## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
 
