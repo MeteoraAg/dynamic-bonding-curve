@@ -1,4 +1,3 @@
-#![allow(clippy::diverging_sub_expression)]
 #![allow(deprecated)]
 use anchor_lang::prelude::*;
 
